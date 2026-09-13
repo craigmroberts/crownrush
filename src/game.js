@@ -89,6 +89,7 @@ export class Game {
     this.time = 0;
     this.over = false;
     this.won = false;
+    this.paused = false;
     this.shake = 0;
 
     // king
@@ -117,6 +118,7 @@ export class Game {
     this.hud.hideStart();
     this.hud.hideGameOver();
     this.hud.hideVictory();
+    this.hud.hidePause();
     this.hud.toast('Raiders incoming! Defend the King.', 2600);
     audio.init();
   }
@@ -124,6 +126,25 @@ export class Game {
   resume() {
     this.hud.hideVictory();
     this.running = true;
+  }
+
+  pause() {
+    if (!this.running || this.over || this.won) return;
+    this.running = false;
+    this.paused = true;
+    this.hud.showPause();
+  }
+
+  unpause() {
+    if (!this.paused) return;
+    this.paused = false;
+    this.running = true;
+    this.hud.hidePause();
+  }
+
+  togglePause() {
+    if (this.paused) this.unpause();
+    else this.pause();
   }
 
   gameOver() {
@@ -435,21 +456,29 @@ export class Game {
     return m;
   }
 
-  wallHp(sec) {
-    const lv = CFG.wallLevels[this.wallLevel];
+  wallHp(sec, level = this.wallLevel) {
+    const lv = CFG.wallLevels[level];
     return sec.gate ? lv.gateHp : lv.hp;
+  }
+
+  // (re)build a section's mesh at a given material level with full HP
+  rebuildWall(w, level, delay = 0) {
+    if (w.mesh) this.root.remove(w.mesh);
+    w.state = 'built';
+    w.level = level;
+    w.maxHp = w.hp = this.wallHp(w, level);
+    w.mesh = this.makeWallMesh(w, level);
+    w.bar = makeHealthBar(2.2);
+    w.bar.position.y = 2.2;
+    w.mesh.add(w.bar);
+    this.popIn(w.mesh, delay);
+    this.root.add(w.mesh);
   }
 
   buildWall(tier, side) {
     this.wallSections(tier, side).forEach((sec, i) => {
       const w = { ...sec, hp: 0, maxHp: 0, state: 'built', mesh: null, bar: null, level: this.wallLevel };
-      w.maxHp = w.hp = this.wallHp(w);
-      w.mesh = this.makeWallMesh(w);
-      w.bar = makeHealthBar(2.6);
-      w.bar.position.y = 2.2;
-      w.mesh.add(w.bar);
-      this.popIn(w.mesh, i * 0.12);
-      this.root.add(w.mesh);
+      this.rebuildWall(w, this.wallLevel, i * 0.07);
       this.walls.push(w);
     });
     // once a full outer ring stands, the old inner wall is torn down for materials
@@ -477,18 +506,7 @@ export class Game {
   upgradeWalls() {
     this.wallLevel = Math.min(CFG.wallLevels.length - 1, this.wallLevel + 1);
     for (const def of [...this.dynamicPads]) if (def.repair) this.removePadDef(def);
-    this.walls.forEach((w, i) => {
-      this.root.remove(w.mesh);
-      w.state = 'built';
-      w.level = this.wallLevel;
-      w.maxHp = w.hp = this.wallHp(w);
-      w.mesh = this.makeWallMesh(w);
-      w.bar = makeHealthBar(2.6);
-      w.bar.position.y = 2.2;
-      w.mesh.add(w.bar);
-      this.popIn(w.mesh, i * 0.06);
-      this.root.add(w.mesh);
-    });
+    this.walls.forEach((w, i) => this.rebuildWall(w, this.wallLevel, i * 0.035));
   }
 
   // Push a position out of any intact wall. Friendly units may pass through gates. Returns the wall hit.
@@ -523,7 +541,14 @@ export class Game {
     setHealthBar(w.bar, Math.max(0, w.hp / w.maxHp));
     w.mesh.position.y = 0.06;
     audio.wallHit();
-    if (w.hp <= 0) this.breakWall(w);
+    if (w.hp > 0) return;
+    if (w.level > 0) {
+      // a battered wall degrades to the previous material before it finally falls
+      const from = CFG.wallLevels[w.level].name;
+      this.rebuildWall(w, w.level - 1);
+      const to = CFG.wallLevels[w.level].name;
+      this.hud.toast(`${from} ${w.gate ? 'gate' : 'wall'} battered down to ${to.toLowerCase()}!`, 1500);
+    } else this.breakWall(w);
   }
 
   breakWall(w) {
@@ -551,16 +576,7 @@ export class Game {
   }
 
   restoreWall(w) {
-    this.root.remove(w.mesh);
-    w.state = 'built';
-    w.level = this.wallLevel;
-    w.maxHp = w.hp = this.wallHp(w);
-    w.mesh = this.makeWallMesh(w);
-    w.bar = makeHealthBar(2.6);
-    w.bar.position.y = 2.2;
-    w.mesh.add(w.bar);
-    this.popIn(w.mesh);
-    this.root.add(w.mesh);
+    this.rebuildWall(w, this.wallLevel);
   }
 
   // ---------- combat helpers ----------

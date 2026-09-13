@@ -48,9 +48,9 @@ export const CFG = {
 // Village tiers. The village starts as tier 0 and each "Expand Village" pad moves it up one.
 // Walls are generated around `bounds`; `gates` lists the gap on each side (along that side's axis).
 export const TIERS = [
-  { bounds: { x0: -11, x1: 11, z0: -9, z1: 9 }, gates: { south: [-2, 2], east: [-2, 2] }, sectionLen: 7 },
-  { bounds: { x0: -22, x1: 24, z0: -13, z1: 20 }, gates: { south: [-1, 3], east: [0, 4], west: [2, 6] }, sectionLen: 8 },
-  { bounds: { x0: -34, x1: 36, z0: -24, z1: 32 }, gates: { south: [-1, 3], east: [2, 6], west: [2, 6], north: [0, 4] }, sectionLen: 9 },
+  { bounds: { x0: -11, x1: 11, z0: -9, z1: 9 }, gates: { south: [-2, 2], east: [-2, 2] }, sectionLen: 4 },
+  { bounds: { x0: -22, x1: 24, z0: -13, z1: 20 }, gates: { south: [-1, 3], east: [0, 4], west: [2, 6] }, sectionLen: 4 },
+  { bounds: { x0: -34, x1: 36, z0: -24, z1: 32 }, gates: { south: [-1, 3], east: [2, 6], west: [2, 6], north: [0, 4] }, sectionLen: 4.5 },
 ];
 
 // Build pads. `requires` are ids that must have been built at least once.

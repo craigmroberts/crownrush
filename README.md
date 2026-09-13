@@ -13,8 +13,9 @@ No storyline, just the loop:
 
 - The village starts as a small plot. "Expand Village" pads grow it in three stages, each with its own
   wall ring. When the outer ring is complete the old inner wall is torn down.
-- Walls are real: raiders are blocked and bash a section down before they can get in. Broken sections
-  show a repair pad. Upgrade pads rebuild every section from wood to brick, stone and iron.
+- Walls are real: raiders are blocked and bash at short sections. A battered section degrades to the
+  previous material (iron to stone to brick to wood) before it finally falls and shows a repair pad.
+  Upgrade pads rebuild every section from wood to brick, stone and iron.
 - Watchtowers are built empty. A "Man the Tower" pad next to each one takes archers from your army
   (the price is people, not coins). Gate guards work the same way.
 - Red arrows at the screen edge point at raiders you can't see, with a count and a skull for bosses.
@@ -35,6 +36,7 @@ same Wi-Fi and open the "Network" URL that Vite prints instead.
 
 - Phone: drag anywhere on the screen to move the King (virtual joystick).
 - Desktop: WASD or arrow keys, or drag with the mouse.
+- Pause with the ⏸ button, P or Esc. The game also pauses when the tab goes into the background.
 - Everything else is automatic: the King and his archers shoot the nearest enemy, coins are picked up by
   walking near them, and standing on a build pad spends coins one at a time.
 

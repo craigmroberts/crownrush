@@ -58,6 +58,12 @@ export class Hud {
   hideGameOver() {
     this.overScreen.classList.add('hidden');
   }
+  showPause() {
+    document.getElementById('pause-screen').classList.remove('hidden');
+  }
+  hidePause() {
+    document.getElementById('pause-screen').classList.add('hidden');
+  }
   showVictory(coins, army) {
     document.getElementById('victory-coins').textContent = coins;
     document.getElementById('victory-army').textContent = army;

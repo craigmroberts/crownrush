@@ -15,6 +15,19 @@ document.getElementById('victory-restart').addEventListener('click', (e) => {
   game.start();
 });
 
+document.getElementById('pause-btn').addEventListener('click', () => game.togglePause());
+document.getElementById('resume-btn').addEventListener('click', () => game.unpause());
+document.getElementById('pause-restart').addEventListener('click', (e) => {
+  e.preventDefault();
+  game.start();
+});
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') game.togglePause();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) game.pause();
+});
+
 const muteBtn = document.getElementById('mute-btn');
 const syncMute = () => (muteBtn.textContent = audio.muted ? '🔇' : '🔊');
 syncMute();

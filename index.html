@@ -19,6 +19,7 @@
       <div id="wave-hud">Wave <span id="wave-num">1</span> <span id="wave-goal" class="goal"></span><div id="next-wave"></div></div>
       <div id="army-hud">🏹 <span id="army-count">0</span></div>
       <button id="mute-btn" title="Toggle sound">🔊</button>
+      <button id="pause-btn" title="Pause (P)">⏸</button>
     </div>
 
     <div id="indicators"></div>
@@ -40,6 +41,15 @@
         <h1>The King Has Fallen</h1>
         <p>You survived to wave <strong id="final-wave">1</strong> and earned <strong id="final-coins">0</strong> coins.</p>
         <button id="restart-btn">Play Again</button>
+      </div>
+    </div>
+
+    <div id="pause-screen" class="overlay hidden">
+      <div class="panel">
+        <h1>Paused</h1>
+        <p class="hint">Press P or Esc to resume</p>
+        <button id="resume-btn">Resume</button>
+        <p class="best"><a href="#" id="pause-restart">Restart</a></p>
       </div>
     </div>
 
