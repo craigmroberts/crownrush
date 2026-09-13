@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#3f9a5b" />
+    <title>Crown Rush</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <div id="hud">
+      <div id="coin-hud">
+        <div class="coin-icon"></div>
+        <span id="coin-count">0</span>
+      </div>
+      <div id="wave-hud">Wave <span id="wave-num">1</span></div>
+      <div id="army-hud">🏹 <span id="army-count">0</span></div>
+    </div>
+
+    <div id="toast"></div>
+
+    <div id="start-screen" class="overlay">
+      <div class="panel">
+        <h1>Crown Rush</h1>
+        <p>Defeat the raiders. Grab their coins. Stand on a build pad to spend them and grow your army.</p>
+        <p class="hint">Drag anywhere to move · or use WASD / arrow keys</p>
+        <button id="start-btn">Play</button>
+        <p class="best">Best: wave <span id="best-wave">1</span></p>
+      </div>
+    </div>
+
+    <div id="gameover-screen" class="overlay hidden">
+      <div class="panel">
+        <h1>The King Has Fallen</h1>
+        <p>You survived to wave <strong id="final-wave">1</strong> and earned <strong id="final-coins">0</strong> coins.</p>
+        <button id="restart-btn">Play Again</button>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
