@@ -114,6 +114,13 @@ export function makeKnight({ scale = 1, color = C.red, dark = C.darkRed } = {}) 
   return g;
 }
 
+export function makeElite() {
+  const g = makeKnight({ scale: 1.1, color: 0x2b2b33, dark: 0x8a1a22 });
+  const pauldron = box(0.7, 0.16, 0.4, C.steel, 0, 0.9, 0);
+  g.add(pauldron);
+  return g;
+}
+
 export function makeBrute() {
   return makeKnight({ scale: 1.45, color: C.darkRed, dark: 0x5a0d10 });
 }
@@ -259,6 +266,14 @@ export function makeBarracks() {
   return g;
 }
 
+// Wall materials: index matches CFG.wallLevels (wood, brick, stone, iron).
+const WALL_STYLE = [
+  { pickets: true },
+  { color: 0xb5583f, trim: 0x8a3f2c, mortar: 0xd9a48c, h: 2.3, thick: 0.7 },
+  { color: 0x8d9096, trim: 0x686c73, mortar: 0xb4b8be, h: 2.7, thick: 0.9 },
+  { color: 0x59636e, trim: 0x3d454d, mortar: 0x9fb0bd, h: 3.0, thick: 0.9, spikes: true },
+];
+
 export function makeFence(length) {
   const g = new THREE.Group();
   const rail = box(length, 0.2, 0.14, C.wood, 0, 1.35, 0.2);
@@ -285,40 +300,72 @@ export function makeFence(length) {
   return g;
 }
 
-export function makeRubble(length) {
+export function makeWallSegment(length, level = 0) {
+  const st = WALL_STYLE[Math.min(level, WALL_STYLE.length - 1)];
+  if (st.pickets) return makeFence(length);
   const g = new THREE.Group();
-  const n = Math.max(3, Math.round(length / 1.6));
+  const body = box(length, st.h, st.thick, st.color, 0, st.h / 2, 0);
+  const base = box(length, 0.35, st.thick + 0.25, st.trim, 0, 0.17, 0);
+  g.add(body, base);
+  // mortar / plate lines
+  for (let y = 0.7; y < st.h - 0.2; y += 0.55) {
+    g.add(box(length + 0.02, 0.05, st.thick + 0.03, st.mortar, 0, y, 0));
+  }
+  // crenellations
+  const n = Math.max(2, Math.floor(length / 1.2));
   for (let i = 0; i < n; i++) {
     const x = -length / 2 + 0.6 + (i / Math.max(1, n - 1)) * (length - 1.2);
-    const b = box(0.22, 0.4 + Math.random() * 0.5, 0.22, C.darkWood, x, 0.2, (Math.random() - 0.5) * 0.4);
+    g.add(box(0.6, 0.5, st.thick + 0.05, st.trim, x, st.h + 0.25, 0));
+    if (st.spikes) {
+      const sp = cone(0.14, 0.5, st.mortar, x, st.h + 0.75, 0, 4);
+      g.add(sp);
+    }
+  }
+  return g;
+}
+
+export function makeRubble(length, level = 0) {
+  const g = new THREE.Group();
+  const st = WALL_STYLE[Math.min(level, WALL_STYLE.length - 1)];
+  const col = st.pickets ? C.darkWood : st.color;
+  const col2 = st.pickets ? C.wood : st.trim;
+  const n = Math.max(3, Math.round(length / 1.4));
+  for (let i = 0; i < n; i++) {
+    const x = -length / 2 + 0.6 + (i / Math.max(1, n - 1)) * (length - 1.2);
+    const b = st.pickets
+      ? box(0.22, 0.4 + Math.random() * 0.5, 0.22, col, x, 0.2, (Math.random() - 0.5) * 0.4)
+      : box(0.5 + Math.random() * 0.4, 0.35 + Math.random() * 0.3, 0.5, i % 2 ? col : col2, x, 0.2, (Math.random() - 0.5) * 0.8);
     b.rotation.z = (Math.random() - 0.5) * 0.9;
     b.rotation.x = (Math.random() - 0.5) * 0.9;
     g.add(b);
   }
-  const plank = box(1.4, 0.12, 0.3, C.wood, 0, 0.08, 0.3);
+  const plank = box(1.4, 0.12, 0.3, col2, 0, 0.08, 0.3);
   plank.rotation.y = 0.5;
   g.add(plank);
   return g;
 }
 
-export function makeGate() {
+export function makeGate(level = 0) {
+  const st = WALL_STYLE[Math.min(level, WALL_STYLE.length - 1)];
+  const postCol = st.pickets ? C.darkWood : st.trim;
+  const beamCol = st.pickets ? C.wood : st.color;
   const g = new THREE.Group();
-  const postL = box(0.5, 3.2, 0.5, C.darkWood, -1.85, 1.6, 0);
-  const postR = box(0.5, 3.2, 0.5, C.darkWood, 1.85, 1.6, 0);
-  const top = box(4.4, 0.45, 0.6, C.wood, 0, 3.4, 0);
-  const cap = box(4.8, 0.2, 0.8, C.darkWood, 0, 3.7, 0);
+  const postL = box(0.5, 3.2, 0.5, postCol, -1.85, 1.6, 0);
+  const postR = box(0.5, 3.2, 0.5, postCol, 1.85, 1.6, 0);
+  const top = box(4.4, 0.45, 0.6, beamCol, 0, 3.4, 0);
+  const cap = box(4.8, 0.2, 0.8, postCol, 0, 3.7, 0);
   const banner = box(0.9, 1.1, 0.08, C.blue, 0, 2.6, 0.3);
   const crest = cyl(0.22, 0.22, 0.1, C.gold, 0, 2.65, 0.36, 6);
   crest.rotation.x = Math.PI / 2;
   // doors standing open, swung inward
   const doorL = new THREE.Group();
-  const panelL = makeFence(1.5);
+  const panelL = st.pickets ? makeFence(1.5) : box(1.5, 2.4, 0.2, beamCol, 0, 1.2, 0);
   panelL.position.x = 0.75;
   doorL.add(panelL);
   doorL.position.set(-1.6, 0, 0.1);
   doorL.rotation.y = -1.15;
   const doorR = new THREE.Group();
-  const panelR = makeFence(1.5);
+  const panelR = st.pickets ? makeFence(1.5) : box(1.5, 2.4, 0.2, beamCol, 0, 1.2, 0);
   panelR.position.x = -0.75;
   doorR.add(panelR);
   doorR.position.set(1.6, 0, 0.1);
@@ -397,7 +444,7 @@ export function makePadTexture() {
   return { canvas, tex };
 }
 
-export function drawPad(canvas, tex, { icon, remaining, label, paid }) {
+export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 'coins' }) {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 256, 256);
   // fill: progress shows as green rising from the bottom
@@ -433,17 +480,29 @@ export function drawPad(canvas, tex, { icon, remaining, label, paid }) {
   ctx.strokeText(label, 128, 142);
   ctx.fillStyle = '#ffffff';
   ctx.fillText(label, 128, 142);
-  // coin + cost
-  ctx.beginPath();
-  ctx.arc(78, 200, 22, 0, Math.PI * 2);
-  ctx.fillStyle = '#f5b800';
-  ctx.fill();
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = '#b07a00';
-  ctx.stroke();
-  ctx.font = 'bold 20px system-ui';
-  ctx.fillStyle = '#b07a00';
-  ctx.fillText('♛', 78, 202);
+  // price: a coin, or an archer for crew pads
+  if (currency === 'archers') {
+    ctx.beginPath();
+    ctx.arc(78, 200, 24, 0, Math.PI * 2);
+    ctx.fillStyle = '#2f6fd6';
+    ctx.fill();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#1d4a99';
+    ctx.stroke();
+    ctx.font = '26px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+    ctx.fillText('🧍', 78, 202);
+  } else {
+    ctx.beginPath();
+    ctx.arc(78, 200, 22, 0, Math.PI * 2);
+    ctx.fillStyle = '#f5b800';
+    ctx.fill();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#b07a00';
+    ctx.stroke();
+    ctx.font = 'bold 20px system-ui';
+    ctx.fillStyle = '#b07a00';
+    ctx.fillText('♛', 78, 202);
+  }
   ctx.font = 'bold 52px "Trebuchet MS", system-ui, sans-serif';
   ctx.fillStyle = '#ffffff';
   ctx.lineWidth = 7;

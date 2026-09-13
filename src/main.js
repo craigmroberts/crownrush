@@ -9,6 +9,11 @@ const game = new Game(canvas, hud);
 hud.showStart(game.best);
 document.getElementById('start-btn').addEventListener('click', () => game.start());
 document.getElementById('restart-btn').addEventListener('click', () => game.start());
+document.getElementById('continue-btn').addEventListener('click', () => game.resume());
+document.getElementById('victory-restart').addEventListener('click', (e) => {
+  e.preventDefault();
+  game.start();
+});
 
 const muteBtn = document.getElementById('mute-btn');
 const syncMute = () => (muteBtn.textContent = audio.muted ? '🔇' : '🔊');

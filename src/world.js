@@ -12,7 +12,7 @@ function rng(seed) {
 }
 
 // Village bounds: scenery is kept out of here so pads & structures have room.
-const VILLAGE = { x0: -22, x1: 24, z0: -14, z1: 20 };
+const VILLAGE = { x0: -37, x1: 39, z0: -27, z1: 35 };
 
 export function buildWorld(scene) {
   const size = CFG.world.size;
@@ -42,12 +42,12 @@ export function buildWorld(scene) {
   // cliffs in the north-west, like the ad's grey mesas
   const cliffs = new THREE.Group();
   const cl = [
-    [-30, -30, 18, 6, 14],
-    [-22, -38, 14, 9, 12],
-    [-38, -20, 12, 4, 12],
-    [-46, -34, 16, 7, 18],
-    [-28, -46, 20, 5, 10],
-    [-14, -46, 10, 3, 8],
+    [-36, -40, 18, 6, 14],
+    [-28, -48, 14, 9, 12],
+    [-46, -38, 12, 4, 12],
+    [-52, -44, 16, 7, 18],
+    [-34, -56, 20, 5, 10],
+    [-20, -56, 10, 3, 8],
   ];
   for (const [x, z, w, h, d] of cl) {
     const c = makeCliff(w, h, d);
@@ -59,7 +59,7 @@ export function buildWorld(scene) {
 
   // scenery scattered outside the village
   const inVillage = (x, z) => x > VILLAGE.x0 && x < VILLAGE.x1 && z > VILLAGE.z0 && z < VILLAGE.z1;
-  const inCliffs = (x, z) => x < -8 && z < -14;
+  const inCliffs = (x, z) => x < CFG.cliffs.x && z < CFG.cliffs.z;
   const scenery = new THREE.Group();
   const half = size / 2 - 6;
   const place = (maker, count, minDist = 0) => {
@@ -86,12 +86,12 @@ export function buildWorld(scene) {
   }, 24, 22);
 
   // a few decorations inside the village edge for flavour
-  for (const [x, z] of [[-20, 18], [22, -12], [22, 18], [-20, -12]]) {
+  for (const [x, z] of [[-14, 12], [14, -12], [-25, 26], [26, -22], [-30, -18], [30, 24]]) {
     const t = makeTree(1.1);
     t.position.set(x, 0, z);
     scenery.add(t);
   }
-  for (const [x, z, a] of [[-16, -10, 0.4], [20, 2, 1.2], [-2, 19, 0.1]]) {
+  for (const [x, z, a] of [[-16, -10, 0.4], [20, 2, 1.2], [-2, 23, 0.1], [24, -18, 0.8]]) {
     const s = makeSpikes();
     s.position.set(x, 0, z);
     s.rotation.y = a;
