@@ -1,5 +1,7 @@
 # Crown Rush
 
+**Play it:** https://craigmroberts.github.io/crownrush/ (works on phones; add it to your home screen for full screen).
+
 A simple, addictive low-poly defend-and-build game for the browser (desktop and phone).
 No storyline, just the loop:
 
@@ -71,10 +73,8 @@ src/config.js     balance and build tree
 
 Built with [Three.js](https://threejs.org/) and [Vite](https://vitejs.dev/). No other dependencies.
 
-## Build for the web
+## Deploying
 
-```bash
-npm run build
-```
-
-The output in `dist/` is a static site you can drop on any host.
+Every push to `main` builds the game and publishes it to GitHub Pages through the workflow in
+`.github/workflows/deploy.yml`. `npm run build` produces the same static site in `dist/` if you want to host
+it elsewhere.
