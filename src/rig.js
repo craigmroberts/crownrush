@@ -1,9 +1,13 @@
 // Loads rigged GLB characters (built by tools/blender/make_character.py) and hands out animated clones.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
+const draco = new DRACOLoader();
+draco.setDecoderPath(`${import.meta.env.BASE_URL}draco/`);
 const loader = new GLTFLoader();
+loader.setDRACOLoader(draco);
 const cache = new Map();
 
 export function loadRig(name) {

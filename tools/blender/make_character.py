@@ -22,6 +22,8 @@ COL = {
     "gold": (0.95, 0.70, 0.18), "leather": (0.45, 0.27, 0.14), "boot": (0.32, 0.20, 0.12), "white": (0.97, 0.97, 0.97),
     "black": (0.05, 0.05, 0.06), "red": (0.85, 0.12, 0.14), "pink": (0.94, 0.48, 0.66), "blueEye": (0.25, 0.50, 0.85),
     "horse": (0.91, 0.84, 0.71), "muzzle": (0.85, 0.76, 0.6), "mane": (0.55, 0.36, 0.18),
+    "steel": (0.76, 0.78, 0.81), "steelDark": (0.45, 0.48, 0.52), "navy": (0.2, 0.22, 0.34), "darkRed": (0.52, 0.08, 0.1),
+    "ink": (0.13, 0.13, 0.16), "bone": (0.93, 0.89, 0.9), "boneDark": (0.82, 0.74, 0.76), "wood": (0.5, 0.33, 0.16), "glow": (1.0, 0.2, 0.2),
 }
 mats = {}
 def material(name):
@@ -33,20 +35,25 @@ def material(name):
     bsdf.inputs["Base Color"].default_value = (*COL[name], 1.0)
     bsdf.inputs["Roughness"].default_value = 0.45 if name == "gold" else 0.8
     bsdf.inputs["Metallic"].default_value = 0.15 if name == "gold" else 0.0
+    if name == "glow":
+        bsdf.inputs["Emission Color"].default_value = (1.0, 0.15, 0.15, 1.0)
+        bsdf.inputs["Emission Strength"].default_value = 4.0
     mats[name] = m
     return m
 
 parts = []
 Z_OFF = 0.0
 LEG_X = 0.14
+ROYAL = WHO in ("king", "queen", "king_mounted")
+SEG = (16, 12) if ROYAL else (12, 9)
 def part(kind, name, loc, scale=(1, 1, 1), rot=(0, 0, 0), color="skin", bone="spine", smooth=True, sub=1, **kw):
     loc = (loc[0], loc[1], loc[2] + Z_OFF)
     if kind == "sphere":
-        bpy.ops.mesh.primitive_uv_sphere_add(radius=1, segments=16, ring_count=12, location=loc)
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=1, segments=SEG[0], ring_count=SEG[1], location=loc)
     elif kind == "cube":
         bpy.ops.mesh.primitive_cube_add(size=1, location=loc)
     elif kind == "cyl":
-        bpy.ops.mesh.primitive_cylinder_add(radius=1, depth=1, vertices=16, location=loc)
+        bpy.ops.mesh.primitive_cylinder_add(radius=1, depth=1, vertices=SEG[0], location=loc)
     elif kind == "cone":
         bpy.ops.mesh.primitive_cone_add(radius1=1, radius2=0, depth=1, vertices=16, location=loc)
     elif kind == "frustum":
@@ -77,10 +84,12 @@ def ell(name, loc, scale, color, bone, rot=(0, 0, 0)):
 
 def build_head(style):
     queen = style == "queen"
-    ell("head", (0, 0, 1.42), (0.38, 0.35, 0.36), "skin", "head")
+    angry = style in ("raider", "elite", "brute", "boss")
+    skin = "bone" if style == "boss" else "skin"
+    ell("head", (0, 0, 1.42), (0.38, 0.35, 0.36), skin, "head")
     for side, x in (("L", 0.37), ("R", -0.37)):
-        ell(f"ear.{side}", (x, 0.02, 1.4), (0.05, 0.07, 0.08), "skin", "head")
-    ell("nose", (0, -0.35, 1.36), (0.045, 0.035, 0.035), "skin", "head")
+        ell(f"ear.{side}", (x, 0.02, 1.4), (0.05, 0.07, 0.08), skin, "head")
+    ell("nose", (0, -0.35, 1.36), (0.045, 0.035, 0.035), skin, "head")
     # eyes: sclera, iris, pupil, glint
     for side, x in (("L", 0.135), ("R", -0.135)):
         ell(f"eye.{side}", (x, -0.315, 1.43), (0.062, 0.035, 0.09 if queen else 0.08), "white", "head")
@@ -91,11 +100,15 @@ def build_head(style):
             ell(f"lash1.{side}", (x + 0.05 * (1 if side == "L" else -1), -0.33, 1.5), (0.03, 0.01, 0.01), "black", "head", rot=(0, math.radians(35 if side == "L" else -35), 0))
             ell(f"lash2.{side}", (x + 0.02 * (1 if side == "L" else -1), -0.335, 1.515), (0.025, 0.01, 0.01), "black", "head", rot=(0, math.radians(70 if side == "L" else -70), 0))
         brow_w = 0.1 if queen else 0.14
-        part("cube", f"brow.{side}", (x, -0.315, 1.53 if queen else 1.52), scale=(brow_w, 0.03, 0.028 if queen else 0.04),
-             rot=(0, math.radians(-12 if side == "L" else 12), 0), color="hair", bone="head", sub=1)
-        ell(f"blush.{side}", (x * 1.9, -0.28, 1.35), (0.06, 0.02, 0.035), "pink", "head")
+        tilt = (28 if side == "L" else -28) if angry else (-12 if side == "L" else 12)
+        part("cube", f"brow.{side}", (x, -0.315, 1.5 if angry else (1.53 if queen else 1.52)), scale=(brow_w, 0.03, 0.045 if angry else (0.028 if queen else 0.04)),
+             rot=(0, math.radians(tilt), 0), color="ink" if angry else "hair", bone="head", sub=1)
+        if not angry:
+            ell(f"blush.{side}", (x * 1.9, -0.28, 1.35), (0.06, 0.02, 0.035), "pink", "head")
     if queen:
         ell("mouth", (0, -0.35, 1.3), (0.045, 0.01, 0.012), "red", "head")
+    elif angry:
+        ell("mouth", (0, -0.35, 1.27), (0.05, 0.01, 0.012), "ink", "head", rot=(0, 0, 0))
     else:
         ell("mouth", (0, -0.35, 1.29), (0.04, 0.01, 0.012), "beard", "head")
 
@@ -117,7 +130,7 @@ def build_hair(style):
             ell(f"strand.{side}", (x, -0.02, 1.08), (0.1, 0.13, 0.32), hair, "head")
             ell(f"curl.{side}", (x * 1.05, -0.08, 0.8), (0.1, 0.11, 0.1), hair, "head")
 
-def build_figure(style, tunic, trim, boots="boot", pants="leather", dress=False):
+def build_figure(style, tunic, trim, boots="boot", pants="leather", dress=False, hair=True, bare_arms=False):
     if dress:
         part("frustum", "gown", (0, 0, 0.33), color=tunic, bone="root", sub=0, r1=0.62, r2=0.25, depth=0.66)
         part("torus", "hem", (0, 0, 0.03), scale=(0.62, 0.62, 1), color=trim, bone="root", minor=0.035)
@@ -148,12 +161,13 @@ def build_figure(style, tunic, trim, boots="boot", pants="leather", dress=False)
         part("torus", "collar", (0, 0, 1.02), scale=(0.15, 0.15, 1), color=trim, bone="spine", minor=0.03)
         part("cyl", "neck", (0, 0, 1.02), scale=(0.11, 0.11, 0.14), color="skin", bone="spine", sub=1)
         for side, x in (("L", 0.43), ("R", -0.43)):
-            ell(f"shoulder.{side}", (x * 0.9, 0, 0.94), (0.13, 0.12, 0.11), tunic, f"arm.{side}")
-            part("cyl", f"arm.{side}", (x, 0, 0.73), scale=(0.09, 0.09, 0.32), color=tunic, bone=f"arm.{side}")
+            ell(f"shoulder.{side}", (x * 0.9, 0, 0.94), (0.13, 0.12, 0.11), "skin" if bare_arms else tunic, f"arm.{side}")
+            part("cyl", f"arm.{side}", (x, 0, 0.73), scale=(0.09, 0.09, 0.32), color="skin" if bare_arms else tunic, bone=f"arm.{side}")
             part("torus", f"cuff.{side}", (x, 0, 0.59), scale=(0.095, 0.095, 1), color=trim, bone=f"arm.{side}", minor=0.025)
             ell(f"hand.{side}", (x, 0, 0.51), (0.1, 0.1, 0.1), "skin", f"arm.{side}")
     build_head(style)
-    build_hair(style)
+    if hair:
+        build_hair(style)
 
 def build_king():
     build_figure("king", "blue", "gold")
@@ -182,6 +196,80 @@ def build_queen():
     for side, x in (("L", 0.2), ("R", -0.2)):
         part("cone", f"tiarapeak.{side}", (x, -0.22, 1.84), scale=(0.025, 0.025, 0.08), color="gold", bone="head", sub=0)
 
+def helmet_cap(color, trim, plume=None, nose=False):
+    ell("helm", (0, 0.0, 1.56), (0.41, 0.39, 0.3), color, "head")
+    part("torus", "brim", (0, 0, 1.5), scale=(0.41, 0.41, 1), color=trim, bone="head", minor=0.035)
+    if nose:
+        part("cube", "noseguard", (0, -0.37, 1.4), scale=(0.06, 0.04, 0.22), color=trim, bone="head", sub=0)
+    if plume:
+        part("cone", "plume", (0, 0.02, 2.02), scale=(0.11, 0.11, 0.5), color=plume, bone="head", sub=0)
+
+def sword(length=0.8, blade="steel", grip="leather"):
+    part("cube", "blade", (-0.56, -0.2, 0.86), scale=(0.1, 0.025, length), rot=(math.radians(-25), 0, 0), color=blade, bone="arm.R", sub=0)
+    part("cube", "guard", (-0.56, -0.02, 0.5), scale=(0.26, 0.07, 0.07), color="gold" if blade == "steel" else "steelDark", bone="arm.R", sub=0)
+    part("cyl", "grip", (-0.56, 0.02, 0.42), scale=(0.035, 0.035, 0.16), color=grip, bone="arm.R", sub=0)
+
+def round_shield(color, boss="steel"):
+    part("cyl", "shield", (0.55, 0.02, 0.72), scale=(0.3, 0.3, 0.05), rot=(0, math.radians(90), 0), color=color, bone="arm.L", sub=1)
+    ell("shieldboss", (0.6, 0.02, 0.72), (0.03, 0.09, 0.09), boss, "arm.L")
+
+def bow_and_quiver(color="blue"):
+    part("torus", "bow", (0.52, -0.08, 0.72), scale=(0.34, 0.34, 1), rot=(0, math.radians(90), 0), color=color, bone="arm.L", minor=0.028)
+    part("cyl", "string", (0.52, -0.08, 0.72), scale=(0.012, 0.012, 0.66), color="white", bone="arm.L", sub=0)
+    part("cyl", "quiver", (-0.2, 0.3, 0.95), scale=(0.08, 0.08, 0.5), rot=(math.radians(-15), math.radians(20), 0), color="leather", bone="spine", sub=1)
+    for i in range(3):
+        part("cone", f"fletch{i}", (-0.22 + i * 0.04, 0.34, 1.25 + (i % 2) * 0.03), scale=(0.04, 0.04, 0.1), color="white", bone="spine", sub=0)
+
+def build_archer():
+    build_figure("archer", "white", "blue")
+    part("cube", "strap", (0, -0.3, 0.76), scale=(0.1, 0.05, 0.62), rot=(0, math.radians(-38), 0), color="blue", bone="spine", sub=0)
+    bow_and_quiver("blue")
+
+def build_swordsman():
+    build_figure("archer", "navy", "steel")
+    helmet_cap("steel", "steelDark")
+    sword(0.8)
+    round_shield("blue", "gold")
+
+def build_raider():
+    build_figure("raider", "red", "darkRed", pants="darkRed")
+    helmet_cap("red", "darkRed", plume="darkRed", nose=True)
+    sword(0.7, "steel", "leather")
+    round_shield("darkRed")
+    part("cube", "sash", (0, -0.3, 0.68), scale=(0.62, 0.04, 0.08), color="darkRed", bone="spine", sub=0)
+
+def build_elite():
+    build_figure("elite", "ink", "darkRed", pants="ink", hair=False)
+    part("cyl", "greathelm", (0, -0.02, 1.48), scale=(0.46, 0.46, 0.68), color="ink", bone="head", sub=0)
+    ell("helmtop", (0, -0.02, 1.81), (0.46, 0.46, 0.24), "ink", "head")
+    part("cube", "visor", (0, -0.47, 1.45), scale=(0.5, 0.06, 0.06), color="glow", bone="head", sub=0)
+    part("cube", "crest", (0, 0.02, 2.0), scale=(0.08, 0.5, 0.3), color="darkRed", bone="head", sub=0)
+    for side, x in (("L", 0.44), ("R", -0.44)):
+        ell(f"pauldron.{side}", (x * 0.95, 0, 0.95), (0.17, 0.15, 0.11), "steel", f"arm.{side}")
+    part("cube", "plate", (0, -0.3, 0.8), scale=(0.4, 0.08, 0.36), color="steelDark", bone="spine", sub=1)
+    sword(1.1, "steel", "darkRed")
+
+def build_brute():
+    build_figure("brute", "darkRed", "leather", pants="darkRed", bare_arms=True)
+    ell("cap", (0, 0.0, 1.56), (0.4, 0.38, 0.28), "darkRed", "head")
+    for side, x in (("L", 0.4), ("R", -0.4)):
+        part("cone", f"horn.{side}", (x, 0.0, 1.66), scale=(0.08, 0.08, 0.42), rot=(0, math.radians(-70 if side == "L" else 70), 0), color="bone", bone="head", sub=0)
+    part("cube", "strap", (0, -0.3, 0.76), scale=(0.14, 0.05, 0.7), rot=(0, math.radians(38), 0), color="leather", bone="spine", sub=0)
+    part("cyl", "handle", (-0.5, -0.05, 0.85), scale=(0.045, 0.045, 0.9), color="wood", bone="arm.R", sub=0)
+    ell("clubhead", (-0.5, -0.05, 1.35), (0.18, 0.18, 0.24), "steelDark", "arm.R")
+    for i in range(4):
+        a = i / 4 * math.tau
+        ell(f"stud{i}", (-0.5 + math.cos(a) * 0.17, -0.05 + math.sin(a) * 0.17, 1.38), (0.045, 0.045, 0.045), "steel", "arm.R")
+
+def build_boss():
+    build_figure("boss", "bone", "boneDark", pants="boneDark", boots="boneDark")
+    ell("helm", (0, 0.0, 1.56), (0.41, 0.39, 0.3), "boneDark", "head")
+    for side, x in (("L", 0.42), ("R", -0.42)):
+        part("cone", f"horn.{side}", (x, 0.0, 1.7), scale=(0.1, 0.1, 0.55), rot=(0, math.radians(-60 if side == "L" else 60), 0), color="white", bone="head", sub=0)
+    part("cube", "strap", (0, -0.3, 0.76), scale=(0.16, 0.05, 0.72), rot=(0, math.radians(38), 0), color="leather", bone="spine", sub=0)
+    sword(1.5, "white", "leather")
+    part("cube", "guard2", (-0.5, -0.02, 0.5), scale=(0.4, 0.08, 0.08), color="steel", bone="arm.R", sub=0)
+
 def build_horse():
     ell("hbody", (0, 0, 0.95), (0.34, 0.6, 0.33), "horse", "horse")
     ell("hchest", (0, -0.48, 1.0), (0.3, 0.3, 0.3), "horse", "horse")
@@ -209,7 +297,8 @@ def build_king_mounted():
     LEG_X = 0.32
     build_king()
 
-{"king": build_king, "queen": build_queen, "king_mounted": build_king_mounted}[WHO]()
+{"king": build_king, "queen": build_queen, "king_mounted": build_king_mounted, "archer": build_archer, "swordsman": build_swordsman,
+ "raider": build_raider, "elite": build_elite, "brute": build_brute, "boss": build_boss}[WHO]()
 MOUNTED = WHO == "king_mounted"
 RZ = Z_OFF
 
@@ -342,7 +431,7 @@ if not MOUNTED:
 
 # ---------- export ----------
 bpy.ops.object.select_all(action="SELECT")
-bpy.ops.export_scene.gltf(filepath=OUT, export_format="GLB", export_apply=True, export_animations=True, export_yup=True, use_selection=True)
+bpy.ops.export_scene.gltf(filepath=OUT, export_format="GLB", export_apply=True, export_animations=True, export_yup=True, use_selection=True, export_draco_mesh_compression_enable=True, export_draco_mesh_compression_level=6)
 print("exported", OUT)
 
 # ---------- preview render ----------

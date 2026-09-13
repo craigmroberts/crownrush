@@ -413,13 +413,15 @@ export class Game {
       mesh = makeRigged('queen').mesh;
       stats = CFG.queen;
     } else if (type === 'archer') {
-      mesh = makeArcher();
+      const rig = makeRigged('archer');
+      mesh = rig ? this.tintHair(rig.mesh) : makeArcher();
       stats = CFG.archer;
     } else if (type === 'queen') {
       mesh = makeQueen();
       stats = CFG.queen;
     } else {
-      mesh = makeSwordsman();
+      const rig = makeRigged('swordsman');
+      mesh = rig ? rig.mesh : makeSwordsman();
       stats = CFG.swordsman;
     }
     mesh.position.set(x, 0, z);
@@ -430,7 +432,8 @@ export class Game {
     const royal = type === 'king' || type === 'queen';
     const u = {
       type, mesh, bar, hp: stats.hp, maxHp: stats.hp, stats, cooldown: rand(0, 0.5), lastHit: -99,
-      melee: type === 'swordsman', vel: new V3(), popT: royal ? 0 : 0.5, assign: null, scale: royal ? 1.15 : 1.2,
+      melee: type === 'swordsman', vel: new V3(), popT: royal ? 0 : 0.5, assign: null,
+      scale: royal ? 1.15 : mesh.userData.rig ? 1.05 : 1.2,
     };
     mesh.scale.setScalar(u.popT ? 0.01 : u.scale);
     if (u.popT && this.running) this.spawnFx(x, z);
@@ -440,7 +443,8 @@ export class Game {
 
   spawnEnemy(type, x, z) {
     const stats = CFG.enemy[type];
-    const mesh = type === 'boss' ? makeBoss() : type === 'brute' ? makeBrute() : type === 'elite' ? makeElite() : makeKnight();
+    const rig = makeRigged(type === 'knight' ? 'raider' : type);
+    const mesh = rig ? rig.mesh : type === 'boss' ? makeBoss() : type === 'brute' ? makeBrute() : type === 'elite' ? makeElite() : makeKnight();
     mesh.position.set(x, 0, z);
     const w = Math.max(1, this.wave);
     const hpMul = 1 + CFG.waves.hpGrowthPerWave * (w - 1);
@@ -451,7 +455,8 @@ export class Game {
     this.root.add(mesh);
     const e = {
       type, mesh, bar, stats, hp: stats.hp * hpMul, maxHp: stats.hp * hpMul, damage: stats.damage * dmgMul,
-      cooldown: rand(0.2, 0.8), target: null, retarget: 0, flash: 0, radius: stats.radius, scale: type === 'boss' ? 1 : 1.15,
+      cooldown: rand(0.2, 0.8), target: null, retarget: 0, flash: 0, radius: stats.radius,
+      scale: rig ? { knight: 1.0, elite: 1.1, brute: 1.35, boss: 2.4 }[type] : type === 'boss' ? 1 : 1.15,
     };
     mesh.scale.setScalar(e.scale);
     this.enemies.push(e);
@@ -541,14 +546,15 @@ export class Game {
     // ghost previews: units on the pad, structures where they'd be built, wall outlines along the edge
     if (def.units) {
       for (let i = 0; i < def.units.count; i++) {
-        const g = ghostify(def.units.type === 'archer' ? makeArcher() : makeSwordsman());
+        const r = makeRigged(def.units.type === 'archer' ? 'archer' : 'swordsman');
+        const g = ghostify(r ? r.mesh : def.units.type === 'archer' ? makeArcher() : makeSwordsman());
         g.position.set(def.pos[0] - 0.6 + i * 0.7 + (i > 1 ? -1.1 : 0), 0, def.pos[1] + (i > 1 ? 0.8 : 0));
         this.root.add(g);
         pad.ghosts.push(g);
       }
     } else if (def.crew) {
       for (const [x, z, y] of this.crewSpots(def)) {
-        const g = ghostify(makeArcher());
+        const g = ghostify((makeRigged('archer') || { mesh: makeArcher() }).mesh);
         g.position.set(x, y, z);
         this.root.add(g);
         pad.ghosts.push(g);
@@ -767,9 +773,10 @@ export class Game {
   }
 
   addTurret(x, z, y) {
-    const mesh = makeArcher();
+    const rig = makeRigged('archer');
+    const mesh = rig ? this.tintHair(rig.mesh) : makeArcher();
     mesh.position.set(x, y, z);
-    this.popIn(mesh, 0, 1.2);
+    this.popIn(mesh, 0, rig ? 1.05 : 1.2);
     this.root.add(mesh);
     this.spawnFx(x, z, 0xff9a2e, y);
     this.turrets.push({ mesh, cooldown: rand(0, 0.7), pos: new V3(x, y + 0.9, z) });
@@ -1050,6 +1057,34 @@ export class Game {
     this.coins.push({ mesh: c, vx: Math.cos(a) * s, vz: Math.sin(a) * s, vy: rand(4, 7), state: 'drop', t: 0 });
   }
 
+  // give each archer its own hair colour (the rig ships one)
+  tintHair(mesh) {
+    const colors = [0x5a3416, 0x2a1e16, 0x8a5a2b, 0x1c1c22, 0x6b3f1d];
+    const c = colors[Math.floor(Math.random() * colors.length)];
+    mesh.traverse((o) => {
+      if (!o.isMesh) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      mats.forEach((m, i) => {
+        if (m.name === 'hair') {
+          const clone = m.clone();
+          clone.color.setHex(c);
+          if (Array.isArray(o.material)) o.material[i] = clone;
+          else o.material = clone;
+        }
+      });
+    });
+    return mesh;
+  }
+
+  // one-shot attack: swing the rig's Attack clip, or nod the code model's body
+  attackAnim(ent) {
+    const rig = ent.mesh.userData.rig;
+    if (rig) {
+      rig.play('Attack', true);
+      ent.rigOnce = this.time + 0.6;
+    } else if (ent.mesh.userData.body) ent.mesh.userData.body.rotation.x = 0.6;
+  }
+
   // fiery ring and glowing column when a unit appears
   spawnFx(x, z, color = 0xff9a2e, y = 0) {
     const g = makeSpawnFx(color);
@@ -1163,11 +1198,11 @@ export class Game {
       this.updateIndicators(dt);
     }
     this.world.update(dt);
-    for (const u of this.units) {
-      const rig = u.mesh.userData.rig;
+    for (const ent of [...this.units, ...this.enemies, ...this.turrets]) {
+      const rig = ent.mesh.userData.rig;
       if (!rig) continue;
       rig.mixer.update(dt);
-      if (!u.rigOnce || u.rigOnce <= this.time) rig.play(u.moving ? 'Walk' : 'Idle');
+      if (!ent.rigOnce || ent.rigOnce <= this.time) rig.play(ent.moving ? 'Walk' : 'Idle');
     }
     this.updateFx(dt);
     this.updateEffects(dt);
@@ -1407,6 +1442,7 @@ export class Game {
       this.collideRiver(p, 0.3);
       this.collideKeep(p, 0.3);
       if (d > 14) p.set(kp.x + rand(-1, 1), 0, kp.z + rand(-1, 1));
+      u.moving = moving > 0.05;
       this.animateWalk(u, moving, dt);
 
       // attack
@@ -1420,14 +1456,15 @@ export class Game {
             tmp.copy(target.mesh.position);
             tmp.y += 0.3;
             this.damageEnemy(target, u.stats.damage * this.damageMul, tmp);
-            u.mesh.userData.body.rotation.x = 0.5;
+            this.attackAnim(u);
           } else {
             tmp.copy(p).y += 0.9;
             this.fireArrow(tmp, target, u.stats.damage * this.damageMul);
+            this.attackAnim(u);
           }
         }
       }
-      if (u.mesh.userData.body.rotation.x > 0) u.mesh.userData.body.rotation.x = Math.max(0, u.mesh.userData.body.rotation.x - dt * 4);
+      if (u.mesh.userData.body && u.mesh.userData.body.rotation.x > 0) u.mesh.userData.body.rotation.x = Math.max(0, u.mesh.userData.body.rotation.x - dt * 4);
       this.regen(u, dt);
     });
 
@@ -1447,6 +1484,7 @@ export class Game {
       p.add(tmp2);
       this.collideWalls(p, 0.3, true);
       u.mesh.rotation.y = this.lerpAngle(u.mesh.rotation.y, Math.atan2(tmp2.x, tmp2.z), 1 - Math.exp(-dt * 10));
+      u.moving = true;
       this.animateWalk(u, 1, dt);
     }
   }
@@ -1460,6 +1498,7 @@ export class Game {
         if (t.cooldown <= 0) {
           t.cooldown = 1 / CFG.tower.fireRate;
           this.fireArrow(t.pos, target, CFG.tower.damage * this.damageMul);
+          this.attackAnim(t);
         }
       }
     }
@@ -1519,10 +1558,11 @@ export class Game {
           this.animateWalk(e, blocked ? 0.4 : 1, dt);
         }
       }
+      e.moving = !!wp || (d > reach && !blocked);
       if (blocked) {
         if (e.cooldown <= 0) {
           e.cooldown = 1 / e.stats.attackRate;
-          e.mesh.userData.body.rotation.x = 0.6;
+          this.attackAnim(e);
           this.damageWall(blocked, e.damage * (e.stats.aoe ? 2 : 1));
           if (e.stats.aoe) this.shake = 0.2;
         }
@@ -1530,7 +1570,7 @@ export class Game {
         this.animateWalk(e, 0, dt);
         if (e.cooldown <= 0) {
           e.cooldown = 1 / e.stats.attackRate;
-          e.mesh.userData.body.rotation.x = 0.6;
+          this.attackAnim(e);
           if (e.stats.aoe) {
             for (const u of this.units) {
               if (u.mesh.position.distanceTo(p) < e.stats.aoe + 1) this.damageUnit(u, e.damage);
@@ -1541,7 +1581,7 @@ export class Game {
           else this.damageUnit(t, e.damage);
         }
       }
-      if (e.mesh.userData.body.rotation.x > 0) e.mesh.userData.body.rotation.x = Math.max(0, e.mesh.userData.body.rotation.x - dt * 3);
+      if (e.mesh.userData.body && e.mesh.userData.body.rotation.x > 0) e.mesh.userData.body.rotation.x = Math.max(0, e.mesh.userData.body.rotation.x - dt * 3);
       // simple separation so enemies don't stack into one blob
       for (const o of this.enemies) {
         if (o === e) continue;
