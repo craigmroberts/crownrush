@@ -6,7 +6,7 @@ import { Input } from './input.js';
 import {
   makeKing, makeKingFoot, makeQueen, makeKeep, makeLumberTree, makeOreRock, makeResourceCube, makeTool, makeArcher, makeSwordsman, makeKnight, makeElite, makeBrute, makeBoss, makeCoin, makeArrow,
   makeHut, makeTower, makeBarracks, makeWallSegment, makeGate, makeRubble, makeBridge, makePad, drawPad, ghostify,
-  makeHealthBar, setHealthBar, makePopup, makeRing,
+  makeHealthBar, setHealthBar, makePopup, makeRing, makeSpawnFx, makeBurst,
 } from './models.js';
 
 const V3 = THREE.Vector3;
@@ -26,7 +26,7 @@ export class Game {
     this.renderer.shadowMap.type = this.mobile ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.1;
+    this.renderer.toneMappingExposure = 1.22;
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(48, 1, 0.5, 200);
@@ -53,7 +53,7 @@ export class Game {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     // portrait phones need a higher camera to see the same play area
-    this.camDist = this.camera.aspect < 0.8 ? 26 : this.camera.aspect < 1.3 ? 21 : 18;
+    this.camDist = this.camera.aspect < 0.8 ? 23 : this.camera.aspect < 1.3 ? 19 : 16.5;
   }
 
   // ---------- lifecycle ----------
@@ -88,6 +88,7 @@ export class Game {
     this.mineTimer = 0;
     this.nodes = [];
     this.chips = [];
+    this.fx = [];
     this.swing = 0;
     this.activePad = null;
     this.nodeRing = null;
@@ -377,12 +378,14 @@ export class Game {
     k.mesh = makeKing();
     k.mesh.position.copy(old.position);
     k.mesh.rotation.copy(old.rotation);
+    k.mesh.scale.setScalar(k.scale);
     this.root.remove(old);
     k.bar = makeHealthBar(1.6, true);
     k.bar.position.y = 3.2;
     k.mesh.add(k.bar);
     this.root.add(k.mesh);
-    this.popIn(k.mesh);
+    this.popIn(k.mesh, 0, k.scale);
+    this.spawnFx(k.mesh.position.x, k.mesh.position.z, 0xffd166);
   }
 
   // ---------- spawning ----------
@@ -407,11 +410,13 @@ export class Game {
     bar.position.y = type === 'king' ? (this.mounted ? 3.2 : 2.4) : type === 'queen' ? 2.5 : 1.8;
     mesh.add(bar);
     this.root.add(mesh);
+    const royal = type === 'king' || type === 'queen';
     const u = {
       type, mesh, bar, hp: stats.hp, maxHp: stats.hp, stats, cooldown: rand(0, 0.5), lastHit: -99,
-      melee: type === 'swordsman', vel: new V3(), popT: type === 'king' || type === 'queen' ? 0 : 0.4, assign: null,
+      melee: type === 'swordsman', vel: new V3(), popT: royal ? 0 : 0.5, assign: null, scale: royal ? 1.15 : 1.2,
     };
-    if (u.popT) mesh.scale.setScalar(0.01);
+    mesh.scale.setScalar(u.popT ? 0.01 : u.scale);
+    if (u.popT && this.running) this.spawnFx(x, z);
     this.units.push(u);
     return u;
   }
@@ -429,8 +434,9 @@ export class Game {
     this.root.add(mesh);
     const e = {
       type, mesh, bar, stats, hp: stats.hp * hpMul, maxHp: stats.hp * hpMul, damage: stats.damage * dmgMul,
-      cooldown: rand(0.2, 0.8), target: null, retarget: 0, flash: 0, radius: stats.radius,
+      cooldown: rand(0.2, 0.8), target: null, retarget: 0, flash: 0, radius: stats.radius, scale: type === 'boss' ? 1 : 1.15,
     };
+    mesh.scale.setScalar(e.scale);
     this.enemies.push(e);
     return e;
   }
@@ -745,15 +751,17 @@ export class Game {
   addTurret(x, z, y) {
     const mesh = makeArcher();
     mesh.position.set(x, y, z);
-    this.popIn(mesh);
+    this.popIn(mesh, 0, 1.2);
     this.root.add(mesh);
+    this.spawnFx(x, z, 0xff9a2e, y);
     this.turrets.push({ mesh, cooldown: rand(0, 0.7), pos: new V3(x, y + 0.9, z) });
   }
 
-  popIn(obj, delay = 0) {
+  popIn(obj, delay = 0, baseScale = 1) {
     obj.scale.setScalar(0.01);
     obj.visible = delay <= 0;
     obj.userData.popT = 0.45 + delay;
+    obj.userData.baseScale = baseScale;
     this.popping.push(obj);
   }
 
@@ -994,6 +1002,7 @@ export class Game {
     e.hp -= dmg;
     e.flash = 0.12;
     audio.hit();
+    this.burstFx(hitPos, '#dff4ff', 0.9, 0.18);
     setHealthBar(e.bar, Math.max(0, e.hp / e.maxHp));
     this.popup(`-${Math.round(dmg)}`, hitPos, e.type === 'boss' ? '#ffffff' : '#ffe27a', e.type === 'boss' ? 2.6 : 1.4);
     if (e.hp <= 0) this.killEnemy(e);
@@ -1003,6 +1012,8 @@ export class Game {
     this.enemies.splice(this.enemies.indexOf(e), 1);
     e.bar.visible = false;
     this.dying.push({ mesh: e.mesh, t: 0.5 });
+    tmp.copy(e.mesh.position).setY(e.type === 'boss' ? 2.5 : 1.0);
+    this.burstFx(tmp, '#ffffff', e.type === 'boss' ? 6 : 2.6, 0.38);
     const n = randInt(e.stats.coins[0], e.stats.coins[1]);
     for (let i = 0; i < n; i++) this.dropCoin(e.mesh.position);
     audio.enemyDie();
@@ -1018,6 +1029,54 @@ export class Game {
     const a = rand(0, Math.PI * 2);
     const s = rand(1.5, 4.5);
     this.coins.push({ mesh: c, vx: Math.cos(a) * s, vz: Math.sin(a) * s, vy: rand(4, 7), state: 'drop', t: 0 });
+  }
+
+  // fiery ring and glowing column when a unit appears
+  spawnFx(x, z, color = 0xff9a2e, y = 0) {
+    const g = makeSpawnFx(color);
+    g.position.set(x, y, z);
+    this.root.add(g);
+    this.fx.push({ kind: 'spawn', mesh: g, t: 0, life: 1.1 });
+  }
+
+  burstFx(pos, color, size, life) {
+    const s = makeBurst(color);
+    s.position.copy(pos);
+    s.scale.setScalar(size * 0.4);
+    this.root.add(s);
+    this.fx.push({ kind: 'burst', mesh: s, t: 0, life, size });
+  }
+
+  updateFx(dt) {
+    for (let i = this.fx.length - 1; i >= 0; i--) {
+      const f = this.fx[i];
+      f.t += dt;
+      const p = Math.min(1, f.t / f.life);
+      if (f.kind === 'spawn') {
+        const { ring, ring2, column, glow, sparks } = f.mesh.userData;
+        ring.scale.setScalar(0.4 + p * 1.8);
+        ring.material.opacity = 0.95 * (1 - p);
+        ring2.scale.setScalar(0.2 + p * 1.1);
+        ring2.material.opacity = 0.8 * (1 - p);
+        column.scale.set(1 - p * 0.5, 0.2 + Math.sin(p * Math.PI) * 0.9 + 0.1, 1 - p * 0.5);
+        column.material.opacity = 0.55 * (1 - p * p);
+        glow.material.opacity = 0.45 * (1 - p);
+        for (const sp of sparks) {
+          sp.position.x += sp.userData.vx * dt;
+          sp.position.z += sp.userData.vz * dt;
+          sp.position.y += sp.userData.vy * dt;
+          sp.userData.vy -= 4 * dt;
+          sp.material.opacity = 1 - p;
+        }
+      } else {
+        f.mesh.scale.setScalar(f.size * (0.4 + p * 0.8));
+        f.mesh.material.opacity = 1 - p * p;
+      }
+      if (p >= 1) {
+        this.root.remove(f.mesh);
+        this.fx.splice(i, 1);
+      }
+    }
   }
 
   popup(text, pos, color, scale = 1.4) {
@@ -1082,6 +1141,7 @@ export class Game {
       this.updateIndicators(dt);
     }
     this.world.update(dt);
+    this.updateFx(dt);
     this.updateEffects(dt);
     this.updateStack(dt);
     this.updateCamera(dt);
@@ -1273,9 +1333,9 @@ export class Game {
       u.cooldown -= dt;
       if (u.popT > 0) {
         u.popT -= dt;
-        const s = 1 - Math.max(0, u.popT / 0.4);
-        u.mesh.scale.setScalar(0.01 + s * (1 + Math.sin(s * Math.PI) * 0.25));
-        if (u.popT <= 0) u.mesh.scale.setScalar(1);
+        const s = 1 - Math.max(0, u.popT / 0.5);
+        u.mesh.scale.setScalar(Math.max(0.01, u.scale * s * (1 + Math.sin(s * Math.PI) * 0.25)));
+        if (u.popT <= 0) u.mesh.scale.setScalar(u.scale);
       }
       // formation slot: rings around the king
       const ring = Math.floor(Math.sqrt(i / 6));
@@ -1460,8 +1520,8 @@ export class Game {
       // hit flash squash
       if (e.flash > 0) {
         e.flash -= dt;
-        e.mesh.scale.set(1.15, 0.85, 1.15);
-        if (e.flash <= 0) e.mesh.scale.setScalar(1);
+        e.mesh.scale.set(e.scale * 1.12, e.scale * 0.88, e.scale * 1.12);
+        if (e.flash <= 0) e.mesh.scale.setScalar(e.scale);
       }
     }
   }
@@ -1790,9 +1850,10 @@ export class Game {
       if (o.userData.popT > 0.45) continue;
       o.visible = true;
       const s = 1 - Math.max(0, o.userData.popT / 0.45);
-      o.scale.setScalar(0.01 + s * (1 + Math.sin(s * Math.PI) * 0.2));
+      const base = o.userData.baseScale || 1;
+      o.scale.setScalar(Math.max(0.01, base * s * (1 + Math.sin(s * Math.PI) * 0.2)));
       if (o.userData.popT <= 0) {
-        o.scale.setScalar(1);
+        o.scale.setScalar(base);
         this.popping.splice(i, 1);
       }
     }
@@ -1820,7 +1881,7 @@ export class Game {
   updateCamera(dt) {
     const kp = this.king.mesh.position;
     const d = this.camDist;
-    tmp.set(kp.x, d, kp.z + d * 0.62);
+    tmp.set(kp.x, d * 0.92, kp.z + d * 0.8);
     if (this.shake > 0) {
       this.shake -= dt;
       tmp.x += (Math.random() - 0.5) * 0.5;

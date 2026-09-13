@@ -27,7 +27,7 @@ export const GHOST_MAT = new THREE.MeshLambertMaterial({ color: 0xffffff, transp
 const OUTLINE_MAT = new THREE.MeshBasicMaterial({ color: 0x1b1b24, side: THREE.BackSide });
 
 const C = {
-  skin: 0xf6cfae, hair: 0x1c1c22, white: 0xf7f7f7, blue: 0x2f6fd6, navy: 0x3a3f5c, pants: 0x6b4a32, shoes: 0x2b2b2b,
+  skin: 0xf6cfae, hair: 0x2a1e16, white: 0xf7f7f7, blue: 0x2f6fd6, navy: 0x3a3f5c, pants: 0x6b4a32, shoes: 0x2b2b2b,
   red: 0xd8262c, darkRed: 0xa31a1f, steel: 0xb9bec7, steelDark: 0x7d848e, gold: 0xf5b800, goldDark: 0xc98a00,
   horse: 0xe8d5b5, mane: 0x8a5a2b, wood: 0x9a6a3a, darkWood: 0x6b4a2b, roof: 0x7a4f30,
   leaf: 0x2f8f4e, leafDark: 0x257a42, rock: 0x8f959c, cliff: 0x5b5f63, grass: 0x4aa364,
@@ -201,8 +201,9 @@ function quiver(g) {
   }
 }
 
+const HAIR = [0x2a1e16, 0x2a1e16, 0x4a2f1c, 0x1c1c22, 0x6b4a2b];
 export function makeArcher() {
-  const g = humanoid({ shirt: C.white });
+  const g = humanoid({ shirt: C.white, hairColor: HAIR[Math.floor(Math.random() * HAIR.length)] });
   // blue strap across the chest
   const strap = box(0.14, 0.8, 0.44, C.blue, 0, 0.62, 0);
   strap.rotation.z = 0.7;
@@ -496,13 +497,77 @@ export function makeCoin() {
 
 const arrowGeo = new THREE.BoxGeometry(0.06, 0.06, 0.7);
 const arrowMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2b });
+const streakMat = new THREE.MeshBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
+const streakGeo = new THREE.BoxGeometry(0.08, 0.08, 1.8);
 export function makeArrow() {
   const g = new THREE.Group();
   const shaft = new THREE.Mesh(arrowGeo, arrowMat);
   const tip = cone(0.06, 0.16, C.steel, 0, 0, 0.42, 4);
   tip.rotation.x = Math.PI / 2;
-  g.add(shaft, tip);
+  const streak = new THREE.Mesh(streakGeo, streakMat);
+  streak.position.z = -1.1;
+  g.add(shaft, tip, streak);
   return g;
+}
+
+// ---- effects ----
+const ringGeo = new THREE.RingGeometry(0.7, 1.15, 32);
+const columnGeo = new THREE.CylinderGeometry(0.8, 1.1, 3.0, 18, 1, true);
+export function makeSpawnFx(color = 0xff9a2e) {
+  const g = new THREE.Group();
+  const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.06;
+  const ring2 = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  ring2.rotation.x = -Math.PI / 2;
+  ring2.position.y = 0.08;
+  ring2.scale.setScalar(0.5);
+  const column = new THREE.Mesh(columnGeo, new THREE.MeshBasicMaterial({ color: 0xffb454, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  column.position.y = 1.3;
+  const glow = new THREE.Mesh(new THREE.CircleGeometry(1.6, 24), new THREE.MeshBasicMaterial({ color: 0xff7a1a, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }));
+  glow.rotation.x = -Math.PI / 2;
+  glow.position.y = 0.04;
+  g.add(glow, ring, ring2, column);
+  g.userData = { ring, ring2, column, glow };
+  const sparks = [];
+  for (let i = 0; i < 8; i++) {
+    const sp = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.12), new THREE.MeshBasicMaterial({ color: i % 2 ? 0xffd166 : 0xff8a3a, transparent: true, opacity: 1 }));
+    const a = (i / 8) * Math.PI * 2;
+    sp.position.set(Math.cos(a) * 0.5, 0.2, Math.sin(a) * 0.5);
+    sp.userData = { vx: Math.cos(a) * 1.4, vz: Math.sin(a) * 1.4, vy: 3 + Math.random() * 2 };
+    g.add(sp);
+    sparks.push(sp);
+  }
+  g.userData.sparks = sparks;
+  return g;
+}
+
+const burstCache = {};
+export function makeBurst(color = '#ffffff') {
+  if (!burstCache[color]) {
+    const c = document.createElement('canvas');
+    c.width = 128;
+    c.height = 128;
+    const ctx = c.getContext('2d');
+    ctx.translate(64, 64);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (let i = 0; i < 16; i++) {
+      const r = i % 2 ? 22 : 60;
+      const a = (i / 16) * Math.PI * 2;
+      ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.beginPath();
+    ctx.arc(0, 0, 16, 0, Math.PI * 2);
+    ctx.fill();
+    burstCache[color] = new THREE.CanvasTexture(c);
+  }
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: burstCache[color], transparent: true, depthTest: false }));
+  s.renderOrder = 15;
+  return s;
 }
 
 // ---- structures ----

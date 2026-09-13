@@ -80,7 +80,7 @@ function groundTexture() {
   c.width = 256;
   c.height = 256;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = '#4aa566';
+  ctx.fillStyle = '#6cbd55';
   ctx.fillRect(0, 0, 256, 256);
   const r = rng(99);
   const blob = (color, count, rmin, rmax) => {
@@ -98,9 +98,9 @@ function groundTexture() {
       }
     }
   };
-  blob('rgba(90, 178, 112, 0.28)', 22, 10, 26);
-  blob('rgba(63, 154, 91, 0.22)', 18, 8, 22);
-  blob('rgba(104, 192, 124, 0.18)', 16, 4, 10);
+  blob('rgba(134, 208, 104, 0.32)', 22, 10, 26);
+  blob('rgba(94, 172, 74, 0.24)', 18, 8, 22);
+  blob('rgba(150, 220, 118, 0.2)', 16, 4, 10);
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(16, 16);
@@ -137,12 +137,12 @@ export function buildWorld(scene) {
   for (let i = 0; i < 70; i++) world.foam.push({ t: rand(), side: (rand() - 0.5) * MAP.river.halfWidth * 1.4, speed: 0.012 + rand() * 0.01 });
 
   // ---- roads (spline ribbons with a darker shoulder and wheel ruts); hidden until revealed ----
-  const rutMat = mat(0xc9a066, { side: THREE.DoubleSide });
+  const rutMat = mat(0xd2ae74, { side: THREE.DoubleSide });
   for (const road of MAP.roads) {
     const samples = spline(road.points, 90);
     const entry = { id: road.id, samples, meshes: [], revealed: false, progress: 0 };
-    entry.meshes.push(ribbon(samples, MAP.roadWidth + 1.2, 0xc9a066, 0.014, { taper: true }));
-    entry.meshes.push(ribbon(samples, MAP.roadWidth, 0xd9b27c, 0.018, { taper: true }));
+    entry.meshes.push(ribbon(samples, MAP.roadWidth + 1.2, 0xd2ae74, 0.014, { taper: true }));
+    entry.meshes.push(ribbon(samples, MAP.roadWidth, 0xe4c894, 0.018, { taper: true }));
     for (const off of [-0.9, 0.9]) {
       const shifted = samples.map((p, i) => {
         const q = samples[Math.min(samples.length - 1, i + 1)];
@@ -356,11 +356,11 @@ export function buildWorld(scene) {
 }
 
 export function setupLights(scene) {
-  scene.background = new THREE.Color(0x47a262);
-  scene.fog = new THREE.Fog(0x47a262, 40, 85);
-  const hemi = new THREE.HemisphereLight(0xfff6e8, 0x4a8a5a, 1.25);
+  scene.background = new THREE.Color(0x6cbd55);
+  scene.fog = new THREE.Fog(0x6cbd55, 42, 90);
+  const hemi = new THREE.HemisphereLight(0xfff8ea, 0x8fb86a, 1.45);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xfff4e0, 1.15);
+  const sun = new THREE.DirectionalLight(0xfff1d6, 1.3);
   sun.position.set(18, 30, 12);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -373,6 +373,7 @@ export function setupLights(scene) {
   sun.shadow.camera.far = 90;
   sun.shadow.bias = -0.0006;
   sun.shadow.radius = 4;
+  sun.shadow.intensity = 0.55; // soft, light shadows like the reference
   scene.add(sun);
   scene.add(sun.target);
   return { sun, hemi };
