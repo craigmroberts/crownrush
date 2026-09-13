@@ -13,6 +13,12 @@ No storyline, just the loop:
 
 **Goal:** survive 30 waves to secure the kingdom. After that the raids keep coming for a high score.
 
+- The King starts on foot and gathers wood, stone and straw by standing next to lumber groves, ore outcrops
+  and wheat fields. Walls, towers, bridges, expansions and his warhorse cost coins plus materials.
+- Roads grow out of the gates as you wall the village, and bridges over the river are built from pads at the
+  crossings. Until a bridge exists, raiders only come from your side of the river.
+- A blue arrow points home whenever the village is off-screen, and a score tracks kills, coins, materials,
+  builds, army size and waves cleared.
 - The map has a river that raiders (and the King) can only cross at the bridges where the curved roads
   meet it, so each bridge is a natural choke point. Mesas and snow peaks sit to the north-west, with
   forests, boulders, barricades, a wheat field and flower patches across the meadow.
@@ -52,6 +58,7 @@ All balance lives in [`src/config.js`](src/config.js):
 - `CFG` holds unit stats, wave pacing, enemy stats and the coin pickup radius.
 - `PADS` is the build tree. Each pad has a position, a cost, an icon, what it requires, and what it does
   (spawn units, build a structure, or apply an upgrade). Add an entry and it appears in the game.
+- `NODES` lists the resource nodes and their stock; `CFG.score` the points table.
 - `MAP` is the terrain: river centreline, road splines and the wheat field. Bridges are placed automatically
   where a road crosses the river.
 - `TIERS` is the village layout: the rectangle for each expansion stage, its gates, and wall section length.

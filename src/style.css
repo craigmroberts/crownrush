@@ -23,7 +23,8 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 #wave-hud { top: max(14px, env(safe-area-inset-top)); font-size: 24px; }
 #wave-hud .goal { font-size: 15px; opacity: 0.8; }
 #next-wave { font-size: 13px; font-weight: 600; opacity: 0.85; margin-top: -2px; }
-#army-hud { top: calc(max(14px, env(safe-area-inset-top)) + 50px); }
+#army-hud { top: calc(max(14px, env(safe-area-inset-top)) + 72px); font-size: 18px; }
+#army-hud .sep { opacity: 0.6; }
 
 #toast {
   position: fixed; left: 50%; top: 18%; transform: translateX(-50%);
@@ -68,3 +69,13 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .panel a { color: #c9432b; font-weight: 700; }
 
 #pause-btn { top: calc(max(14px, env(safe-area-inset-top)) + 116px); font-size: 18px; }
+
+#king-hp { position: absolute; left: 16px; top: calc(max(14px, env(safe-area-inset-top)) + 46px); display: flex; align-items: center; gap: 6px; }
+#king-hp .crown { color: #f5b800; font-size: 18px; text-shadow: 0 2px 3px rgba(0,0,0,0.5); }
+#king-hp .track { width: 150px; height: 14px; border-radius: 8px; background: rgba(20,40,30,0.7); border: 2px solid rgba(255,255,255,0.7); overflow: hidden; }
+#king-hp-fill { height: 100%; width: 100%; background: linear-gradient(#7de88f, #3fd455); transition: width 0.15s; }
+#res-hud { position: absolute; left: 16px; top: calc(max(14px, env(safe-area-inset-top)) + 100px); display: flex; gap: 12px; color: #fff; font-weight: 800; font-size: 16px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+#res-hud span { background: rgba(20,40,30,0.55); padding: 3px 9px; border-radius: 999px; }
+.panel .score { font-size: 20px; color: #2a3a2f; }
+.indicator.home .arrow { background: #2f6fd6; }
+.indicator.home .count { font-size: 18px; }

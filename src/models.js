@@ -347,6 +347,26 @@ export function makeBoss() {
   return g;
 }
 
+// The King before he earns his horse.
+export function makeKingFoot() {
+  const g = humanoid({ shirt: C.blue });
+  const plate = rbox(0.48, 0.4, 0.14, C.steel, 0, 0.66, 0.2, 0.06);
+  const cape = rbox(0.62, 0.8, 0.1, C.blue, 0, 0.55, -0.24, 0.05);
+  const beard = rbox(0.5, 0.2, 0.16, 0x5a3a20, 0, 0.98, 0.26, 0.06);
+  const crown = cyl(0.36, 0.32, 0.26, C.gold, 0, 1.62, -0.02, 8);
+  g.add(plate, cape, beard, crown);
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    g.add(box(0.14, 0.28, 0.1, C.gold, Math.cos(a) * 0.32, 1.87, -0.02 + Math.sin(a) * 0.32).rotateY(-a));
+  }
+  g.add(box(0.14, 0.14, 0.1, C.red, 0, 1.72, 0.33));
+  const b = bow(C.gold, 0.4);
+  b.position.set(0.44, 0.7, 0.24);
+  b.rotation.y = -0.4;
+  g.add(b);
+  return g;
+}
+
 export function makeKing() {
   const g = new THREE.Group();
   // horse (long axis along z)
@@ -712,6 +732,52 @@ export function makeBridge(length, width) {
   return g;
 }
 
+// ---- resource nodes ----
+export function makeLumberTree() {
+  const g = makeTree(1.15);
+  const logs = new THREE.Group();
+  for (let i = 0; i < 2; i++) {
+    const l = cyl(0.16, 0.16, 1.0, C.mane, 0.9 + i * 0.1, 0.16 + i * 0.3, 0.6 - i * 0.2, 6);
+    l.rotation.z = Math.PI / 2;
+    l.rotation.y = 0.4;
+    logs.add(l);
+  }
+  const stump = cyl(0.22, 0.26, 0.3, C.mane, -0.9, 0.15, -0.5, 7);
+  g.add(logs, stump);
+  return g;
+}
+
+export function makeOreRock() {
+  const g = new THREE.Group();
+  for (const [x, z, sc] of [[0, 0, 1.4], [1.1, 0.4, 0.9], [-0.9, 0.7, 0.8], [0.3, -1.0, 0.7]]) {
+    const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.6, 0), mat(0x6f747a));
+    r.scale.set(sc * 1.2, sc * 0.8, sc);
+    r.position.set(x, 0.35 * sc, z);
+    r.rotation.y = x + z;
+    r.castShadow = true;
+    g.add(r);
+  }
+  for (const [x, y, z] of [[0.2, 0.9, 0.3], [-0.4, 0.7, -0.2], [0.9, 0.7, 0.6]]) {
+    const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), new THREE.MeshToonMaterial({ color: 0xbfe6ff, gradientMap, emissive: 0x3a5a70 }));
+    c.position.set(x, y, z);
+    c.rotation.set(0.4, x, 0.3);
+    g.add(c);
+  }
+  const pick = box(0.08, 1.1, 0.08, C.darkWood, -1.3, 0.55, 0.8);
+  pick.rotation.z = 0.5;
+  pick.add(box(0.5, 0.12, 0.1, C.steel, 0, 0.5, 0));
+  g.add(pick);
+  return g;
+}
+
+const cubeGeo = new THREE.BoxGeometry(0.42, 0.42, 0.42);
+const RES_COLORS = { wood: 0x8a5a2b, stone: 0x8d9096, straw: 0xe0c25a };
+export function makeResourceCube(type) {
+  const m = new THREE.Mesh(cubeGeo, mat(RES_COLORS[type] || 0xffffff));
+  m.castShadow = true;
+  return m;
+}
+
 export function makeHayBale() {
   const g = new THREE.Group();
   const bale = cyl(0.55, 0.55, 0.9, 0xe0c25a, 0, 0.55, 0, 12);
@@ -783,16 +849,15 @@ export function makePadTexture() {
   return { canvas, tex };
 }
 
-export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 'coins' }) {
+const RES_ICON = { wood: '🪵', stone: '🪨', straw: '🌾' };
+export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 'coins', res = [] }) {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 256, 256);
   const r = 26;
-  // base tile
   ctx.beginPath();
   ctx.roundRect(14, 14, 228, 228, r);
   ctx.fillStyle = 'rgba(70, 60, 45, 0.55)';
   ctx.fill();
-  // green progress rising from the bottom
   if (paid > 0) {
     ctx.save();
     ctx.clip();
@@ -801,44 +866,42 @@ export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 
     ctx.fillRect(14, 242 - hgt, 228, hgt);
     ctx.restore();
   }
-  // white corner brackets
   ctx.strokeStyle = 'rgba(255,255,255,0.95)';
   ctx.lineWidth = 11;
   ctx.lineCap = 'round';
   const L = 40;
-  const corners = [[14, 14, 1, 1], [242, 14, -1, 1], [14, 242, 1, -1], [242, 242, -1, -1]];
-  for (const [x, y, sx, sy] of corners) {
+  for (const [x, y, sx, sy] of [[14, 14, 1, 1], [242, 14, -1, 1], [14, 242, 1, -1], [242, 242, -1, -1]]) {
     ctx.beginPath();
     ctx.moveTo(x + sx * L, y + sy * 6);
     ctx.lineTo(x + sx * 6, y + sy * 6);
     ctx.lineTo(x + sx * 6, y + sy * L);
     ctx.stroke();
   }
-  // icon + label at the top
-  ctx.font = '62px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+  const hasRes = res.length > 0;
+  ctx.font = (hasRes ? '50px' : '62px') + ' system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(icon, 128, 64);
+  ctx.fillText(icon, 128, hasRes ? 54 : 64);
   ctx.font = 'bold 24px "Trebuchet MS", system-ui, sans-serif';
   ctx.lineWidth = 6;
   ctx.strokeStyle = 'rgba(0,0,0,0.45)';
-  ctx.strokeText(label, 128, 112);
+  ctx.strokeText(label, 128, hasRes ? 96 : 112);
   ctx.fillStyle = '#ffffff';
-  ctx.fillText(label, 128, 112);
-  // price: a coin or an archer, then the big number
+  ctx.fillText(label, 128, hasRes ? 96 : 112);
+  const priceY = hasRes ? 150 : 186;
   if (currency === 'archers') {
     ctx.beginPath();
-    ctx.arc(70, 186, 24, 0, Math.PI * 2);
+    ctx.arc(70, priceY, 24, 0, Math.PI * 2);
     ctx.fillStyle = '#2f6fd6';
     ctx.fill();
     ctx.lineWidth = 4;
     ctx.strokeStyle = '#1d4a99';
     ctx.stroke();
     ctx.font = '26px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
-    ctx.fillText('🧍', 70, 188);
+    ctx.fillText('🧍', 70, priceY + 2);
   } else {
     ctx.beginPath();
-    ctx.arc(70, 186, 24, 0, Math.PI * 2);
+    ctx.arc(70, priceY, 24, 0, Math.PI * 2);
     ctx.fillStyle = '#f5b800';
     ctx.fill();
     ctx.lineWidth = 4;
@@ -846,18 +909,30 @@ export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 
     ctx.stroke();
     ctx.font = 'bold 22px system-ui';
     ctx.fillStyle = '#b07a00';
-    ctx.fillText('♛', 70, 188);
+    ctx.fillText('♛', 70, priceY + 2);
   }
-  ctx.save();
-  ctx.translate(160, 186);
-  ctx.transform(1, 0, -0.18, 1, 0, 0);
-  ctx.font = 'italic 900 78px "Trebuchet MS", "Arial Black", system-ui, sans-serif';
-  ctx.lineWidth = 10;
-  ctx.strokeStyle = '#1b1b24';
-  ctx.strokeText(String(remaining), 0, 0);
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(String(remaining), 0, 0);
-  ctx.restore();
+  const bigNum = (n, x, y, size) => {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.transform(1, 0, -0.18, 1, 0, 0);
+    ctx.font = `italic 900 ${size}px "Trebuchet MS", "Arial Black", system-ui, sans-serif`;
+    ctx.lineWidth = size * 0.13;
+    ctx.strokeStyle = '#1b1b24';
+    ctx.strokeText(String(n), 0, 0);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(String(n), 0, 0);
+    ctx.restore();
+  };
+  bigNum(remaining, 160, priceY, hasRes ? 64 : 78);
+  // material rows
+  const cols = res.length;
+  res.forEach((row, i) => {
+    const x = 128 + (i - (cols - 1) / 2) * 96;
+    ctx.font = '30px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(RES_ICON[row.type], x - 26, 208);
+    bigNum(row.remaining, x + 26, 208, 40);
+  });
   tex.needsUpdate = true;
 }
 
@@ -880,10 +955,12 @@ export function makeHealthBar(width = 1.2, green = false) {
   const g = new THREE.Group();
   const bg = new THREE.Sprite(barBg);
   bg.scale.set(width, 0.16, 1);
+  bg.renderOrder = 10;
   const fg = new THREE.Sprite(green ? barFgGreen : barFg);
   fg.center.set(0, 0.5);
   fg.position.x = -width / 2 + 0.03;
   fg.scale.set(width - 0.06, 0.1, 1);
+  fg.renderOrder = 11; // always on top of its background (depth test is off)
   g.add(bg, fg);
   g.userData.fg = fg;
   g.userData.width = width - 0.06;

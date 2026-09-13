@@ -17,7 +17,9 @@
         <span id="coin-count">0</span>
       </div>
       <div id="wave-hud">Wave <span id="wave-num">1</span> <span id="wave-goal" class="goal"></span><div id="next-wave"></div></div>
-      <div id="army-hud">🏹 <span id="army-count">0</span></div>
+      <div id="king-hp"><span class="crown">♛</span><div class="track"><div id="king-hp-fill"></div></div></div>
+      <div id="army-hud">🏹 <span id="army-count">0</span> <span class="sep">·</span> ⭐ <span id="score-num">0</span></div>
+      <div id="res-hud"><span>🪵 <b id="res-wood">0</b></span><span>🪨 <b id="res-stone">0</b></span><span>🌾 <b id="res-straw">0</b></span></div>
       <button id="mute-btn" title="Toggle sound">🔊</button>
       <button id="pause-btn" title="Pause (P)">⏸</button>
     </div>
@@ -30,7 +32,7 @@
         <h1>Crown Rush</h1>
         <p>Defeat the raiders. Grab their coins. Stand on a build pad to spend them and grow your army.</p>
         <p><strong>Survive 30 waves to secure the kingdom.</strong> If the King falls, it's over.</p>
-        <p class="hint">Drag anywhere to move · or use WASD / arrow keys</p>
+        <p class="hint">Drag anywhere to move · or use WASD / arrow keys. Stand by trees, rocks and wheat to gather materials.</p>
         <button id="start-btn">Play</button>
         <p class="best">Best: wave <span id="best-wave">1</span></p>
       </div>
@@ -40,6 +42,7 @@
       <div class="panel">
         <h1>The King Has Fallen</h1>
         <p>You survived to wave <strong id="final-wave">1</strong> and earned <strong id="final-coins">0</strong> coins.</p>
+        <p class="score">Score <strong id="final-score">0</strong> <span class="hint">· best <span id="final-best">0</span></span></p>
         <button id="restart-btn">Play Again</button>
       </div>
     </div>
@@ -57,6 +60,7 @@
       <div class="panel">
         <h1>Kingdom Secured!</h1>
         <p>You held out for 30 waves with an army of <strong id="victory-army">0</strong> and <strong id="victory-coins">0</strong> coins earned.</p>
+        <p class="score">Score <strong id="victory-score">0</strong></p>
         <p class="hint">The raids never really stop. Keep going for a high score?</p>
         <button id="continue-btn">Keep Playing</button>
         <p class="best"><a href="#" id="victory-restart">Start over</a></p>

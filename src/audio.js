@@ -221,6 +221,20 @@ class Audio {
     this.tone({ f: 3450 * p, t, dur: 0.08, type: 'sine', gain: 0.06, attack: 0.002, release: 0.06 });
     this.noise({ t, dur: 0.03, gain: 0.05, f: 6000, q: 2 });
   }
+  mine(type) {
+    if (!this.ready() || this.now - this.lastHit < 0.05) return;
+    this.lastHit = this.now;
+    const t = this.now;
+    if (type === 'wood') {
+      this.noise({ t, dur: 0.1, gain: 0.22, type: 'lowpass', f: 700 });
+      this.tone({ f: 160, slideTo: 90, t, dur: 0.12, type: 'triangle', gain: 0.2, attack: 0.002, release: 0.08 });
+    } else if (type === 'stone') {
+      this.tone({ f: 1900 * (0.95 + Math.random() * 0.1), t, dur: 0.08, type: 'triangle', gain: 0.12, attack: 0.002, release: 0.06 });
+      this.noise({ t, dur: 0.06, gain: 0.18, type: 'highpass', f: 2500 });
+    } else {
+      this.noise({ t, dur: 0.14, gain: 0.16, f: 3200, q: 0.7 });
+    }
+  }
   build() {
     if (!this.ready()) return;
     const t = this.now;

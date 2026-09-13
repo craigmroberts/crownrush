@@ -1,11 +1,11 @@
 import * as THREE from 'three';
-import { CFG, PADS, TIERS } from './config.js';
+import { CFG, PADS, TIERS, NODES } from './config.js';
 import { audio } from './audio.js';
 import { buildWorld, setupLights } from './world.js';
 import { Input } from './input.js';
 import {
-  makeKing, makeArcher, makeSwordsman, makeKnight, makeElite, makeBrute, makeBoss, makeCoin, makeArrow,
-  makeHut, makeTower, makeBarracks, makeWallSegment, makeGate, makeRubble, makePad, drawPad, ghostify,
+  makeKing, makeKingFoot, makeLumberTree, makeOreRock, makeResourceCube, makeArcher, makeSwordsman, makeKnight, makeElite, makeBrute, makeBoss, makeCoin, makeArrow,
+  makeHut, makeTower, makeBarracks, makeWallSegment, makeGate, makeRubble, makeBridge, makePad, drawPad, ghostify,
   makeHealthBar, setHealthBar, makePopup, makeRing,
 } from './models.js';
 
@@ -77,6 +77,13 @@ export class Game {
     this.buyCount = {};
     this.tier = 0;
     this.wallLevel = 0;
+    this.mounted = false;
+    this.res = { wood: 0, stone: 0, straw: 0 };
+    this.flyRes = [];
+    this.score = 0;
+    this.bestScore = Number(localStorage.getItem('crownrush-best-score') || 0);
+    this.mineTimer = 0;
+    this.nodes = [];
     this.damageMul = 1;
     this.coinsCarried = 0;
     this.coinsEarned = 0;
@@ -92,8 +99,29 @@ export class Game {
     this.paused = false;
     this.shake = 0;
 
-    // king
+    // king (on foot until he earns a horse)
     this.king = this.spawnUnit('king', 0, 2);
+    const hc = TIERS[0].bounds;
+    this.homeSide = this.world.riverInfo((hc.x0 + hc.x1) / 2, (hc.z0 + hc.z1) / 2).side;
+
+    // resource nodes
+    for (const def of NODES) {
+      const mesh = def.type === 'wood' ? makeLumberTree() : def.type === 'stone' ? makeOreRock() : new THREE.Group();
+      mesh.position.set(def.pos[0], 0, def.pos[1]);
+      if (def.type !== 'straw') this.root.add(mesh);
+      this.nodes.push({ type: def.type, mesh, stock: def.stock, max: def.stock, regrow: 0, pos: new V3(def.pos[0], 0, def.pos[1]) });
+    }
+    // world roads/bridges are scene-level: reset them
+    for (const r of this.world.roads) {
+      r.revealed = false;
+      r.progress = 0;
+      for (const m of r.meshes) {
+        m.visible = false;
+        m.geometry.setDrawRange(0, 0);
+      }
+    }
+    for (const b of this.world.bridges) this.scene.remove(b.mesh);
+    this.world.bridges.length = 0;
     this.ring = makeRing(2.4);
     this.ringRadius = 2.4;
     this.root.add(this.ring);
@@ -108,7 +136,7 @@ export class Game {
     }
 
     this.refreshPads();
-    this.hud.set(0, 1, 0, null, CFG.waves.goal);
+    this.hud.set(0, 1, 0, null, CFG.waves.goal, this.res, 0, 1);
     this.hud.setIndicators([]);
   }
 
@@ -154,8 +182,9 @@ export class Game {
       this.best = this.wave;
       localStorage.setItem('crownrush-best', String(this.best));
     }
+    this.saveScore();
     audio.gameOver();
-    setTimeout(() => this.hud.showGameOver(this.wave, this.coinsEarned), 900);
+    setTimeout(() => this.hud.showGameOver(this.wave, this.coinsEarned, this.score, this.bestScore), 900);
   }
 
   victory() {
@@ -165,8 +194,36 @@ export class Game {
       this.best = this.wave;
       localStorage.setItem('crownrush-best', String(this.best));
     }
+    this.saveScore();
     audio.build();
-    setTimeout(() => this.hud.showVictory(this.coinsEarned, this.units.length - 1 + this.turrets.length), 600);
+    setTimeout(() => this.hud.showVictory(this.coinsEarned, this.units.length - 1 + this.turrets.length, this.score), 600);
+  }
+
+  addScore(n) {
+    this.score += Math.round(n);
+  }
+
+  saveScore() {
+    if (this.score > this.bestScore) {
+      this.bestScore = this.score;
+      localStorage.setItem('crownrush-best-score', String(this.bestScore));
+    }
+  }
+
+  mountKing() {
+    if (this.mounted) return;
+    this.mounted = true;
+    const k = this.king;
+    const old = k.mesh;
+    k.mesh = makeKing();
+    k.mesh.position.copy(old.position);
+    k.mesh.rotation.copy(old.rotation);
+    this.root.remove(old);
+    k.bar = makeHealthBar(1.6, true);
+    k.bar.position.y = 3.2;
+    k.mesh.add(k.bar);
+    this.root.add(k.mesh);
+    this.popIn(k.mesh);
   }
 
   // ---------- spawning ----------
@@ -174,7 +231,7 @@ export class Game {
     let mesh;
     let stats;
     if (type === 'king') {
-      mesh = makeKing();
+      mesh = this.mounted ? makeKing() : makeKingFoot();
       stats = CFG.king;
     } else if (type === 'archer') {
       mesh = makeArcher();
@@ -185,7 +242,7 @@ export class Game {
     }
     mesh.position.set(x, 0, z);
     const bar = makeHealthBar(type === 'king' ? 1.6 : 1.0, true);
-    bar.position.y = type === 'king' ? 3.2 : 1.8;
+    bar.position.y = type === 'king' ? (this.mounted ? 3.2 : 2.4) : 1.8;
     mesh.add(bar);
     this.root.add(mesh);
     const u = {
@@ -217,6 +274,10 @@ export class Game {
   }
 
   startWave() {
+    if (this.wave > 0) {
+      const soldiers = this.units.length - 1 + this.turrets.length;
+      this.addScore(CFG.score.waveClear * this.wave + soldiers * CFG.score.soldierPerWave);
+    }
     this.wave++;
     const w = this.wave;
     const list = [];
@@ -248,8 +309,11 @@ export class Game {
         z = THREE.MathUtils.clamp(cz + Math.sin(a) * r, -half, half);
         const onCliff = x < CFG.cliffs.x && z < CFG.cliffs.z;
         const inside = x > b.x0 - 3 && x < b.x1 + 3 && z > b.z0 - 3 && z < b.z1 + 3;
-        const inRiver = this.world.riverInfo(x, z).dist < this.world.river.halfWidth + 3;
-        if (!onCliff && !inside && !inRiver) break;
+        const ri = this.world.riverInfo(x, z);
+        const inRiver = ri.dist < this.world.river.halfWidth + 3;
+        // without a bridge, raiders can only come from the village's side of the river
+        const wrongSide = this.world.bridges.length === 0 && ri.side !== this.homeSide;
+        if (!onCliff && !inside && !inRiver && !wrongSide) break;
         a += 0.9;
         r += 3;
       }
@@ -288,7 +352,7 @@ export class Game {
     mesh.position.set(def.pos[0], 0.03, def.pos[1]);
     mesh.scale.setScalar(0.01);
     this.root.add(mesh);
-    const pad = { def, mesh, canvas, tex, cost: this.padCost(def), paid: 0, ghosts: [] };
+    const pad = { def, mesh, canvas, tex, cost: this.padCost(def), paid: 0, ghosts: [], res: Object.entries(def.res || {}).map(([type, need]) => ({ type, need, paid: 0 })) };
     // ghost previews: units on the pad, structures where they'd be built, wall outlines along the edge
     if (def.units) {
       for (let i = 0; i < def.units.count; i++) {
@@ -314,6 +378,20 @@ export class Game {
       const g = ghostify(this.makeWallMesh(def.repair));
       this.root.add(g);
       pad.ghosts.push(g);
+    } else if (def.bridge) {
+      const c = this.world.crossingFor(def.bridge);
+      if (c) {
+        const g = ghostify(makeBridge(this.world.river.halfWidth * 2 + 5, 4.8));
+        g.position.set(c.x, 0, c.z);
+        g.rotation.y = Math.atan2(c.dx, c.dz);
+        this.root.add(g);
+        pad.ghosts.push(g);
+      }
+    } else if (def.effect === 'horse') {
+      const g = ghostify(makeKing());
+      g.position.set(def.pos[0], 0, def.pos[1] - 1.2);
+      this.root.add(g);
+      pad.ghosts.push(g);
     } else if (def.structure && def.buildAt) {
       const g = ghostify(this.makeStructureMesh(def.structure));
       g.position.set(def.buildAt[0], 0, def.buildAt[1]);
@@ -325,9 +403,12 @@ export class Game {
   }
 
   drawPad(pad) {
+    const total = pad.cost + pad.res.reduce((a, r) => a + r.need, 0);
+    const paidAll = pad.paid + pad.res.reduce((a, r) => a + r.paid, 0);
     drawPad(pad.canvas, pad.tex, {
-      icon: pad.def.icon, label: pad.def.label, remaining: pad.cost - pad.paid, paid: pad.paid / pad.cost,
+      icon: pad.def.icon, label: pad.def.label, remaining: pad.cost - pad.paid, paid: paidAll / total,
       currency: pad.def.crew ? 'archers' : 'coins',
+      res: pad.res.map((r) => ({ type: r.type, remaining: r.need - r.paid })),
     });
   }
 
@@ -373,6 +454,21 @@ export class Game {
     }
     if (def.effect === 'wallLevel') this.upgradeWalls();
     if (def.effect === 'expand') this.expand();
+    if (def.effect === 'horse') this.mountKing();
+    if (def.bridge) {
+      const m = this.world.buildBridge(def.bridge);
+      if (m) this.popIn(m);
+    }
+    if (def.wall) {
+      // roads grow out of the gates as the walls go up
+      if (def.wall.tier === 0) {
+        this.world.revealRoad('south');
+        this.world.revealRoad('east');
+      }
+      if (def.wall.side === 'west') this.world.revealRoad('west');
+      if (def.wall.side === 'north') this.world.revealRoad('north');
+    }
+    if (!def.crew) this.addScore(pad.cost * CFG.score.buildPerCoin + pad.res.reduce((a, r) => a + r.need, 0) * CFG.score.buildPerMaterial);
     audio.build();
     if (def.toast) this.hud.toast(def.toast);
 
@@ -653,6 +749,7 @@ export class Game {
     const n = randInt(e.stats.coins[0], e.stats.coins[1]);
     for (let i = 0; i < n; i++) this.dropCoin(e.mesh.position);
     audio.enemyDie();
+    this.addScore(CFG.score.kill[e.type] || 10);
     if (e.type === 'boss') this.hud.toast('Boss defeated!', 1800);
   }
 
@@ -720,7 +817,7 @@ export class Game {
       this.updateWaves(dt);
       const army = this.units.filter((u) => u !== this.king && !u.assign).length;
       const between = this.enemies.length === 0 && this.spawnQueue.length === 0;
-      this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, CFG.waves.goal);
+      this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, CFG.waves.goal, this.res, this.score, this.king.hp / this.king.maxHp);
       this.updateIndicators(dt);
     }
     this.world.update(dt);
@@ -733,8 +830,9 @@ export class Game {
   updatePlayer(dt) {
     const k = this.king;
     const inp = this.input.read();
-    const speed = k.stats.speed;
+    const speed = this.mounted ? k.stats.speed : k.stats.footSpeed;
     k.vel.set(inp.x * speed, 0, inp.z * speed);
+    if (k.mesh.userData.body.rotation.x > 0) k.mesh.userData.body.rotation.x = Math.max(0, k.mesh.userData.body.rotation.x - dt * 3);
     const p = k.mesh.position;
     p.x += k.vel.x * dt;
     p.z += k.vel.z * dt;
@@ -763,11 +861,56 @@ export class Game {
       k.mesh.rotation.y = this.lerpAngle(k.mesh.rotation.y, Math.atan2(inp.x, inp.z), 1 - Math.exp(-dt * 12));
     }
     this.regen(k, dt);
+    k.bar.visible = true;
+    this.updateMining(dt);
     this.ring.position.set(p.x, 0.04, p.z);
     const followers = this.units.filter((u) => u !== this.king && !u.assign).length;
     const rr = 2.4 + Math.sqrt(followers) * 0.45;
     this.ring.scale.setScalar(rr / 2.4);
     this.ringRadius = rr;
+  }
+
+  // The King gathers wood, stone and straw by standing next to a node.
+  updateMining(dt) {
+    const kp = this.king.mesh.position;
+    this.mineTimer -= dt;
+    for (const n of this.nodes) {
+      if (n.stock < n.max) {
+        n.regrow += dt;
+        if (n.regrow >= CFG.mining.regrow) {
+          n.regrow = 0;
+          n.stock++;
+          this.setNodeLook(n);
+        }
+      }
+    }
+    if (this.mineTimer > 0) return;
+    let best = null;
+    let bd = CFG.mining.radius + 1.5;
+    for (const n of this.nodes) {
+      const d = kp.distanceTo(n.pos) - (n.type === 'straw' ? 4 : 0);
+      if (d < bd && n.stock > 0) {
+        bd = d;
+        best = n;
+      }
+    }
+    if (!best) return;
+    this.mineTimer = CFG.mining.tick;
+    best.stock--;
+    this.setNodeLook(best);
+    audio.mine(best.type);
+    this.king.mesh.userData.body.rotation.x = 0.35;
+    const c = makeResourceCube(best.type);
+    c.position.copy(best.pos).setY(1.0);
+    if (best.type === 'straw') c.position.set(kp.x + rand(-2, 2), 0.6, kp.z + rand(-2, 2));
+    this.root.add(c);
+    this.coins.push({ mesh: c, state: 'fly', resType: best.type, t: 0, vx: 0, vz: 0, vy: 0 });
+  }
+
+  setNodeLook(n) {
+    if (n.type === 'straw') return;
+    const f = 0.45 + 0.55 * (n.stock / n.max);
+    n.mesh.scale.setScalar(f);
   }
 
   updateArmy(dt) {
@@ -1020,10 +1163,16 @@ export class Game {
         tmp.y = 2.4 + this.stackCount() * 0.11;
         p.lerp(tmp, 1 - Math.exp(-dt * 14));
         if (p.distanceTo(tmp) < 0.5) {
-          this.coinsCarried++;
-          this.coinsEarned++;
-          this.comboTimer = 0.6;
-          audio.coin(this.coinCombo++);
+          if (c.resType) {
+            this.res[c.resType]++;
+            this.addScore(CFG.score.material);
+          } else {
+            this.coinsCarried++;
+            this.coinsEarned++;
+            this.comboTimer = 0.6;
+            this.addScore(CFG.score.coin);
+            audio.coin(this.coinCombo++);
+          }
           this.root.remove(c.mesh);
           this.coins.splice(i, 1);
         }
@@ -1045,9 +1194,29 @@ export class Game {
         f.pad.paid++;
         this.drawPad(f.pad);
         f.pad.mesh.scale.setScalar(1.08);
-        if (f.pad.paid >= f.pad.cost && this.pads.includes(f.pad)) this.completePad(f.pad);
+        if (this.padPaid(f.pad) && this.pads.includes(f.pad)) this.completePad(f.pad);
       }
     }
+    for (let i = this.flyRes.length - 1; i >= 0; i--) {
+      const f = this.flyRes[i];
+      f.t += dt / 0.3;
+      const t = Math.min(1, f.t);
+      f.mesh.position.lerpVectors(f.from, f.to, t);
+      f.mesh.position.y += Math.sin(t * Math.PI) * 1.4;
+      f.mesh.rotation.y += dt * 8;
+      if (t >= 1) {
+        this.root.remove(f.mesh);
+        this.flyRes.splice(i, 1);
+        f.row.paid++;
+        this.drawPad(f.pad);
+        f.pad.mesh.scale.setScalar(1.08);
+        if (this.padPaid(f.pad) && this.pads.includes(f.pad)) this.completePad(f.pad);
+      }
+    }
+  }
+
+  padPaid(pad) {
+    return pad.paid >= pad.cost && pad.res.every((r) => r.paid >= r.need);
   }
 
   stackCount() {
@@ -1085,6 +1254,20 @@ export class Game {
       // coins pour faster the longer the King stands on the pad, so big purchases don't drag
       pad.holdT = inside ? (pad.holdT || 0) + dt : 0;
       const tick = THREE.MathUtils.lerp(CFG.spend.tick, CFG.spend.fastTick, Math.min(1, pad.holdT / 1.5));
+      // materials pour in alongside the coins
+      for (const row of pad.res) {
+        const pendingRes = this.flyRes.filter((f) => f.pad === pad && f.row === row).length;
+        if (inside && this.res[row.type] > 0 && row.paid + pendingRes < row.need && (pad.resTimer || 0) <= 0) {
+          pad.resTimer = tick * 1.6;
+          this.res[row.type]--;
+          audio.ching();
+          const c = makeResourceCube(row.type);
+          c.position.set(kp.x + rand(-0.6, 0.6), 1.2, kp.z + rand(-0.6, 0.6));
+          this.root.add(c);
+          this.flyRes.push({ mesh: c, from: c.position.clone(), to: new V3(pad.mesh.position.x, 0.4, pad.mesh.position.z), t: 0, pad, row });
+        }
+      }
+      pad.resTimer = (pad.resTimer || 0) - dt;
       let pending = this.flyCoins.filter((f) => f.pad === pad).length;
       while (inside && this.coinsCarried > 0 && pad.paid + pending < pad.cost && this.spendTimer <= 0) {
         this.spendTimer += tick;
@@ -1147,6 +1330,18 @@ export class Game {
     }
     const list = [];
     const margin = 44;
+    // a blue arrow home whenever the village is off-screen
+    const hb = TIERS[0].bounds;
+    tmp.set((hb.x0 + hb.x1) / 2, 1, (hb.z0 + hb.z1) / 2).project(this.camera);
+    const hx = tmp.x * w * 0.5;
+    const hy = -tmp.y * h * 0.5;
+    if (Math.abs(hx) > w * 0.5 - 30 || Math.abs(hy) > h * 0.5 - 30 || tmp.z >= 1) {
+      const ang = Math.atan2(hy, hx);
+      const dx = Math.cos(ang);
+      const dy = Math.sin(ang);
+      const t = Math.min((w * 0.5 - margin) / Math.max(1e-6, Math.abs(dx)), (h * 0.5 - margin) / Math.max(1e-6, Math.abs(dy)));
+      list.push({ x: w * 0.5 + dx * t, y: h * 0.5 + dy * t, angle: ang, count: 0, home: true });
+    }
     for (const b of bins.values()) {
       const ang = Math.atan2(b.ay, b.ax);
       const dx = Math.cos(ang);

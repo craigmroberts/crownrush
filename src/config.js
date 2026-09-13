@@ -4,7 +4,11 @@ export const CFG = {
   // the grey mesas in the north-west; nothing spawns or walks here
   cliffs: { x: -14, z: -33 },
 
-  king: { speed: 7.5, hp: 140, range: 8.5, fireRate: 1.2, damage: 10, pickupRadius: 3.0 },
+  king: { speed: 7.5, footSpeed: 5.6, hp: 140, range: 8.5, fireRate: 1.2, damage: 10, pickupRadius: 3.0 },
+
+  mining: { radius: 2.8, tick: 0.55, regrow: 9 },
+
+  score: { kill: { knight: 10, elite: 25, brute: 20, boss: 200 }, coin: 1, material: 2, buildPerCoin: 2, buildPerMaterial: 3, soldierPerWave: 2, waveClear: 50 },
 
   archer: { hp: 30, range: 9.5, fireRate: 0.9, damage: 10, speed: 9 },
   swordsman: { hp: 70, range: 1.4, fireRate: 1.1, damage: 14, speed: 8.5, aggro: 5 },
@@ -60,7 +64,7 @@ export const MAP = {
     { id: 'north', points: [[2, -18], [2, -24], [2, -40], [8, -58], [16, -76], [22, -96]] },
   ],
   roadWidth: 4.2,
-  field: { pos: [45, 22], size: [10, 7] },
+  fields: [{ pos: [45, 22], size: [10, 7] }, { pos: [-20, 25], size: [8, 6] }, { pos: [10, 62], size: [10, 8] }],
 };
 
 // Village tiers. The village starts as tier 0 and each "Expand Village" pad moves it up one.
@@ -79,39 +83,53 @@ export const PADS = [
   { id: 'range', tier: 0, pos: [-3, -5], cost: 5, icon: '🏹', label: 'Archery Range', structure: 'hut', buildAt: [-7.5, -5.5], toast: 'Archery Range built! Recruit archers.' },
   { id: 'recruit', tier: 0, pos: [-3, -0.5], cost: 5, growth: 1, icon: '🏹', label: '+2 Archers', requires: ['range'], repeatable: true, units: { type: 'archer', count: 2 } },
   { id: 'bows', tier: 0, pos: [2, -6], cost: 12, growth: 12, maxBuys: 5, icon: '⬆️', label: 'Sharper Arrows', requires: ['range'], repeatable: true, effect: 'damage', toast: 'Arrows +40% damage' },
-  { id: 'tower1', tier: 0, pos: [6, -2], cost: 20, icon: '🗼', label: 'Watchtower', requires: ['recruit'], structure: 'tower', buildAt: [7.5, -6], toast: 'Watchtower built. It needs a crew!' },
+  { id: 'tower1', tier: 0, pos: [6, -2], cost: 20, res: { wood: 8 }, icon: '🗼', label: 'Watchtower', requires: ['recruit'], structure: 'tower', buildAt: [7.5, -6], toast: 'Watchtower built. It needs a crew!' },
   { id: 'crew-tower1', tier: 0, pos: [6, 2], crew: 3, icon: '🏹', label: 'Man the Tower', requires: ['tower1'], tower: 'tower1', toast: 'Tower manned!' },
-  { id: 'palisade', tier: 0, pos: [-7, 3.5], cost: 15, icon: '🪵', label: 'Palisade', requires: ['tower1'], wall: { tier: 0, side: 'all' }, toast: 'Palisade raised. Raiders must break through!' },
+  { id: 'palisade', tier: 0, pos: [-7, 3.5], cost: 15, res: { wood: 10 }, icon: '🪵', label: 'Palisade', requires: ['tower1'], wall: { tier: 0, side: 'all' }, toast: 'Palisade raised. Raiders must break through!' },
   { id: 'crew-gates1', tier: 0, pos: [-2, 5], crew: 4, icon: '🛡️', label: 'Gate Guards', requires: ['palisade'], spots: [[-3.2, 7.6, 0], [3.2, 7.6, 0], [9.6, -3.2, 0], [9.6, 3.2, 0]], toast: 'Archers now guard the gates.' },
-  { id: 'brick', tier: 0, pos: [-7, -1], cost: 45, icon: '🧱', label: 'Brick Walls', requires: ['palisade'], effect: 'wallLevel', toast: 'Walls rebuilt in brick!' },
-  { id: 'expand1', tier: 0, pos: [3, 5], cost: 50, icon: '🏰', label: 'Expand Village', requires: ['palisade', 'crew-tower1'], effect: 'expand', toast: 'The village grows! Wall the new ground.' },
+  { id: 'brick', tier: 0, pos: [-7, -1], cost: 45, res: { stone: 15, straw: 6 }, icon: '🧱', label: 'Brick Walls', requires: ['palisade'], effect: 'wallLevel', toast: 'Walls rebuilt in brick!' },
+  { id: 'expand1', tier: 0, pos: [3, 5], cost: 50, res: { wood: 10, stone: 5 }, icon: '🏰', label: 'Expand Village', requires: ['palisade', 'crew-tower1'], effect: 'expand', toast: 'The village grows! Wall the new ground.' },
+
+  { id: 'stable', tier: 0, pos: [8, 6], cost: 30, res: { straw: 8 }, icon: '🐴', label: 'Warhorse', requires: ['range'], effect: 'horse', toast: 'The King rides! Much faster now.' },
+  { id: 'bridge-south', tier: 0, pos: [1, 44], cost: 20, res: { wood: 12 }, icon: '🌉', label: 'South Bridge', requires: ['palisade'], bridge: 'south', toast: 'Bridge built. New lands, and new raiders, across the river.' },
+  { id: 'bridge-east', tier: 0, pos: [47, 3], cost: 20, res: { wood: 12 }, icon: '🌉', label: 'East Bridge', requires: ['palisade'], bridge: 'east', toast: 'Bridge built. New lands, and new raiders, across the river.' },
 
   // ---- tier 1 ----
-  { id: 'wall2-south', tier: 1, pos: [-6, 15], cost: 20, icon: '🪵', label: 'South Wall', requires: ['expand1'], wall: { tier: 1, side: 'south' } },
-  { id: 'wall2-east', tier: 1, pos: [18, 8], cost: 20, icon: '🪵', label: 'East Wall', requires: ['expand1'], wall: { tier: 1, side: 'east' } },
-  { id: 'wall2-west', tier: 1, pos: [-17, 8], cost: 20, icon: '🪵', label: 'West Wall', requires: ['expand1'], wall: { tier: 1, side: 'west' } },
-  { id: 'wall2-north', tier: 1, pos: [16, -11], cost: 20, icon: '🪵', label: 'North Wall', requires: ['expand1'], wall: { tier: 1, side: 'north' } },
+  { id: 'wall2-south', tier: 1, res: { wood: 8 }, pos: [-6, 15], cost: 20, icon: '🪵', label: 'South Wall', requires: ['expand1'], wall: { tier: 1, side: 'south' } },
+  { id: 'wall2-east', tier: 1, res: { wood: 8 }, pos: [18, 8], cost: 20, icon: '🪵', label: 'East Wall', requires: ['expand1'], wall: { tier: 1, side: 'east' } },
+  { id: 'wall2-west', tier: 1, res: { wood: 8 }, pos: [-17, 8], cost: 20, icon: '🪵', label: 'West Wall', requires: ['expand1'], wall: { tier: 1, side: 'west' } },
+  { id: 'wall2-north', tier: 1, res: { wood: 8 }, pos: [16, -11], cost: 20, icon: '🪵', label: 'North Wall', requires: ['expand1'], wall: { tier: 1, side: 'north' } },
   { id: 'crew-gates2', tier: 1, pos: [2, 13], crew: 6, icon: '🛡️', label: 'Gate Guards', requires: ['wall2-south', 'wall2-east', 'wall2-west'], spots: [[-2.2, 18.6, 0], [4.2, 18.6, 0], [22.6, -1.3, 0], [22.6, 5.3, 0], [-20.6, 0.7, 0], [-20.6, 7.3, 0]], toast: 'Archers now guard the new gates.' },
-  { id: 'tower2', tier: 1, pos: [-16, 0], cost: 30, icon: '🗼', label: 'Watchtower', requires: ['expand1'], structure: 'tower', buildAt: [-18, -4], toast: 'Watchtower built. It needs a crew!' },
+  { id: 'tower2', tier: 1, pos: [-16, 0], cost: 30, res: { wood: 10 }, icon: '🗼', label: 'Watchtower', requires: ['expand1'], structure: 'tower', buildAt: [-18, -4], toast: 'Watchtower built. It needs a crew!' },
   { id: 'crew-tower2', tier: 1, pos: [-16, 4], crew: 3, icon: '🏹', label: 'Man the Tower', requires: ['tower2'], tower: 'tower2', toast: 'Tower manned!' },
-  { id: 'tower3', tier: 1, pos: [16, -6], cost: 35, icon: '🗼', label: 'Watchtower', requires: ['expand1'], structure: 'tower', buildAt: [19, -3], toast: 'Watchtower built. It needs a crew!' },
+  { id: 'tower3', tier: 1, pos: [16, -6], cost: 35, res: { wood: 10 }, icon: '🗼', label: 'Watchtower', requires: ['expand1'], structure: 'tower', buildAt: [19, -3], toast: 'Watchtower built. It needs a crew!' },
   { id: 'crew-tower3', tier: 1, pos: [14, -2], crew: 3, icon: '🏹', label: 'Man the Tower', requires: ['tower3'], tower: 'tower3', toast: 'Tower manned!' },
-  { id: 'barracks', tier: 1, pos: [8, 14], cost: 40, icon: '⚔️', label: 'Barracks', requires: ['expand1'], structure: 'barracks', buildAt: [12, 16.5], toast: 'Barracks built! Recruit swordsmen.' },
+  { id: 'barracks', tier: 1, pos: [8, 14], cost: 40, res: { stone: 12, wood: 8 }, icon: '⚔️', label: 'Barracks', requires: ['expand1'], structure: 'barracks', buildAt: [12, 16.5], toast: 'Barracks built! Recruit swordsmen.' },
   { id: 'recruit-sword', tier: 1, pos: [13, 12], cost: 8, growth: 2, icon: '⚔️', label: '+2 Swordsmen', requires: ['barracks'], repeatable: true, units: { type: 'swordsman', count: 2 } },
   { id: 'crown', tier: 1, pos: [-6, 11], cost: 35, growth: 25, maxBuys: 3, icon: '👑', label: 'Royal Guard', requires: ['expand1'], repeatable: true, effect: 'kinghp', toast: 'King max HP +80 and fully healed' },
-  { id: 'stone', tier: 1, pos: [-12, 14], cost: 110, icon: '🪨', label: 'Stone Walls', requires: ['brick', 'wall2-south', 'wall2-east', 'wall2-west', 'wall2-north'], effect: 'wallLevel', toast: 'Walls rebuilt in stone!' },
-  { id: 'expand2', tier: 1, pos: [20, 15], cost: 130, icon: '🏰', label: 'Expand Village', requires: ['wall2-south', 'wall2-east', 'wall2-west', 'wall2-north', 'crew-gates2'], effect: 'expand', toast: 'The kingdom grows again!' },
+  { id: 'stone', tier: 1, pos: [-12, 14], cost: 110, res: { stone: 40 }, icon: '🪨', label: 'Stone Walls', requires: ['brick', 'wall2-south', 'wall2-east', 'wall2-west', 'wall2-north'], effect: 'wallLevel', toast: 'Walls rebuilt in stone!' },
+  { id: 'expand2', tier: 1, pos: [20, 15], cost: 130, res: { wood: 20, stone: 20 }, icon: '🏰', label: 'Expand Village', requires: ['wall2-south', 'wall2-east', 'wall2-west', 'wall2-north', 'crew-gates2'], effect: 'expand', toast: 'The kingdom grows again!' },
 
   // ---- tier 2 ----
-  { id: 'wall3-south', tier: 2, pos: [0, 26], cost: 40, icon: '🪵', label: 'South Wall', requires: ['expand2'], wall: { tier: 2, side: 'south' } },
-  { id: 'wall3-east', tier: 2, pos: [30, 10], cost: 40, icon: '🪵', label: 'East Wall', requires: ['expand2'], wall: { tier: 2, side: 'east' } },
-  { id: 'wall3-west', tier: 2, pos: [-28, 10], cost: 40, icon: '🪵', label: 'West Wall', requires: ['expand2'], wall: { tier: 2, side: 'west' } },
-  { id: 'wall3-north', tier: 2, pos: [10, -19], cost: 40, icon: '🪵', label: 'North Wall', requires: ['expand2'], wall: { tier: 2, side: 'north' } },
+  { id: 'wall3-south', tier: 2, res: { wood: 12, stone: 6 }, pos: [0, 26], cost: 40, icon: '🪵', label: 'South Wall', requires: ['expand2'], wall: { tier: 2, side: 'south' } },
+  { id: 'wall3-east', tier: 2, res: { wood: 12, stone: 6 }, pos: [30, 10], cost: 40, icon: '🪵', label: 'East Wall', requires: ['expand2'], wall: { tier: 2, side: 'east' } },
+  { id: 'wall3-west', tier: 2, res: { wood: 12, stone: 6 }, pos: [-28, 10], cost: 40, icon: '🪵', label: 'West Wall', requires: ['expand2'], wall: { tier: 2, side: 'west' } },
+  { id: 'wall3-north', tier: 2, res: { wood: 12, stone: 6 }, pos: [10, -19], cost: 40, icon: '🪵', label: 'North Wall', requires: ['expand2'], wall: { tier: 2, side: 'north' } },
   { id: 'crew-gates3', tier: 2, pos: [10, 24], crew: 8, icon: '🛡️', label: 'Gate Guards', requires: ['wall3-south', 'wall3-east', 'wall3-west', 'wall3-north'], spots: [[-2.2, 30.6, 0], [4.2, 30.6, 0], [34.6, 0.7, 0], [34.6, 7.3, 0], [-32.6, 0.7, 0], [-32.6, 7.3, 0], [-1.3, -22.6, 0], [5.3, -22.6, 0]], toast: 'Archers now guard the outer gates.' },
-  { id: 'tower4', tier: 2, pos: [-28, 20], cost: 50, icon: '🗼', label: 'Watchtower', requires: ['expand2'], structure: 'tower', buildAt: [-30, 26], toast: 'Watchtower built. It needs a crew!' },
+  { id: 'tower4', tier: 2, pos: [-28, 20], cost: 50, res: { wood: 12 }, icon: '🗼', label: 'Watchtower', requires: ['expand2'], structure: 'tower', buildAt: [-30, 26], toast: 'Watchtower built. It needs a crew!' },
   { id: 'crew-tower4', tier: 2, pos: [-28, 16], crew: 3, icon: '🏹', label: 'Man the Tower', requires: ['tower4'], tower: 'tower4', toast: 'Tower manned!' },
-  { id: 'tower5', tier: 2, pos: [30, -15], cost: 50, icon: '🗼', label: 'Watchtower', requires: ['expand2'], structure: 'tower', buildAt: [32, -20], toast: 'Watchtower built. It needs a crew!' },
+  { id: 'tower5', tier: 2, pos: [30, -15], cost: 50, res: { wood: 12 }, icon: '🗼', label: 'Watchtower', requires: ['expand2'], structure: 'tower', buildAt: [32, -20], toast: 'Watchtower built. It needs a crew!' },
   { id: 'crew-tower5', tier: 2, pos: [26, -15], crew: 3, icon: '🏹', label: 'Man the Tower', requires: ['tower5'], tower: 'tower5', toast: 'Tower manned!' },
   { id: 'recruit-elite', tier: 2, pos: [-28, -10], cost: 10, growth: 2, icon: '🏹', label: '+3 Archers', requires: ['expand2'], repeatable: true, units: { type: 'archer', count: 3 } },
-  { id: 'iron', tier: 2, pos: [-28, 0], cost: 240, icon: '⚙️', label: 'Iron Walls', requires: ['stone', 'wall3-south', 'wall3-east', 'wall3-west', 'wall3-north'], effect: 'wallLevel', toast: 'Walls rebuilt in iron!' },
+  { id: 'iron', tier: 2, pos: [-28, 0], cost: 240, res: { stone: 60, straw: 20 }, icon: '⚙️', label: 'Iron Walls', requires: ['stone', 'wall3-south', 'wall3-east', 'wall3-west', 'wall3-north'], effect: 'wallLevel', toast: 'Walls rebuilt in iron!' },
+];
+
+// Resource nodes the King mines by standing next to them. `stock` regrows over time.
+export const NODES = [
+  { type: 'wood', pos: [-14, 12], stock: 8 }, { type: 'wood', pos: [-16.5, 14.5], stock: 8 }, { type: 'wood', pos: [-12.5, 15.5], stock: 8 }, { type: 'wood', pos: [-15, 17.5], stock: 8 },
+  { type: 'wood', pos: [15, -15], stock: 8 }, { type: 'wood', pos: [18, -17], stock: 8 }, { type: 'wood', pos: [14.5, -18.5], stock: 8 },
+  { type: 'wood', pos: [-44, 28], stock: 10 }, { type: 'wood', pos: [-47, 31], stock: 10 }, { type: 'wood', pos: [-42, 32], stock: 10 },
+  { type: 'stone', pos: [-6, -17], stock: 14 }, { type: 'stone', pos: [-26, -29], stock: 16 }, { type: 'stone', pos: [-40, -20], stock: 16 },
+  { type: 'stone', pos: [66, 12], stock: 24 }, { type: 'stone', pos: [24, 66], stock: 24 },
+  { type: 'straw', pos: [45, 22], stock: 16 }, { type: 'straw', pos: [-20, 25], stock: 14 }, { type: 'straw', pos: [10, 62], stock: 20 },
 ];

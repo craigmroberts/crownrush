@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CFG, MAP, TIERS } from './config.js';
+import { CFG, MAP, TIERS, NODES } from './config.js';
 import {
   mat, makeTree, makeBush, makeRock, makeSpikes, makeCliff, makePeak, makeBridge, makeHayBale, makeWheatField,
 } from './models.js';
@@ -111,7 +111,7 @@ function groundTexture() {
 export function buildWorld(scene) {
   const size = CFG.world.size;
   const rand = rng(1337);
-  const world = { river: null, bridges: [], roads: [], foam: [], time: 0 };
+  const world = { river: null, bridges: [], crossings: [], roads: [], foam: [], time: 0 };
 
   // ---- ground ----
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshToonMaterial({ map: groundTexture(), color: 0xffffff }));
@@ -136,14 +136,13 @@ export function buildWorld(scene) {
   world.foamMesh = foam;
   for (let i = 0; i < 70; i++) world.foam.push({ t: rand(), side: (rand() - 0.5) * MAP.river.halfWidth * 1.4, speed: 0.012 + rand() * 0.01 });
 
-  // ---- roads (spline ribbons with a darker shoulder and wheel ruts) ----
+  // ---- roads (spline ribbons with a darker shoulder and wheel ruts); hidden until revealed ----
   const rutMat = mat(0xc9a066, { side: THREE.DoubleSide });
   for (const road of MAP.roads) {
     const samples = spline(road.points, 90);
-    world.roads.push({ id: road.id, samples });
-    scene.add(ribbon(samples, MAP.roadWidth + 1.2, 0xc9a066, 0.014, { taper: true }));
-    scene.add(ribbon(samples, MAP.roadWidth, 0xd9b27c, 0.018, { taper: true }));
-    // ruts: two thin offset ribbons
+    const entry = { id: road.id, samples, meshes: [], revealed: false, progress: 0 };
+    entry.meshes.push(ribbon(samples, MAP.roadWidth + 1.2, 0xc9a066, 0.014, { taper: true }));
+    entry.meshes.push(ribbon(samples, MAP.roadWidth, 0xd9b27c, 0.018, { taper: true }));
     for (const off of [-0.9, 0.9]) {
       const shifted = samples.map((p, i) => {
         const q = samples[Math.min(samples.length - 1, i + 1)];
@@ -153,9 +152,15 @@ export function buildWorld(scene) {
         const l = Math.hypot(tx, tz) || 1;
         return new THREE.Vector3(p.x - (tz / l) * off, 0, p.z + (tx / l) * off);
       });
-      scene.add(ribbon(shifted, 0.14, 0xc9a066, 0.022, { material: rutMat }));
+      entry.meshes.push(ribbon(shifted, 0.14, 0xc9a066, 0.022, { material: rutMat }));
     }
-    // bridge where this road crosses the river
+    for (const m of entry.meshes) {
+      m.visible = false;
+      m.geometry.setDrawRange(0, 0);
+      scene.add(m);
+    }
+    world.roads.push(entry);
+    // where this road crosses the river a bridge can be built
     let best = { d: Infinity, i: 0 };
     samples.forEach((p, i) => {
       const n = nearestOnPolyline(riverSamples, p.x, p.z);
@@ -166,13 +171,26 @@ export function buildWorld(scene) {
       const q = samples[Math.min(samples.length - 1, best.i + 2)];
       const r = samples[Math.max(0, best.i - 2)];
       const dir = new THREE.Vector2(q.x - r.x, q.z - r.z).normalize();
-      const b = makeBridge(MAP.river.halfWidth * 2 + 5, MAP.roadWidth + 0.6);
-      b.position.set(p.x, 0, p.z);
-      b.rotation.y = Math.atan2(dir.x, dir.y);
-      scene.add(b);
-      world.bridges.push({ x: p.x, z: p.z, dx: dir.x, dz: dir.y });
+      world.crossings.push({ roadId: road.id, x: p.x, z: p.z, dx: dir.x, dz: dir.y });
     }
   }
+  // roads grow out from the village when revealed
+  world.revealRoad = (id) => {
+    const r = world.roads.find((r) => r.id === id);
+    if (!r || r.revealed) return;
+    r.revealed = true;
+    for (const m of r.meshes) m.visible = true;
+  };
+  world.buildBridge = (roadId) => {
+    const c = world.crossings.find((c) => c.roadId === roadId);
+    if (!c || world.bridges.some((b) => b.roadId === roadId)) return null;
+    const b = makeBridge(MAP.river.halfWidth * 2 + 5, MAP.roadWidth + 0.6);
+    b.position.set(c.x, 0, c.z);
+    b.rotation.y = Math.atan2(c.dx, c.dz);
+    scene.add(b);
+    world.bridges.push({ ...c, mesh: b });
+    return b;
+  };
 
   // ---- mesas and snow peaks (north-west) ----
   const cliffs = new THREE.Group();
@@ -203,7 +221,8 @@ export function buildWorld(scene) {
   const inCliffs = (x, z) => x < CFG.cliffs.x && z < CFG.cliffs.z;
   const nearRiver = (x, z, m) => nearestOnPolyline(riverSamples, x, z).d < MAP.river.halfWidth + m;
   const nearRoad = (x, z, m) => world.roads.some((r) => nearestOnPolyline(r.samples, x, z).d < MAP.roadWidth / 2 + m);
-  const free = (x, z, m = 1.5) => !inVillage(x, z) && !inCliffs(x, z) && !nearRiver(x, z, m + 1.5) && !nearRoad(x, z, m);
+  const nearNode = (x, z) => NODES.some((n) => Math.hypot(n.pos[0] - x, n.pos[1] - z) < 4.5) || MAP.fields.some((f) => Math.abs(f.pos[0] - x) < f.size[0] / 2 + 3 && Math.abs(f.pos[1] - z) < f.size[1] / 2 + 3);
+  const free = (x, z, m = 1.5) => !inVillage(x, z) && !inCliffs(x, z) && !nearRiver(x, z, m + 1.5) && !nearRoad(x, z, m) && !nearNode(x, z);
   world.free = free;
   const half = size / 2 - 6;
   const scenery = new THREE.Group();
@@ -245,14 +264,16 @@ export function buildWorld(scene) {
   }, 22, 1.5);
   place(() => makeHayBale(), 10, 1);
 
-  // wheat field with a fence, just outside the village
-  const field = makeWheatField(MAP.field.size[0], MAP.field.size[1]);
-  field.position.set(MAP.field.pos[0], 0, MAP.field.pos[1]);
-  scenery.add(field);
-  for (let i = 0; i < 3; i++) {
-    const h = makeHayBale();
-    h.position.set(MAP.field.pos[0] + 7 + i * 1.6, 0, MAP.field.pos[1] - 2 + (i % 2) * 1.4);
-    scenery.add(h);
+  // wheat fields with fences (straw comes from these)
+  for (const f of MAP.fields) {
+    const field = makeWheatField(f.size[0], f.size[1]);
+    field.position.set(f.pos[0], 0, f.pos[1]);
+    scenery.add(field);
+    for (let i = 0; i < 2; i++) {
+      const h = makeHayBale();
+      h.position.set(f.pos[0] + f.size[0] / 2 + 2 + i * 1.6, 0, f.pos[1] - 1 + (i % 2) * 1.4);
+      scenery.add(h);
+    }
   }
 
   // grass tufts and flowers, instanced
@@ -290,6 +311,12 @@ export function buildWorld(scene) {
   // ---- per-frame animation ----
   world.update = (dt) => {
     world.time += dt;
+    for (const r of world.roads) {
+      if (!r.revealed || r.progress >= 1) continue;
+      r.progress = Math.min(1, r.progress + dt / 2.2);
+      const count = Math.floor(r.progress * (r.samples.length - 1)) * 6;
+      for (const m of r.meshes) m.geometry.setDrawRange(0, count);
+    }
     const s = riverSamples;
     world.foam.forEach((f, i) => {
       f.t += f.speed * dt;
@@ -323,6 +350,7 @@ export function buildWorld(scene) {
     return { dist: n.d, side, qx: q.x, qz: q.z };
   };
   world.nearBridge = (x, z) => world.bridges.some((b) => Math.hypot(b.x - x, b.z - z) < MAP.river.bridgeRadius);
+  world.crossingFor = (roadId) => world.crossings.find((c) => c.roadId === roadId);
 
   return world;
 }
