@@ -387,7 +387,8 @@ export class Game {
     this.mounted = true;
     const k = this.king;
     const old = k.mesh;
-    k.mesh = makeKing();
+    const rig = makeRigged('king_mounted');
+    k.mesh = rig ? rig.mesh : makeKing();
     k.mesh.position.copy(old.position);
     k.mesh.rotation.copy(old.rotation);
     k.mesh.scale.setScalar(k.scale);
@@ -405,7 +406,7 @@ export class Game {
     let mesh;
     let stats;
     if (type === 'king') {
-      const rig = this.mounted ? null : makeRigged('king');
+      const rig = makeRigged(this.mounted ? 'king_mounted' : 'king');
       mesh = rig ? rig.mesh : this.mounted ? makeKing() : makeKingFoot();
       stats = CFG.king;
     } else if (type === 'queen' && makeRigged('queen')) {

@@ -17,7 +17,7 @@ hud.showStart(game.best);
 const startBtn = document.getElementById('start-btn');
 startBtn.disabled = true;
 startBtn.textContent = 'Loading…';
-preloadRigs(['king', 'queen']).then(() => {
+preloadRigs(['king', 'queen', 'king_mounted']).then(() => {
   startBtn.disabled = false;
   startBtn.textContent = 'Play';
 });

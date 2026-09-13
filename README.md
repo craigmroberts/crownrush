@@ -98,7 +98,7 @@ Attack clips, exports a GLB and renders a preview:
 blender -b -P tools/blender/make_character.py -- king public/models/king.glb .shots/king.png
 ```
 
-The King and Queen currently come from these GLBs; the game falls back to the code-built figures if a model
+The King (on foot and mounted) and Queen come from these GLBs; the game falls back to the code-built figures if a model
 fails to load. Add a `build_<name>()` function to the script to make a new character.
 
 ## Deploying

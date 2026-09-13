@@ -21,6 +21,7 @@ COL = {
     "skin": (0.97, 0.80, 0.66), "hair": (0.32, 0.17, 0.07), "beard": (0.38, 0.22, 0.10), "blue": (0.16, 0.42, 0.85),
     "gold": (0.95, 0.70, 0.18), "leather": (0.45, 0.27, 0.14), "boot": (0.32, 0.20, 0.12), "white": (0.97, 0.97, 0.97),
     "black": (0.05, 0.05, 0.06), "red": (0.85, 0.12, 0.14), "pink": (0.94, 0.48, 0.66), "blueEye": (0.25, 0.50, 0.85),
+    "horse": (0.91, 0.84, 0.71), "muzzle": (0.85, 0.76, 0.6), "mane": (0.55, 0.36, 0.18),
 }
 mats = {}
 def material(name):
@@ -36,7 +37,10 @@ def material(name):
     return m
 
 parts = []
+Z_OFF = 0.0
+LEG_X = 0.14
 def part(kind, name, loc, scale=(1, 1, 1), rot=(0, 0, 0), color="skin", bone="spine", smooth=True, sub=1, **kw):
+    loc = (loc[0], loc[1], loc[2] + Z_OFF)
     if kind == "sphere":
         bpy.ops.mesh.primitive_uv_sphere_add(radius=1, segments=16, ring_count=12, location=loc)
     elif kind == "cube":
@@ -45,6 +49,9 @@ def part(kind, name, loc, scale=(1, 1, 1), rot=(0, 0, 0), color="skin", bone="sp
         bpy.ops.mesh.primitive_cylinder_add(radius=1, depth=1, vertices=16, location=loc)
     elif kind == "cone":
         bpy.ops.mesh.primitive_cone_add(radius1=1, radius2=0, depth=1, vertices=16, location=loc)
+    elif kind == "frustum":
+        bpy.ops.mesh.primitive_cone_add(radius1=kw["r1"], radius2=kw["r2"], depth=kw["depth"], vertices=24, location=loc)
+        scale = (1, 1, 1)
     elif kind == "torus":
         bpy.ops.mesh.primitive_torus_add(major_radius=scale[0], minor_radius=kw.get("minor", 0.04), major_segments=24, minor_segments=10, location=loc)
         scale = (1, 1, 1)
@@ -65,72 +72,146 @@ def part(kind, name, loc, scale=(1, 1, 1), rot=(0, 0, 0), color="skin", bone="sp
     return o
 
 # ---------- the body (shared template) ----------
-def build_figure(tunic="blue", trim="gold", hair="hair", boots="boot", pants="leather", dress=False):
-    if dress:
-        # flared gown instead of legs
-        part("cone", "gown", (0, 0, 0.32), scale=(0.62, 0.62, 0.66), color=tunic, bone="root", sub=0)
-        part("torus", "hem", (0, 0, 0.03), scale=(0.6, 0.6, 1), color=trim, bone="root", minor=0.035)
+def ell(name, loc, scale, color, bone, rot=(0, 0, 0)):
+    return part("sphere", name, loc, scale=scale, rot=rot, color=color, bone=bone)
+
+def build_head(style):
+    queen = style == "queen"
+    ell("head", (0, 0, 1.42), (0.38, 0.35, 0.36), "skin", "head")
+    for side, x in (("L", 0.37), ("R", -0.37)):
+        ell(f"ear.{side}", (x, 0.02, 1.4), (0.05, 0.07, 0.08), "skin", "head")
+    ell("nose", (0, -0.35, 1.36), (0.045, 0.035, 0.035), "skin", "head")
+    # eyes: sclera, iris, pupil, glint
+    for side, x in (("L", 0.135), ("R", -0.135)):
+        ell(f"eye.{side}", (x, -0.315, 1.43), (0.062, 0.035, 0.09 if queen else 0.08), "white", "head")
+        ell(f"iris.{side}", (x, -0.345, 1.425), (0.04, 0.02, 0.058 if queen else 0.05), "blueEye" if queen else "black", "head")
+        ell(f"pupil.{side}", (x, -0.36, 1.42), (0.02, 0.012, 0.03), "black", "head")
+        ell(f"glint.{side}", (x - 0.014 * (1 if side == "L" else -1), -0.37, 1.45), (0.011, 0.008, 0.016), "white", "head")
+        if queen:
+            ell(f"lash1.{side}", (x + 0.05 * (1 if side == "L" else -1), -0.33, 1.5), (0.03, 0.01, 0.01), "black", "head", rot=(0, math.radians(35 if side == "L" else -35), 0))
+            ell(f"lash2.{side}", (x + 0.02 * (1 if side == "L" else -1), -0.335, 1.515), (0.025, 0.01, 0.01), "black", "head", rot=(0, math.radians(70 if side == "L" else -70), 0))
+        brow_w = 0.1 if queen else 0.14
+        part("cube", f"brow.{side}", (x, -0.315, 1.53 if queen else 1.52), scale=(brow_w, 0.03, 0.028 if queen else 0.04),
+             rot=(0, math.radians(-12 if side == "L" else 12), 0), color="hair", bone="head", sub=1)
+        ell(f"blush.{side}", (x * 1.9, -0.28, 1.35), (0.06, 0.02, 0.035), "pink", "head")
+    if queen:
+        ell("mouth", (0, -0.35, 1.3), (0.045, 0.01, 0.012), "red", "head")
     else:
-        for side, x in (("L", 0.14), ("R", -0.14)):
-            part("cyl", f"leg.{side}", (x, 0, 0.3), scale=(0.12, 0.12, 0.34), color=pants, bone=f"leg.{side}")
-            part("sphere", f"boot.{side}", (x, -0.03, 0.1), scale=(0.15, 0.2, 0.1), color=boots, bone=f"leg.{side}")
-    part("sphere", "torso", (0, 0, 0.74), scale=(0.34, 0.29, 0.33), color=tunic, bone="spine")
-    part("torus", "belt", (0, 0, 0.56), scale=(0.3, 0.3, 1), color="leather", bone="spine", minor=0.035)
-    part("cube", "buckle", (0, -0.3, 0.56), scale=(0.14, 0.05, 0.12), color=trim, bone="spine", sub=0)
-    part("torus", "collar", (0, 0, 0.99), scale=(0.15, 0.15, 1), color=trim, bone="spine", minor=0.03)
-    part("cyl", "neck", (0, 0, 1.0), scale=(0.11, 0.11, 0.12), color="skin", bone="spine", sub=1)
-    for side, x in (("L", 0.42), ("R", -0.42)):
-        part("cyl", f"arm.{side}", (x, 0, 0.72), scale=(0.09, 0.09, 0.3), color=tunic, bone=f"arm.{side}")
-        part("torus", f"cuff.{side}", (x, 0, 0.58), scale=(0.095, 0.095, 1), color=trim, bone=f"arm.{side}", minor=0.025)
-        part("sphere", f"hand.{side}", (x, 0, 0.5), scale=(0.1, 0.1, 0.1), color="skin", bone=f"arm.{side}")
-    part("sphere", "head", (0, 0, 1.4), scale=(0.37, 0.35, 0.35), color="skin", bone="head")
-    for side, x in (("L", 0.36), ("R", -0.36)):
-        part("sphere", f"ear.{side}", (x, 0.02, 1.38), scale=(0.05, 0.07, 0.07), color="skin", bone="head")
-    # face: eyes, pupils, highlights, brows, mouth (front is -Y)
-    for side, x in (("L", 0.13), ("R", -0.13)):
-        part("sphere", f"eye.{side}", (x, -0.31, 1.42), scale=(0.055, 0.03, 0.075), color="white", bone="head")
-        part("sphere", f"iris.{side}", (x, -0.335, 1.415), scale=(0.035, 0.02, 0.05), color="blueEye" if dress else "black", bone="head")
-        part("sphere", f"pupil.{side}", (x, -0.35, 1.415), scale=(0.018, 0.012, 0.028), color="black", bone="head")
-        part("sphere", f"glint.{side}", (x - 0.012, -0.36, 1.44), scale=(0.01, 0.008, 0.014), color="white", bone="head")
-        part("cube", f"brow.{side}", (x, -0.31, 1.52), scale=(0.12, 0.03, 0.03), rot=(0, 0.25 if side == "L" else -0.25, 0), color=hair, bone="head", sub=1)
-        part("sphere", f"blush.{side}", (x * 1.8, -0.27, 1.33), scale=(0.06, 0.02, 0.04), color="pink", bone="head")
-    part("sphere", "mouth", (0, -0.34, 1.3), scale=(0.045, 0.01, 0.012), color="beard", bone="head")
-    # hair: cap plus fringe bumps
-    part("sphere", "hair", (0, 0.02, 1.5), scale=(0.395, 0.38, 0.33), color=hair, bone="head")
-    for i, (x, y, z, s) in enumerate([(-0.21, -0.26, 1.63, 0.075), (-0.07, -0.3, 1.65, 0.085), (0.08, -0.3, 1.65, 0.085), (0.22, -0.26, 1.63, 0.075)]):
-        part("sphere", f"fringe{i}", (x, y, z), scale=(s, s * 0.9, s * 0.8), color=hair, bone="head")
-    for side, x in (("L", 0.36), ("R", -0.36)):
-        part("sphere", f"side.{side}", (x, 0, 1.42), scale=(0.07, 0.09, 0.13), color=hair, bone="head")
+        ell("mouth", (0, -0.35, 1.29), (0.04, 0.01, 0.012), "beard", "head")
+
+def build_hair(style):
+    hair = "hair"
+    # cap and back
+    ell("hair", (0, 0.03, 1.53), (0.405, 0.385, 0.33), hair, "head")
+    ell("hairback", (0, 0.2, 1.3), (0.34, 0.17, 0.3), hair, "head")
+    # swept fringe: a soft band across the brow with a lock falling to one side
+    ell("fringe", (0.02, -0.27, 1.62), (0.36, 0.16, 0.1), hair, "head", rot=(math.radians(-18), math.radians(-6), 0))
+    ell("lock", (-0.22, -0.3, 1.56), (0.13, 0.1, 0.09), hair, "head", rot=(0, math.radians(30), 0))
+    ell("lock2", (0.26, -0.27, 1.58), (0.1, 0.09, 0.08), hair, "head", rot=(0, math.radians(-25), 0))
+    for side, x in (("L", 0.38), ("R", -0.38)):
+        ell(f"side.{side}", (x, -0.02, 1.4), (0.075, 0.14, 0.17), hair, "head")
+    if style == "queen":
+        # long hair down the back and over the shoulders
+        ell("mane", (0, 0.2, 1.05), (0.32, 0.2, 0.48), hair, "head")
+        for side, x in (("L", 0.34), ("R", -0.34)):
+            ell(f"strand.{side}", (x, -0.02, 1.08), (0.1, 0.13, 0.32), hair, "head")
+            ell(f"curl.{side}", (x * 1.05, -0.08, 0.8), (0.1, 0.11, 0.1), hair, "head")
+
+def build_figure(style, tunic, trim, boots="boot", pants="leather", dress=False):
+    if dress:
+        part("frustum", "gown", (0, 0, 0.33), color=tunic, bone="root", sub=0, r1=0.62, r2=0.25, depth=0.66)
+        part("torus", "hem", (0, 0, 0.03), scale=(0.62, 0.62, 1), color=trim, bone="root", minor=0.035)
+        part("cube", "front", (0, -0.3, 0.33), scale=(0.05, 0.03, 0.62), rot=(math.radians(-24), 0, 0), color=trim, bone="root", sub=0)
+        part("frustum", "bodice", (0, 0, 0.82), color=tunic, bone="spine", sub=0, r1=0.26, r2=0.2, depth=0.42)
+        ell("chest", (0, 0, 0.9), (0.24, 0.2, 0.2), tunic, "spine")
+        part("torus", "belt", (0, 0, 0.62), scale=(0.26, 0.26, 1), color=trim, bone="spine", minor=0.03)
+        part("cube", "stripe", (0, -0.22, 0.86), scale=(0.04, 0.03, 0.3), color=trim, bone="spine", sub=0)
+        part("torus", "collar", (0, 0, 1.06), scale=(0.13, 0.13, 1), color=trim, bone="spine", minor=0.025)
+        part("cyl", "neck", (0, 0, 1.05), scale=(0.1, 0.1, 0.14), color="skin", bone="spine", sub=1)
+        for side, x in (("L", 0.36), ("R", -0.36)):
+            ell(f"puff.{side}", (x, 0, 0.94), (0.15, 0.14, 0.15), tunic, f"arm.{side}")
+            part("cyl", f"arm.{side}", (x * 1.05, 0, 0.72), scale=(0.07, 0.07, 0.3), color=tunic, bone=f"arm.{side}")
+            part("torus", f"cuff.{side}", (x * 1.05, 0, 0.6), scale=(0.075, 0.075, 1), color=trim, bone=f"arm.{side}", minor=0.022)
+            ell(f"hand.{side}", (x * 1.05, 0, 0.53), (0.085, 0.085, 0.085), "skin", f"arm.{side}")
+    else:
+        for side, x in (("L", LEG_X), ("R", -LEG_X)):
+            part("cyl", f"leg.{side}", (x, 0, 0.34), scale=(0.105, 0.105, 0.32), color=pants, bone=f"leg.{side}")
+            part("cyl", f"boot.{side}", (x, 0, 0.12), scale=(0.12, 0.12, 0.2), color=boots, bone=f"leg.{side}")
+            ell(f"toe.{side}", (x, -0.09, 0.06), (0.11, 0.14, 0.075), boots, f"leg.{side}")
+            part("torus", f"boottop.{side}", (x, 0, 0.21), scale=(0.12, 0.12, 1), color=boots, bone=f"leg.{side}", minor=0.02)
+        ell("torso", (0, 0, 0.77), (0.34, 0.29, 0.33), tunic, "spine")
+        part("frustum", "skirt", (0, 0, 0.47), color=tunic, bone="spine", sub=0, r1=0.37, r2=0.3, depth=0.22)
+        part("torus", "skirthem", (0, 0, 0.37), scale=(0.365, 0.365, 1), color=trim, bone="spine", minor=0.025)
+        part("torus", "belt", (0, 0, 0.58), scale=(0.315, 0.315, 1), color="leather", bone="spine", minor=0.035)
+        part("cube", "buckle", (0, -0.31, 0.58), scale=(0.13, 0.05, 0.11), color=trim, bone="spine", sub=0)
+        part("cube", "seam", (0, -0.33, 0.78), scale=(0.05, 0.03, 0.34), color=trim, bone="spine", sub=0)
+        part("torus", "collar", (0, 0, 1.02), scale=(0.15, 0.15, 1), color=trim, bone="spine", minor=0.03)
+        part("cyl", "neck", (0, 0, 1.02), scale=(0.11, 0.11, 0.14), color="skin", bone="spine", sub=1)
+        for side, x in (("L", 0.43), ("R", -0.43)):
+            ell(f"shoulder.{side}", (x * 0.9, 0, 0.94), (0.13, 0.12, 0.11), tunic, f"arm.{side}")
+            part("cyl", f"arm.{side}", (x, 0, 0.73), scale=(0.09, 0.09, 0.32), color=tunic, bone=f"arm.{side}")
+            part("torus", f"cuff.{side}", (x, 0, 0.59), scale=(0.095, 0.095, 1), color=trim, bone=f"arm.{side}", minor=0.025)
+            ell(f"hand.{side}", (x, 0, 0.51), (0.1, 0.1, 0.1), "skin", f"arm.{side}")
+    build_head(style)
+    build_hair(style)
 
 def build_king():
-    build_figure(tunic="blue", trim="gold")
-    # gold X clasp and stripe on the chest
-    part("cube", "clasp1", (0, -0.31, 0.8), scale=(0.05, 0.03, 0.3), rot=(0, math.radians(35), 0), color="gold", bone="spine", sub=0)
-    part("cube", "clasp2", (0, -0.31, 0.8), scale=(0.05, 0.03, 0.3), rot=(0, math.radians(-35), 0), color="gold", bone="spine", sub=0)
-    part("cube", "stripe", (0, -0.32, 0.52), scale=(0.06, 0.03, 0.3), color="gold", bone="spine", sub=0)
-    # beard + moustache
-    part("sphere", "beard", (0, -0.1, 1.13), scale=(0.32, 0.24, 0.15), color="beard", bone="head")
-    for side, x in (("L", 0.09), ("R", -0.09)):
-        part("sphere", f"mo.{side}", (x, -0.32, 1.24), scale=(0.1, 0.04, 0.04), color="beard", bone="head")
-    # crown
-    part("cyl", "crown", (0, 0, 1.72), scale=(0.25, 0.25, 0.14), color="gold", bone="head", sub=1)
-    part("torus", "crownrim", (0, 0, 1.79), scale=(0.25, 0.25, 1), color="gold", bone="head", minor=0.025)
+    build_figure("king", "blue", "gold")
+    part("cube", "clasp1", (0, -0.32, 0.86), scale=(0.05, 0.03, 0.26), rot=(0, math.radians(35), 0), color="gold", bone="spine", sub=0)
+    part("cube", "clasp2", (0, -0.32, 0.86), scale=(0.05, 0.03, 0.26), rot=(0, math.radians(-35), 0), color="gold", bone="spine", sub=0)
+    # beard wraps the jaw; moustache under the nose
+    ell("beard", (0, -0.08, 1.14), (0.37, 0.31, 0.16), "beard", "head")
+    ell("chin", (0, -0.22, 1.05), (0.22, 0.18, 0.13), "beard", "head")
+    for side, x in (("L", 0.1), ("R", -0.1)):
+        ell(f"mo.{side}", (x, -0.36, 1.31), (0.1, 0.04, 0.038), "beard", "head", rot=(0, math.radians(-25 if side == "L" else 25), 0))
+    # crown sits on the hair
+    part("cyl", "crown", (0, 0, 1.8), scale=(0.28, 0.28, 0.15), color="gold", bone="head", sub=1)
+    part("torus", "crownrim", (0, 0, 1.87), scale=(0.28, 0.28, 1), color="gold", bone="head", minor=0.028)
+    part("torus", "crownbase", (0, 0, 1.73), scale=(0.28, 0.28, 1), color="gold", bone="head", minor=0.028)
     for i in range(5):
         a = i / 5 * math.tau + math.pi / 2
-        part("cone", f"point{i}", (math.cos(a) * 0.22, math.sin(a) * 0.22, 1.89), scale=(0.06, 0.06, 0.2), color="gold", bone="head", sub=0)
-        part("sphere", f"pearl{i}", (math.cos(a) * 0.22, math.sin(a) * 0.22, 2.0), scale=(0.03, 0.03, 0.03), color="gold", bone="head")
-    part("sphere", "jewel", (0, -0.25, 1.73), scale=(0.05, 0.035, 0.06), color="red", bone="head")
+        part("cone", f"point{i}", (math.cos(a) * 0.25, math.sin(a) * 0.25, 1.98), scale=(0.065, 0.065, 0.22), color="gold", bone="head", sub=0)
+        ell(f"pearl{i}", (math.cos(a) * 0.25, math.sin(a) * 0.25, 2.1), (0.035, 0.035, 0.035), "gold", "head")
+    ell("jewel", (0, -0.27, 1.8), (0.055, 0.035, 0.065), "red", "head")
 
 def build_queen():
-    build_figure(tunic="pink", trim="gold", dress=True)
-    part("sphere", "hairback", (0, 0.18, 1.2), scale=(0.34, 0.2, 0.42), color="hair", bone="head")
-    for side, x in (("L", 0.36), ("R", -0.36)):
-        part("sphere", f"lock.{side}", (x, -0.02, 1.15), scale=(0.1, 0.11, 0.2), color="hair", bone="head")
-    part("torus", "tiara", (0, 0, 1.74), scale=(0.3, 0.3, 1), color="gold", bone="head", minor=0.03)
-    part("sphere", "tiarajewel", (0, -0.3, 1.78), scale=(0.05, 0.04, 0.07), color="blueEye", bone="head")
-    part("cone", "tiarapeak", (0, -0.3, 1.86), scale=(0.04, 0.04, 0.12), color="gold", bone="head", sub=0)
+    build_figure("queen", "pink", "gold", dress=True)
+    part("torus", "tiara", (0, 0, 1.76), scale=(0.3, 0.3, 1), color="gold", bone="head", minor=0.028)
+    ell("tiarajewel", (0, -0.29, 1.8), (0.05, 0.035, 0.065), "blueEye", "head")
+    part("cone", "tiarapeak", (0, -0.29, 1.9), scale=(0.035, 0.035, 0.14), color="gold", bone="head", sub=0)
+    for side, x in (("L", 0.2), ("R", -0.2)):
+        part("cone", f"tiarapeak.{side}", (x, -0.22, 1.84), scale=(0.025, 0.025, 0.08), color="gold", bone="head", sub=0)
 
-{"king": build_king, "queen": build_queen}[WHO]()
+def build_horse():
+    ell("hbody", (0, 0, 0.95), (0.34, 0.6, 0.33), "horse", "horse")
+    ell("hchest", (0, -0.48, 1.0), (0.3, 0.3, 0.3), "horse", "horse")
+    ell("hrump", (0, 0.5, 0.98), (0.31, 0.28, 0.3), "horse", "horse")
+    ell("hneck", (0, -0.7, 1.28), (0.17, 0.2, 0.36), "horse", "hhead", rot=(math.radians(-38), 0, 0))
+    ell("hhead", (0, -0.98, 1.6), (0.19, 0.3, 0.2), "horse", "hhead")
+    ell("hmuzzle", (0, -1.22, 1.52), (0.14, 0.15, 0.12), "muzzle", "hhead")
+    ell("hmane", (0, -0.7, 1.5), (0.09, 0.36, 0.13), "mane", "hhead", rot=(math.radians(-38), 0, 0))
+    ell("hforelock", (0, -0.95, 1.8), (0.1, 0.12, 0.08), "mane", "hhead")
+    for side, x in (("L", 0.1), ("R", -0.1)):
+        part("cone", f"hear.{side}", (x, -0.9, 1.84), scale=(0.045, 0.045, 0.16), color="horse", bone="hhead", sub=0)
+        ell(f"heye.{side}", (x * 1.6, -1.08, 1.66), (0.035, 0.025, 0.04), "black", "hhead")
+    ell("htail", (0, 0.78, 0.9), (0.08, 0.22, 0.12), "mane", "horse", rot=(math.radians(35), 0, 0))
+    for name, x, y in (("FL", 0.2, -0.38), ("FR", -0.2, -0.38), ("BL", 0.2, 0.42), ("BR", -0.2, 0.42)):
+        part("cyl", f"hleg.{name}", (x, y, 0.42), scale=(0.085, 0.085, 0.52), color="horse", bone=f"hleg.{name}")
+        ell(f"hoof.{name}", (x, y, 0.07), (0.1, 0.11, 0.07), "boot", f"hleg.{name}")
+    part("cube", "blanket", (0, 0.05, 1.22), scale=(0.72, 0.8, 0.06), color="blue", bone="horse", sub=1)
+    ell("saddle", (0, 0.05, 1.28), (0.3, 0.34, 0.1), "leather", "horse")
+    part("torus", "bridle", (0, -1.0, 1.6), scale=(0.2, 0.2, 1), rot=(math.radians(90), 0, 0), color="leather", bone="hhead", minor=0.015)
+
+def build_king_mounted():
+    global Z_OFF, LEG_X
+    build_horse()
+    Z_OFF = 0.92
+    LEG_X = 0.32
+    build_king()
+
+{"king": build_king, "queen": build_queen, "king_mounted": build_king_mounted}[WHO]()
+MOUNTED = WHO == "king_mounted"
+RZ = Z_OFF
 
 # ---------- armature ----------
 bpy.ops.object.armature_add(location=(0, 0, 0))
@@ -145,13 +226,18 @@ def bone(name, head, tail, parent=None):
     if parent:
         b.parent = eb[parent]
     return b
-bone("root", (0, 0, 0.45), (0, 0, 0.55))
-bone("spine", (0, 0, 0.55), (0, 0, 1.0), "root")
-bone("head", (0, 0, 1.0), (0, 0, 1.9), "spine")
+if MOUNTED:
+    bone("horse", (0, 0.3, 0.95), (0, -0.3, 0.95))
+    bone("hhead", (0, -0.55, 1.1), (0, -1.0, 1.65), "horse")
+    for name, x, y in (("FL", 0.2, -0.38), ("FR", -0.2, -0.38), ("BL", 0.2, 0.42), ("BR", -0.2, 0.42)):
+        bone(f"hleg.{name}", (x, y, 0.68), (x, y, 0.05), "horse")
+bone("root", (0, 0, 0.45 + RZ), (0, 0, 0.55 + RZ), "horse" if MOUNTED else None)
+bone("spine", (0, 0, 0.55 + RZ), (0, 0, 1.0 + RZ), "root")
+bone("head", (0, 0, 1.0 + RZ), (0, 0, 1.9 + RZ), "spine")
 for side, x in (("L", 0.42), ("R", -0.42)):
-    bone(f"arm.{side}", (x, 0, 0.9), (x, 0, 0.5), "spine")
-for side, x in (("L", 0.14), ("R", -0.14)):
-    bone(f"leg.{side}", (x, 0, 0.47), (x, 0, 0.05), "root")
+    bone(f"arm.{side}", (x, 0, 0.9 + RZ), (x, 0, 0.5 + RZ), "spine")
+for side, x in (("L", LEG_X), ("R", -LEG_X)):
+    bone(f"leg.{side}", (x, 0, 0.47 + RZ), (x, 0, 0.05 + RZ), "root")
 bpy.ops.object.mode_set(mode="OBJECT")
 
 # ---------- join parts into one skinned mesh ----------
@@ -202,13 +288,39 @@ def action(name, length, keys):
     return act
 
 sw = 0.55
-action("Idle", 48, {
+SIT = -1.25
+if MOUNTED:
+    action("Idle", 48, {
+        "horse": [(1, (0, 0, 0)), (24, (0.02, 0, 0)), (48, (0, 0, 0))],
+        "hhead": [(1, (0, 0, 0)), (24, (0.08, 0, 0)), (48, (0, 0, 0))],
+        "leg.L": [(1, (SIT, 0, 0.2))], "leg.R": [(1, (SIT, 0, -0.2))],
+        "arm.L": [(1, (-0.5, 0, 0.12))], "arm.R": [(1, (-0.5, 0, -0.12))],
+    })
+    g = 0.5
+    action("Walk", 20, {
+        "hleg.FL": [(1, (g, 0, 0)), (11, (-g, 0, 0)), (20, (g, 0, 0))],
+        "hleg.BR": [(1, (g, 0, 0)), (11, (-g, 0, 0)), (20, (g, 0, 0))],
+        "hleg.FR": [(1, (-g, 0, 0)), (11, (g, 0, 0)), (20, (-g, 0, 0))],
+        "hleg.BL": [(1, (-g, 0, 0)), (11, (g, 0, 0)), (20, (-g, 0, 0))],
+        "horse": [(1, (0.04, 0, 0)), (6, (-0.04, 0, 0)), (11, (0.04, 0, 0)), (16, (-0.04, 0, 0)), (20, (0.04, 0, 0))],
+        "hhead": [(1, (0.05, 0, 0)), (11, (-0.05, 0, 0)), (20, (0.05, 0, 0))],
+        "leg.L": [(1, (SIT, 0, 0.2))], "leg.R": [(1, (SIT, 0, -0.2))],
+        "arm.L": [(1, (-0.5, 0, 0.12))], "arm.R": [(1, (-0.5, 0, -0.12))],
+        "spine": [(1, (0.05, 0, 0)), (11, (-0.03, 0, 0)), (20, (0.05, 0, 0))],
+    })
+    action("Attack", 20, {
+        "arm.R": [(1, (-0.5, 0, -0.12)), (7, (-2.4, 0, -0.3)), (12, (0.4, 0, -0.1)), (20, (-0.5, 0, -0.12))],
+        "arm.L": [(1, (-0.5, 0, 0.12))], "leg.L": [(1, (SIT, 0, 0.2))], "leg.R": [(1, (SIT, 0, -0.2))],
+        "spine": [(1, (0, 0, 0)), (7, (-0.12, 0, 0.1)), (12, (0.12, 0, -0.06)), (20, (0, 0, 0))],
+    })
+else:
+  action("Idle", 48, {
     "spine": [(1, (0, 0, 0)), (24, (0.04, 0, 0)), (48, (0, 0, 0))],
     "head": [(1, (0, 0, 0)), (24, (-0.05, 0, 0)), (48, (0, 0, 0))],
     "arm.L": [(1, (0, 0, 0.12)), (24, (0, 0, 0.18)), (48, (0, 0, 0.12))],
     "arm.R": [(1, (0, 0, -0.12)), (24, (0, 0, -0.18)), (48, (0, 0, -0.12))],
-})
-if WHO != "queen":
+  })
+if not MOUNTED and WHO != "queen":
     action("Walk", 24, {
         "leg.L": [(1, (sw, 0, 0)), (13, (-sw, 0, 0)), (24, (sw, 0, 0))],
         "leg.R": [(1, (-sw, 0, 0)), (13, (sw, 0, 0)), (24, (-sw, 0, 0))],
@@ -216,16 +328,17 @@ if WHO != "queen":
         "arm.R": [(1, (sw * 0.8, 0, -0.12)), (13, (-sw * 0.8, 0, -0.12)), (24, (sw * 0.8, 0, -0.12))],
         "spine": [(1, (0.06, 0, 0)), (7, (0.06, 0, 0.03)), (19, (0.06, 0, -0.03)), (24, (0.06, 0, 0))],
     })
-else:
+elif not MOUNTED:
     action("Walk", 24, {
         "arm.L": [(1, (-0.3, 0, 0.2)), (13, (0.3, 0, 0.2)), (24, (-0.3, 0, 0.2))],
         "arm.R": [(1, (0.3, 0, -0.2)), (13, (-0.3, 0, -0.2)), (24, (0.3, 0, -0.2))],
         "spine": [(1, (0, 0, 0.04)), (13, (0, 0, -0.04)), (24, (0, 0, 0.04))],
     })
-action("Attack", 20, {
+if not MOUNTED:
+  action("Attack", 20, {
     "arm.R": [(1, (0, 0, -0.12)), (7, (-2.4, 0, -0.3)), (12, (0.6, 0, -0.1)), (20, (0, 0, -0.12))],
     "spine": [(1, (0, 0, 0)), (7, (-0.12, 0, 0.1)), (12, (0.12, 0, -0.06)), (20, (0, 0, 0))],
-})
+  })
 
 # ---------- export ----------
 bpy.ops.object.select_all(action="SELECT")
@@ -234,9 +347,9 @@ print("exported", OUT)
 
 # ---------- preview render ----------
 if PREVIEW:
-    bpy.ops.object.camera_add(location=(2.4, -3.4, 2.6))
+    bpy.ops.object.camera_add(location=(3.2, -4.4, 3.2) if MOUNTED else (2.4, -3.4, 2.6))
     cam = bpy.context.active_object
-    cam.rotation_euler = (Vector((0, 0, 1.05)) - cam.location).to_track_quat("-Z", "Y").to_euler()
+    cam.rotation_euler = (Vector((0, 0, 1.5 if MOUNTED else 1.05)) - cam.location).to_track_quat("-Z", "Y").to_euler()
     cam.data.lens = 55
     scene.camera = cam
     bpy.ops.object.light_add(type="SUN", location=(3, -3, 6))
