@@ -13,7 +13,7 @@ gradCanvas.height = 1;
     ctx.fillRect(x, 0, 1, 1);
   });
 }
-const gradientMap = new THREE.CanvasTexture(gradCanvas);
+export const gradientMap = new THREE.CanvasTexture(gradCanvas);
 gradientMap.minFilter = THREE.NearestFilter;
 gradientMap.magFilter = THREE.NearestFilter;
 gradientMap.colorSpace = THREE.NoColorSpace;
@@ -27,7 +27,7 @@ export function mat(color, opts = {}) {
 export const GHOST_MAT = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.4, depthWrite: false });
 const OUTLINE_MAT = new THREE.MeshBasicMaterial({ color: 0x1b1b24, side: THREE.BackSide });
 
-const C = {
+export const C = {
   skin: 0xf6cfae, hair: 0x2a1e16, white: 0xf7f7f7, blue: 0x2f6fd6, navy: 0x3a3f5c, pants: 0x6b4a32, shoes: 0x2b2b2b,
   red: 0xd8262c, darkRed: 0xa31a1f, steel: 0xb9bec7, steelDark: 0x7d848e, gold: 0xf5b800, goldDark: 0xc98a00,
   horse: 0xe8d5b5, mane: 0x8a5a2b, wood: 0x9a6a3a, darkWood: 0x6b4a2b, roof: 0x7a4f30,
@@ -35,7 +35,7 @@ const C = {
   boss: 0xf4e9ec, bossDark: 0xe6cfd6, bow: 0x3b7bff, leather: 0x8a5a3a,
 };
 
-function box(w, h, d, color, x = 0, y = 0, z = 0, material) {
+export function box(w, h, d, color, x = 0, y = 0, z = 0, material) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material || mat(color));
   m.position.set(x, y, z);
   m.castShadow = true;
@@ -43,7 +43,7 @@ function box(w, h, d, color, x = 0, y = 0, z = 0, material) {
   return m;
 }
 // rounded box for the soft chibi shapes; `outline` adds a dark inverted hull
-function rbox(w, h, d, color, x = 0, y = 0, z = 0, r = 0.08, outline = 0) {
+export function rbox(w, h, d, color, x = 0, y = 0, z = 0, r = 0.08, outline = 0) {
   const geo = new RoundedBoxGeometry(w, h, d, 3, Math.min(r, Math.min(w, h, d) / 2));
   const m = new THREE.Mesh(geo, mat(color));
   m.position.set(x, y, z);
@@ -56,14 +56,14 @@ function rbox(w, h, d, color, x = 0, y = 0, z = 0, r = 0.08, outline = 0) {
   }
   return m;
 }
-function cyl(rt, rb, h, color, x = 0, y = 0, z = 0, seg = 8) {
+export function cyl(rt, rb, h, color, x = 0, y = 0, z = 0, seg = 8) {
   const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat(color));
   m.position.set(x, y, z);
   m.castShadow = true;
   m.receiveShadow = true;
   return m;
 }
-function cone(r, h, color, x = 0, y = 0, z = 0, seg = 7) {
+export function cone(r, h, color, x = 0, y = 0, z = 0, seg = 7) {
   const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, seg), mat(color));
   m.position.set(x, y, z);
   m.castShadow = true;
@@ -89,6 +89,7 @@ export function ghostify(group) {
 
 // ---- baking: collapse a model's static parts into one vertex-coloured mesh (one draw call) ----
 export const BAKED_MAT = new THREE.MeshToonMaterial({ color: 0xffffff, gradientMap, vertexColors: true });
+export const BAKED_STD = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, metalness: 0.05, vertexColors: true });
 function prepGeo(geo) {
   const g = geo.index ? geo.toNonIndexed() : geo.clone();
   for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
@@ -124,8 +125,9 @@ export function bake(g, keep = []) {
       outlines.push(o);
       return;
     }
-    if (!o.material.isMeshToonMaterial || o.material.transparent || o.material === BAKED_MAT) return;
-    if (o.material.emissive && o.material.emissive.getHex() !== 0) return;
+    const m = o.material;
+    if (!(m.isMeshToonMaterial || m.isMeshStandardMaterial) || m.transparent || m === BAKED_MAT || m === BAKED_STD || m.map) return;
+    if (m.emissive && m.emissive.getHex() !== 0) return;
     parts.push(o);
   });
   const toGeo = (o, color) => {
@@ -134,7 +136,8 @@ export function bake(g, keep = []) {
     return color ? colorize(geo, color) : geo;
   };
   if (parts.length) {
-    const m = new THREE.Mesh(mergeGeometries(parts.map((o) => toGeo(o, o.material.color)), false), BAKED_MAT);
+    const smooth = parts.some((o) => o.material.isMeshStandardMaterial);
+    const m = new THREE.Mesh(mergeGeometries(parts.map((o) => toGeo(o, o.material.color)), false), smooth ? BAKED_STD : BAKED_MAT);
     m.castShadow = true;
     m.receiveShadow = true;
     for (const o of parts) o.parent.remove(o);
@@ -235,265 +238,8 @@ function face(w, h, x, y, z, style) {
   return m;
 }
 
-// ---- characters (all face +Z; chibi proportions: the head is about half the height) ----
-function humanoid({ shirt, pantsColor = C.pants, hairColor = C.hair, scale = 1, style = 'normal', hair = true }) {
-  const g = new THREE.Group();
-  // each leg is one baked piece (leg + shoe) that swings as a unit
-  const leg = (x) => {
-    const lg = new THREE.Group();
-    lg.add(rbox(0.22, 0.34, 0.22, pantsColor, 0, 0, 0, 0.06), box(0.24, 0.1, 0.28, C.shoes, 0, -0.14, 0.03));
-    lg.position.set(x, 0.19, 0);
-    return bake(lg);
-  };
-  const legL = leg(-0.13);
-  const legR = leg(0.13);
-  const body = rbox(0.6, 0.56, 0.4, shirt, 0, 0.62, 0, 0.12, 0.05);
-  const belt = box(0.62, 0.08, 0.42, C.leather, 0, 0.38, 0);
-  const armL = rbox(0.17, 0.42, 0.17, C.skin, -0.38, 0.62, 0.02, 0.07);
-  const armR = rbox(0.17, 0.42, 0.17, C.skin, 0.38, 0.62, 0.02, 0.07);
-  const head = rbox(0.68, 0.6, 0.64, C.skin, 0, 1.22, 0, 0.24, 0.04);
-  g.add(legL, legR, body, belt, armL, armR, head);
-  if (hair) {
-    // a tight rounded cap of hair with a fringe and short sideburns
-    const cap = rbox(0.72, 0.28, 0.68, hairColor, 0, 1.43, -0.02, 0.22, 0.04);
-    const fringe = rbox(0.64, 0.12, 0.14, hairColor, 0, 1.33, 0.28, 0.05);
-    const sideL = rbox(0.08, 0.22, 0.4, hairColor, -0.34, 1.3, -0.1, 0.04);
-    const sideR = rbox(0.08, 0.22, 0.4, hairColor, 0.34, 1.3, -0.1, 0.04);
-    g.add(cap, fringe, sideL, sideR);
-  }
-  g.add(face(0.5, 0.44, 0, 1.15, 0.325, style));
-  g.userData.legs = [legL, legR];
-  g.userData.body = body;
-  g.userData.arms = [armL, armR];
-  g.scale.setScalar(scale);
-  return g;
-}
-
-function bow(color = C.bow, r = 0.42) {
-  const g = new THREE.Group();
-  const arc = new THREE.Mesh(new THREE.TorusGeometry(r, 0.045, 6, 14, Math.PI), mat(color));
-  arc.rotation.y = Math.PI / 2;
-  arc.rotation.z = -Math.PI / 2;
-  arc.castShadow = true;
-  g.add(arc);
-  const string = new THREE.Mesh(new THREE.BoxGeometry(0.02, r * 2, 0.02), mat(0xf0f0f0));
-  g.add(string);
-  return g;
-}
-
-function quiver(g) {
-  const q = cyl(0.09, 0.09, 0.5, C.leather, -0.2, 0.85, -0.24, 6);
-  q.rotation.x = -0.25;
-  q.rotation.z = 0.35;
-  g.add(q);
-  for (let i = 0; i < 3; i++) {
-    const a = box(0.03, 0.3, 0.03, 0x8a6a3a, -0.2 + (i - 1) * 0.05, 1.12, -0.28 + (i % 2) * 0.03);
-    a.rotation.z = 0.35;
-    a.rotation.x = -0.25;
-    g.add(a);
-    g.add(cone(0.05, 0.1, C.white, -0.24 + (i - 1) * 0.05, 1.27, -0.32 + (i % 2) * 0.03, 4));
-  }
-}
-
-const HAIR = [0x2a1e16, 0x2a1e16, 0x4a2f1c, 0x1c1c22, 0x6b4a2b];
-export function makeArcher() {
-  const g = humanoid({ shirt: C.white, hairColor: HAIR[Math.floor(Math.random() * HAIR.length)] });
-  // blue strap across the chest
-  const strap = box(0.14, 0.8, 0.44, C.blue, 0, 0.62, 0);
-  strap.rotation.z = 0.7;
-  g.add(strap);
-  const b = bow(C.bow, 0.5);
-  b.position.set(-0.44, 0.78, 0.18);
-  b.rotation.y = 0.5;
-  b.rotation.z = 0.15;
-  g.add(b);
-  quiver(g);
-  return bake(g, [...g.userData.legs, g.userData.body]);
-}
-
-export function makeSwordsman() {
-  const g = humanoid({ shirt: C.navy });
-  const helm = rbox(0.76, 0.3, 0.72, C.steel, 0, 1.46, -0.02, 0.16, 0.04);
-  const brim = box(0.8, 0.06, 0.76, C.steelDark, 0, 1.34, 0);
-  g.add(helm, brim);
-  const sword = box(0.09, 0.85, 0.05, C.steel, 0.42, 0.95, 0.18);
-  sword.rotation.z = -0.35;
-  sword.add(box(0.26, 0.06, 0.1, C.goldDark, 0, -0.34, 0));
-  g.add(sword);
-  const shield = rbox(0.1, 0.55, 0.48, C.blue, -0.42, 0.7, 0.08, 0.06);
-  shield.add(box(0.03, 0.2, 0.2, C.gold, 0.06, 0, 0));
-  g.add(shield);
-  return bake(g, [...g.userData.legs, g.userData.body]);
-}
-
-function roundShield(color, x, y, z) {
-  const g = new THREE.Group();
-  const disc = cyl(0.3, 0.3, 0.08, color, 0, 0, 0, 12);
-  disc.rotation.z = Math.PI / 2;
-  const boss = cyl(0.1, 0.1, 0.12, C.steel, 0, 0, 0, 8);
-  boss.rotation.z = Math.PI / 2;
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.035, 6, 14), mat(C.steelDark));
-  rim.rotation.y = Math.PI / 2;
-  g.add(disc, boss, rim);
-  g.position.set(x, y, z);
-  return g;
-}
-
-// The common raider: round red kettle helmet, nose guard and plume, small round shield, short sword.
-export function makeKnight({ scale = 1, color = C.red, dark = C.darkRed } = {}) {
-  const g = humanoid({ shirt: color, pantsColor: dark, hairColor: dark, scale, style: 'angry', hair: false });
-  const sash = box(0.62, 0.1, 0.42, dark, 0, 0.5, 0);
-  const helm = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 9, 0, Math.PI * 2, 0, Math.PI * 0.55), mat(color));
-  helm.position.set(0, 1.3, -0.02);
-  helm.castShadow = true;
-  const brim = cyl(0.46, 0.46, 0.08, dark, 0, 1.3, -0.02, 14);
-  const nose = box(0.08, 0.28, 0.06, dark, 0, 1.16, 0.34);
-  const plume = cone(0.12, 0.5, dark, 0, 1.9, -0.05, 5);
-  const plume2 = cone(0.08, 0.3, color, 0, 2.1, -0.05, 5);
-  g.add(sash, helm, brim, nose, plume, plume2);
-  g.add(roundShield(dark, -0.5, 0.66, 0.05));
-  const sword = box(0.08, 0.7, 0.05, C.steel, 0.42, 0.9, 0.16);
-  sword.rotation.z = -0.4;
-  sword.add(box(0.24, 0.06, 0.1, C.leather, 0, -0.3, 0));
-  g.add(sword);
-  return bake(g, [...g.userData.legs, g.userData.body]);
-}
-
-// Elite: black plate, steel pauldrons, tall great helm with a glowing visor slit, red crest, longsword.
-export function makeElite() {
-  const g = humanoid({ shirt: 0x2b2b33, pantsColor: 0x1f1f26, hairColor: 0x1f1f26, scale: 1.1, style: 'angry', hair: false });
-  const plate = rbox(0.48, 0.4, 0.14, 0x3d3d47, 0, 0.64, 0.18, 0.05);
-  const crossA = box(0.34, 0.05, 0.03, 0x8a1a22, 0, 0.64, 0.27);
-  crossA.rotation.z = 0.78;
-  const crossB = box(0.34, 0.05, 0.03, 0x8a1a22, 0, 0.64, 0.27);
-  crossB.rotation.z = -0.78;
-  const pauL = rbox(0.34, 0.2, 0.36, C.steel, -0.38, 0.9, 0, 0.1);
-  const pauR = rbox(0.34, 0.2, 0.36, C.steel, 0.38, 0.9, 0, 0.1);
-  const helm = rbox(0.74, 0.86, 0.7, 0x2b2b33, 0, 1.3, -0.02, 0.2, 0.04);
-  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 0.06), new THREE.MeshBasicMaterial({ color: 0xff3b3b }));
-  visor.position.set(0, 1.26, 0.35);
-  const crest = box(0.1, 0.34, 0.5, 0x8a1a22, 0, 1.85, -0.1);
-  g.add(plate, crossA, crossB, pauL, pauR, helm, visor, crest);
-  // remove the drawn face: the helm covers it
-  g.children.filter((o) => o.userData.face).forEach((o) => g.remove(o));
-  const sword = box(0.09, 1.15, 0.05, C.steel, 0.44, 1.0, 0.16);
-  sword.rotation.z = -0.3;
-  sword.add(box(0.3, 0.07, 0.1, 0x8a1a22, 0, -0.5, 0));
-  g.add(sword);
-  return bake(g, [...g.userData.legs, g.userData.body]);
-}
-
-// Brute: barrel body, bare arms, horned cap, studded club.
-export function makeBrute() {
-  const g = new THREE.Group();
-  const s = 1.45;
-  const legL = rbox(0.26, 0.36, 0.26, 0x5a0d10, -0.17, 0.2, 0, 0.08);
-  const legR = rbox(0.26, 0.36, 0.26, 0x5a0d10, 0.17, 0.2, 0, 0.08);
-  const body = rbox(0.86, 0.66, 0.56, C.darkRed, 0, 0.7, 0, 0.2, 0.05);
-  const strap = box(0.16, 0.9, 0.6, C.leather, 0, 0.7, 0);
-  strap.rotation.z = 0.7;
-  const belt = box(0.9, 0.1, 0.6, C.leather, 0, 0.42, 0);
-  const armL = rbox(0.24, 0.5, 0.24, C.skin, -0.55, 0.68, 0.04, 0.1);
-  const armR = rbox(0.24, 0.5, 0.24, C.skin, 0.55, 0.68, 0.04, 0.1);
-  const head = rbox(0.66, 0.56, 0.62, C.skin, 0, 1.32, 0, 0.22, 0.04);
-  const cap = rbox(0.7, 0.24, 0.66, 0x5a0d10, 0, 1.52, -0.02, 0.2, 0.04);
-  const hornL = cone(0.09, 0.4, 0xf4f4f4, -0.42, 1.6, 0, 5);
-  hornL.rotation.z = 0.9;
-  const hornR = cone(0.09, 0.4, 0xf4f4f4, 0.42, 1.6, 0, 5);
-  hornR.rotation.z = -0.9;
-  g.add(legL, legR, body, strap, belt, armL, armR, head, cap, hornL, hornR);
-  g.add(face(0.5, 0.42, 0, 1.26, 0.315, 'angry'));
-  // club
-  const handle = cyl(0.05, 0.05, 0.9, C.darkWood, 0.62, 1.15, 0.1, 6);
-  const clubHead = rbox(0.3, 0.42, 0.3, C.steelDark, 0.62, 1.7, 0.1, 0.08);
-  for (const [x, z] of [[0.14, 0], [-0.14, 0], [0, 0.14], [0, -0.14]]) clubHead.add(new THREE.Mesh(new THREE.SphereGeometry(0.05, 5, 4), mat(C.steel)).translateX(x).translateZ(z));
-  g.add(handle, clubHead);
-  g.userData.legs = [legL, legR];
-  g.userData.body = body;
-  g.scale.setScalar(s * 0.9);
-  return bake(g, [...g.userData.legs, g.userData.body]);
-}
-
-// Giant boss: bone-white colossus, horned helm, chest strap, greatsword.
-export function makeBoss() {
-  const g = new THREE.Group();
-  const body = rbox(1.9, 2.3, 1.5, C.boss, 0, 1.6, 0, 0.3, 0.03);
-  const belly = rbox(1.5, 1.2, 0.5, C.bossDark, 0, 1.3, 0.55, 0.2);
-  const strap = box(0.3, 2.4, 1.6, C.leather, 0, 1.6, 0.02);
-  strap.rotation.z = 0.7;
-  const head = rbox(1.2, 1.05, 1.15, C.boss, 0, 3.3, 0, 0.3, 0.03);
-  const helm = rbox(1.3, 0.5, 1.25, C.bossDark, 0, 3.7, -0.02, 0.3);
-  const hornL = cone(0.16, 0.9, 0xf4f4f4, -0.8, 3.95, 0, 6);
-  hornL.rotation.z = 1.0;
-  const hornR = cone(0.16, 0.9, 0xf4f4f4, 0.8, 3.95, 0, 6);
-  hornR.rotation.z = -1.0;
-  const legL = rbox(0.6, 0.9, 0.6, C.bossDark, -0.5, 0.45, 0, 0.1);
-  const legR = rbox(0.6, 0.9, 0.6, C.bossDark, 0.5, 0.45, 0, 0.1);
-  const armR = rbox(0.5, 1.6, 0.5, C.boss, 1.25, 1.9, 0.2, 0.15);
-  const armL = rbox(0.5, 1.4, 0.5, C.boss, -1.25, 1.8, 0.1, 0.15);
-  const sword = box(0.34, 3.6, 0.14, C.white, 1.3, 3.0, 0.9);
-  sword.rotation.x = 0.35;
-  const guard = box(1.0, 0.18, 0.2, C.steel, 1.3, 1.5, 0.5);
-  guard.rotation.x = 0.35;
-  g.add(body, belly, strap, head, helm, hornL, hornR, legL, legR, armR, armL, sword, guard);
-  g.add(face(0.9, 0.8, 0, 3.2, 0.59, 'angry'));
-  g.userData.legs = [legL, legR];
-  g.userData.body = body;
-  return bake(g, [...g.userData.legs, g.userData.body]);
-}
-
-// The King before he earns his horse.
-export function makeKingFoot() {
-  const g = humanoid({ shirt: C.blue });
-  const plate = rbox(0.48, 0.4, 0.14, C.steel, 0, 0.66, 0.2, 0.06);
-  const cape = rbox(0.62, 0.8, 0.1, C.blue, 0, 0.55, -0.24, 0.05);
-  const beard = rbox(0.5, 0.2, 0.16, 0x5a3a20, 0, 0.98, 0.26, 0.06);
-  const crown = cyl(0.36, 0.32, 0.26, C.gold, 0, 1.62, -0.02, 8);
-  g.add(plate, cape, beard, crown);
-  for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * Math.PI * 2;
-    g.add(box(0.14, 0.28, 0.1, C.gold, Math.cos(a) * 0.32, 1.87, -0.02 + Math.sin(a) * 0.32).rotateY(-a));
-  }
-  g.add(box(0.14, 0.14, 0.1, C.red, 0, 1.72, 0.33));
-  const b = bow(C.gold, 0.4);
-  b.position.set(0.44, 0.7, 0.24);
-  b.rotation.y = -0.4;
-  g.add(b);
-  return bake(g, [...g.userData.legs, g.userData.body]);
-}
-
-// The Queen: long dress, tiara, long hair. She never fights.
-export function makeQueen() {
-  const g = new THREE.Group();
-  const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.7, 10), mat(0xf07aa8));
-  skirt.position.y = 0.35;
-  skirt.castShadow = true;
-  const hem = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.05, 6, 14), mat(0xd85a8c));
-  hem.rotation.x = Math.PI / 2;
-  hem.position.y = 0.05;
-  const bodice = rbox(0.5, 0.5, 0.34, 0xf07aa8, 0, 0.82, 0, 0.12, 0.05);
-  const sash = box(0.52, 0.08, 0.36, C.gold, 0, 0.62, 0);
-  const collar = box(0.36, 0.1, 0.3, 0xfff1f5, 0, 1.03, 0.04);
-  const armL = rbox(0.15, 0.4, 0.15, C.skin, -0.32, 0.8, 0.02, 0.06);
-  const armR = rbox(0.15, 0.4, 0.15, C.skin, 0.32, 0.8, 0.02, 0.06);
-  const head = rbox(0.66, 0.58, 0.62, C.skin, 0, 1.4, 0, 0.24, 0.04);
-  const hairColor = 0x7a3b12;
-  const cap = rbox(0.7, 0.28, 0.66, hairColor, 0, 1.6, -0.02, 0.22, 0.04);
-  const fringe = rbox(0.6, 0.12, 0.14, hairColor, 0, 1.5, 0.27, 0.05);
-  const back = rbox(0.56, 0.9, 0.2, hairColor, 0, 1.15, -0.3, 0.1);
-  const sideL = rbox(0.12, 0.5, 0.3, hairColor, -0.34, 1.3, -0.1, 0.05);
-  const sideR = rbox(0.12, 0.5, 0.3, hairColor, 0.34, 1.3, -0.1, 0.05);
-  const tiara = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.035, 6, 16, Math.PI), mat(C.gold));
-  tiara.position.set(0, 1.72, 0);
-  tiara.rotation.x = -Math.PI / 2;
-  tiara.rotation.z = Math.PI;
-  const jewel = box(0.1, 0.14, 0.08, 0x9ad4ff, 0, 1.78, 0.3);
-  g.add(skirt, hem, bodice, sash, collar, armL, armR, head, cap, fringe, back, sideL, sideR, tiara, jewel);
-  g.add(face(0.48, 0.42, 0, 1.34, 0.315, 'normal'));
-  g.userData.legs = [];
-  g.userData.body = bodice;
-  return bake(g, [...g.userData.legs, g.userData.body]);
-}
+// ---- characters live in characters.js (smooth, painted-face figures) ----
+export { makeArcher, makeSwordsman, makeKnight, makeElite, makeBrute, makeBoss, makeKing, makeKingFoot, makeQueen } from './characters.js';
 
 // The Royal Keep: a small stone castle with a balcony the Queen stands on.
 export function makeKeep() {
@@ -517,7 +263,6 @@ export function makeKeep() {
   const door = box(0.9, 1.4, 0.12, 0x3a2a1a, 0, 0.7, 1.72);
   const arch = box(1.2, 0.2, 0.14, 0x6b6f75, 0, 1.5, 1.72);
   for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) g.add(cone(0.6, 0.8, 0x2f6fd6, sx * 1.6, 3.8, sz * 1.6, 8));
-  // balcony on the front of the tower
   const balcony = box(2.0, 0.2, 1.0, 0x6b6f75, 0, 2.7, 1.9);
   const rail = box(2.0, 0.5, 0.1, C.darkWood, 0, 3.05, 2.35);
   const railL = box(0.1, 0.5, 1.0, C.darkWood, -0.95, 3.05, 1.9);
@@ -528,58 +273,6 @@ export function makeKeep() {
   g.add(tower, roof, pole, flag, door, arch, balcony, rail, railL, railR, window, banner);
   g.userData.balcony = new THREE.Vector3(0, 2.8, 1.85);
   return bake(g);
-}
-
-export function makeKing() {
-  const g = new THREE.Group();
-  // horse (long axis along z)
-  const hb = rbox(0.66, 0.62, 1.3, C.horse, 0, 0.85, 0, 0.18, 0.04);
-  const neck = rbox(0.36, 0.62, 0.36, C.horse, 0, 1.25, 0.62, 0.1);
-  neck.rotation.x = -0.4;
-  const head = rbox(0.38, 0.36, 0.6, C.horse, 0, 1.55, 0.86, 0.1, 0.04);
-  head.add(face(0.3, 0.2, 0, 0.06, 0.31, 'normal'));
-  const earL = cone(0.06, 0.16, C.horse, -0.12, 1.78, 0.7, 4);
-  const earR = cone(0.06, 0.16, C.horse, 0.12, 1.78, 0.7, 4);
-  const mane = rbox(0.16, 0.5, 0.55, C.mane, 0, 1.48, 0.5, 0.06);
-  const tail = rbox(0.16, 0.6, 0.16, C.mane, 0, 0.72, -0.72, 0.06);
-  tail.rotation.x = 0.4;
-  const bridle = box(0.42, 0.06, 0.06, C.leather, 0, 1.5, 0.98);
-  const legs = [];
-  for (const [x, z] of [[-0.22, 0.45], [0.22, 0.45], [-0.22, -0.45], [0.22, -0.45]]) {
-    const l = rbox(0.2, 0.55, 0.2, C.horse, x, 0.28, z, 0.06);
-    l.add(box(0.22, 0.1, 0.22, C.shoes, 0, -0.25, 0));
-    legs.push(l);
-    g.add(l);
-  }
-  const saddle = rbox(0.74, 0.16, 0.6, C.leather, 0, 1.17, -0.05, 0.05);
-  const blanket = box(0.8, 0.1, 0.8, C.blue, 0, 1.12, -0.05);
-  g.add(hb, neck, head, earL, earR, mane, tail, bridle, blanket, saddle);
-  // rider
-  const body = rbox(0.6, 0.6, 0.42, C.blue, 0, 1.55, -0.05, 0.12, 0.05);
-  const plate = rbox(0.5, 0.42, 0.14, C.steel, 0, 1.6, 0.19, 0.06);
-  const cape = rbox(0.66, 0.9, 0.1, C.blue, 0, 1.35, -0.3, 0.05);
-  const armL = rbox(0.17, 0.42, 0.17, C.skin, -0.4, 1.5, 0.05, 0.07);
-  const armR = rbox(0.17, 0.42, 0.17, C.skin, 0.4, 1.5, 0.05, 0.07);
-  const rhead = rbox(0.68, 0.6, 0.64, C.skin, 0, 2.15, -0.05, 0.24, 0.04);
-  const rhair = rbox(0.72, 0.26, 0.68, C.hair, 0, 2.35, -0.07, 0.22, 0.04);
-  const beard = rbox(0.5, 0.2, 0.16, 0x5a3a20, 0, 1.92, 0.24, 0.06);
-  g.add(body, plate, cape, armL, armR, rhead, rhair, beard);
-  g.add(face(0.52, 0.46, 0, 2.08, 0.285, 'normal'));
-  // crown: gold band with tall points
-  const crown = cyl(0.36, 0.32, 0.26, C.gold, 0, 2.6, -0.05, 8);
-  g.add(crown);
-  for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * Math.PI * 2;
-    g.add(box(0.14, 0.28, 0.1, C.gold, Math.cos(a) * 0.32, 2.85, -0.05 + Math.sin(a) * 0.32).rotateY(-a));
-  }
-  g.add(box(0.14, 0.14, 0.1, C.red, 0, 2.7, 0.3));
-  const b = bow(C.gold, 0.4);
-  b.position.set(0.44, 1.6, 0.3);
-  b.rotation.y = -0.4;
-  g.add(b);
-  g.userData.legs = legs;
-  g.userData.body = hb;
-  return bake(g, [...g.userData.legs, g.userData.body]);
 }
 
 // ---- items ----

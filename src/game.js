@@ -1932,6 +1932,8 @@ export class Game {
         l.rotation.x = Math.sin(ent.walkT + (i % 2) * Math.PI) * amp;
       });
     }
+    const arms = ent.mesh.userData.arms;
+    if (arms) arms.forEach((a, i) => (a.rotation.x = -Math.sin(ent.walkT + (i % 2) * Math.PI) * amp * 0.8));
     const body = ent.mesh.userData.body;
     if (body) body.position.y = body.userData.baseY ?? (body.userData.baseY = body.position.y);
     if (body && moving) body.position.y += Math.abs(Math.sin(ent.walkT)) * 0.05;

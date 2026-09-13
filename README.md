@@ -76,7 +76,8 @@ All balance lives in [`src/config.js`](src/config.js):
 index.html        HUD + start / game-over screens
 src/main.js       bootstraps the game loop
 src/game.js       the whole simulation: player, army, enemies, waves, coins, pads, camera
-src/models.js     low-poly model builders (king, archers, knights, boss, buildings, pads)
+src/models.js     buildings, walls, scenery, pads, effects (and the baking helpers)
+src/characters.js smooth toy-figure characters with painted faces (king, queen, army, raiders)
 src/world.js      terrain, paths, cliffs, trees, lighting
 src/input.js      virtual joystick + keyboard
 src/hud.js        DOM overlay
