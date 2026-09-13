@@ -8,7 +8,7 @@ export const CFG = {
 
   mining: { radius: 2.8, tick: 0.55, regrow: 9 },
 
-  score: { kill: { knight: 10, elite: 25, brute: 20, boss: 200 }, coin: 1, material: 2, buildPerCoin: 2, buildPerMaterial: 3, soldierPerWave: 2, waveClear: 50 },
+  score: { earlyWavePerSecond: 4, kill: { knight: 10, elite: 25, brute: 20, boss: 200 }, coin: 1, material: 2, buildPerCoin: 2, buildPerMaterial: 3, soldierPerWave: 2, waveClear: 50 },
 
   archer: { hp: 30, range: 9.5, fireRate: 0.9, damage: 10, speed: 9 },
   swordsman: { hp: 70, range: 1.4, fireRate: 1.1, damage: 14, speed: 8.5, aggro: 5 },
@@ -27,7 +27,7 @@ export const CFG = {
     firstDelay: 6,
     interval: 26,
     minInterval: 14,
-    graceAfterClear: 4,
+    graceAfterClear: 25,
     hpGrowthPerWave: 0.08,
     dmgGrowthPerWave: 0.05,
     bossEvery: 5,

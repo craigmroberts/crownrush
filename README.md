@@ -17,6 +17,9 @@ No storyline, just the loop:
   and wheat fields. Walls, towers, bridges, expansions and his warhorse cost coins plus materials.
 - Roads grow out of the gates as you wall the village, and bridges over the river are built from pads at the
   crossings. Until a bridge exists, raiders only come from your side of the river.
+- Unexplored land is hidden under fog that clears as the King travels; the minimap in the corner (tap to
+  enlarge) shows what you have discovered. After each wave there is a breather before the next, or press
+  "Send next wave" for bonus points.
 - A blue arrow points home whenever the village is off-screen, and a score tracks kills, coins, materials,
   builds, army size and waves cleared.
 - The map has a river that raiders (and the King) can only cross at the bridges where the curved roads

@@ -4,7 +4,13 @@ import { audio } from './audio.js';
 
 const canvas = document.getElementById('game');
 const hud = new Hud();
-const game = new Game(canvas, hud);
+let game;
+try {
+  game = new Game(canvas, hud);
+} catch (err) {
+  window.__showError(err && err.message ? err.message : String(err));
+  throw err;
+}
 
 hud.showStart(game.best);
 document.getElementById('start-btn').addEventListener('click', () => game.start());
@@ -16,6 +22,11 @@ document.getElementById('victory-restart').addEventListener('click', (e) => {
 });
 
 document.getElementById('pause-btn').addEventListener('click', () => game.togglePause());
+document.getElementById('next-wave-btn').addEventListener('click', () => game.callWave());
+document.getElementById('minimap').addEventListener('click', (e) => {
+  e.target.classList.toggle('big');
+  game.drawMinimap(true);
+});
 document.getElementById('resume-btn').addEventListener('click', () => game.unpause());
 document.getElementById('pause-restart').addEventListener('click', (e) => {
   e.preventDefault();

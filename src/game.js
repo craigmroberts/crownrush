@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { CFG, PADS, TIERS, NODES } from './config.js';
+import { CFG, PADS, TIERS, NODES, MAP } from './config.js';
 import { audio } from './audio.js';
 import { buildWorld, setupLights } from './world.js';
 import { Input } from './input.js';
 import {
-  makeKing, makeKingFoot, makeLumberTree, makeOreRock, makeResourceCube, makeArcher, makeSwordsman, makeKnight, makeElite, makeBrute, makeBoss, makeCoin, makeArrow,
+  makeKing, makeKingFoot, makeLumberTree, makeOreRock, makeResourceCube, makeTool, makeArcher, makeSwordsman, makeKnight, makeElite, makeBrute, makeBoss, makeCoin, makeArrow,
   makeHut, makeTower, makeBarracks, makeWallSegment, makeGate, makeRubble, makeBridge, makePad, drawPad, ghostify,
   makeHealthBar, setHealthBar, makePopup, makeRing,
 } from './models.js';
@@ -19,10 +19,11 @@ export class Game {
   constructor(canvas, hud) {
     this.canvas = canvas;
     this.hud = hud;
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.mobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: !this.mobile, powerPreference: 'high-performance' });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.mobile ? 1.5 : 2));
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = this.mobile ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.1;
@@ -32,7 +33,9 @@ export class Game {
     this.input = new Input(canvas);
     const { sun } = setupLights(this.scene);
     this.sun = sun;
+    if (this.mobile) sun.shadow.mapSize.set(1024, 1024);
     this.world = buildWorld(this.scene);
+    this.buildFog();
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -84,6 +87,13 @@ export class Game {
     this.bestScore = Number(localStorage.getItem('crownrush-best-score') || 0);
     this.mineTimer = 0;
     this.nodes = [];
+    this.chips = [];
+    this.swing = 0;
+    this.activePad = null;
+    this.nodeRing = null;
+    this.minimapTimer = 0;
+    this.fogTimer = 0;
+    this.lastFogPos = new V3(999, 0, 999);
     this.damageMul = 1;
     this.coinsCarried = 0;
     this.coinsEarned = 0;
@@ -135,7 +145,13 @@ export class Game {
       this.stack.push(c);
     }
 
+    this.nodeRing = makeRing(3.2);
+    this.nodeRing.visible = false;
+    this.root.add(this.nodeRing);
+    this.resetFog();
     this.refreshPads();
+    this.hud.showNextWave(false);
+    this.hud.hidePadTip();
     this.hud.set(0, 1, 0, null, CFG.waves.goal, this.res, 0, 1);
     this.hud.setIndicators([]);
   }
@@ -197,6 +213,144 @@ export class Game {
     this.saveScore();
     audio.build();
     setTimeout(() => this.hud.showVictory(this.coinsEarned, this.units.length - 1 + this.turrets.length, this.score), 600);
+  }
+
+  // ---------- fog of war ----------
+  buildFog() {
+    const size = CFG.world.size;
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.minFilter = THREE.LinearFilter;
+    const m = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(size, size), m);
+    plane.rotation.x = -Math.PI / 2;
+    plane.position.y = 14;
+    plane.renderOrder = 5;
+    plane.frustumCulled = false;
+    this.scene.add(plane);
+    this.fog = { canvas, tex, plane, scale: 256 / size, half: size / 2 };
+    // minimap terrain layer, drawn once
+    const mm = document.createElement('canvas');
+    mm.width = 256;
+    mm.height = 256;
+    const ctx = mm.getContext('2d');
+    ctx.fillStyle = '#4aa566';
+    ctx.fillRect(0, 0, 256, 256);
+    const sc = this.fog.scale;
+    const tx = (x) => (x + this.fog.half) * sc;
+    const tz = (z) => (z + this.fog.half) * sc;
+    ctx.fillStyle = '#5b5f63';
+    ctx.fillRect(0, 0, tx(CFG.cliffs.x), tz(CFG.cliffs.z));
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    const poly = (pts, color, width) => {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      pts.forEach((p, i) => (i ? ctx.lineTo(tx(p.x), tz(p.z)) : ctx.moveTo(tx(p.x), tz(p.z))));
+      ctx.stroke();
+    };
+    poly(this.world.river.samples, '#d8cc9d', 12);
+    poly(this.world.river.samples, '#3d9bd4', 9);
+    this.fog.terrain = mm;
+    this.fog.poly = poly;
+    this.fog.tx = tx;
+    this.fog.tz = tz;
+  }
+
+  resetFog() {
+    const { canvas } = this.fog;
+    const ctx = canvas.getContext('2d');
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = 'rgba(38, 42, 48, 0.92)';
+    ctx.fillRect(0, 0, 256, 256);
+    const b = TIERS[0].bounds;
+    this.revealFog((b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2, 26);
+  }
+
+  revealFog(x, z, r) {
+    const { canvas, tex, tx, tz, scale } = this.fog;
+    const ctx = canvas.getContext('2d');
+    ctx.globalCompositeOperation = 'destination-out';
+    const cx = tx(x);
+    const cz = tz(z);
+    const rr = r * scale;
+    const g = ctx.createRadialGradient(cx, cz, rr * 0.55, cx, cz, rr);
+    g.addColorStop(0, 'rgba(0,0,0,1)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cz, rr, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+    tex.needsUpdate = true;
+  }
+
+  updateFog(dt) {
+    this.fogTimer -= dt;
+    if (this.fogTimer > 0) return;
+    this.fogTimer = 0.25;
+    const kp = this.king.mesh.position;
+    if (kp.distanceTo(this.lastFogPos) > 1.5) {
+      this.lastFogPos.copy(kp);
+      this.revealFog(kp.x, kp.z, 17);
+    }
+    this.minimapTimer -= 0.25;
+    if (this.minimapTimer <= 0) {
+      this.minimapTimer = 0.5;
+      this.drawMinimap();
+    }
+  }
+
+  drawMinimap(force) {
+    const el = this.hud.minimap;
+    if (!el) return;
+    const big = el.classList.contains('big');
+    const ctx = el.getContext('2d');
+    const { canvas: fogCanvas, terrain, tx, tz, poly } = this.fog;
+    ctx.clearRect(0, 0, 160, 160);
+    ctx.save();
+    ctx.scale(160 / 256, 160 / 256);
+    ctx.drawImage(terrain, 0, 0);
+    for (const r of this.world.roads) if (r.revealed) poly(r.samples, '#d9b27c', 4);
+    // village
+    const b = TIERS[this.tier].bounds;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(tx(b.x0), tz(b.z0), (b.x1 - b.x0) * this.fog.scale, (b.z1 - b.z0) * this.fog.scale);
+    // resource nodes
+    for (const n of this.nodes) {
+      ctx.fillStyle = n.type === 'wood' ? '#8a5a2b' : n.type === 'stone' ? '#c7d2dc' : '#e0c25a';
+      ctx.beginPath();
+      ctx.arc(tx(n.pos.x), tz(n.pos.z), 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // fog mask on top
+    ctx.drawImage(fogCanvas, 0, 0);
+    // enemies (only in explored areas read from the fog alpha)
+    const fctx = fogCanvas.getContext('2d');
+    ctx.fillStyle = '#e8342a';
+    for (const e of this.enemies) {
+      const px = tx(e.mesh.position.x);
+      const pz = tz(e.mesh.position.z);
+      const a = fctx.getImageData(Math.max(0, Math.min(255, px | 0)), Math.max(0, Math.min(255, pz | 0)), 1, 1).data[3];
+      if (a > 200) continue;
+      ctx.beginPath();
+      ctx.arc(px, pz, e.type === 'boss' ? 5 : 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // king
+    const kp = this.king.mesh.position;
+    ctx.fillStyle = '#f5b800';
+    ctx.strokeStyle = '#1b1b24';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(tx(kp.x), tz(kp.z), 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
   }
 
   addScore(n) {
@@ -409,6 +563,7 @@ export class Game {
       icon: pad.def.icon, label: pad.def.label, remaining: pad.cost - pad.paid, paid: paidAll / total,
       currency: pad.def.crew ? 'archers' : 'coins',
       res: pad.res.map((r) => ({ type: r.type, remaining: r.need - r.paid })),
+      active: !!pad.active,
     });
   }
 
@@ -815,8 +970,11 @@ export class Game {
       this.updateCoins(dt);
       this.updatePads(dt);
       this.updateWaves(dt);
+      this.updateFog(dt);
+      this.updateChips(dt);
       const army = this.units.filter((u) => u !== this.king && !u.assign).length;
       const between = this.enemies.length === 0 && this.spawnQueue.length === 0;
+      this.hud.showNextWave(between && this.wave > 0 && this.waveTimer > 3 && !this.won);
       this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, CFG.waves.goal, this.res, this.score, this.king.hp / this.king.maxHp);
       this.updateIndicators(dt);
     }
@@ -884,7 +1042,6 @@ export class Game {
         }
       }
     }
-    if (this.mineTimer > 0) return;
     let best = null;
     let bd = CFG.mining.radius + 1.5;
     for (const n of this.nodes) {
@@ -894,12 +1051,50 @@ export class Game {
         best = n;
       }
     }
-    if (!best) return;
+    // highlight ring around the node in range
+    if (best) {
+      this.nodeRing.visible = true;
+      this.nodeRing.position.set(best.pos.x, 0.05, best.pos.z);
+      const r = (best.type === 'straw' ? 2.2 : 1) * (1 + Math.sin(this.time * 5) * 0.04);
+      this.nodeRing.scale.setScalar(r);
+    } else this.nodeRing.visible = false;
+    // tool swing animation
+    if (this.swing > 0) {
+      this.swing -= dt;
+      const t = 1 - Math.max(0, this.swing / CFG.mining.tick);
+      if (this.tool) this.tool.rotation.x = -1.3 + Math.sin(t * Math.PI) * 2.0;
+      if (this.swing <= 0 && this.tool) this.tool.visible = false;
+    }
+    if (this.mineTimer > 0 || !best) return;
     this.mineTimer = CFG.mining.tick;
     best.stock--;
     this.setNodeLook(best);
     audio.mine(best.type);
     this.king.mesh.userData.body.rotation.x = 0.35;
+    // tool in hand, matching the material
+    if (!this.tool || this.toolType !== best.type || this.tool.parent !== this.king.mesh) {
+      if (this.tool && this.tool.parent) this.tool.parent.remove(this.tool);
+      this.tool = makeTool(best.type);
+      this.toolType = best.type;
+      this.tool.position.set(0.42, this.mounted ? 1.5 : 0.62, 0.25);
+      this.king.mesh.add(this.tool);
+    }
+    this.tool.visible = true;
+    this.swing = CFG.mining.tick;
+    this.faceTowards(this.king.mesh, best.pos, 1, 60);
+    // the node shakes and throws chips
+    if (best.type !== 'straw') best.shake = 0.3;
+    const chipColor = best.type === 'wood' ? 0x9a6a3a : best.type === 'stone' ? 0xa9aeb5 : 0xe0c25a;
+    for (let i = 0; i < 5; i++) {
+      const ch = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.16), makeResourceCube(best.type).material);
+      ch.position.copy(best.type === 'straw' ? kp : best.pos).setY(0.9);
+      ch.position.x += rand(-0.4, 0.4);
+      ch.position.z += rand(-0.4, 0.4);
+      this.root.add(ch);
+      this.chips.push({ mesh: ch, vx: rand(-3, 3), vz: rand(-3, 3), vy: rand(3, 6), t: 0.7, color: chipColor });
+    }
+    tmp.copy(best.type === 'straw' ? kp : best.pos).setY(1.2);
+    this.popup(best.type === 'wood' ? '+1 🪵' : best.type === 'stone' ? '+1 🪨' : '+1 🌾', tmp, '#ffffff', 1.6);
     const c = makeResourceCube(best.type);
     c.position.copy(best.pos).setY(1.0);
     if (best.type === 'straw') c.position.set(kp.x + rand(-2, 2), 0.6, kp.z + rand(-2, 2));
@@ -911,6 +1106,29 @@ export class Game {
     if (n.type === 'straw') return;
     const f = 0.45 + 0.55 * (n.stock / n.max);
     n.mesh.scale.setScalar(f);
+  }
+
+  updateChips(dt) {
+    for (const n of this.nodes) {
+      if (n.shake > 0) {
+        n.shake -= dt;
+        n.mesh.rotation.z = Math.sin(n.shake * 40) * 0.08 * n.shake;
+        if (n.shake <= 0) n.mesh.rotation.z = 0;
+      }
+    }
+    for (let i = this.chips.length - 1; i >= 0; i--) {
+      const c = this.chips[i];
+      c.t -= dt;
+      c.vy -= 18 * dt;
+      c.mesh.position.x += c.vx * dt;
+      c.mesh.position.z += c.vz * dt;
+      c.mesh.position.y = Math.max(0.08, c.mesh.position.y + c.vy * dt);
+      c.mesh.rotation.x += dt * 9;
+      if (c.t <= 0) {
+        this.root.remove(c.mesh);
+        this.chips.splice(i, 1);
+      }
+    }
   }
 
   updateArmy(dt) {
@@ -1226,12 +1444,47 @@ export class Game {
   updatePads(dt) {
     const kp = this.king.mesh.position;
     this.spendTimer = Math.max(this.spendTimer - dt, -0.1);
+    // nearest pad gets a readable requirements card; the one you stand on lights up
+    let nearest = null;
+    let nd = 7;
+    for (const pad of this.pads) {
+      const d = kp.distanceTo(pad.mesh.position);
+      if (d < nd) {
+        nd = d;
+        nearest = pad;
+      }
+    }
+    if (nearest) {
+      tmp.copy(nearest.mesh.position).setY(0.2).project(this.camera);
+      const sx = (tmp.x * 0.5 + 0.5) * window.innerWidth;
+      const sy = (-tmp.y * 0.5 + 0.5) * window.innerHeight - 30;
+      const chips = [];
+      const def = nearest.def;
+      if (def.crew) {
+        const free = this.units.filter((u) => u.type === 'archer' && !u.assign).length;
+        chips.push({ text: `🧍 ${nearest.cost - nearest.paid} archers`, state: free > 0 ? 'ok' : 'short' });
+      } else {
+        const needC = nearest.cost - nearest.paid;
+        chips.push({ text: `♛ ${needC} coins`, state: needC <= 0 ? 'ok' : this.coinsCarried >= needC ? 'ok' : this.coinsCarried > 0 ? '' : 'short' });
+        for (const r of nearest.res) {
+          const need = r.need - r.paid;
+          const icon = r.type === 'wood' ? '🪵' : r.type === 'stone' ? '🪨' : '🌾';
+          chips.push({ text: `${icon} ${need} ${r.type} (have ${this.res[r.type]})`, state: need <= 0 || this.res[r.type] >= need ? 'ok' : this.res[r.type] > 0 ? '' : 'short' });
+        }
+      }
+      const note = def.crew ? 'Stand here to send archers' : nd < CFG.spend.padRadius ? 'Paying…' : 'Stand on the pad to pay';
+      this.hud.showPadTip(sx, sy, def.label, chips, note);
+    } else this.hud.hidePadTip();
     for (const pad of this.pads) {
       // pop-in / settle animation
       const s = pad.mesh.scale.x;
       if (s < 1) pad.mesh.scale.setScalar(Math.min(1, s + dt * 4));
       else if (s > 1) pad.mesh.scale.setScalar(Math.max(1, s - dt * 0.8));
       const inside = kp.distanceTo(pad.mesh.position) < CFG.spend.padRadius;
+      if (inside !== !!pad.active) {
+        pad.active = inside;
+        this.drawPad(pad);
+      }
       if (pad.def.crew) {
         // crew pads take archers from the army instead of coins
         if (inside && pad.paid < pad.cost && this.spendTimer <= 0) {
@@ -1303,6 +1556,16 @@ export class Game {
       this.waveTimer = CFG.waves.graceAfterClear;
     }
     if (this.waveTimer <= 0) this.startWave();
+  }
+
+  callWave() {
+    if (!this.running || this.waveTimer <= 0) return;
+    const bonus = Math.floor(this.waveTimer) * CFG.score.earlyWavePerSecond;
+    if (bonus > 0) {
+      this.addScore(bonus);
+      this.hud.toast(`Early call: +${bonus} points`, 1400);
+    }
+    this.waveTimer = 0;
   }
 
   // Red arrows at the screen edge pointing at off-screen enemies, grouped by direction.

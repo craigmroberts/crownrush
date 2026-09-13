@@ -6,7 +6,20 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#3f9a5b" />
     <title>Crown Rush</title>
+    <style>html, body { margin: 0; background: #3f9a5b; min-height: 100%; }</style>
     <link rel="stylesheet" href="/src/style.css" />
+    <script>
+      // If anything fails before the game boots (stale cached bundle after a deploy, no WebGL, a crash),
+      // show what happened instead of a blank page.
+      window.__showError = function (msg) {
+        var el = document.getElementById('error-screen');
+        if (!el) return;
+        document.getElementById('error-msg').textContent = msg;
+        el.classList.remove('hidden');
+      };
+      window.addEventListener('error', function (e) { window.__showError(e.message || 'Unknown error'); });
+      window.addEventListener('unhandledrejection', function (e) { window.__showError(String(e.reason && e.reason.message || e.reason)); });
+    </script>
   </head>
   <body>
     <canvas id="game"></canvas>
@@ -22,6 +35,9 @@
       <div id="res-hud"><span>🪵 <b id="res-wood">0</b></span><span>🪨 <b id="res-stone">0</b></span><span>🌾 <b id="res-straw">0</b></span></div>
       <button id="mute-btn" title="Toggle sound">🔊</button>
       <button id="pause-btn" title="Pause (P)">⏸</button>
+      <button id="next-wave-btn" class="hidden">⚔️ Send next wave</button>
+      <div id="pad-tip" class="hidden"><div class="tip-name"></div><div class="tip-costs"></div></div>
+      <canvas id="minimap" width="160" height="160"></canvas>
     </div>
 
     <div id="indicators"></div>
@@ -47,6 +63,15 @@
       </div>
     </div>
 
+    <div id="error-screen" class="overlay hidden">
+      <div class="panel">
+        <h1>Oops</h1>
+        <p>The game couldn't start. This usually means a new version was just published, so a reload fixes it.</p>
+        <p class="hint" id="error-msg"></p>
+        <button onclick="location.reload(true)">Reload</button>
+      </div>
+    </div>
+
     <div id="pause-screen" class="overlay hidden">
       <div class="panel">
         <h1>Paused</h1>
@@ -67,6 +92,6 @@
       </div>
     </div>
 
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="/src/main.js" onerror="window.__showError('The game files failed to load (' + this.src + ')')"></script>
   </body>
 </html>

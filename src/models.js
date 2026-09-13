@@ -778,6 +778,24 @@ export function makeResourceCube(type) {
   return m;
 }
 
+// hand tools the King swings while gathering
+export function makeTool(type) {
+  const g = new THREE.Group();
+  const handle = box(0.07, 0.9, 0.07, C.darkWood, 0, 0.35, 0);
+  g.add(handle);
+  if (type === 'wood') {
+    g.add(box(0.28, 0.3, 0.06, C.steel, 0.14, 0.72, 0));
+  } else if (type === 'stone') {
+    const head = box(0.6, 0.1, 0.08, C.steel, 0, 0.78, 0);
+    g.add(head, cone(0.05, 0.16, C.steel, 0.36, 0.78, 0, 4).rotateZ(-Math.PI / 2), cone(0.05, 0.16, C.steel, -0.36, 0.78, 0, 4).rotateZ(Math.PI / 2));
+  } else {
+    const blade = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.035, 5, 10, Math.PI * 1.2), mat(C.steel));
+    blade.position.set(0.12, 0.8, 0);
+    g.add(blade);
+  }
+  return g;
+}
+
 export function makeHayBale() {
   const g = new THREE.Group();
   const bale = cyl(0.55, 0.55, 0.9, 0xe0c25a, 0, 0.55, 0, 12);
@@ -850,13 +868,13 @@ export function makePadTexture() {
 }
 
 const RES_ICON = { wood: '🪵', stone: '🪨', straw: '🌾' };
-export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 'coins', res = [] }) {
+export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 'coins', res = [], active = false }) {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 256, 256);
   const r = 26;
   ctx.beginPath();
   ctx.roundRect(14, 14, 228, 228, r);
-  ctx.fillStyle = 'rgba(70, 60, 45, 0.55)';
+  ctx.fillStyle = active ? 'rgba(255, 230, 120, 0.42)' : 'rgba(70, 60, 45, 0.55)';
   ctx.fill();
   if (paid > 0) {
     ctx.save();
@@ -866,10 +884,10 @@ export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 
     ctx.fillRect(14, 242 - hgt, 228, hgt);
     ctx.restore();
   }
-  ctx.strokeStyle = 'rgba(255,255,255,0.95)';
-  ctx.lineWidth = 11;
+  ctx.strokeStyle = active ? '#ffd93d' : 'rgba(255,255,255,0.95)';
+  ctx.lineWidth = active ? 14 : 11;
   ctx.lineCap = 'round';
-  const L = 40;
+  const L = active ? 52 : 40;
   for (const [x, y, sx, sy] of [[14, 14, 1, 1], [242, 14, -1, 1], [14, 242, 1, -1], [242, 242, -1, -1]]) {
     ctx.beginPath();
     ctx.moveTo(x + sx * L, y + sy * 6);
@@ -938,7 +956,7 @@ export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 
 
 export function makePad() {
   const { canvas, tex } = makePadTexture();
-  const geo = new THREE.PlaneGeometry(3.2, 3.2);
+  const geo = new THREE.PlaneGeometry(3.6, 3.6);
   const m = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
   const mesh = new THREE.Mesh(geo, m);
   mesh.rotation.x = -Math.PI / 2;
@@ -947,30 +965,51 @@ export function makePad() {
   return { mesh, canvas, tex };
 }
 
-// ---- health bar (sprites always face camera) ----
-const barBg = new THREE.SpriteMaterial({ color: 0x222222, depthTest: false });
-const barFg = new THREE.SpriteMaterial({ color: 0xe8342a, depthTest: false });
-const barFgGreen = new THREE.SpriteMaterial({ color: 0x4ad06a, depthTest: false });
+// ---- health bar: one sprite drawn on a canvas, so background and fill always line up ----
+function drawBar(bar) {
+  const { canvas, tex, green, frac } = bar.userData;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#1b1b24';
+  ctx.beginPath();
+  ctx.roundRect(0, 0, canvas.width, canvas.height, 6);
+  ctx.fill();
+  ctx.fillStyle = green ? '#4ad06a' : '#e8342a';
+  const w = Math.max(0, (canvas.width - 6) * Math.min(1, frac));
+  if (w > 0) {
+    ctx.beginPath();
+    ctx.roundRect(3, 3, w, canvas.height - 6, 4);
+    ctx.fill();
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(1, 1, canvas.width - 2, canvas.height - 2, 6);
+  ctx.stroke();
+  tex.needsUpdate = true;
+}
 export function makeHealthBar(width = 1.2, green = false) {
-  const g = new THREE.Group();
-  const bg = new THREE.Sprite(barBg);
-  bg.scale.set(width, 0.16, 1);
-  bg.renderOrder = 10;
-  const fg = new THREE.Sprite(green ? barFgGreen : barFg);
-  fg.center.set(0, 0.5);
-  fg.position.x = -width / 2 + 0.03;
-  fg.scale.set(width - 0.06, 0.1, 1);
-  fg.renderOrder = 11; // always on top of its background (depth test is off)
-  g.add(bg, fg);
-  g.userData.fg = fg;
-  g.userData.width = width - 0.06;
-  g.renderOrder = 10;
-  g.visible = false;
-  return g;
+  const canvas = document.createElement('canvas');
+  canvas.width = 96;
+  canvas.height = 16;
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.minFilter = THREE.LinearFilter;
+  const m = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+  const s = new THREE.Sprite(m);
+  s.scale.set(width, width / 6, 1);
+  s.renderOrder = 10;
+  s.visible = false;
+  s.userData = { canvas, tex, green, frac: 1 };
+  drawBar(s);
+  return s;
 }
 export function setHealthBar(bar, frac) {
-  bar.userData.fg.scale.x = Math.max(0.001, bar.userData.width * frac);
-  bar.visible = frac < 0.999;
+  const f = Math.max(0, Math.min(1, frac));
+  if (Math.abs(f - bar.userData.frac) > 0.004) {
+    bar.userData.frac = f;
+    drawBar(bar);
+  }
+  bar.visible = f < 0.999;
 }
 
 // ---- damage popup ----

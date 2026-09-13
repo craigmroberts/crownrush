@@ -12,6 +12,9 @@ export class Hud {
     this.winScreen = document.getElementById('victory-screen');
     this.indicatorLayer = document.getElementById('indicators');
     this.indicators = [];
+    this.tip = document.getElementById('pad-tip');
+    this.nextBtn = document.getElementById('next-wave-btn');
+    this.minimap = document.getElementById('minimap');
     this.resEls = { wood: document.getElementById('res-wood'), stone: document.getElementById('res-stone'), straw: document.getElementById('res-straw') };
     this.scoreEl = document.getElementById('score-num');
     this.kingHpEl = document.getElementById('king-hp-fill');
@@ -74,6 +77,30 @@ export class Hud {
   }
   hideGameOver() {
     this.overScreen.classList.add('hidden');
+  }
+  // readable requirements card floating above the pad the King is near
+  showPadTip(x, y, name, chips, note) {
+    this.tip.classList.remove('hidden');
+    this.tip.style.transform = `translate(calc(${Math.round(x)}px - 50%), calc(${Math.round(y)}px - 100%))`;
+    if (this.tipKey !== name + chips.map((c) => c.text + c.state).join('|') + note) {
+      this.tipKey = name + chips.map((c) => c.text + c.state).join('|') + note;
+      this.tip.querySelector('.tip-name').textContent = name;
+      this.tip.querySelector('.tip-costs').innerHTML = chips.map((c) => `<span class="chip ${c.state}">${c.text}</span>`).join('');
+      let n = this.tip.querySelector('.tip-note');
+      if (!n) {
+        n = document.createElement('div');
+        n.className = 'tip-note';
+        this.tip.appendChild(n);
+      }
+      n.textContent = note;
+    }
+  }
+  hidePadTip() {
+    this.tip.classList.add('hidden');
+    this.tipKey = null;
+  }
+  showNextWave(show) {
+    this.nextBtn.classList.toggle('hidden', !show);
   }
   showPause() {
     document.getElementById('pause-screen').classList.remove('hidden');
