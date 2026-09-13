@@ -1,0 +1,113 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@400;600;700&display=swap">
+  <style>
+    body { margin: 0; font-family: "Nunito", "Trebuchet MS", system-ui, sans-serif; background: #f4efe3; color: #2b2a26; }
+    a { color: #b45309; } a:hover { color: #92400e; }
+    h1, h2 { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; margin: 0; }
+  </style>
+</helmet>
+<div style="width: 1240px; height: 760px; background: #f4efe3; display: flex; flex-direction: column; gap: 14px; padding: 24px; box-sizing: border-box;">
+  <div style="display: flex; align-items: baseline; justify-content: space-between;">
+    <h1 style="font-size: 30px; font-weight: 800;">Terrain kit</h1>
+    <div style="font-size: 14px; color: #6b675c; font-weight: 600;">The set pieces the map is built from. Each becomes a low-poly 3D piece with the same colours.</div>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px;">
+    <div style="background: #ffffff; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 6px 18px rgba(40,30,10,0.08);">
+      <svg viewBox="0 0 260 150" width="100%" xmlns="http://www.w3.org/2000/svg" style="border-radius: 10px; background: #4aa566;">
+        <path d="M -10 40 C 60 30, 90 90, 150 90 S 230 40, 270 60" fill="none" stroke="#d8cc9d" stroke-width="58" stroke-linecap="round"></path>
+        <path d="M -10 40 C 60 30, 90 90, 150 90 S 230 40, 270 60" fill="none" stroke="#3d9bd4" stroke-width="40" stroke-linecap="round"></path>
+        <path d="M -10 40 C 60 30, 90 90, 150 90 S 230 40, 270 60" fill="none" stroke="#63bdea" stroke-width="22" stroke-linecap="round"></path>
+        <path d="M 30 36 C 70 34, 90 70, 130 82" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="12 18" opacity="0.85"></path>
+        <g fill="#8f959c" stroke="#6b7076" stroke-width="2"><polygon points="60,110 74,104 84,114 76,124 62,122"></polygon><polygon points="200,30 212,24 222,34 214,44 202,42"></polygon></g>
+      </svg>
+      <h2 style="font-size: 17px; font-weight: 800;">River</h2>
+      <div style="font-size: 12px; color: #6b675c; line-height: 1.4;">Sandy banks, two-tone water, drifting foam lines. Blocks all walking.</div>
+    </div>
+    <div style="background: #ffffff; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 6px 18px rgba(40,30,10,0.08);">
+      <svg viewBox="0 0 260 150" width="100%" xmlns="http://www.w3.org/2000/svg" style="border-radius: 10px; background: #4aa566;">
+        <path d="M 130 -10 L 130 160" stroke="#d8cc9d" stroke-width="70"></path><path d="M 130 -10 L 130 160" stroke="#3d9bd4" stroke-width="50"></path><path d="M 130 -10 L 130 160" stroke="#63bdea" stroke-width="26"></path>
+        <path d="M -10 75 L 270 75" stroke="#c9a066" stroke-width="42"></path><path d="M -10 75 L 270 75" stroke="#d9b27c" stroke-width="34"></path>
+        <rect x="78" y="46" width="104" height="58" rx="6" fill="#8a5a2b"></rect>
+        <g fill="#a9743d"><rect x="84" y="52" width="10" height="46"></rect><rect x="100" y="52" width="10" height="46"></rect><rect x="116" y="52" width="10" height="46"></rect><rect x="132" y="52" width="10" height="46"></rect><rect x="148" y="52" width="10" height="46"></rect><rect x="164" y="52" width="10" height="46"></rect></g>
+        <rect x="74" y="38" width="112" height="8" rx="3" fill="#6b4a2b"></rect><rect x="74" y="104" width="112" height="8" rx="3" fill="#6b4a2b"></rect>
+        <g fill="#6b4a2b"><rect x="72" y="30" width="8" height="24"></rect><rect x="180" y="30" width="8" height="24"></rect><rect x="72" y="96" width="8" height="24"></rect><rect x="180" y="96" width="8" height="24"></rect></g>
+      </svg>
+      <h2 style="font-size: 17px; font-weight: 800;">Bridge</h2>
+      <div style="font-size: 12px; color: #6b675c; line-height: 1.4;">Plank deck with railings. The only crossing, so a natural choke point for towers.</div>
+    </div>
+    <div style="background: #ffffff; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 6px 18px rgba(40,30,10,0.08);">
+      <svg viewBox="0 0 260 150" width="100%" xmlns="http://www.w3.org/2000/svg" style="border-radius: 10px; background: #4aa566;">
+        <path d="M -10 120 C 60 120, 80 40, 150 40 S 230 90, 270 30" fill="none" stroke="#c9a066" stroke-width="44" stroke-linecap="round"></path>
+        <path d="M -10 120 C 60 120, 80 40, 150 40 S 230 90, 270 30" fill="none" stroke="#d9b27c" stroke-width="36" stroke-linecap="round"></path>
+        <path d="M -10 114 C 60 114, 80 34, 150 34 S 230 84, 270 24" fill="none" stroke="#c9a066" stroke-width="2" stroke-dasharray="8 10"></path>
+        <path d="M -10 126 C 60 126, 80 46, 150 46 S 230 96, 270 36" fill="none" stroke="#c9a066" stroke-width="2" stroke-dasharray="8 10"></path>
+        <g fill="#56b06f"><ellipse cx="40" cy="60" rx="12" ry="6"></ellipse><ellipse cx="210" cy="120" rx="14" ry="7"></ellipse></g>
+        <g><circle cx="60" cy="40" r="3" fill="#fff"></circle><circle cx="72" cy="48" r="3" fill="#ffd54a"></circle></g>
+      </svg>
+      <h2 style="font-size: 17px; font-weight: 800;">Curved road</h2>
+      <div style="font-size: 12px; color: #6b675c; line-height: 1.4;">Spline ribbon with a darker shoulder and wheel ruts. Replaces the straight strips.</div>
+    </div>
+    <div style="background: #ffffff; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 6px 18px rgba(40,30,10,0.08);">
+      <svg viewBox="0 0 260 150" width="100%" xmlns="http://www.w3.org/2000/svg" style="border-radius: 10px; background: #4aa566;">
+        <polygon points="60,30 100,-10 140,30" fill="#6a6e73"></polygon><polygon points="90,0 100,-10 110,0" fill="#f4f4f4"></polygon>
+        <polygon points="140,40 190,-15 240,40" fill="#5c5f63"></polygon><polygon points="180,-4 190,-15 200,-4" fill="#f4f4f4"></polygon>
+        <polygon points="20,70 150,70 150,150 20,150" fill="#4d5155"></polygon><polygon points="20,70 150,70 180,44 50,44" fill="#5c5f63"></polygon><polygon points="50,44 180,44 180,100 50,100" fill="#5fb277"></polygon>
+        <polygon points="150,110 240,110 240,150 150,150" fill="#4d5155"></polygon><polygon points="150,110 240,110 260,92 170,92" fill="#5c5f63"></polygon><polygon points="170,92 260,92 260,120 170,120" fill="#5fb277"></polygon>
+        <polygon points="60,72 70,60 82,72" fill="#257a42"></polygon>
+      </svg>
+      <h2 style="font-size: 17px; font-weight: 800;">Mesas and peaks</h2>
+      <div style="font-size: 12px; color: #6b675c; line-height: 1.4;">Stepped grey mesas with grass tops, snow-capped peaks behind for depth.</div>
+    </div>
+    <div style="background: #ffffff; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 6px 18px rgba(40,30,10,0.08);">
+      <svg viewBox="0 0 260 150" width="100%" xmlns="http://www.w3.org/2000/svg" style="border-radius: 10px; background: #4aa566;">
+        <g transform="translate(60 120)"><polygon points="0,-100 -34,-30 34,-30" fill="#257a42"></polygon><polygon points="0,-80 -28,-10 28,-10" fill="#2f8f4e"></polygon><polygon points="0,-58 -22,10 22,10" fill="#3aa25c"></polygon><rect x="-6" y="10" width="12" height="16" fill="#8a5a2b"></rect></g>
+        <g transform="translate(130 130)"><polygon points="0,-70 -24,-20 24,-20" fill="#257a42"></polygon><polygon points="0,-52 -20,-6 20,-6" fill="#2f8f4e"></polygon><rect x="-5" y="-6" width="10" height="14" fill="#8a5a2b"></rect></g>
+        <g transform="translate(200 122)"><circle cx="0" cy="0" r="22" fill="#257a42"></circle><circle cx="-14" cy="6" r="14" fill="#2f8f4e"></circle><circle cx="16" cy="8" r="12" fill="#3aa25c"></circle></g>
+        <g transform="translate(230 60)"><ellipse cx="0" cy="0" rx="20" ry="10" fill="#c98a00"></ellipse><ellipse cx="0" cy="-8" rx="20" ry="10" fill="#e0c25a"></ellipse><path d="M -14 -8 L 14 -8" stroke="#b8922e" stroke-width="2"></path></g>
+      </svg>
+      <h2 style="font-size: 17px; font-weight: 800;">Pines, bushes, hay</h2>
+      <div style="font-size: 12px; color: #6b675c; line-height: 1.4;">Three-tier pines in two sizes, round bushes, hay bales near the fields.</div>
+    </div>
+    <div style="background: #ffffff; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 6px 18px rgba(40,30,10,0.08);">
+      <svg viewBox="0 0 260 150" width="100%" xmlns="http://www.w3.org/2000/svg" style="border-radius: 10px; background: #4aa566;">
+        <rect x="30" y="30" width="200" height="90" rx="8" fill="#d6b24a"></rect>
+        <g stroke="#b8922e" stroke-width="3"><line x1="50" y1="36" x2="50" y2="114"></line><line x1="80" y1="36" x2="80" y2="114"></line><line x1="110" y1="36" x2="110" y2="114"></line><line x1="140" y1="36" x2="140" y2="114"></line><line x1="170" y1="36" x2="170" y2="114"></line><line x1="200" y1="36" x2="200" y2="114"></line></g>
+        <g fill="#e8d17a"><circle cx="50" cy="40" r="4"></circle><circle cx="80" cy="40" r="4"></circle><circle cx="110" cy="40" r="4"></circle><circle cx="140" cy="40" r="4"></circle><circle cx="170" cy="40" r="4"></circle><circle cx="200" cy="40" r="4"></circle></g>
+        <g stroke="#6b4a2b" stroke-width="4"><line x1="20" y1="126" x2="240" y2="126"></line><line x1="30" y1="116" x2="30" y2="136"></line><line x1="130" y1="116" x2="130" y2="136"></line><line x1="230" y1="116" x2="230" y2="136"></line></g>
+      </svg>
+      <h2 style="font-size: 17px; font-weight: 800;">Wheat field</h2>
+      <div style="font-size: 12px; color: #6b675c; line-height: 1.4;">Golden rows with a low fence. Sways gently; purely for life and colour.</div>
+    </div>
+    <div style="background: #ffffff; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 6px 18px rgba(40,30,10,0.08);">
+      <svg viewBox="0 0 260 150" width="100%" xmlns="http://www.w3.org/2000/svg" style="border-radius: 10px; background: #4aa566;">
+        <g fill="#8f959c" stroke="#6b7076" stroke-width="3"><polygon points="40,110 60,70 100,64 130,90 118,120 60,124"></polygon><polygon points="150,120 166,96 196,90 216,110 206,128 160,130"></polygon></g>
+        <g fill="#a9aeb5"><polygon points="60,70 100,64 92,80 66,84"></polygon><polygon points="166,96 196,90 190,102 172,104"></polygon></g>
+        <g stroke="#6b4a2b" stroke-width="5" stroke-linecap="round"><line x1="150" y1="50" x2="230" y2="50"></line><line x1="160" y1="34" x2="176" y2="66"></line><line x1="186" y1="34" x2="202" y2="66"></line><line x1="212" y1="34" x2="228" y2="66"></line></g>
+        <g><circle cx="30" cy="40" r="4" fill="#fff"></circle><circle cx="44" cy="30" r="4" fill="#ffd54a"></circle><circle cx="56" cy="44" r="4" fill="#ff8aa8"></circle><path d="M 24 60 L 26 48 M 32 60 L 36 50 M 40 62 L 44 52" stroke="#3aa25c" stroke-width="3" stroke-linecap="round"></path></g>
+      </svg>
+      <h2 style="font-size: 17px; font-weight: 800;">Boulders, barricades, flowers</h2>
+      <div style="font-size: 12px; color: #6b675c; line-height: 1.4;">Faceted rocks with a lit top face, crossed-stake barricades, grass tufts and flowers.</div>
+    </div>
+    <div style="background: #ffffff; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 6px 18px rgba(40,30,10,0.08);">
+      <svg viewBox="0 0 260 150" width="100%" xmlns="http://www.w3.org/2000/svg" style="border-radius: 10px; background: #4aa566;">
+        <rect width="260" height="150" fill="#4aa566"></rect>
+        <g opacity="0.55" fill="#56b06f"><ellipse cx="40" cy="30" rx="18" ry="9"></ellipse><ellipse cx="120" cy="70" rx="24" ry="11"></ellipse><ellipse cx="210" cy="40" rx="16" ry="8"></ellipse><ellipse cx="70" cy="120" rx="22" ry="10"></ellipse><ellipse cx="190" cy="120" rx="18" ry="8"></ellipse></g>
+        <g opacity="0.5" fill="#3f9a5b"><ellipse cx="80" cy="50" rx="14" ry="7"></ellipse><ellipse cx="160" cy="110" rx="18" ry="8"></ellipse><ellipse cx="230" cy="90" rx="12" ry="6"></ellipse></g>
+        <g stroke="#3aa25c" stroke-width="3" stroke-linecap="round"><path d="M 30 90 L 32 78 M 36 90 L 40 80"></path><path d="M 140 30 L 142 18 M 146 30 L 150 20"></path><path d="M 220 130 L 222 118 M 226 130 L 230 120"></path></g>
+      </svg>
+      <h2 style="font-size: 17px; font-weight: 800;">Ground texture</h2>
+      <div style="font-size: 12px; color: #6b675c; line-height: 1.4;">Soft lighter and darker patches and grass tufts instead of one flat green, matching the ad's mottled meadow.</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

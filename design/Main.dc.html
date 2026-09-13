@@ -1,0 +1,152 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@400;600;700&display=swap">
+  <style>
+    body { margin: 0; font-family: "Nunito", "Trebuchet MS", system-ui, sans-serif; background: #f4efe3; color: #2b2a26; }
+    a { color: #b45309; } a:hover { color: #92400e; }
+    h1, h2 { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; margin: 0; }
+  </style>
+</helmet>
+<div style="width: 1240px; height: 900px; background: #f4efe3; display: flex; flex-direction: column; gap: 14px; padding: 24px; box-sizing: border-box;">
+  <div style="display: flex; align-items: baseline; justify-content: space-between;">
+    <h1 style="font-size: 30px; font-weight: 800; color: #2b2a26;">World map, proposed</h1>
+    <div style="font-size: 14px; color: #6b675c; font-weight: 600;">Top-down plan of the whole play area. Village at centre, raiders arrive along the roads.</div>
+  </div>
+  <svg viewBox="0 0 1192 720" width="1192" height="720" xmlns="http://www.w3.org/2000/svg" style="border-radius: 18px; overflow: hidden; box-shadow: 0 10px 30px rgba(40,30,10,0.18);">
+    <defs>
+      <pattern id="grassdots" width="46" height="46" patternUnits="userSpaceOnUse">
+        <ellipse cx="12" cy="14" rx="9" ry="5" fill="#56b06f" opacity="0.55"></ellipse>
+        <ellipse cx="34" cy="36" rx="7" ry="4" fill="#3f9a5b" opacity="0.5"></ellipse>
+      </pattern>
+    </defs>
+    <!-- ground -->
+    <rect width="1192" height="720" fill="#4aa566"></rect>
+    <rect width="1192" height="720" fill="url(#grassdots)"></rect>
+    <!-- worn meadow patches -->
+    <ellipse cx="300" cy="640" rx="170" ry="60" fill="#5aae70" opacity="0.6"></ellipse>
+    <ellipse cx="980" cy="160" rx="150" ry="70" fill="#5aae70" opacity="0.6"></ellipse>
+    <!-- river: sand banks, water, highlight, foam -->
+    <path d="M 1192 40 C 1050 140, 1010 250, 930 330 S 760 470, 660 560 S 470 700, 380 720" fill="none" stroke="#d8cc9d" stroke-width="66" stroke-linecap="round"></path>
+    <path d="M 1192 40 C 1050 140, 1010 250, 930 330 S 760 470, 660 560 S 470 700, 380 720" fill="none" stroke="#3d9bd4" stroke-width="46" stroke-linecap="round"></path>
+    <path d="M 1192 40 C 1050 140, 1010 250, 930 330 S 760 470, 660 560 S 470 700, 380 720" fill="none" stroke="#63bdea" stroke-width="26" stroke-linecap="round"></path>
+    <path d="M 1150 90 C 1080 160, 1040 240, 960 320" fill="none" stroke="#ffffff" stroke-width="3" stroke-dasharray="14 22" opacity="0.8"></path>
+    <path d="M 860 400 C 800 460, 740 500, 690 540" fill="none" stroke="#ffffff" stroke-width="3" stroke-dasharray="14 22" opacity="0.8"></path>
+    <!-- pond fed by the river -->
+    <ellipse cx="330" cy="700" rx="90" ry="42" fill="#d8cc9d"></ellipse>
+    <ellipse cx="330" cy="700" rx="74" ry="30" fill="#3d9bd4"></ellipse>
+    <ellipse cx="322" cy="696" rx="50" ry="16" fill="#63bdea"></ellipse>
+    <!-- mesas (north-west) -->
+    <g>
+      <polygon points="40,150 210,150 210,300 40,300" fill="#4d5155"></polygon>
+      <polygon points="40,150 210,150 250,110 80,110" fill="#5c5f63"></polygon>
+      <polygon points="80,110 250,110 250,200 80,200" fill="#5fb277"></polygon>
+      <polygon points="150,200 320,200 320,320 150,320" fill="#4d5155"></polygon>
+      <polygon points="150,200 320,200 350,170 180,170" fill="#5c5f63"></polygon>
+      <polygon points="180,170 350,170 350,250 180,250" fill="#5fb277"></polygon>
+      <polygon points="0,260 120,260 120,380 0,380" fill="#4d5155"></polygon>
+      <polygon points="0,260 120,260 150,230 30,230" fill="#5c5f63"></polygon>
+      <polygon points="30,230 150,230 150,300 30,300" fill="#5fb277"></polygon>
+      <polygon points="220,40 380,40 380,120 220,120" fill="#4d5155"></polygon>
+      <polygon points="220,40 380,40 400,20 240,20" fill="#5c5f63"></polygon>
+      <polygon points="240,20 400,20 400,80 240,80" fill="#5fb277"></polygon>
+      <!-- snow-capped peaks behind -->
+      <polygon points="60,110 120,20 180,110" fill="#6a6e73"></polygon>
+      <polygon points="100,50 120,20 140,50" fill="#f4f4f4"></polygon>
+      <polygon points="140,100 200,10 260,100" fill="#5c5f63"></polygon>
+      <polygon points="180,40 200,10 220,40" fill="#f4f4f4"></polygon>
+    </g>
+    <!-- roads: shoulder + dirt, curved -->
+    <g fill="none" stroke-linecap="round">
+      <path d="M 600 720 C 620 640, 560 600, 596 540" stroke="#c9a066" stroke-width="42"></path>
+      <path d="M 600 720 C 620 640, 560 600, 596 540" stroke="#d9b27c" stroke-width="34"></path>
+      <path d="M 776 430 C 860 420, 900 380, 960 330 S 1100 240, 1192 250" stroke="#c9a066" stroke-width="42"></path>
+      <path d="M 776 430 C 860 420, 900 380, 960 330 S 1100 240, 1192 250" stroke="#d9b27c" stroke-width="34"></path>
+      <path d="M 416 470 C 340 480, 300 540, 220 560 S 60 600, 0 640" stroke="#c9a066" stroke-width="42"></path>
+      <path d="M 416 470 C 340 480, 300 540, 220 560 S 60 600, 0 640" stroke="#d9b27c" stroke-width="34"></path>
+      <path d="M 596 300 C 590 240, 640 200, 700 150 S 800 60, 860 0" stroke="#c9a066" stroke-width="42"></path>
+      <path d="M 596 300 C 590 240, 640 200, 700 150 S 800 60, 860 0" stroke="#d9b27c" stroke-width="34"></path>
+      <!-- wheel ruts -->
+      <path d="M 776 430 C 860 420, 900 380, 960 330 S 1100 240, 1192 250" stroke="#c9a066" stroke-width="2" stroke-dasharray="8 10" opacity="0.8"></path>
+      <path d="M 596 300 C 590 240, 640 200, 700 150 S 800 60, 860 0" stroke="#c9a066" stroke-width="2" stroke-dasharray="8 10" opacity="0.8"></path>
+    </g>
+    <!-- bridges where roads cross the river -->
+    <g transform="translate(946 322) rotate(-40)">
+      <rect x="-40" y="-24" width="80" height="48" rx="6" fill="#8a5a2b"></rect>
+      <g fill="#a9743d"><rect x="-34" y="-20" width="8" height="40"></rect><rect x="-20" y="-20" width="8" height="40"></rect><rect x="-6" y="-20" width="8" height="40"></rect><rect x="8" y="-20" width="8" height="40"></rect><rect x="22" y="-20" width="8" height="40"></rect></g>
+      <rect x="-42" y="-30" width="84" height="6" fill="#6b4a2b"></rect><rect x="-42" y="24" width="84" height="6" fill="#6b4a2b"></rect>
+    </g>
+    <g transform="translate(680 545) rotate(-45)">
+      <rect x="-40" y="-24" width="80" height="48" rx="6" fill="#8a5a2b"></rect>
+      <g fill="#a9743d"><rect x="-34" y="-20" width="8" height="40"></rect><rect x="-20" y="-20" width="8" height="40"></rect><rect x="-6" y="-20" width="8" height="40"></rect><rect x="8" y="-20" width="8" height="40"></rect><rect x="22" y="-20" width="8" height="40"></rect></g>
+      <rect x="-42" y="-30" width="84" height="6" fill="#6b4a2b"></rect><rect x="-42" y="24" width="84" height="6" fill="#6b4a2b"></rect>
+    </g>
+    <!-- village: dirt yard, palisade, gates -->
+    <rect x="420" y="300" width="356" height="240" rx="18" fill="#c9b98b" opacity="0.55"></rect>
+    <rect x="420" y="300" width="356" height="240" rx="6" fill="none" stroke="#6b4a2b" stroke-width="10" stroke-dasharray="10 5"></rect>
+    <rect x="420" y="300" width="356" height="240" rx="6" fill="none" stroke="#9a6a3a" stroke-width="4"></rect>
+    <!-- gate gaps -->
+    <rect x="576" y="530" width="40" height="20" fill="#d9b27c"></rect>
+    <rect x="766" y="410" width="20" height="40" fill="#d9b27c"></rect>
+    <g fill="#6b4a2b"><rect x="570" y="524" width="8" height="30"></rect><rect x="614" y="524" width="8" height="30"></rect><rect x="760" y="404" width="30" height="8"></rect><rect x="760" y="448" width="30" height="8"></rect></g>
+    <!-- hut -->
+    <g transform="translate(455 330)">
+      <rect x="0" y="16" width="70" height="46" fill="#9a6a3a"></rect>
+      <polygon points="-8,20 35,-8 78,20" fill="#7a4f30"></polygon>
+      <rect x="28" y="36" width="14" height="26" fill="#3a2a1a"></rect>
+    </g>
+    <!-- towers -->
+    <g fill="#8a5a2b"><rect x="700" y="318" width="34" height="34" rx="4"></rect><rect x="440" y="480" width="34" height="34" rx="4"></rect></g>
+    <g fill="#f4f4f4"><circle cx="710" cy="330" r="5"></circle><circle cx="724" cy="330" r="5"></circle><circle cx="717" cy="342" r="5"></circle><circle cx="450" cy="492" r="5"></circle><circle cx="464" cy="492" r="5"></circle></g>
+    <!-- king + army ring -->
+    <circle cx="598" cy="430" r="46" fill="none" stroke="#ffffff" stroke-width="3" opacity="0.9"></circle>
+    <g fill="#f4f4f4" stroke="#1c1c22" stroke-width="1.5"><circle cx="572" cy="410" r="7"></circle><circle cx="624" cy="410" r="7"></circle><circle cx="566" cy="440" r="7"></circle><circle cx="630" cy="440" r="7"></circle><circle cx="585" cy="462" r="7"></circle><circle cx="611" cy="462" r="7"></circle></g>
+    <circle cx="598" cy="432" r="10" fill="#2f6fd6" stroke="#f5b800" stroke-width="3"></circle>
+    <!-- build pads -->
+    <g fill="rgba(70,60,45,0.45)" stroke="#ffffff" stroke-width="3" stroke-dasharray="8 6"><rect x="520" y="330" width="34" height="34" rx="5"></rect><rect x="650" y="480" width="34" height="34" rx="5"></rect><rect x="500" y="470" width="34" height="34" rx="5"></rect></g>
+    <!-- wheat field + hay outside the east gate -->
+    <rect x="820" y="470" width="90" height="60" rx="6" fill="#d6b24a"></rect>
+    <g stroke="#b8922e" stroke-width="2"><line x1="830" y1="475" x2="830" y2="525"></line><line x1="845" y1="475" x2="845" y2="525"></line><line x1="860" y1="475" x2="860" y2="525"></line><line x1="875" y1="475" x2="875" y2="525"></line><line x1="890" y1="475" x2="890" y2="525"></line></g>
+    <g fill="#e0c25a" stroke="#b8922e" stroke-width="2"><circle cx="935" cy="500" r="10"></circle><circle cx="955" cy="512" r="10"></circle></g>
+    <!-- pine forests -->
+    <g id="pine"><polygon points="0,-30 -14,0 14,0" fill="#257a42"></polygon><polygon points="0,-18 -10,4 10,4" fill="#2f8f4e"></polygon><rect x="-3" y="4" width="6" height="8" fill="#8a5a2b"></rect></g>
+    <g>
+      <use href="#pine" transform="translate(1040 420) scale(1.3)"></use><use href="#pine" transform="translate(1090 460) scale(1.1)"></use><use href="#pine" transform="translate(1060 500) scale(1.4)"></use><use href="#pine" transform="translate(1130 520) scale(1.0)"></use><use href="#pine" transform="translate(1110 400) scale(0.9)"></use><use href="#pine" transform="translate(1000 480) scale(1.0)"></use>
+      <use href="#pine" transform="translate(120 480) scale(1.3)"></use><use href="#pine" transform="translate(170 440) scale(1.0)"></use><use href="#pine" transform="translate(70 430) scale(1.1)"></use><use href="#pine" transform="translate(200 500) scale(1.2)"></use><use href="#pine" transform="translate(150 560) scale(0.9)"></use>
+      <use href="#pine" transform="translate(560 100) scale(1.2)"></use><use href="#pine" transform="translate(500 140) scale(1.0)"></use><use href="#pine" transform="translate(470 80) scale(1.1)"></use><use href="#pine" transform="translate(880 620) scale(1.2)"></use><use href="#pine" transform="translate(940 660) scale(1.0)"></use><use href="#pine" transform="translate(830 680) scale(1.3)"></use>
+    </g>
+    <!-- boulders -->
+    <g fill="#8f959c" stroke="#6b7076" stroke-width="2"><polygon points="360,240 380,232 396,244 386,258 364,256"></polygon><polygon points="900,580 916,574 928,586 918,598 902,596"></polygon><polygon points="1040,300 1060,292 1076,306 1064,318 1044,316"></polygon><polygon points="250,600 268,594 280,606 270,618 252,616"></polygon></g>
+    <!-- spike barricades -->
+    <g stroke="#6b4a2b" stroke-width="4" stroke-linecap="round"><line x1="700" y1="600" x2="740" y2="600"></line><line x1="706" y1="590" x2="716" y2="610"></line><line x1="722" y1="590" x2="732" y2="610"></line><line x1="930" y1="200" x2="970" y2="200"></line><line x1="936" y1="190" x2="946" y2="210"></line><line x1="952" y1="190" x2="962" y2="210"></line></g>
+    <!-- flowers -->
+    <g><circle cx="480" cy="620" r="3" fill="#fff"></circle><circle cx="496" cy="630" r="3" fill="#ffd54a"></circle><circle cx="470" cy="640" r="3" fill="#fff"></circle><circle cx="1000" cy="580" r="3" fill="#ffd54a"></circle><circle cx="1012" cy="592" r="3" fill="#fff"></circle><circle cx="330" cy="140" r="3" fill="#fff"></circle><circle cx="346" cy="150" r="3" fill="#ffd54a"></circle></g>
+    <!-- raiding party on the north-east road -->
+    <g fill="#d8262c" stroke="#7a1015" stroke-width="1.5"><circle cx="1120" cy="262" r="6"></circle><circle cx="1140" cy="250" r="6"></circle><circle cx="1160" cy="262" r="6"></circle><circle cx="1150" cy="240" r="9" fill="#2b2b33"></circle></g>
+    <path d="M 1105 275 L 1080 290" stroke="#e8342a" stroke-width="4" stroke-linecap="round"></path>
+    <polygon points="1072,296 1088,282 1088,300" fill="#e8342a"></polygon>
+    <!-- labels -->
+    <g font-family="Nunito, system-ui, sans-serif" font-size="14" font-weight="700" fill="#ffffff" stroke="#1b1b24" stroke-width="3" paint-order="stroke" stroke-linejoin="round">
+      <text x="1040" y="120">River — impassable except at bridges</text>
+      <text x="200" y="360">Mesas with snow peaks</text>
+      <text x="230" y="640">Curved roads with wheel ruts</text>
+      <text x="820" y="460">Wheat field &amp; hay bales</text>
+      <text x="1010" y="560">Pine forest</text>
+      <text x="380" y="290">Village — walls, gates, towers</text>
+    </g>
+  </svg>
+  <div style="display: flex; gap: 28px; font-size: 14px; color: #4b483f; line-height: 1.45;">
+    <div style="flex: 1;"><strong>Rivers</strong> wind across the map as natural walls. Raiders can only cross at the two wooden bridges, which become choke points to guard; the King crosses the same way.</div>
+    <div style="flex: 1;"><strong>Roads</strong> are curved splines with a darker shoulder and wheel ruts, meeting at the village gates. Raiders follow them in, so you can read an attack from the road it uses.</div>
+    <div style="flex: 1;"><strong>Mesas</strong> stack in the north-west with snow-capped peaks behind them. Forests, boulders, barricades, a wheat field and flower clusters fill the meadow between.</div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

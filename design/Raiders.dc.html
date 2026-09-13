@@ -1,0 +1,131 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@400;600;700&display=swap">
+  <style>
+    body { margin: 0; font-family: "Nunito", "Trebuchet MS", system-ui, sans-serif; background: #f4efe3; color: #2b2a26; }
+    a { color: #b45309; } a:hover { color: #92400e; }
+    h1, h2 { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; margin: 0; }
+  </style>
+</helmet>
+<div style="width: 1240px; height: 640px; background: #f4efe3; display: flex; flex-direction: column; gap: 14px; padding: 24px; box-sizing: border-box;">
+  <div style="display: flex; align-items: baseline; justify-content: space-between;">
+    <h1 style="font-size: 30px; font-weight: 800;">Raiders, redesigned</h1>
+    <div style="font-size: 14px; color: #6b675c; font-weight: 600;">Same chibi build as your archers, but every raider gets its own silhouette so you can read a wave at a glance.</div>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px;">
+    <div style="display: flex; flex-direction: column; gap: 10px; background: #ffffff; border-radius: 16px; padding: 14px; box-shadow: 0 6px 18px rgba(40,30,10,0.08);">
+      <svg viewBox="0 0 200 240" width="200" height="240" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="100" cy="222" rx="46" ry="9" fill="#000" opacity="0.12"></ellipse>
+        <rect x="70" y="170" width="24" height="42" rx="8" fill="#6b4a32" stroke="#1c1c22" stroke-width="3"></rect><rect x="106" y="170" width="24" height="42" rx="8" fill="#6b4a32" stroke="#1c1c22" stroke-width="3"></rect>
+        <rect x="64" y="108" width="72" height="70" rx="20" fill="#f7f7f7" stroke="#1c1c22" stroke-width="3"></rect>
+        <path d="M 74 118 L 128 172" stroke="#2f6fd6" stroke-width="12" stroke-linecap="round"></path>
+        <rect x="44" y="118" width="20" height="46" rx="9" fill="#f6cfae" stroke="#1c1c22" stroke-width="3"></rect><rect x="136" y="118" width="20" height="46" rx="9" fill="#f6cfae" stroke="#1c1c22" stroke-width="3"></rect>
+        <path d="M 44 96 Q 20 150 44 200" fill="none" stroke="#3b7bff" stroke-width="7" stroke-linecap="round"></path>
+        <rect x="46" y="34" width="108" height="92" rx="34" fill="#f6cfae" stroke="#1c1c22" stroke-width="3"></rect>
+        <path d="M 46 70 Q 46 26 100 26 Q 154 26 154 70 L 154 60 Q 150 44 100 44 Q 50 44 46 60 Z" fill="#1c1c22"></path>
+        <rect x="46" y="58" width="12" height="30" rx="5" fill="#1c1c22"></rect><rect x="142" y="58" width="12" height="30" rx="5" fill="#1c1c22"></rect>
+        <ellipse cx="82" cy="86" rx="9" ry="11" fill="#fff"></ellipse><ellipse cx="118" cy="86" rx="9" ry="11" fill="#fff"></ellipse><ellipse cx="84" cy="88" rx="5" ry="7" fill="#23232b"></ellipse><ellipse cx="120" cy="88" rx="5" ry="7" fill="#23232b"></ellipse>
+        <path d="M 68 70 L 92 76 M 132 70 L 108 76" stroke="#1c1c22" stroke-width="5" stroke-linecap="round"></path>
+        <path d="M 92 106 Q 100 112 108 106" stroke="#7a4a3a" stroke-width="3" fill="none"></path>
+      </svg>
+      <h2 style="font-size: 20px; font-weight: 800;">Archer (yours)</h2>
+      <div style="font-size: 13px; color: #6b675c; line-height: 1.4;">Reference for scale and build. Rounded head half the height, outlined shapes, flat cel colour.</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px; background: #ffffff; border-radius: 16px; padding: 14px; box-shadow: 0 6px 18px rgba(40,30,10,0.08);">
+      <svg viewBox="0 0 200 240" width="200" height="240" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="100" cy="222" rx="46" ry="9" fill="#000" opacity="0.12"></ellipse>
+        <rect x="70" y="170" width="24" height="42" rx="8" fill="#7a1015" stroke="#1c1c22" stroke-width="3"></rect><rect x="106" y="170" width="24" height="42" rx="8" fill="#7a1015" stroke="#1c1c22" stroke-width="3"></rect>
+        <rect x="64" y="108" width="72" height="70" rx="20" fill="#d8262c" stroke="#1c1c22" stroke-width="3"></rect>
+        <rect x="64" y="140" width="72" height="10" fill="#7a1015"></rect>
+        <rect x="44" y="118" width="20" height="46" rx="9" fill="#f6cfae" stroke="#1c1c22" stroke-width="3"></rect><rect x="136" y="118" width="20" height="46" rx="9" fill="#f6cfae" stroke="#1c1c22" stroke-width="3"></rect>
+        <circle cx="46" cy="150" r="22" fill="#a31a1f" stroke="#1c1c22" stroke-width="3"></circle><circle cx="46" cy="150" r="8" fill="#b9bec7" stroke="#1c1c22" stroke-width="2"></circle>
+        <rect x="150" y="70" width="10" height="90" rx="3" fill="#b9bec7" stroke="#1c1c22" stroke-width="3"></rect><rect x="140" y="150" width="30" height="8" rx="3" fill="#6b4a2b" stroke="#1c1c22" stroke-width="2"></rect>
+        <rect x="46" y="34" width="108" height="92" rx="34" fill="#f6cfae" stroke="#1c1c22" stroke-width="3"></rect>
+        <path d="M 40 74 Q 40 20 100 20 Q 160 20 160 74 L 160 84 L 40 84 Z" fill="#d8262c" stroke="#1c1c22" stroke-width="3"></path>
+        <rect x="94" y="60" width="12" height="40" rx="4" fill="#d8262c" stroke="#1c1c22" stroke-width="3"></rect>
+        <path d="M 100 20 Q 118 -4 132 14 Q 126 26 100 24" fill="#d8262c" stroke="#1c1c22" stroke-width="3"></path>
+        <ellipse cx="80" cy="96" rx="8" ry="9" fill="#fff"></ellipse><ellipse cx="120" cy="96" rx="8" ry="9" fill="#fff"></ellipse><ellipse cx="82" cy="98" rx="4.5" ry="6" fill="#23232b"></ellipse><ellipse cx="122" cy="98" rx="4.5" ry="6" fill="#23232b"></ellipse>
+        <path d="M 66 84 L 90 92 M 134 84 L 110 92" stroke="#1c1c22" stroke-width="6" stroke-linecap="round"></path>
+        <path d="M 92 112 L 108 112" stroke="#7a4a3a" stroke-width="3"></path>
+      </svg>
+      <h2 style="font-size: 20px; font-weight: 800;">Raider</h2>
+      <div style="font-size: 13px; color: #6b675c; line-height: 1.4;">Round red kettle helmet with nose guard and plume, small round shield, short sword. The common foot soldier.</div>
+      <div style="font-size: 12px; color: #9a9587; font-weight: 700;">20 HP · 6 dmg · fast</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px; background: #ffffff; border-radius: 16px; padding: 14px; box-shadow: 0 6px 18px rgba(40,30,10,0.08);">
+      <svg viewBox="0 0 200 240" width="200" height="240" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="100" cy="222" rx="48" ry="9" fill="#000" opacity="0.12"></ellipse>
+        <rect x="68" y="168" width="26" height="44" rx="8" fill="#2b2b33" stroke="#1c1c22" stroke-width="3"></rect><rect x="106" y="168" width="26" height="44" rx="8" fill="#2b2b33" stroke="#1c1c22" stroke-width="3"></rect>
+        <rect x="60" y="104" width="80" height="74" rx="20" fill="#2b2b33" stroke="#1c1c22" stroke-width="3"></rect>
+        <rect x="76" y="118" width="48" height="40" rx="8" fill="#3d3d47" stroke="#1c1c22" stroke-width="2"></rect>
+        <path d="M 84 126 L 116 150 M 116 126 L 84 150" stroke="#8a1a22" stroke-width="5" stroke-linecap="round"></path>
+        <rect x="36" y="104" width="34" height="22" rx="10" fill="#b9bec7" stroke="#1c1c22" stroke-width="3"></rect><rect x="130" y="104" width="34" height="22" rx="10" fill="#b9bec7" stroke="#1c1c22" stroke-width="3"></rect>
+        <rect x="42" y="122" width="20" height="44" rx="9" fill="#2b2b33" stroke="#1c1c22" stroke-width="3"></rect><rect x="138" y="122" width="20" height="44" rx="9" fill="#2b2b33" stroke="#1c1c22" stroke-width="3"></rect>
+        <rect x="152" y="40" width="12" height="130" rx="3" fill="#b9bec7" stroke="#1c1c22" stroke-width="3"></rect><rect x="138" y="160" width="40" height="9" rx="3" fill="#8a1a22" stroke="#1c1c22" stroke-width="2"></rect>
+        <rect x="46" y="34" width="108" height="92" rx="34" fill="#f6cfae" stroke="#1c1c22" stroke-width="3"></rect>
+        <path d="M 40 80 Q 40 14 100 14 Q 160 14 160 80 L 160 108 L 40 108 Z" fill="#2b2b33" stroke="#1c1c22" stroke-width="3"></path>
+        <rect x="56" y="82" width="88" height="12" rx="6" fill="#0d0d12"></rect>
+        <path d="M 100 14 Q 100 -10 124 -6 Q 130 16 106 20" fill="#8a1a22" stroke="#1c1c22" stroke-width="3"></path>
+        <ellipse cx="82" cy="88" rx="6" ry="4" fill="#ff4a4a"></ellipse><ellipse cx="118" cy="88" rx="6" ry="4" fill="#ff4a4a"></ellipse>
+      </svg>
+      <h2 style="font-size: 20px; font-weight: 800;">Elite</h2>
+      <div style="font-size: 13px; color: #6b675c; line-height: 1.4;">Black plate with steel pauldrons, full-face great helm with a glowing visor slit, red crest, longsword. Arrives from wave 8.</div>
+      <div style="font-size: 12px; color: #9a9587; font-weight: 700;">60 HP · 12 dmg</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px; background: #ffffff; border-radius: 16px; padding: 14px; box-shadow: 0 6px 18px rgba(40,30,10,0.08);">
+      <svg viewBox="0 0 200 240" width="200" height="240" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="100" cy="226" rx="58" ry="10" fill="#000" opacity="0.12"></ellipse>
+        <rect x="58" y="172" width="32" height="44" rx="10" fill="#5a0d10" stroke="#1c1c22" stroke-width="3"></rect><rect x="110" y="172" width="32" height="44" rx="10" fill="#5a0d10" stroke="#1c1c22" stroke-width="3"></rect>
+        <rect x="44" y="94" width="112" height="88" rx="30" fill="#a31a1f" stroke="#1c1c22" stroke-width="3"></rect>
+        <path d="M 60 104 L 140 174" stroke="#6b4a2b" stroke-width="12" stroke-linecap="round"></path>
+        <rect x="18" y="104" width="30" height="62" rx="13" fill="#f6cfae" stroke="#1c1c22" stroke-width="3"></rect><rect x="152" y="104" width="30" height="62" rx="13" fill="#f6cfae" stroke="#1c1c22" stroke-width="3"></rect>
+        <rect x="160" y="20" width="16" height="120" rx="4" fill="#6b4a2b" stroke="#1c1c22" stroke-width="3"></rect><rect x="146" y="10" width="44" height="40" rx="12" fill="#7d848e" stroke="#1c1c22" stroke-width="3"></rect>
+        <g fill="#b9bec7" stroke="#1c1c22" stroke-width="2"><circle cx="154" cy="18" r="4"></circle><circle cx="182" cy="18" r="4"></circle><circle cx="154" cy="42" r="4"></circle><circle cx="182" cy="42" r="4"></circle></g>
+        <rect x="52" y="30" width="96" height="80" rx="30" fill="#f6cfae" stroke="#1c1c22" stroke-width="3"></rect>
+        <path d="M 46 70 Q 46 16 100 16 Q 154 16 154 70 L 154 76 L 46 76 Z" fill="#5a0d10" stroke="#1c1c22" stroke-width="3"></path>
+        <path d="M 52 40 Q 30 20 34 6 Q 52 14 60 34 Z" fill="#f4f4f4" stroke="#1c1c22" stroke-width="3"></path><path d="M 148 40 Q 170 20 166 6 Q 148 14 140 34 Z" fill="#f4f4f4" stroke="#1c1c22" stroke-width="3"></path>
+        <ellipse cx="82" cy="88" rx="7" ry="7" fill="#fff"></ellipse><ellipse cx="118" cy="88" rx="7" ry="7" fill="#fff"></ellipse><circle cx="84" cy="89" r="4" fill="#23232b"></circle><circle cx="120" cy="89" r="4" fill="#23232b"></circle>
+        <path d="M 66 78 L 92 86 M 134 78 L 108 86" stroke="#1c1c22" stroke-width="6" stroke-linecap="round"></path>
+        <path d="M 88 102 L 112 102" stroke="#7a4a3a" stroke-width="3"></path><rect x="92" y="100" width="6" height="6" fill="#fff"></rect><rect x="102" y="100" width="6" height="6" fill="#fff"></rect>
+      </svg>
+      <h2 style="font-size: 20px; font-weight: 800;">Brute</h2>
+      <div style="font-size: 13px; color: #6b675c; line-height: 1.4;">Barrel body, bare arms, horned cap and a studded club. Slow, wide and mean; drops more coin.</div>
+      <div style="font-size: 12px; color: #9a9587; font-weight: 700;">70 HP · 14 dmg · slow</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px; background: #ffffff; border-radius: 16px; padding: 14px; box-shadow: 0 6px 18px rgba(40,30,10,0.08);">
+      <svg viewBox="0 0 200 240" width="200" height="240" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="100" cy="230" rx="70" ry="10" fill="#000" opacity="0.12"></ellipse>
+        <rect x="52" y="180" width="38" height="44" rx="12" fill="#e6cfd6" stroke="#1c1c22" stroke-width="3"></rect><rect x="110" y="180" width="38" height="44" rx="12" fill="#e6cfd6" stroke="#1c1c22" stroke-width="3"></rect>
+        <rect x="34" y="88" width="132" height="100" rx="34" fill="#f4e9ec" stroke="#1c1c22" stroke-width="3"></rect>
+        <rect x="60" y="112" width="80" height="60" rx="18" fill="#e6cfd6" stroke="#1c1c22" stroke-width="2"></rect>
+        <path d="M 48 96 L 152 180" stroke="#6b4a2b" stroke-width="10" stroke-linecap="round"></path>
+        <rect x="6" y="100" width="34" height="76" rx="15" fill="#f4e9ec" stroke="#1c1c22" stroke-width="3"></rect><rect x="160" y="100" width="34" height="76" rx="15" fill="#f4e9ec" stroke="#1c1c22" stroke-width="3"></rect>
+        <rect x="170" y="-10" width="18" height="150" rx="4" fill="#f4f4f4" stroke="#1c1c22" stroke-width="3"></rect><rect x="156" y="132" width="46" height="10" rx="3" fill="#b9bec7" stroke="#1c1c22" stroke-width="2"></rect>
+        <rect x="46" y="22" width="108" height="84" rx="30" fill="#f4e9ec" stroke="#1c1c22" stroke-width="3"></rect>
+        <path d="M 40 66 Q 40 8 100 8 Q 160 8 160 66 L 160 70 L 40 70 Z" fill="#e6cfd6" stroke="#1c1c22" stroke-width="3"></path>
+        <path d="M 46 40 Q 20 30 14 0 Q 40 10 58 30 Z" fill="#f4f4f4" stroke="#1c1c22" stroke-width="3"></path><path d="M 154 40 Q 180 30 186 0 Q 160 10 142 30 Z" fill="#f4f4f4" stroke="#1c1c22" stroke-width="3"></path>
+        <ellipse cx="80" cy="82" rx="8" ry="6" fill="#23232b"></ellipse><ellipse cx="120" cy="82" rx="8" ry="6" fill="#23232b"></ellipse>
+        <path d="M 62 70 L 92 78 M 138 70 L 108 78" stroke="#1c1c22" stroke-width="6" stroke-linecap="round"></path>
+        <path d="M 84 98 L 116 98" stroke="#7a4a3a" stroke-width="3"></path>
+      </svg>
+      <h2 style="font-size: 20px; font-weight: 800;">Giant (boss)</h2>
+      <div style="font-size: 13px; color: #6b675c; line-height: 1.4;">Pale pink-white colossus with a horned helm, leather chest strap and a two-handed greatsword. Sweeps everything nearby and hammers walls.</div>
+      <div style="font-size: 12px; color: #9a9587; font-weight: 700;">420 HP · 20 dmg · every 5th wave</div>
+    </div>
+  </div>
+  <div style="display: flex; gap: 28px; font-size: 14px; color: #4b483f; line-height: 1.45;">
+    <div style="flex: 1;"><strong>Shape language.</strong> Raider = round, Elite = tall and angular, Brute = wide, Giant = huge. Read the wave from silhouettes alone.</div>
+    <div style="flex: 1;"><strong>Colour.</strong> Enemies keep to red, black and bone-white so they never blend with your blue-and-white army. Eyes turn to glowing slits on the armoured ones.</div>
+    <div style="flex: 1;"><strong>Animation.</strong> Walk cycles already exist; adding a wind-up lean before each strike and a stagger on hit makes them feel heavier.</div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

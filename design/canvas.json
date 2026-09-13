@@ -1,0 +1,16 @@
+{
+  "artboards": [
+    { "file": "CurrentBuild.dc.html", "x": 0, "y": 0, "w": 680, "h": 860, "title": "Current build" },
+    { "file": "Main.dc.html", "x": 780, "y": 0, "w": 1240, "h": 900, "title": "World map, proposed" },
+    { "file": "TerrainKit.dc.html", "x": 0, "y": 1040, "w": 1240, "h": 760, "title": "Terrain kit" },
+    { "file": "Raiders.dc.html", "x": 1340, "y": 1040, "w": 1240, "h": 640, "title": "Raiders, redesigned" },
+    { "file": "Structures.dc.html", "x": 0, "y": 1920, "w": 1240, "h": 560, "title": "Buildings and walls" }
+  ],
+  "annotations": [
+    { "id": "note-scope", "x": 780, "y": -150, "w": 420, "text": "Proposed art pass for Crown Rush. Nothing here is built yet: the map, terrain, raiders and buildings are the plan. Tell me what to change and I will implement it in the game." },
+    { "id": "note-river", "x": 2060, "y": 40, "w": 300, "text": "Gameplay effect of rivers: raiders funnel over the two bridges, so a tower by each bridge earns its keep. If you would rather keep the map open, I can make rivers shallow fords instead." },
+    { "id": "note-raiders", "x": 2620, "y": 1040, "w": 300, "text": "Raider stats stay as they are; only the models change. The Elite's glowing visor and the Giant's horns are the two new signature details." },
+    { "id": "note-buildings", "x": 1280, "y": 1920, "w": 300, "text": "Buildings keep their current footprints so no pad positions move. Wall materials read in silhouette: pointed pickets, flat brick, rounded stone, spiked iron." }
+  ],
+  "launch": { "view": "canvas" }
+}
