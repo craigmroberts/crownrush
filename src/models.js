@@ -231,48 +231,116 @@ export function makeSwordsman() {
   return g;
 }
 
+function roundShield(color, x, y, z) {
+  const g = new THREE.Group();
+  const disc = cyl(0.3, 0.3, 0.08, color, 0, 0, 0, 12);
+  disc.rotation.z = Math.PI / 2;
+  const boss = cyl(0.1, 0.1, 0.12, C.steel, 0, 0, 0, 8);
+  boss.rotation.z = Math.PI / 2;
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.035, 6, 14), mat(C.steelDark));
+  rim.rotation.y = Math.PI / 2;
+  g.add(disc, boss, rim);
+  g.position.set(x, y, z);
+  return g;
+}
+
+// The common raider: round red kettle helmet, nose guard and plume, small round shield, short sword.
 export function makeKnight({ scale = 1, color = C.red, dark = C.darkRed } = {}) {
   const g = humanoid({ shirt: color, pantsColor: dark, hairColor: dark, scale, style: 'angry', hair: false });
-  // helmet with visor slit and plume
-  const helm = rbox(0.76, 0.5, 0.72, color, 0, 1.4, -0.02, 0.26, 0.04);
-  const brim = box(0.82, 0.08, 0.5, dark, 0, 1.16, 0.2);
-  const visor = box(0.5, 0.1, 0.06, 0x1b1b24, 0, 1.24, 0.34);
-  const plume = cone(0.13, 0.55, color, 0, 1.85, -0.05, 5);
-  const shoulderL = rbox(0.28, 0.16, 0.34, dark, -0.36, 0.86, 0, 0.06);
-  const shoulderR = rbox(0.28, 0.16, 0.34, dark, 0.36, 0.86, 0, 0.06);
-  g.add(helm, brim, visor, plume, shoulderL, shoulderR);
-  const sword = box(0.09, 0.9, 0.05, C.steel, 0.42, 0.95, 0.16);
+  const sash = box(0.62, 0.1, 0.42, dark, 0, 0.5, 0);
+  const helm = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 9, 0, Math.PI * 2, 0, Math.PI * 0.55), mat(color));
+  helm.position.set(0, 1.3, -0.02);
+  helm.castShadow = true;
+  const brim = cyl(0.46, 0.46, 0.08, dark, 0, 1.3, -0.02, 14);
+  const nose = box(0.08, 0.28, 0.06, dark, 0, 1.16, 0.34);
+  const plume = cone(0.12, 0.5, dark, 0, 1.9, -0.05, 5);
+  const plume2 = cone(0.08, 0.3, color, 0, 2.1, -0.05, 5);
+  g.add(sash, helm, brim, nose, plume, plume2);
+  g.add(roundShield(dark, -0.5, 0.66, 0.05));
+  const sword = box(0.08, 0.7, 0.05, C.steel, 0.42, 0.9, 0.16);
   sword.rotation.z = -0.4;
-  sword.add(box(0.26, 0.06, 0.1, dark, 0, -0.36, 0));
+  sword.add(box(0.24, 0.06, 0.1, C.leather, 0, -0.3, 0));
   g.add(sword);
   return g;
 }
 
+// Elite: black plate, steel pauldrons, tall great helm with a glowing visor slit, red crest, longsword.
 export function makeElite() {
-  const g = makeKnight({ scale: 1.1, color: 0x2b2b33, dark: 0x8a1a22 });
-  g.add(box(0.72, 0.16, 0.42, C.steel, 0, 0.9, 0));
+  const g = humanoid({ shirt: 0x2b2b33, pantsColor: 0x1f1f26, hairColor: 0x1f1f26, scale: 1.1, style: 'angry', hair: false });
+  const plate = rbox(0.48, 0.4, 0.14, 0x3d3d47, 0, 0.64, 0.18, 0.05);
+  const crossA = box(0.34, 0.05, 0.03, 0x8a1a22, 0, 0.64, 0.27);
+  crossA.rotation.z = 0.78;
+  const crossB = box(0.34, 0.05, 0.03, 0x8a1a22, 0, 0.64, 0.27);
+  crossB.rotation.z = -0.78;
+  const pauL = rbox(0.34, 0.2, 0.36, C.steel, -0.38, 0.9, 0, 0.1);
+  const pauR = rbox(0.34, 0.2, 0.36, C.steel, 0.38, 0.9, 0, 0.1);
+  const helm = rbox(0.74, 0.86, 0.7, 0x2b2b33, 0, 1.3, -0.02, 0.2, 0.04);
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 0.06), new THREE.MeshBasicMaterial({ color: 0xff3b3b }));
+  visor.position.set(0, 1.26, 0.35);
+  const crest = box(0.1, 0.34, 0.5, 0x8a1a22, 0, 1.85, -0.1);
+  g.add(plate, crossA, crossB, pauL, pauR, helm, visor, crest);
+  // remove the drawn face: the helm covers it
+  g.children.filter((o) => o.userData.face).forEach((o) => g.remove(o));
+  const sword = box(0.09, 1.15, 0.05, C.steel, 0.44, 1.0, 0.16);
+  sword.rotation.z = -0.3;
+  sword.add(box(0.3, 0.07, 0.1, 0x8a1a22, 0, -0.5, 0));
+  g.add(sword);
   return g;
 }
 
+// Brute: barrel body, bare arms, horned cap, studded club.
 export function makeBrute() {
-  return makeKnight({ scale: 1.45, color: C.darkRed, dark: 0x5a0d10 });
+  const g = new THREE.Group();
+  const s = 1.45;
+  const legL = rbox(0.26, 0.36, 0.26, 0x5a0d10, -0.17, 0.2, 0, 0.08);
+  const legR = rbox(0.26, 0.36, 0.26, 0x5a0d10, 0.17, 0.2, 0, 0.08);
+  const body = rbox(0.86, 0.66, 0.56, C.darkRed, 0, 0.7, 0, 0.2, 0.05);
+  const strap = box(0.16, 0.9, 0.6, C.leather, 0, 0.7, 0);
+  strap.rotation.z = 0.7;
+  const belt = box(0.9, 0.1, 0.6, C.leather, 0, 0.42, 0);
+  const armL = rbox(0.24, 0.5, 0.24, C.skin, -0.55, 0.68, 0.04, 0.1);
+  const armR = rbox(0.24, 0.5, 0.24, C.skin, 0.55, 0.68, 0.04, 0.1);
+  const head = rbox(0.66, 0.56, 0.62, C.skin, 0, 1.32, 0, 0.22, 0.04);
+  const cap = rbox(0.7, 0.24, 0.66, 0x5a0d10, 0, 1.52, -0.02, 0.2, 0.04);
+  const hornL = cone(0.09, 0.4, 0xf4f4f4, -0.42, 1.6, 0, 5);
+  hornL.rotation.z = 0.9;
+  const hornR = cone(0.09, 0.4, 0xf4f4f4, 0.42, 1.6, 0, 5);
+  hornR.rotation.z = -0.9;
+  g.add(legL, legR, body, strap, belt, armL, armR, head, cap, hornL, hornR);
+  g.add(face(0.5, 0.42, 0, 1.26, 0.315, 'angry'));
+  // club
+  const handle = cyl(0.05, 0.05, 0.9, C.darkWood, 0.62, 1.15, 0.1, 6);
+  const clubHead = rbox(0.3, 0.42, 0.3, C.steelDark, 0.62, 1.7, 0.1, 0.08);
+  for (const [x, z] of [[0.14, 0], [-0.14, 0], [0, 0.14], [0, -0.14]]) clubHead.add(new THREE.Mesh(new THREE.SphereGeometry(0.05, 5, 4), mat(C.steel)).translateX(x).translateZ(z));
+  g.add(handle, clubHead);
+  g.userData.legs = [legL, legR];
+  g.userData.body = body;
+  g.scale.setScalar(s * 0.9);
+  return g;
 }
 
+// Giant boss: bone-white colossus, horned helm, chest strap, greatsword.
 export function makeBoss() {
   const g = new THREE.Group();
   const body = rbox(1.9, 2.3, 1.5, C.boss, 0, 1.6, 0, 0.3, 0.03);
   const belly = rbox(1.5, 1.2, 0.5, C.bossDark, 0, 1.3, 0.55, 0.2);
+  const strap = box(0.3, 2.4, 1.6, C.leather, 0, 1.6, 0.02);
+  strap.rotation.z = 0.7;
   const head = rbox(1.2, 1.05, 1.15, C.boss, 0, 3.3, 0, 0.3, 0.03);
   const helm = rbox(1.3, 0.5, 1.25, C.bossDark, 0, 3.7, -0.02, 0.3);
+  const hornL = cone(0.16, 0.9, 0xf4f4f4, -0.8, 3.95, 0, 6);
+  hornL.rotation.z = 1.0;
+  const hornR = cone(0.16, 0.9, 0xf4f4f4, 0.8, 3.95, 0, 6);
+  hornR.rotation.z = -1.0;
   const legL = rbox(0.6, 0.9, 0.6, C.bossDark, -0.5, 0.45, 0, 0.1);
   const legR = rbox(0.6, 0.9, 0.6, C.bossDark, 0.5, 0.45, 0, 0.1);
   const armR = rbox(0.5, 1.6, 0.5, C.boss, 1.25, 1.9, 0.2, 0.15);
   const armL = rbox(0.5, 1.4, 0.5, C.boss, -1.25, 1.8, 0.1, 0.15);
-  const sword = box(0.3, 3.4, 0.14, C.white, 1.3, 3.0, 0.9);
+  const sword = box(0.34, 3.6, 0.14, C.white, 1.3, 3.0, 0.9);
   sword.rotation.x = 0.35;
-  const guard = box(0.9, 0.18, 0.2, C.steel, 1.3, 1.5, 0.5);
+  const guard = box(1.0, 0.18, 0.2, C.steel, 1.3, 1.5, 0.5);
   guard.rotation.x = 0.35;
-  g.add(body, belly, head, helm, legL, legR, armR, armL, sword, guard);
+  g.add(body, belly, strap, head, helm, hornL, hornR, legL, legR, armR, armL, sword, guard);
   g.add(face(0.9, 0.8, 0, 3.2, 0.59, 'angry'));
   g.userData.legs = [legL, legR];
   g.userData.body = body;
@@ -358,20 +426,36 @@ export function makeArrow() {
 export function makeHut() {
   const g = new THREE.Group();
   const base = box(3.4, 1.7, 2.6, C.wood, 0, 0.85, 0);
+  g.add(base);
+  for (let y = 0.35; y < 1.7; y += 0.42) g.add(box(3.44, 0.04, 2.64, C.darkWood, 0, y, 0));
   const door = box(0.7, 1.1, 0.1, 0x3a2a1a, 0.6, 0.55, 1.33);
   const window = box(0.5, 0.5, 0.1, 0x9ad4ff, -0.7, 1.0, 1.33);
-  const roofL = box(2.1, 0.22, 3.1, C.roof, -0.95, 2.15, 0);
+  const frame = box(0.6, 0.6, 0.06, C.darkWood, -0.7, 1.0, 1.31);
+  const roofL = box(2.1, 0.22, 3.2, C.roof, -0.95, 2.15, 0);
   roofL.rotation.z = 0.6;
-  const roofR = box(2.1, 0.22, 3.1, C.roof, 0.95, 2.15, 0);
+  const roofR = box(2.1, 0.22, 3.2, C.roof, 0.95, 2.15, 0);
   roofR.rotation.z = -0.6;
-  const ridge = box(0.3, 0.3, 3.2, C.darkWood, 0, 2.7, 0);
+  for (let i = 0; i < 4; i++) {
+    const sl = box(0.06, 0.05, 3.24, 0x5e3c22, -0.35 - i * 0.42, 1.73 + i * 0.29, 0);
+    sl.rotation.z = 0.6;
+    const sr = box(0.06, 0.05, 3.24, 0x5e3c22, 0.35 + i * 0.42, 1.73 + i * 0.29, 0);
+    sr.rotation.z = -0.6;
+    g.add(sl, sr);
+  }
+  const ridge = box(0.3, 0.3, 3.3, C.darkWood, 0, 2.7, 0);
   const target = cyl(0.45, 0.45, 0.1, C.white, 0, 1.2, -1.36, 12);
   target.rotation.x = Math.PI / 2;
   const target2 = cyl(0.28, 0.28, 0.12, C.red, 0, 1.2, -1.38, 12);
   target2.rotation.x = Math.PI / 2;
+  const target3 = cyl(0.1, 0.1, 0.14, C.white, 0, 1.2, -1.4, 12);
+  target3.rotation.x = Math.PI / 2;
   const post = box(0.16, 1.0, 0.16, C.darkWood, 1.9, 0.5, 1.5);
   const post2 = box(0.16, 1.0, 0.16, C.darkWood, -1.9, 0.5, 1.5);
-  g.add(base, door, window, roofL, roofR, ridge, target, target2, post, post2);
+  const lantern = box(0.12, 1.8, 0.12, C.darkWood, 2.3, 0.9, -1.2);
+  const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.34, 0.3), new THREE.MeshBasicMaterial({ color: 0xffd166 }));
+  lamp.position.set(2.3, 1.85, -1.2);
+  const lampCap = box(0.4, 0.08, 0.4, C.darkWood, 2.3, 2.06, -1.2);
+  g.add(door, window, frame, roofL, roofR, ridge, target, target2, target3, post, post2, lantern, lamp, lampCap);
   return g;
 }
 
@@ -380,36 +464,64 @@ export function makeTower() {
   for (const [x, z] of [[-0.9, -0.9], [0.9, -0.9], [-0.9, 0.9], [0.9, 0.9]]) {
     g.add(cyl(0.14, 0.18, 2.6, C.darkWood, x, 1.3, z, 6));
   }
-  const brace1 = box(2.2, 0.14, 0.14, C.wood, 0, 0.9, 0.9);
-  const brace2 = box(2.2, 0.14, 0.14, C.wood, 0, 0.9, -0.9);
-  const brace3 = box(0.14, 0.14, 2.2, C.wood, 0.9, 1.5, 0);
-  const brace4 = box(0.14, 0.14, 2.2, C.wood, -0.9, 1.5, 0);
+  for (const [x, z, ry] of [[0, 0.95, 0], [0, -0.95, 0], [0.95, 0, Math.PI / 2], [-0.95, 0, Math.PI / 2]]) {
+    const a = box(2.3, 0.12, 0.12, C.wood, x, 1.3, z);
+    a.rotation.y = ry;
+    a.rotation.z = 0.7;
+    const b = box(2.3, 0.12, 0.12, C.wood, x, 1.3, z);
+    b.rotation.y = ry;
+    b.rotation.z = -0.7;
+    g.add(a, b);
+  }
   const platform = box(2.5, 0.22, 2.5, C.wood, 0, 2.6, 0);
-  g.add(brace1, brace2, brace3, brace4, platform);
+  g.add(platform);
   for (let i = 0; i < 4; i++) {
     const a = (i / 4) * Math.PI * 2;
     const r = box(i % 2 ? 0.1 : 2.5, 0.4, i % 2 ? 2.5 : 0.1, C.darkWood, Math.cos(a) * 1.2 * (i % 2), 2.9, Math.sin(a) * 1.2 * ((i + 1) % 2));
     g.add(r);
   }
+  // peaked roof on four posts with a pennant
+  for (const [x, z] of [[-1.1, -1.1], [1.1, -1.1], [-1.1, 1.1], [1.1, 1.1]]) g.add(box(0.12, 1.6, 0.12, C.darkWood, x, 3.5, z));
+  const roof = cone(2.0, 1.2, C.roof, 0, 4.9, 0, 4);
+  roof.rotation.y = Math.PI / 4;
+  const pole = box(0.06, 1.2, 0.06, C.darkWood, 0, 5.9, 0);
+  const flag = box(0.7, 0.4, 0.04, C.blue, 0.38, 6.2, 0);
+  g.add(roof, pole, flag);
   g.userData.top = 2.72;
   return g;
 }
 
 export function makeBarracks() {
   const g = new THREE.Group();
-  const base = box(4.2, 2.0, 3.0, 0x8a7a6a, 0, 1.0, 0);
+  const base = box(4.2, 2.0, 3.0, 0x8d9096, 0, 1.0, 0);
+  g.add(base);
+  // stone block courses
+  for (let y = 0.3; y < 2.0; y += 0.45) {
+    g.add(box(4.24, 0.05, 3.04, 0x6b6f75, 0, y, 0));
+    for (let x = -1.6 + ((y * 7) % 2) * 0.45; x < 2.0; x += 0.9) g.add(box(0.05, 0.4, 3.05, 0x6b6f75, x, y + 0.24, 0));
+  }
   const roofL = box(2.5, 0.22, 3.5, 0x555a66, -1.15, 2.5, 0);
   roofL.rotation.z = 0.55;
   const roofR = box(2.5, 0.22, 3.5, 0x555a66, 1.15, 2.5, 0);
   roofR.rotation.z = -0.55;
+  for (let i = 0; i < 4; i++) {
+    const sl = box(0.06, 0.05, 3.54, 0x3f4450, -0.4 - i * 0.5, 2.05 + i * 0.3, 0);
+    sl.rotation.z = 0.55;
+    const sr = box(0.06, 0.05, 3.54, 0x3f4450, 0.4 + i * 0.5, 2.05 + i * 0.3, 0);
+    sr.rotation.z = -0.55;
+    g.add(sl, sr);
+  }
   const door = box(1.0, 1.4, 0.1, 0x3a2a1a, 0, 0.7, 1.53);
-  const flagPole = cyl(0.05, 0.05, 2.2, C.darkWood, 1.6, 3.6, 0, 5);
-  const flag = box(0.9, 0.5, 0.05, C.blue, 2.05, 4.4, 0);
-  const swords = box(0.1, 1.2, 0.08, C.steel, 0, 2.0, 1.55);
+  const arch = box(1.2, 0.2, 0.12, 0x6b6f75, 0, 1.5, 1.52);
+  const flagPole = cyl(0.05, 0.05, 2.6, C.darkWood, 1.6, 3.8, 0, 5);
+  const flag = box(1.0, 0.55, 0.05, C.blue, 2.1, 4.8, 0);
+  const swords = box(0.1, 1.2, 0.08, C.steel, 0, 2.0, 1.56);
   swords.rotation.z = 0.7;
-  const swords2 = box(0.1, 1.2, 0.08, C.steel, 0, 2.0, 1.55);
+  const swords2 = box(0.1, 1.2, 0.08, C.steel, 0, 2.0, 1.56);
   swords2.rotation.z = -0.7;
-  g.add(base, roofL, roofR, door, flagPole, flag, swords, swords2);
+  const crate = rbox(0.7, 0.7, 0.7, 0xd6b24a, -2.6, 0.35, 0.9, 0.06);
+  const crate2 = rbox(0.55, 0.55, 0.55, 0xd6b24a, -2.5, 0.28, 0.1, 0.06);
+  g.add(roofL, roofR, door, arch, flagPole, flag, swords, swords2, crate, crate2);
   return g;
 }
 
@@ -547,13 +659,18 @@ export function makeBush() {
 }
 
 export function makeRock(scale = 1) {
+  const g = new THREE.Group();
   const m = new THREE.Mesh(new THREE.DodecahedronGeometry(0.55, 0), mat(C.rock));
   m.scale.set(scale * 1.2, scale * 0.7, scale);
   m.position.y = 0.3 * scale;
-  m.rotation.y = Math.random() * Math.PI;
   m.castShadow = true;
   m.receiveShadow = true;
-  return m;
+  const cap = new THREE.Mesh(new THREE.DodecahedronGeometry(0.34, 0), mat(0xa9aeb5));
+  cap.scale.set(scale * 1.1, scale * 0.45, scale * 0.9);
+  cap.position.y = 0.55 * scale;
+  g.add(m, cap);
+  g.rotation.y = Math.random() * Math.PI;
+  return g;
 }
 
 export function makeSpikes() {
@@ -567,6 +684,81 @@ export function makeSpikes() {
     const b = box(0.12, 1.3, 0.12, C.wood, x, 0.5, 0);
     b.rotation.x = -0.7;
     g.add(a, b);
+  }
+  return g;
+}
+
+export function makePeak(r, h) {
+  const g = new THREE.Group();
+  const body = cone(r, h, C.cliff, 0, h / 2, 0, 7);
+  const snow = cone(r * 0.32, h * 0.32, 0xf4f4f4, 0, h - h * 0.16 + 0.02, 0, 7);
+  g.add(body, snow);
+  g.rotation.y = Math.random() * Math.PI;
+  return g;
+}
+
+// Plank bridge, long axis along z (rotated to the road direction by the caller).
+export function makeBridge(length, width) {
+  const g = new THREE.Group();
+  const deck = box(width, 0.25, length, C.wood, 0, 0.32, 0);
+  g.add(deck);
+  const n = Math.floor(length / 0.55);
+  for (let i = 0; i < n; i++) g.add(box(width + 0.02, 0.06, 0.08, C.darkWood, 0, 0.47, -length / 2 + 0.3 + i * 0.55));
+  for (const sx of [-1, 1]) {
+    g.add(box(0.14, 0.12, length, C.darkWood, sx * (width / 2 - 0.1), 1.0, 0));
+    for (let z = -length / 2 + 0.4; z < length / 2; z += 1.4) g.add(box(0.14, 0.75, 0.14, C.darkWood, sx * (width / 2 - 0.1), 0.7, z));
+  }
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) g.add(box(0.26, 1.3, 0.26, C.darkWood, sx * (width / 2 - 0.1), 0.65, sz * (length / 2 - 0.2)));
+  return g;
+}
+
+export function makeHayBale() {
+  const g = new THREE.Group();
+  const bale = cyl(0.55, 0.55, 0.9, 0xe0c25a, 0, 0.55, 0, 12);
+  bale.rotation.z = Math.PI / 2;
+  const band1 = new THREE.Mesh(new THREE.TorusGeometry(0.56, 0.03, 5, 14), mat(C.leather));
+  band1.rotation.y = Math.PI / 2;
+  band1.position.set(-0.25, 0.55, 0);
+  const band2 = band1.clone();
+  band2.position.x = 0.25;
+  g.add(bale, band1, band2);
+  g.rotation.y = Math.random() * Math.PI;
+  return g;
+}
+
+export function makeWheatField(w, d) {
+  const g = new THREE.Group();
+  const soil = box(w, 0.1, d, 0xb8922e, 0, 0.05, 0);
+  g.add(soil);
+  const rows = Math.floor(w / 0.9);
+  const stalkGeo = new THREE.BoxGeometry(0.16, 0.9, 0.16);
+  const stalks = new THREE.InstancedMesh(stalkGeo, mat(0xd6b24a), rows * Math.floor(d / 0.6));
+  const headGeo = new THREE.SphereGeometry(0.13, 5, 4);
+  const heads = new THREE.InstancedMesh(headGeo, mat(0xe8d17a), stalks.count);
+  const m = new THREE.Matrix4();
+  let i = 0;
+  for (let r = 0; r < rows; r++) {
+    for (let z = -d / 2 + 0.4; z < d / 2 - 0.2; z += 0.6) {
+      const x = -w / 2 + 0.6 + r * 0.9;
+      m.makeTranslation(x, 0.55, z);
+      stalks.setMatrixAt(i, m);
+      m.makeTranslation(x, 1.05, z);
+      heads.setMatrixAt(i, m);
+      i++;
+    }
+  }
+  stalks.count = heads.count = i;
+  stalks.castShadow = true;
+  g.add(stalks, heads);
+  // low fence
+  for (const [x, z, len, ry] of [[0, -d / 2 - 0.3, w + 0.6, 0], [0, d / 2 + 0.3, w + 0.6, 0], [-w / 2 - 0.3, 0, d + 0.6, Math.PI / 2], [w / 2 + 0.3, 0, d + 0.6, Math.PI / 2]]) {
+    const rail = box(len, 0.08, 0.08, C.darkWood, x, 0.5, z);
+    rail.rotation.y = ry;
+    g.add(rail);
+    for (let t = -len / 2 + 0.3; t < len / 2; t += 1.5) {
+      const post = box(0.12, 0.7, 0.12, C.darkWood, ry ? x : x + t, 0.35, ry ? z + t : z);
+      g.add(post);
+    }
   }
   return g;
 }

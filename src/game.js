@@ -32,7 +32,7 @@ export class Game {
     this.input = new Input(canvas);
     const { sun } = setupLights(this.scene);
     this.sun = sun;
-    buildWorld(this.scene);
+    this.world = buildWorld(this.scene);
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -248,7 +248,8 @@ export class Game {
         z = THREE.MathUtils.clamp(cz + Math.sin(a) * r, -half, half);
         const onCliff = x < CFG.cliffs.x && z < CFG.cliffs.z;
         const inside = x > b.x0 - 3 && x < b.x1 + 3 && z > b.z0 - 3 && z < b.z1 + 3;
-        if (!onCliff && !inside) break;
+        const inRiver = this.world.riverInfo(x, z).dist < this.world.river.halfWidth + 3;
+        if (!onCliff && !inside && !inRiver) break;
         a += 0.9;
         r += 3;
       }
@@ -535,6 +536,54 @@ export class Game {
     return hit;
   }
 
+  // Keep a position out of the river unless it is on a bridge. Returns true when it was pushed.
+  collideRiver(p, r) {
+    const info = this.world.riverInfo(p.x, p.z);
+    const limit = this.world.river.halfWidth + 0.6 + r;
+    if (info.dist >= limit) return false;
+    if (this.world.nearBridge(p.x, p.z)) return false;
+    let dx = p.x - info.qx;
+    let dz = p.z - info.qz;
+    const d = Math.hypot(dx, dz) || 1;
+    dx /= d;
+    dz /= d;
+    p.x = info.qx + dx * limit;
+    p.z = info.qz + dz * limit;
+    return true;
+  }
+
+  // Waypoint for an enemy whose target is across the river: the near end of the closest bridge,
+  // then the far end once it gets there.
+  bridgeWaypoint(e, targetPos) {
+    const p = e.mesh.position;
+    const mySide = this.world.riverInfo(p.x, p.z).side;
+    const theirSide = this.world.riverInfo(targetPos.x, targetPos.z).side;
+    if (mySide === theirSide || this.world.nearBridge(p.x, p.z)) {
+      if (e.crossing && this.world.nearBridge(p.x, p.z)) {
+        // keep heading to the far end until we are actually across
+        const b = e.crossing;
+        const far = this.world.riverInfo(b.x + b.dx * 9, b.z + b.dz * 9).side === theirSide ? 1 : -1;
+        return { x: b.x + b.dx * 9 * far, z: b.z + b.dz * 9 * far };
+      }
+      e.crossing = null;
+      return null;
+    }
+    let best = null;
+    let bd = Infinity;
+    for (const b of this.world.bridges) {
+      const d = Math.hypot(b.x - p.x, b.z - p.z);
+      if (d < bd) {
+        bd = d;
+        best = b;
+      }
+    }
+    if (!best) return null;
+    e.crossing = best;
+    // the near end sits inside the bridge zone so arriving there flips us to the far end
+    const near = this.world.riverInfo(best.x + best.dx * 9, best.z + best.dz * 9).side === mySide ? 1 : -1;
+    return { x: best.x + best.dx * 5 * near, z: best.z + best.dz * 5 * near };
+  }
+
   damageWall(w, dmg) {
     if (w.state !== 'built') return;
     w.hp -= dmg;
@@ -674,6 +723,7 @@ export class Game {
       this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, CFG.waves.goal);
       this.updateIndicators(dt);
     }
+    this.world.update(dt);
     this.updateEffects(dt);
     this.updateStack(dt);
     this.updateCamera(dt);
@@ -697,6 +747,7 @@ export class Game {
       else p.z = CFG.cliffs.z;
     }
     this.collideWalls(p, 0.55, true);
+    this.collideRiver(p, 0.5);
     this.animateWalk(k, inp.mag, dt);
     // king fires his own bow
     k.cooldown -= dt;
@@ -759,6 +810,7 @@ export class Game {
         if (!target) u.mesh.rotation.y = this.lerpAngle(u.mesh.rotation.y, Math.atan2(tmp2.x, tmp2.z), 1 - Math.exp(-dt * 10));
       }
       this.collideWalls(p, 0.3, true);
+      this.collideRiver(p, 0.3);
       if (d > 14) p.set(kp.x + rand(-1, 1), 0, kp.z + rand(-1, 1));
       this.animateWalk(u, moving, dt);
 
@@ -842,13 +894,29 @@ export class Game {
       tmp2.y = 0;
       const d = tmp2.length();
       const reach = e.radius + 0.7;
-      this.faceTowards(e.mesh, t.mesh.position, dt, 8);
+      // if the target is across the river, walk to the nearest bridge first
+      const wp = this.bridgeWaypoint(e, t.mesh.position);
       let blocked = null;
-      if (d > reach) {
-        tmp2.normalize().multiplyScalar(Math.min(e.stats.speed * dt, d - reach + 0.01));
-        p.add(tmp2);
+      if (wp) {
+        tmp2.set(wp.x - p.x, 0, wp.z - p.z);
+        const wd = tmp2.length();
+        this.faceTowards(e.mesh, tmp.set(wp.x, 0, wp.z), dt, 8);
+        if (wd > 0.05) {
+          tmp2.normalize().multiplyScalar(Math.min(e.stats.speed * dt, wd));
+          p.add(tmp2);
+        }
         blocked = this.collideWalls(p, e.radius, false);
-        this.animateWalk(e, blocked ? 0.4 : 1, dt);
+        this.collideRiver(p, e.radius);
+        this.animateWalk(e, 1, dt);
+      } else {
+        this.faceTowards(e.mesh, t.mesh.position, dt, 8);
+        if (d > reach) {
+          tmp2.normalize().multiplyScalar(Math.min(e.stats.speed * dt, d - reach + 0.01));
+          p.add(tmp2);
+          blocked = this.collideWalls(p, e.radius, false);
+          this.collideRiver(p, e.radius);
+          this.animateWalk(e, blocked ? 0.4 : 1, dt);
+        }
       }
       if (blocked) {
         if (e.cooldown <= 0) {
@@ -857,7 +925,7 @@ export class Game {
           this.damageWall(blocked, e.damage * (e.stats.aoe ? 2 : 1));
           if (e.stats.aoe) this.shake = 0.2;
         }
-      } else if (d <= reach) {
+      } else if (!wp && d <= reach) {
         this.animateWalk(e, 0, dt);
         if (e.cooldown <= 0) {
           e.cooldown = 1 / e.stats.attackRate;
@@ -882,6 +950,7 @@ export class Game {
         }
       }
       this.collideWalls(p, e.radius, false);
+      this.collideRiver(p, e.radius);
       // hit flash squash
       if (e.flash > 0) {
         e.flash -= dt;

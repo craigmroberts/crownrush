@@ -45,6 +45,24 @@ export const CFG = {
   ],
 };
 
+// The map: a river (centreline control points), roads (spline control points) and where they meet.
+// Roads that cross the river get a bridge at the crossing; bridges are the only way over.
+export const MAP = {
+  river: {
+    points: [[30, -96], [44, -70], [52, -40], [55, -12], [52, 12], [44, 32], [26, 46], [4, 50], [-18, 54], [-40, 62], [-70, 72], [-96, 82]],
+    halfWidth: 3.6, // water half-width (the sandy bank extends another ~1.2)
+    bridgeRadius: 6.5, // no river collision this close to a bridge centre
+  },
+  roads: [
+    { id: 'south', points: [[0, -4], [0, 8], [1, 20], [1, 32], [1, 49], [3, 62], [12, 80], [22, 96]] },
+    { id: 'east', points: [[-6, 2], [11, 1.5], [24, 2], [36, 3.8], [53, 3], [66, 0], [80, -14], [96, -30]] },
+    { id: 'west', points: [[-18, 4], [-22, 4], [-34, 4], [-50, 6], [-64, 2], [-80, -10], [-96, -20]] },
+    { id: 'north', points: [[2, -18], [2, -24], [2, -40], [8, -58], [16, -76], [22, -96]] },
+  ],
+  roadWidth: 4.2,
+  field: { pos: [45, 22], size: [10, 7] },
+};
+
 // Village tiers. The village starts as tier 0 and each "Expand Village" pad moves it up one.
 // Walls are generated around `bounds`; `gates` lists the gap on each side (along that side's axis).
 export const TIERS = [

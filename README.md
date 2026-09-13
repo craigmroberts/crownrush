@@ -11,6 +11,9 @@ No storyline, just the loop:
 
 **Goal:** survive 30 waves to secure the kingdom. After that the raids keep coming for a high score.
 
+- The map has a river that raiders (and the King) can only cross at the bridges where the curved roads
+  meet it, so each bridge is a natural choke point. Mesas and snow peaks sit to the north-west, with
+  forests, boulders, barricades, a wheat field and flower patches across the meadow.
 - The village starts as a small plot. "Expand Village" pads grow it in three stages, each with its own
   wall ring. When the outer ring is complete the old inner wall is torn down.
 - Walls are real: raiders are blocked and bash at short sections. A battered section degrades to the
@@ -47,6 +50,8 @@ All balance lives in [`src/config.js`](src/config.js):
 - `CFG` holds unit stats, wave pacing, enemy stats and the coin pickup radius.
 - `PADS` is the build tree. Each pad has a position, a cost, an icon, what it requires, and what it does
   (spawn units, build a structure, or apply an upgrade). Add an entry and it appears in the game.
+- `MAP` is the terrain: river centreline, road splines and the wheat field. Bridges are placed automatically
+  where a road crosses the river.
 - `TIERS` is the village layout: the rectangle for each expansion stage, its gates, and wall section length.
 - `CFG.wallLevels` sets HP and repair cost per wall material.
 
