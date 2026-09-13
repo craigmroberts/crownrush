@@ -14,6 +14,7 @@ export class Hud {
     this.indicators = [];
     this.tip = document.getElementById('pad-tip');
     this.nextBtn = document.getElementById('next-wave-btn');
+    this.alarmEl = document.getElementById('alarm');
     this.minimap = document.getElementById('minimap');
     this.resEls = { wood: document.getElementById('res-wood'), stone: document.getElementById('res-stone'), straw: document.getElementById('res-straw') };
     this.scoreEl = document.getElementById('score-num');
@@ -102,6 +103,13 @@ export class Hud {
     this.tip.classList.add('hidden');
     this.tipKey = null;
   }
+  showAlarm(text) {
+    const el = this.alarmEl;
+    const on = !!text;
+    if (on && el.textContent !== text) el.textContent = text;
+    if (on !== !el.classList.contains('hidden')) el.classList.toggle('hidden', !on);
+    document.getElementById('queen-hp').classList.toggle('hit', on);
+  }
   showNextWave(show) {
     this.nextBtn.classList.toggle('hidden', !show);
   }
@@ -139,9 +147,10 @@ export class Hud {
       el.style.display = 'block';
       el.style.transform = `translate(${it.x}px, ${it.y}px)`;
       el.firstChild.style.transform = `rotate(${it.angle}rad)`;
-      el.lastChild.textContent = it.home ? '🏰' : it.boss ? '💀' : it.count > 1 ? it.count : '';
+      el.lastChild.textContent = it.alarm ? '⚠️' : it.home ? '🏰' : it.boss ? '💀' : it.count > 1 ? it.count : '';
       el.classList.toggle('boss', !!it.boss);
       el.classList.toggle('home', !!it.home);
+      el.classList.toggle('alarm', !!it.alarm);
     });
   }
 }

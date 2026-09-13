@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CFG, MAP, TIERS, NODES } from './config.js';
 import {
-  mat, makeTree, makeBush, makeRock, makeSpikes, makeCliff, makePeak, makeBridge, makeHayBale, makeWheatField,
+  mat, makeTree, makeBush, makeRock, makeSpikes, makeCliff, makePeak, makeBridge, makeHayBale, makeWheatField, mergeGroup,
 } from './models.js';
 
 // Deterministic pseudo-random so the map is the same every run.
@@ -306,7 +306,9 @@ export function buildWorld(scene) {
     scenery.add(f);
   });
   scenery.add(tufts);
+  mergeGroup(scenery); // one draw call for all the trees, bushes, rocks and barricades
   scene.add(scenery);
+  mergeGroup(cliffs);
 
   // ---- per-frame animation ----
   world.update = (dt) => {
@@ -363,7 +365,7 @@ export function setupLights(scene) {
   const sun = new THREE.DirectionalLight(0xfff1d6, 1.3);
   sun.position.set(18, 30, 12);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.mapSize.set(1536, 1536);
   const s = 36;
   sun.shadow.camera.left = -s;
   sun.shadow.camera.right = s;

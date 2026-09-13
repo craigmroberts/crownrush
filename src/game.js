@@ -4,7 +4,7 @@ import { audio } from './audio.js';
 import { buildWorld, setupLights } from './world.js';
 import { Input } from './input.js';
 import {
-  makeKing, makeKingFoot, makeQueen, makeKeep, makeLumberTree, makeOreRock, makeResourceCube, makeTool, makeArcher, makeSwordsman, makeKnight, makeElite, makeBrute, makeBoss, makeCoin, makeArrow,
+  makeKing, makeKingFoot, makeQueen, makeKeep, makeLumberTree, makeOreRock, makeResourceCube, RES_MATS, CHIP_GEO, makeTool, makeArcher, makeSwordsman, makeKnight, makeElite, makeBrute, makeBoss, makeCoin, makeArrow,
   makeHut, makeTower, makeBarracks, makeWallSegment, makeGate, makeRubble, makeBridge, makePad, drawPad, ghostify,
   makeHealthBar, setHealthBar, makePopup, makeRing, makeSpawnFx, makeBurst,
 } from './models.js';
@@ -89,6 +89,8 @@ export class Game {
     this.nodes = [];
     this.chips = [];
     this.fx = [];
+    this.alarmT = 0;
+    this.lastAlarm = -99;
     this.swing = 0;
     this.activePad = null;
     this.nodeRing = null;
@@ -357,6 +359,15 @@ export class Game {
     ctx.fill();
     ctx.stroke();
     ctx.restore();
+  }
+
+  raiseAlarm(text) {
+    this.alarmT = 3.5;
+    this.alarmText = text;
+    if (this.time - this.lastAlarm > 6) {
+      this.lastAlarm = this.time;
+      audio.alarm();
+    }
   }
 
   addScore(n) {
@@ -940,6 +951,7 @@ export class Game {
   damageWall(w, dmg) {
     if (w.state !== 'built') return;
     if (w.isKeep) {
+      this.raiseAlarm('The Keep is under attack!');
       w.hp -= dmg;
       setHealthBar(w.bar, Math.max(0, w.hp / w.maxHp));
       w.mesh.position.y = 0.06;
@@ -1094,6 +1106,7 @@ export class Game {
     u.hp -= dmg;
     u.lastHit = this.time;
     if (u.type === 'king' || u.type === 'queen') audio.hurt();
+    if (u.type === 'queen') this.raiseAlarm('The Queen is under attack!');
     setHealthBar(u.bar, Math.max(0, u.hp / u.maxHp));
     if (u.hp <= 0) {
       if (u.type === 'king' || u.type === 'queen') {
@@ -1137,6 +1150,8 @@ export class Game {
       const army = this.units.filter((u) => u !== this.king && u !== this.queen && !u.assign).length;
       const between = this.enemies.length === 0 && this.spawnQueue.length === 0;
       this.hud.showNextWave(between && this.wave > 0 && this.waveTimer > 3 && !this.won);
+      this.alarmT -= dt;
+      this.hud.showAlarm(this.alarmT > 0 ? this.alarmText : null);
       this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, CFG.waves.goal, this.res, this.score, this.king.hp / this.king.maxHp, this.queen.hp / this.queen.maxHp);
       this.updateIndicators(dt);
     }
@@ -1250,7 +1265,7 @@ export class Game {
     if (best.type !== 'straw') best.shake = 0.3;
     const chipColor = best.type === 'wood' ? 0x9a6a3a : best.type === 'stone' ? 0xa9aeb5 : 0xe0c25a;
     for (let i = 0; i < 5; i++) {
-      const ch = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.16), makeResourceCube(best.type).material);
+      const ch = new THREE.Mesh(CHIP_GEO, RES_MATS[best.type]);
       ch.position.copy(best.type === 'straw' ? kp : best.pos).setY(0.9);
       ch.position.x += rand(-0.4, 0.4);
       ch.position.z += rand(-0.4, 0.4);
@@ -1809,6 +1824,19 @@ export class Game {
       const dy = Math.sin(ang);
       const t = Math.min((w * 0.5 - margin) / Math.max(1e-6, Math.abs(dx)), (h * 0.5 - margin) / Math.max(1e-6, Math.abs(dy)));
       list.push({ x: w * 0.5 + dx * t, y: h * 0.5 + dy * t, angle: ang, count: 0, home: true });
+    }
+    if (this.alarmT > 0) {
+      const target = this.queen.inKeep && this.keep ? this.keep.mesh.position : this.queen.mesh.position;
+      tmp.set(target.x, 1, target.z).project(this.camera);
+      const kx = tmp.x * w * 0.5;
+      const ky = -tmp.y * h * 0.5;
+      if (Math.abs(kx) > w * 0.5 - 30 || Math.abs(ky) > h * 0.5 - 30 || tmp.z >= 1) {
+        const ang = Math.atan2(ky, kx);
+        const dx = Math.cos(ang);
+        const dy = Math.sin(ang);
+        const t = Math.min((w * 0.5 - margin) / Math.max(1e-6, Math.abs(dx)), (h * 0.5 - margin) / Math.max(1e-6, Math.abs(dy)));
+        list.push({ x: w * 0.5 + dx * t, y: h * 0.5 + dy * t, angle: ang, count: 0, alarm: true });
+      }
     }
     for (const b of bins.values()) {
       const ang = Math.atan2(b.ay, b.ax);

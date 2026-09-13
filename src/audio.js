@@ -259,6 +259,14 @@ class Audio {
     const notes = boss ? ['D3', 'D3', 'A3'] : ['G3', 'C4'];
     notes.forEach((n, i) => this.tone({ f: freq(n), t: t + i * 0.22, dur: i === notes.length - 1 ? 0.5 : 0.2, type: 'sawtooth', gain: 0.12, attack: 0.02, release: 0.12, lp: 1200 }));
   }
+  alarm() {
+    if (!this.ready()) return;
+    const t = this.now;
+    for (let i = 0; i < 3; i++) {
+      this.tone({ f: 660, t: t + i * 0.22, dur: 0.12, type: 'square', gain: 0.1, attack: 0.005, release: 0.06, lp: 1800 });
+      this.tone({ f: 520, t: t + i * 0.22 + 0.11, dur: 0.1, type: 'square', gain: 0.1, attack: 0.005, release: 0.06, lp: 1800 });
+    }
+  }
   hurt() {
     if (!this.ready() || this.now - this.lastHurt < 0.25) return;
     this.lastHurt = this.now;
