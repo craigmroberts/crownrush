@@ -4,7 +4,7 @@ import { audio } from './audio.js';
 import { buildWorld, setupLights } from './world.js';
 import { Input } from './input.js';
 import {
-  makeKing, makeKingFoot, makeLumberTree, makeOreRock, makeResourceCube, makeTool, makeArcher, makeSwordsman, makeKnight, makeElite, makeBrute, makeBoss, makeCoin, makeArrow,
+  makeKing, makeKingFoot, makeQueen, makeKeep, makeLumberTree, makeOreRock, makeResourceCube, makeTool, makeArcher, makeSwordsman, makeKnight, makeElite, makeBrute, makeBoss, makeCoin, makeArrow,
   makeHut, makeTower, makeBarracks, makeWallSegment, makeGate, makeRubble, makeBridge, makePad, drawPad, ghostify,
   makeHealthBar, setHealthBar, makePopup, makeRing,
 } from './models.js';
@@ -109,8 +109,11 @@ export class Game {
     this.paused = false;
     this.shake = 0;
 
-    // king (on foot until he earns a horse)
+    // king (on foot until he earns a horse) and the Queen he must protect
     this.king = this.spawnUnit('king', 0, 2);
+    this.keep = null;
+    this.queen = this.spawnUnit('queen', -1.2, 3.8);
+    this.queen.inKeep = false;
     const hc = TIERS[0].bounds;
     this.homeSide = this.world.riverInfo((hc.x0 + hc.x1) / 2, (hc.z0 + hc.z1) / 2).side;
 
@@ -191,7 +194,9 @@ export class Game {
     else this.pause();
   }
 
-  gameOver() {
+  gameOver(reason = 'king') {
+    if (this.over) return;
+    this.lost = reason;
     this.over = true;
     this.running = false;
     if (this.wave > this.best) {
@@ -200,7 +205,7 @@ export class Game {
     }
     this.saveScore();
     audio.gameOver();
-    setTimeout(() => this.hud.showGameOver(this.wave, this.coinsEarned, this.score, this.bestScore), 900);
+    setTimeout(() => this.hud.showGameOver(this.wave, this.coinsEarned, this.score, this.bestScore, reason), 900);
   }
 
   victory() {
@@ -390,18 +395,21 @@ export class Game {
     } else if (type === 'archer') {
       mesh = makeArcher();
       stats = CFG.archer;
+    } else if (type === 'queen') {
+      mesh = makeQueen();
+      stats = CFG.queen;
     } else {
       mesh = makeSwordsman();
       stats = CFG.swordsman;
     }
     mesh.position.set(x, 0, z);
-    const bar = makeHealthBar(type === 'king' ? 1.6 : 1.0, true);
-    bar.position.y = type === 'king' ? (this.mounted ? 3.2 : 2.4) : 1.8;
+    const bar = makeHealthBar(type === 'king' || type === 'queen' ? 1.6 : 1.0, true);
+    bar.position.y = type === 'king' ? (this.mounted ? 3.2 : 2.4) : type === 'queen' ? 2.5 : 1.8;
     mesh.add(bar);
     this.root.add(mesh);
     const u = {
       type, mesh, bar, hp: stats.hp, maxHp: stats.hp, stats, cooldown: rand(0, 0.5), lastHit: -99,
-      melee: type === 'swordsman', vel: new V3(), popT: type === 'king' ? 0 : 0.4, assign: null,
+      melee: type === 'swordsman', vel: new V3(), popT: type === 'king' || type === 'queen' ? 0 : 0.4, assign: null,
     };
     if (u.popT) mesh.scale.setScalar(0.01);
     this.units.push(u);
@@ -429,7 +437,7 @@ export class Game {
 
   startWave() {
     if (this.wave > 0) {
-      const soldiers = this.units.length - 1 + this.turrets.length;
+      const soldiers = this.units.length - 2 + this.turrets.length;
       this.addScore(CFG.score.waveClear * this.wave + soldiers * CFG.score.soldierPerWave);
     }
     this.wave++;
@@ -532,6 +540,11 @@ export class Game {
       const g = ghostify(this.makeWallMesh(def.repair));
       this.root.add(g);
       pad.ghosts.push(g);
+    } else if (def.repairKeep) {
+      const g = ghostify(makeKeep());
+      g.position.set(this.keep.x, 0, this.keep.z);
+      this.root.add(g);
+      pad.ghosts.push(g);
     } else if (def.bridge) {
       const c = this.world.crossingFor(def.bridge);
       if (c) {
@@ -569,6 +582,7 @@ export class Game {
 
   makeStructureMesh(kind) {
     if (kind === 'hut') return makeHut();
+    if (kind === 'keep') return makeKeep();
     if (kind === 'tower') return makeTower();
     if (kind === 'barracks') return makeBarracks();
     return new THREE.Group();
@@ -602,6 +616,7 @@ export class Game {
     if (def.structure) this.buildStructure(def);
     if (def.wall) this.buildWall(def.wall.tier, def.wall.side);
     if (def.repair) this.restoreWall(def.repair);
+    if (def.repairKeep) this.restoreKeep();
     if (def.effect === 'damage') this.damageMul *= 1.4;
     if (def.effect === 'kinghp') {
       this.king.maxHp += 80;
@@ -647,6 +662,80 @@ export class Game {
     this.popIn(m);
     this.root.add(m);
     if (kind === 'tower') this.towers[def.id] = { x: def.buildAt[0], z: def.buildAt[1], top: m.userData.top };
+    if (kind === 'keep') {
+      this.keep = { isKeep: true, x: def.buildAt[0], z: def.buildAt[1], mesh: m, state: 'built', hp: 0, maxHp: 0, radius: CFG.keep.radius, level: this.wallLevel };
+      this.keep.maxHp = this.keep.hp = this.keepHp();
+      this.keep.bar = makeHealthBar(3.0);
+      this.keep.bar.position.y = 4.4;
+      m.add(this.keep.bar);
+      this.queenEnterKeep();
+    }
+  }
+
+  keepHp() {
+    return CFG.keep.hp + this.wallLevel * CFG.keep.hpPerLevel;
+  }
+
+  queenEnterKeep() {
+    const q = this.queen;
+    if (!this.keep || this.keep.state !== 'built' || q.inKeep) return;
+    q.inKeep = true;
+    q.hp = q.maxHp;
+    setHealthBar(q.bar, 1);
+    const b = this.keep.mesh.userData.balcony;
+    q.mesh.position.set(this.keep.x + b.x, b.y, this.keep.z + b.z);
+    q.mesh.rotation.y = 0;
+    this.hud.toast('The Queen is inside the keep.', 1500);
+  }
+
+  queenLeaveKeep() {
+    const q = this.queen;
+    if (!q.inKeep) return;
+    q.inKeep = false;
+    q.mesh.position.set(this.keep.x + 2.6, 0, this.keep.z + 2.6);
+  }
+
+  breakKeep() {
+    const k = this.keep;
+    k.state = 'broken';
+    this.queenLeaveKeep();
+    this.root.remove(k.mesh);
+    k.mesh = makeRubble(3.4, 2);
+    k.mesh.position.set(k.x, 0, k.z);
+    this.root.add(k.mesh);
+    this.hud.toast('The keep has fallen! Protect the Queen!', 2200);
+    audio.wave(true);
+    this.dynamicPads.push({ id: `repair-keep-${this.time.toFixed(0)}`, pos: [k.x - 3.2, k.z + 3.2], cost: 20, res: { stone: 10 }, icon: '🔨', label: 'Repair Keep', repairKeep: true });
+    this.refreshPads();
+  }
+
+  restoreKeep() {
+    const k = this.keep;
+    this.root.remove(k.mesh);
+    k.mesh = makeKeep();
+    k.mesh.position.set(k.x, 0, k.z);
+    k.state = 'built';
+    k.level = this.wallLevel;
+    k.maxHp = k.hp = this.keepHp();
+    k.bar = makeHealthBar(3.0);
+    k.bar.position.y = 4.4;
+    k.mesh.add(k.bar);
+    this.popIn(k.mesh);
+    this.root.add(k.mesh);
+    this.queenEnterKeep();
+  }
+
+  // Solid keep footprint: pushes a position out of the box. Returns the keep when it blocked.
+  collideKeep(p, r) {
+    const k = this.keep;
+    if (!k || k.state !== 'built') return null;
+    const h = CFG.keep.half + r;
+    const dx = p.x - k.x;
+    const dz = p.z - k.z;
+    if (Math.abs(dx) >= h || Math.abs(dz) >= h) return null;
+    if (h - Math.abs(dx) < h - Math.abs(dz)) p.x = k.x + Math.sign(dx || 1) * h;
+    else p.z = k.z + Math.sign(dz || 1) * h;
+    return k;
   }
 
   expand() {
@@ -759,6 +848,11 @@ export class Game {
     this.wallLevel = Math.min(CFG.wallLevels.length - 1, this.wallLevel + 1);
     for (const def of [...this.dynamicPads]) if (def.repair) this.removePadDef(def);
     this.walls.forEach((w, i) => this.rebuildWall(w, this.wallLevel, i * 0.035));
+    if (this.keep && this.keep.state === 'built') {
+      this.keep.level = this.wallLevel;
+      this.keep.maxHp = this.keep.hp = this.keepHp();
+      setHealthBar(this.keep.bar, 1);
+    }
   }
 
   // Push a position out of any intact wall. Friendly units may pass through gates. Returns the wall hit.
@@ -837,6 +931,14 @@ export class Game {
 
   damageWall(w, dmg) {
     if (w.state !== 'built') return;
+    if (w.isKeep) {
+      w.hp -= dmg;
+      setHealthBar(w.bar, Math.max(0, w.hp / w.maxHp));
+      w.mesh.position.y = 0.06;
+      audio.wallHit();
+      if (w.hp <= 0) this.breakKeep(w);
+      return;
+    }
     w.hp -= dmg;
     setHealthBar(w.bar, Math.max(0, w.hp / w.maxHp));
     w.mesh.position.y = 0.06;
@@ -929,13 +1031,14 @@ export class Game {
 
   damageUnit(u, dmg) {
     if (u.hp <= 0) return;
+    if (u.inKeep) return;
     u.hp -= dmg;
     u.lastHit = this.time;
-    if (u.type === 'king') audio.hurt();
+    if (u.type === 'king' || u.type === 'queen') audio.hurt();
     setHealthBar(u.bar, Math.max(0, u.hp / u.maxHp));
     if (u.hp <= 0) {
-      if (u.type === 'king') {
-        this.gameOver();
+      if (u.type === 'king' || u.type === 'queen') {
+        this.gameOver(u.type);
         return;
       }
       this.units.splice(this.units.indexOf(u), 1);
@@ -972,10 +1075,10 @@ export class Game {
       this.updateWaves(dt);
       this.updateFog(dt);
       this.updateChips(dt);
-      const army = this.units.filter((u) => u !== this.king && !u.assign).length;
+      const army = this.units.filter((u) => u !== this.king && u !== this.queen && !u.assign).length;
       const between = this.enemies.length === 0 && this.spawnQueue.length === 0;
       this.hud.showNextWave(between && this.wave > 0 && this.waveTimer > 3 && !this.won);
-      this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, CFG.waves.goal, this.res, this.score, this.king.hp / this.king.maxHp);
+      this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, CFG.waves.goal, this.res, this.score, this.king.hp / this.king.maxHp, this.queen.hp / this.queen.maxHp);
       this.updateIndicators(dt);
     }
     this.world.update(dt);
@@ -1004,6 +1107,7 @@ export class Game {
     }
     this.collideWalls(p, 0.55, true);
     this.collideRiver(p, 0.5);
+    this.collideKeep(p, 0.5);
     this.animateWalk(k, inp.mag, dt);
     // king fires his own bow
     k.cooldown -= dt;
@@ -1022,7 +1126,7 @@ export class Game {
     k.bar.visible = true;
     this.updateMining(dt);
     this.ring.position.set(p.x, 0.04, p.z);
-    const followers = this.units.filter((u) => u !== this.king && !u.assign).length;
+    const followers = this.units.filter((u) => u !== this.king && u !== this.queen && !u.assign).length;
     const rr = 2.4 + Math.sqrt(followers) * 0.45;
     this.ring.scale.setScalar(rr / 2.4);
     this.ringRadius = rr;
@@ -1131,9 +1235,40 @@ export class Game {
     }
   }
 
+  // The Queen trails the King until she has a keep to shelter in.
+  updateQueen(dt) {
+    const q = this.queen;
+    if (!q || q.inKeep) return;
+    const k = this.king.mesh;
+    const fx = Math.sin(k.rotation.y);
+    const fz = Math.cos(k.rotation.y);
+    tmp.set(k.position.x - fx * CFG.queen.follow, 0, k.position.z - fz * CFG.queen.follow);
+    const p = q.mesh.position;
+    tmp2.subVectors(tmp, p);
+    tmp2.y = 0;
+    const d = tmp2.length();
+    let moving = 0;
+    if (d > 0.25) {
+      const sp = Math.min(q.stats.speed * (d > 5 ? 1.5 : 1), d / dt);
+      tmp2.normalize().multiplyScalar(sp * dt);
+      p.add(tmp2);
+      moving = Math.min(1, d);
+      q.mesh.rotation.y = this.lerpAngle(q.mesh.rotation.y, Math.atan2(tmp2.x, tmp2.z), 1 - Math.exp(-dt * 10));
+    }
+    p.y = 0;
+    this.collideWalls(p, 0.3, true);
+    this.collideRiver(p, 0.3);
+    this.collideKeep(p, 0.3);
+    if (d > 16) p.set(k.position.x + rand(-1, 1), 0, k.position.z + rand(-1, 1));
+    this.animateWalk(q, moving, dt);
+    this.regen(q, dt);
+    q.bar.visible = true;
+  }
+
   updateArmy(dt) {
     const kp = this.king.mesh.position;
-    const followers = this.units.filter((u) => u !== this.king && !u.assign);
+    this.updateQueen(dt);
+    const followers = this.units.filter((u) => u !== this.king && u !== this.queen && !u.assign);
     followers.forEach((u, i) => {
       u.cooldown -= dt;
       if (u.popT > 0) {
@@ -1172,6 +1307,7 @@ export class Game {
       }
       this.collideWalls(p, 0.3, true);
       this.collideRiver(p, 0.3);
+      this.collideKeep(p, 0.3);
       if (d > 14) p.set(kp.x + rand(-1, 1), 0, kp.z + rand(-1, 1));
       this.animateWalk(u, moving, dt);
 
@@ -1235,16 +1371,22 @@ export class Game {
     for (const e of this.enemies) {
       e.cooldown -= dt;
       e.retarget -= dt;
-      if (e.retarget <= 0 || !e.target || e.target.hp <= 0) {
+      if (e.retarget <= 0 || !e.target || e.target.hp <= 0 || (e.target.isKeep && (e.target.state !== 'built' || !this.queen.inKeep))) {
         e.retarget = 0.4;
         let best = null;
         let bd = Infinity;
         for (const u of this.units) {
-          const d = e.mesh.position.distanceToSquared(u.mesh.position);
+          if (u.inKeep) continue;
+          let d = e.mesh.position.distanceToSquared(u.mesh.position);
+          if (u.type === 'queen') d *= CFG.queen.targetWeight;
           if (d < bd) {
             bd = d;
             best = u;
           }
+        }
+        if (this.keep && this.keep.state === 'built' && this.queen.inKeep) {
+          const d = e.mesh.position.distanceToSquared(this.keep.mesh.position) * 0.7;
+          if (d < bd) best = this.keep;
         }
         e.target = best;
       }
@@ -1254,7 +1396,7 @@ export class Game {
       tmp2.subVectors(t.mesh.position, p);
       tmp2.y = 0;
       const d = tmp2.length();
-      const reach = e.radius + 0.7;
+      const reach = e.radius + 0.7 + (t.isKeep ? CFG.keep.half : 0);
       // if the target is across the river, walk to the nearest bridge first
       const wp = this.bridgeWaypoint(e, t.mesh.position);
       let blocked = null;
@@ -1266,7 +1408,7 @@ export class Game {
           tmp2.normalize().multiplyScalar(Math.min(e.stats.speed * dt, wd));
           p.add(tmp2);
         }
-        blocked = this.collideWalls(p, e.radius, false);
+        blocked = this.collideWalls(p, e.radius, false) || this.collideKeep(p, e.radius);
         this.collideRiver(p, e.radius);
         this.animateWalk(e, 1, dt);
       } else {
@@ -1274,7 +1416,7 @@ export class Game {
         if (d > reach) {
           tmp2.normalize().multiplyScalar(Math.min(e.stats.speed * dt, d - reach + 0.01));
           p.add(tmp2);
-          blocked = this.collideWalls(p, e.radius, false);
+          blocked = this.collideWalls(p, e.radius, false) || this.collideKeep(p, e.radius);
           this.collideRiver(p, e.radius);
           this.animateWalk(e, blocked ? 0.4 : 1, dt);
         }
@@ -1295,8 +1437,10 @@ export class Game {
             for (const u of this.units) {
               if (u.mesh.position.distanceTo(p) < e.stats.aoe + 1) this.damageUnit(u, e.damage);
             }
+            if (this.keep && this.keep.state === 'built' && this.keep.mesh.position.distanceTo(p) < e.stats.aoe + 2.5) this.damageWall(this.keep, e.damage * 2);
             this.shake = 0.25;
-          } else this.damageUnit(t, e.damage);
+          } else if (t.isKeep) this.damageWall(t, e.damage);
+          else this.damageUnit(t, e.damage);
         }
       }
       if (e.mesh.userData.body.rotation.x > 0) e.mesh.userData.body.rotation.x = Math.max(0, e.mesh.userData.body.rotation.x - dt * 3);
@@ -1312,6 +1456,7 @@ export class Game {
       }
       this.collideWalls(p, e.radius, false);
       this.collideRiver(p, e.radius);
+      this.collideKeep(p, e.radius);
       // hit flash squash
       if (e.flash > 0) {
         e.flash -= dt;
@@ -1617,6 +1762,7 @@ export class Game {
 
   updateEffects(dt) {
     for (const w of this.walls) if (w.mesh && w.mesh.position.y > 0) w.mesh.position.y = Math.max(0, w.mesh.position.y - dt * 0.4);
+    if (this.keep && this.keep.mesh.position.y > 0) this.keep.mesh.position.y = Math.max(0, this.keep.mesh.position.y - dt * 0.4);
     for (let i = this.dying.length - 1; i >= 0; i--) {
       const d = this.dying[i];
       d.t -= dt;

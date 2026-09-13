@@ -367,6 +367,69 @@ export function makeKingFoot() {
   return g;
 }
 
+// The Queen: long dress, tiara, long hair. She never fights.
+export function makeQueen() {
+  const g = new THREE.Group();
+  const skirt = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.7, 10), mat(0xf07aa8));
+  skirt.position.y = 0.35;
+  skirt.castShadow = true;
+  const hem = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.05, 6, 14), mat(0xd85a8c));
+  hem.rotation.x = Math.PI / 2;
+  hem.position.y = 0.05;
+  const bodice = rbox(0.5, 0.5, 0.34, 0xf07aa8, 0, 0.82, 0, 0.12, 0.05);
+  const sash = box(0.52, 0.08, 0.36, C.gold, 0, 0.62, 0);
+  const collar = box(0.36, 0.1, 0.3, 0xfff1f5, 0, 1.03, 0.04);
+  const armL = rbox(0.15, 0.4, 0.15, C.skin, -0.32, 0.8, 0.02, 0.06);
+  const armR = rbox(0.15, 0.4, 0.15, C.skin, 0.32, 0.8, 0.02, 0.06);
+  const head = rbox(0.66, 0.58, 0.62, C.skin, 0, 1.4, 0, 0.24, 0.04);
+  const hairColor = 0x7a3b12;
+  const cap = rbox(0.7, 0.28, 0.66, hairColor, 0, 1.6, -0.02, 0.22, 0.04);
+  const fringe = rbox(0.6, 0.12, 0.14, hairColor, 0, 1.5, 0.27, 0.05);
+  const back = rbox(0.56, 0.9, 0.2, hairColor, 0, 1.15, -0.3, 0.1);
+  const sideL = rbox(0.12, 0.5, 0.3, hairColor, -0.34, 1.3, -0.1, 0.05);
+  const sideR = rbox(0.12, 0.5, 0.3, hairColor, 0.34, 1.3, -0.1, 0.05);
+  const tiara = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.035, 6, 16, Math.PI), mat(C.gold));
+  tiara.position.set(0, 1.72, 0);
+  tiara.rotation.x = -Math.PI / 2;
+  tiara.rotation.z = Math.PI;
+  const jewel = box(0.1, 0.14, 0.08, 0x9ad4ff, 0, 1.78, 0.3);
+  g.add(skirt, hem, bodice, sash, collar, armL, armR, head, cap, fringe, back, sideL, sideR, tiara, jewel);
+  g.add(face(0.48, 0.42, 0, 1.34, 0.315, 'normal'));
+  g.userData.legs = [];
+  g.userData.body = bodice;
+  return g;
+}
+
+// The Royal Keep: a small stone castle with a balcony the Queen stands on.
+export function makeKeep() {
+  const g = new THREE.Group();
+  const base = box(3.4, 2.6, 3.4, 0x8d9096, 0, 1.3, 0);
+  g.add(base);
+  for (let y = 0.45; y < 2.6; y += 0.5) {
+    g.add(box(3.44, 0.05, 3.44, 0x6b6f75, 0, y, 0));
+    for (let x = -1.2 + ((y * 7) % 2) * 0.5; x < 1.6; x += 1.0) g.add(box(0.05, 0.45, 3.45, 0x6b6f75, x, y + 0.27, 0));
+  }
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) g.add(cyl(0.5, 0.55, 3.4, 0x7d848e, sx * 1.6, 1.7, sz * 1.6, 8));
+  const tower = cyl(1.1, 1.2, 2.2, 0x8d9096, 0, 3.6, 0, 10);
+  const roof = cone(1.4, 1.6, 0x2f6fd6, 0, 5.5, 0, 10);
+  const pole = box(0.06, 1.2, 0.06, C.darkWood, 0, 6.6, 0);
+  const flag = box(0.8, 0.45, 0.04, C.gold, 0.42, 6.9, 0);
+  const door = box(0.9, 1.4, 0.12, 0x3a2a1a, 0, 0.7, 1.72);
+  const arch = box(1.2, 0.2, 0.14, 0x6b6f75, 0, 1.5, 1.72);
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) g.add(cone(0.6, 0.8, 0x2f6fd6, sx * 1.6, 3.8, sz * 1.6, 8));
+  // balcony on the front of the tower
+  const balcony = box(2.0, 0.2, 1.0, 0x6b6f75, 0, 2.7, 1.9);
+  const rail = box(2.0, 0.5, 0.1, C.darkWood, 0, 3.05, 2.35);
+  const railL = box(0.1, 0.5, 1.0, C.darkWood, -0.95, 3.05, 1.9);
+  const railR = box(0.1, 0.5, 1.0, C.darkWood, 0.95, 3.05, 1.9);
+  const window = box(0.6, 0.8, 0.1, 0x9ad4ff, 0, 3.6, 1.1);
+  const banner = box(0.6, 1.0, 0.06, 0xf07aa8, -1.75, 1.6, 0.6);
+  banner.rotation.y = Math.PI / 2;
+  g.add(tower, roof, pole, flag, door, arch, balcony, rail, railL, railR, window, banner);
+  g.userData.balcony = new THREE.Vector3(0, 2.8, 1.85);
+  return g;
+}
+
 export function makeKing() {
   const g = new THREE.Group();
   // horse (long axis along z)

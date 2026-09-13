@@ -5,6 +5,8 @@ export const CFG = {
   cliffs: { x: -14, z: -33 },
 
   king: { speed: 7.5, footSpeed: 5.6, hp: 140, range: 8.5, fireRate: 1.2, damage: 10, pickupRadius: 3.0 },
+  queen: { hp: 90, speed: 7.2, follow: 1.9, targetWeight: 0.55 },
+  keep: { hp: 500, hpPerLevel: 400, radius: 2.1, half: 1.7 },
 
   mining: { radius: 2.8, tick: 0.55, regrow: 9 },
 
@@ -70,7 +72,7 @@ export const MAP = {
 // Village tiers. The village starts as tier 0 and each "Expand Village" pad moves it up one.
 // Walls are generated around `bounds`; `gates` lists the gap on each side (along that side's axis).
 export const TIERS = [
-  { bounds: { x0: -11, x1: 11, z0: -9, z1: 9 }, gates: { south: [-2, 2], east: [-2, 2] }, sectionLen: 4 },
+  { bounds: { x0: -12, x1: 12, z0: -10, z1: 10 }, gates: { south: [-2, 2], east: [-2, 2] }, sectionLen: 4 },
   { bounds: { x0: -22, x1: 24, z0: -13, z1: 20 }, gates: { south: [-1, 3], east: [0, 4], west: [2, 6] }, sectionLen: 4 },
   { bounds: { x0: -34, x1: 36, z0: -24, z1: 32 }, gates: { south: [-1, 3], east: [2, 6], west: [2, 6], north: [0, 4] }, sectionLen: 4.5 },
 ];
@@ -80,17 +82,17 @@ export const TIERS = [
 // `buildAt` is where a structure appears (pads for units spawn on the pad itself).
 export const PADS = [
   // ---- tier 0: the starting plot ----
-  { id: 'range', tier: 0, pos: [-3, -5], cost: 5, icon: '🏹', label: 'Archery Range', structure: 'hut', buildAt: [-7.5, -5.5], toast: 'Archery Range built! Recruit archers.' },
-  { id: 'recruit', tier: 0, pos: [-3, -0.5], cost: 5, growth: 1, icon: '🏹', label: '+2 Archers', requires: ['range'], repeatable: true, units: { type: 'archer', count: 2 } },
-  { id: 'bows', tier: 0, pos: [2, -6], cost: 12, growth: 12, maxBuys: 5, icon: '⬆️', label: 'Sharper Arrows', requires: ['range'], repeatable: true, effect: 'damage', toast: 'Arrows +40% damage' },
-  { id: 'tower1', tier: 0, pos: [6, -2], cost: 20, res: { wood: 8 }, icon: '🗼', label: 'Watchtower', requires: ['recruit'], structure: 'tower', buildAt: [7.5, -6], toast: 'Watchtower built. It needs a crew!' },
-  { id: 'crew-tower1', tier: 0, pos: [6, 2], crew: 3, icon: '🏹', label: 'Man the Tower', requires: ['tower1'], tower: 'tower1', toast: 'Tower manned!' },
-  { id: 'palisade', tier: 0, pos: [-7, 3.5], cost: 15, res: { wood: 10 }, icon: '🪵', label: 'Palisade', requires: ['tower1'], wall: { tier: 0, side: 'all' }, toast: 'Palisade raised. Raiders must break through!' },
-  { id: 'crew-gates1', tier: 0, pos: [-2, 5], crew: 4, icon: '🛡️', label: 'Gate Guards', requires: ['palisade'], spots: [[-3.2, 7.6, 0], [3.2, 7.6, 0], [9.6, -3.2, 0], [9.6, 3.2, 0]], toast: 'Archers now guard the gates.' },
-  { id: 'brick', tier: 0, pos: [-7, -1], cost: 45, res: { stone: 15, straw: 6 }, icon: '🧱', label: 'Brick Walls', requires: ['palisade'], effect: 'wallLevel', toast: 'Walls rebuilt in brick!' },
-  { id: 'expand1', tier: 0, pos: [3, 5], cost: 50, res: { wood: 10, stone: 5 }, icon: '🏰', label: 'Expand Village', requires: ['palisade', 'crew-tower1'], effect: 'expand', toast: 'The village grows! Wall the new ground.' },
-
-  { id: 'stable', tier: 0, pos: [8, 6], cost: 30, res: { straw: 8 }, icon: '🐴', label: 'Warhorse', requires: ['range'], effect: 'horse', toast: 'The King rides! Much faster now.' },
+  { id: 'range', tier: 0, pos: [-4, -7], cost: 5, icon: '🏹', label: 'Archery Range', structure: 'hut', buildAt: [-8.5, -6.5], toast: 'Archery Range built! Recruit archers.' },
+  { id: 'recruit', tier: 0, pos: [-5, -2.5], cost: 5, growth: 1, icon: '🏹', label: '+2 Archers', requires: ['range'], repeatable: true, units: { type: 'archer', count: 2 } },
+  { id: 'keep', tier: 0, pos: [-1, -2.5], cost: 25, res: { wood: 8, stone: 8 }, icon: '🏰', label: 'Royal Keep', requires: ['range'], structure: 'keep', buildAt: [1, -7], toast: 'The Queen is safe in the keep. Now defend it!' },
+  { id: 'bows', tier: 0, pos: [5, -7], cost: 12, growth: 12, maxBuys: 5, icon: '⬆️', label: 'Sharper Arrows', requires: ['range'], repeatable: true, effect: 'damage', toast: 'Arrows +40% damage' },
+  { id: 'tower1', tier: 0, pos: [4, -2.5], cost: 20, res: { wood: 8 }, icon: '🗼', label: 'Watchtower', requires: ['recruit'], structure: 'tower', buildAt: [9, -7], toast: 'Watchtower built. It needs a crew!' },
+  { id: 'crew-tower1', tier: 0, pos: [8, -2.5], crew: 3, icon: '🏹', label: 'Man the Tower', requires: ['tower1'], tower: 'tower1', toast: 'Tower manned!' },
+  { id: 'palisade', tier: 0, pos: [-9, 2], cost: 15, res: { wood: 10 }, icon: '🪵', label: 'Palisade', requires: ['tower1'], wall: { tier: 0, side: 'all' }, toast: 'Palisade raised. Raiders must break through!' },
+  { id: 'crew-gates1', tier: 0, pos: [-4, 6], crew: 4, icon: '🛡️', label: 'Gate Guards', requires: ['palisade'], spots: [[-3.2, 8.6, 0], [3.2, 8.6, 0], [10.6, -3.2, 0], [10.6, 3.2, 0]], toast: 'Archers now guard the gates.' },
+  { id: 'brick', tier: 0, pos: [-9, -2.5], cost: 45, res: { stone: 15, straw: 6 }, icon: '🧱', label: 'Brick Walls', requires: ['palisade'], effect: 'wallLevel', toast: 'Walls rebuilt in brick!' },
+  { id: 'expand1', tier: 0, pos: [4, 6], cost: 50, res: { wood: 10, stone: 5 }, icon: '🏰', label: 'Expand Village', requires: ['palisade', 'crew-tower1', 'keep'], effect: 'expand', toast: 'The village grows! Wall the new ground.' },
+  { id: 'stable', tier: 0, pos: [-9, 6], cost: 30, res: { straw: 8 }, icon: '🐴', label: 'Warhorse', requires: ['range'], effect: 'horse', toast: 'The King rides! Much faster now.' },
   { id: 'bridge-south', tier: 0, pos: [1, 44], cost: 20, res: { wood: 12 }, icon: '🌉', label: 'South Bridge', requires: ['palisade'], bridge: 'south', toast: 'Bridge built. New lands, and new raiders, across the river.' },
   { id: 'bridge-east', tier: 0, pos: [47, 3], cost: 20, res: { wood: 12 }, icon: '🌉', label: 'East Bridge', requires: ['palisade'], bridge: 'east', toast: 'Bridge built. New lands, and new raiders, across the river.' },
 
@@ -129,7 +131,7 @@ export const NODES = [
   { type: 'wood', pos: [-14, 12], stock: 8 }, { type: 'wood', pos: [-16.5, 14.5], stock: 8 }, { type: 'wood', pos: [-12.5, 15.5], stock: 8 }, { type: 'wood', pos: [-15, 17.5], stock: 8 },
   { type: 'wood', pos: [15, -15], stock: 8 }, { type: 'wood', pos: [18, -17], stock: 8 }, { type: 'wood', pos: [14.5, -18.5], stock: 8 },
   { type: 'wood', pos: [-44, 28], stock: 10 }, { type: 'wood', pos: [-47, 31], stock: 10 }, { type: 'wood', pos: [-42, 32], stock: 10 },
-  { type: 'stone', pos: [-6, -17], stock: 14 }, { type: 'stone', pos: [-26, -29], stock: 16 }, { type: 'stone', pos: [-40, -20], stock: 16 },
+  { type: 'stone', pos: [-6, -15], stock: 14 }, { type: 'stone', pos: [-26, -29], stock: 16 }, { type: 'stone', pos: [-40, -20], stock: 16 },
   { type: 'stone', pos: [66, 12], stock: 24 }, { type: 'stone', pos: [24, 66], stock: 24 },
   { type: 'straw', pos: [45, 22], stock: 16 }, { type: 'straw', pos: [-20, 25], stock: 14 }, { type: 'straw', pos: [10, 62], stock: 20 },
 ];

@@ -5,7 +5,7 @@
 A simple, addictive low-poly defend-and-build game for the browser (desktop and phone).
 No storyline, just the loop:
 
-1. Raiders attack. You start with only the King.
+1. Raiders attack. You start with the King and the Queen, and losing either ends the game.
 2. Shoot them down and grab the coins they drop.
 3. Carry the coins to a build pad and stand on it to spend them.
 4. Pads build your village: an archery range, more archers, watchtowers, a palisade, a barracks...
@@ -13,6 +13,9 @@ No storyline, just the loop:
 
 **Goal:** survive 30 waves to secure the kingdom. After that the raids keep coming for a high score.
 
+- The Queen follows the King and raiders go for her first. Build the Royal Keep and she shelters inside;
+  raiders then bash the keep instead, and if it falls she is thrown out until you repair it. Keep HP grows
+  with your wall upgrades.
 - The King starts on foot and gathers wood, stone and straw by standing next to lumber groves, ore outcrops
   and wheat fields. Walls, towers, bridges, expansions and his warhorse cost coins plus materials.
 - Roads grow out of the gates as you wall the village, and bridges over the river are built from pads at the

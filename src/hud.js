@@ -18,13 +18,15 @@ export class Hud {
     this.resEls = { wood: document.getElementById('res-wood'), stone: document.getElementById('res-stone'), straw: document.getElementById('res-straw') };
     this.scoreEl = document.getElementById('score-num');
     this.kingHpEl = document.getElementById('king-hp-fill');
+    this.queenHpEl = document.getElementById('queen-hp-fill');
     this.lastScore = -1;
     this.lastCoins = -1;
     this.lastWave = -1;
     this.lastArmy = -1;
     this.lastNext = -1;
   }
-  set(coins, wave, army, nextIn, goal, res, score, kingFrac) {
+  set(coins, wave, army, nextIn, goal, res, score, kingFrac, queenFrac) {
+    if (queenFrac !== undefined) this.queenHpEl.style.width = `${Math.max(0, Math.min(1, queenFrac)) * 100}%`;
     if (res) {
       for (const k of ['wood', 'stone', 'straw']) {
         const el = this.resEls[k];
@@ -68,7 +70,8 @@ export class Hud {
   hideStart() {
     this.startScreen.classList.add('hidden');
   }
-  showGameOver(wave, coins, score, best) {
+  showGameOver(wave, coins, score, best, reason = 'king') {
+    document.getElementById('gameover-title').textContent = reason === 'queen' ? 'The Queen Has Fallen' : 'The King Has Fallen';
     document.getElementById('final-wave').textContent = wave;
     document.getElementById('final-coins').textContent = coins;
     document.getElementById('final-score').textContent = score.toLocaleString();

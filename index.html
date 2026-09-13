@@ -31,6 +31,7 @@
       </div>
       <div id="wave-hud">Wave <span id="wave-num">1</span> <span id="wave-goal" class="goal"></span><div id="next-wave"></div></div>
       <div id="king-hp"><span class="crown">♛</span><div class="track"><div id="king-hp-fill"></div></div></div>
+      <div id="queen-hp"><span class="crown">♕</span><div class="track"><div id="queen-hp-fill"></div></div></div>
       <div id="army-hud">🏹 <span id="army-count">0</span> <span class="sep">·</span> ⭐ <span id="score-num">0</span></div>
       <div id="res-hud"><span>🪵 <b id="res-wood">0</b></span><span>🪨 <b id="res-stone">0</b></span><span>🌾 <b id="res-straw">0</b></span></div>
       <button id="mute-btn" title="Toggle sound">🔊</button>
@@ -47,7 +48,7 @@
       <div class="panel">
         <h1>Crown Rush</h1>
         <p>Defeat the raiders. Grab their coins. Stand on a build pad to spend them and grow your army.</p>
-        <p><strong>Survive 30 waves to secure the kingdom.</strong> If the King falls, it's over.</p>
+        <p><strong>Survive 30 waves to secure the kingdom.</strong> Keep the King and the Queen alive: if either falls, it's over. Build her a keep.</p>
         <p class="hint">Drag anywhere to move · or use WASD / arrow keys. Stand by trees, rocks and wheat to gather materials.</p>
         <button id="start-btn">Play</button>
         <p class="best">Best: wave <span id="best-wave">1</span></p>
@@ -56,7 +57,7 @@
 
     <div id="gameover-screen" class="overlay hidden">
       <div class="panel">
-        <h1>The King Has Fallen</h1>
+        <h1 id="gameover-title">The King Has Fallen</h1>
         <p>You survived to wave <strong id="final-wave">1</strong> and earned <strong id="final-coins">0</strong> coins.</p>
         <p class="score">Score <strong id="final-score">0</strong> <span class="hint">· best <span id="final-best">0</span></span></p>
         <button id="restart-btn">Play Again</button>
