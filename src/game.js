@@ -1,11 +1,12 @@
 import * as THREE from 'three';
-import { CFG, PADS } from './config.js';
+import { CFG, PADS, WALLS } from './config.js';
+import { audio } from './audio.js';
 import { buildWorld, setupLights } from './world.js';
 import { Input } from './input.js';
 import {
   makeKing, makeArcher, makeSwordsman, makeKnight, makeBrute, makeBoss, makeCoin, makeArrow,
   makeHut, makeTower, makeBarracks, makeFence, makeGate, makePad, drawPad, ghostify,
-  makeHealthBar, setHealthBar, makePopup, makeRing,
+  makeHealthBar, setHealthBar, makePopup, makeRing, makeRubble,
 } from './models.js';
 
 const V3 = THREE.Vector3;
@@ -23,6 +24,8 @@ export class Game {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.1;
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(48, 1, 0.5, 200);
@@ -66,6 +69,10 @@ export class Game {
     this.popups = [];
     this.dying = [];
     this.spawnQueue = [];
+    this.walls = [];
+    this.dynamicPads = [];
+    this.coinCombo = 0;
+    this.comboTimer = 0;
     this.built = {};
     this.buyCount = {};
     this.damageMul = 1;
@@ -101,6 +108,7 @@ export class Game {
     this.hud.hideStart();
     this.hud.hideGameOver();
     this.hud.toast('Raiders incoming! Defend the King.', 2600);
+    audio.init();
   }
 
   gameOver() {
@@ -110,6 +118,7 @@ export class Game {
       this.best = this.wave;
       localStorage.setItem('crownrush-best', String(this.best));
     }
+    audio.gameOver();
     setTimeout(() => this.hud.showGameOver(this.wave, this.coinsEarned), 900);
   }
 
@@ -176,28 +185,46 @@ export class Game {
     const angles = [];
     for (let i = 0; i < dirs; i++) angles.push(rand(0, Math.PI * 2));
     const kp = this.king.mesh.position;
+    const b = WALLS.bounds;
+    const inVillage = kp.x > b.x0 - 4 && kp.x < b.x1 + 4 && kp.z > b.z0 - 4 && kp.z < b.z1 + 4;
+    const cx = inVillage ? WALLS.center[0] : kp.x;
+    const cz = inVillage ? WALLS.center[1] : kp.z;
     const half = CFG.world.size / 2 - 8;
     list.forEach((type, i) => {
-      const a = angles[i % dirs] + rand(-0.5, 0.5);
-      const r = rand(CFG.waves.spawnRadius[0], CFG.waves.spawnRadius[1]);
-      const x = THREE.MathUtils.clamp(kp.x + Math.cos(a) * r, -half, half);
-      const z = THREE.MathUtils.clamp(kp.z + Math.sin(a) * r, -half, half);
+      let a = angles[i % dirs] + rand(-0.5, 0.5);
+      let r = rand(CFG.waves.spawnRadius[0], CFG.waves.spawnRadius[1]);
+      let x = 0;
+      let z = 0;
+      for (let tries = 0; tries < 12; tries++) {
+        x = THREE.MathUtils.clamp(cx + Math.cos(a) * r, -half, half);
+        z = THREE.MathUtils.clamp(cz + Math.sin(a) * r, -half, half);
+        const onCliff = x < -8 && z < -14;
+        const inside = x > b.x0 - 3 && x < b.x1 + 3 && z > b.z0 - 3 && z < b.z1 + 3;
+        if (!onCliff && !inside) break;
+        a += 0.9;
+        r += 3;
+      }
       this.spawnQueue.push({ type, x, z, t: i * CFG.waves.stagger });
     });
-    this.hud.toast(list.includes('boss') ? `Wave ${w} — BOSS!` : `Wave ${w}`, 1800);
+    const boss = list.includes('boss');
+    audio.wave(boss);
+    this.hud.toast(boss ? `Wave ${w} — BOSS!` : `Wave ${w}`, 1800);
     this.waveTimer = CFG.waves.interval + w * 1.5;
   }
 
   // ---------- pads ----------
   refreshPads() {
-    for (const def of PADS) {
+    let added = 0;
+    for (const def of [...PADS, ...this.dynamicPads]) {
       if (this.pads.find((p) => p.def === def)) continue;
       if (!def.repeatable && this.built[def.id]) continue;
       const okReq = (def.requires || []).every((id) => this.built[id]);
       if (!okReq) continue;
       if (def.maxBuys && (this.buyCount[def.id] || 0) >= def.maxBuys) continue;
       this.addPad(def);
+      added++;
     }
+    if (added && this.running) audio.unlock();
   }
 
   padCost(def) {
@@ -219,6 +246,23 @@ export class Game {
         this.root.add(g);
         pad.ghosts.push(g);
       }
+    } else if (def.structure === 'wall') {
+      for (const sec of this.wallSections(def.wall)) {
+        const g = ghostify(this.makeWallMesh(sec));
+        this.root.add(g);
+        pad.ghosts.push(g);
+      }
+    } else if (def.structure === 'corner-towers') {
+      for (const [x, z] of this.cornerTowerSpots()) {
+        const g = ghostify(makeTower());
+        g.position.set(x, 0, z);
+        this.root.add(g);
+        pad.ghosts.push(g);
+      }
+    } else if (def.repair) {
+      const g = ghostify(this.makeWallMesh(def.repair));
+      this.root.add(g);
+      pad.ghosts.push(g);
     } else if (def.structure && def.buildAt) {
       const g = ghostify(this.makeStructureMesh(def.structure));
       g.position.set(def.buildAt[0], 0, def.buildAt[1]);
@@ -255,6 +299,9 @@ export class Game {
       }
     }
     if (def.structure) this.buildStructure(def);
+    if (def.turrets) for (const [x, z, y] of def.turrets) this.addTurret(x, z, y);
+    if (def.repair) this.restoreWall(def.repair);
+    audio.build();
     if (def.effect === 'damage') this.damageMul *= 1.4;
     if (def.effect === 'kinghp') {
       this.king.maxHp += 80;
@@ -275,45 +322,36 @@ export class Game {
     } else {
       this.root.remove(pad.mesh);
       this.pads.splice(this.pads.indexOf(pad), 1);
+      const di = this.dynamicPads.indexOf(def);
+      if (di >= 0) this.dynamicPads.splice(di, 1);
     }
     this.refreshPads();
   }
 
   buildStructure(def) {
     const kind = def.structure;
-    if (kind === 'palisade') {
-      // decorative palisade around the village with a gate on the south and east side; each gate gets a turret pair
-      const x0 = -22, x1 = 24, z0 = -13, z1 = 20;
-      const seg = (x, z, len, rotY) => {
-        const f = makeFence(len);
-        f.position.set(x, 0, z);
-        f.rotation.y = rotY;
-        f.scale.setScalar(0.01);
-        f.userData.pop = 0.5;
-        this.popIn(f);
-        this.root.add(f);
-      };
-      // north side (leaves the cliff corner open), west, south with gate, east with gate
-      seg((x0 + x1) / 2 + 6, z0, x1 - x0 - 12, 0);
-      seg(x0, (z0 + z1) / 2, z1 - z0, Math.PI / 2);
-      seg(x0 + 10, z1, 20, 0);
-      seg(x1 - 10, z1, 20, 0);
-      seg(x1, z0 + 8, 16, Math.PI / 2);
-      seg(x1, z1 - 6, 12, Math.PI / 2);
-      const gateS = makeGate();
-      gateS.position.set(x0 + 23, 0, z1);
-      this.popIn(gateS);
-      this.root.add(gateS);
-      const gateE = makeGate();
-      gateE.position.set(x1, 0, z0 + 17);
-      gateE.rotation.y = Math.PI / 2;
-      this.popIn(gateE);
-      this.root.add(gateE);
-      // gate guards
-      this.addTurret(x0 + 20.5, z1 - 1.2, 0);
-      this.addTurret(x0 + 25.5, z1 - 1.2, 0);
-      this.addTurret(x1 - 1.2, z0 + 14.5, 0);
-      this.addTurret(x1 - 1.2, z0 + 19.5, 0);
+    if (kind === 'wall') {
+      this.wallSections(def.wall).forEach((sec, i) => {
+        const w = { ...sec, hp: sec.gate ? WALLS.gateHp : WALLS.hp, maxHp: sec.gate ? WALLS.gateHp : WALLS.hp, state: 'built', mesh: null, bar: null };
+        w.maxHp = w.hp;
+        w.mesh = this.makeWallMesh(w);
+        w.bar = makeHealthBar(2.6);
+        w.bar.position.y = 2.2;
+        w.mesh.add(w.bar);
+        this.popIn(w.mesh, i * 0.12);
+        this.root.add(w.mesh);
+        this.walls.push(w);
+      });
+      return;
+    }
+    if (kind === 'corner-towers') {
+      this.cornerTowerSpots().forEach(([x, z], i) => {
+        const t = makeTower();
+        t.position.set(x, 0, z);
+        this.popIn(t, i * 0.15);
+        this.root.add(t);
+        for (let k = 0; k < 2; k++) this.addTurret(x - 0.5 + k * 1.0, z, t.userData.top);
+      });
       return;
     }
     const m = this.makeStructureMesh(kind);
@@ -338,11 +376,108 @@ export class Game {
     this.turrets.push({ mesh, cooldown: rand(0, 0.7), pos: new V3(x, y + 0.9, z) });
   }
 
-  popIn(obj) {
+  popIn(obj, delay = 0) {
     obj.scale.setScalar(0.01);
-    obj.userData.popT = 0.45;
+    obj.visible = delay <= 0;
+    obj.userData.popT = 0.45 + delay;
     this.popping = this.popping || [];
     this.popping.push(obj);
+  }
+
+  // ---------- walls ----------
+  wallSections(name) {
+    const b = WALLS.bounds;
+    return WALLS[name].map((sec, i) => {
+      const gate = !!sec.gate;
+      const [a0, a1] = gate ? sec.gate : sec;
+      const alongX = name === 'south' || name === 'north';
+      const fixed = name === 'south' ? b.z1 : name === 'north' ? b.z0 : name === 'east' ? b.x1 : b.x0;
+      return { id: `${name}-${i}`, wall: name, alongX, a0, a1, fixed, gate };
+    });
+  }
+
+  cornerTowerSpots() {
+    const b = WALLS.bounds;
+    return [[b.x0 + 1.6, b.z0 + 1.6], [b.x1 - 1.6, b.z0 + 1.6], [b.x1 - 1.6, b.z1 - 1.6], [b.x0 + 1.6, b.z1 - 1.6]];
+  }
+
+  makeWallMesh(sec) {
+    const len = sec.a1 - sec.a0;
+    const m = sec.gate ? makeGate() : makeFence(len);
+    const mid = (sec.a0 + sec.a1) / 2;
+    if (sec.alongX) m.position.set(mid, 0, sec.fixed);
+    else {
+      m.position.set(sec.fixed, 0, mid);
+      m.rotation.y = Math.PI / 2;
+    }
+    return m;
+  }
+
+  // Push a position out of any intact wall. Friendly units may pass through gates. Returns the wall hit.
+  collideWalls(p, r, friendly) {
+    let hit = null;
+    for (const w of this.walls) {
+      if (w.state !== 'built') continue;
+      if (friendly && w.gate) continue;
+      const thick = r + 0.25;
+      if (w.alongX) {
+        if (p.x < w.a0 - r || p.x > w.a1 + r) continue;
+        const d = p.z - w.fixed;
+        if (Math.abs(d) < thick) {
+          p.z = w.fixed + Math.sign(d || 1) * thick;
+          hit = w;
+        }
+      } else {
+        if (p.z < w.a0 - r || p.z > w.a1 + r) continue;
+        const d = p.x - w.fixed;
+        if (Math.abs(d) < thick) {
+          p.x = w.fixed + Math.sign(d || 1) * thick;
+          hit = w;
+        }
+      }
+    }
+    return hit;
+  }
+
+  damageWall(w, dmg) {
+    if (w.state !== 'built') return;
+    w.hp -= dmg;
+    setHealthBar(w.bar, Math.max(0, w.hp / w.maxHp));
+    w.mesh.position.y = 0.06;
+    audio.wallHit();
+    if (w.hp <= 0) this.breakWall(w);
+  }
+
+  breakWall(w) {
+    w.state = 'broken';
+    this.root.remove(w.mesh);
+    w.mesh = makeRubble(w.a1 - w.a0);
+    const mid = (w.a0 + w.a1) / 2;
+    if (w.alongX) w.mesh.position.set(mid, 0, w.fixed);
+    else {
+      w.mesh.position.set(w.fixed, 0, mid);
+      w.mesh.rotation.y = Math.PI / 2;
+    }
+    this.root.add(w.mesh);
+    this.hud.toast(w.gate ? 'The gate is down!' : 'A wall section has fallen!', 1600);
+    // a repair pad appears just inside the gap
+    const c = WALLS.center;
+    const inward = w.alongX ? Math.sign(c[1] - w.fixed) : Math.sign(c[0] - w.fixed);
+    const pos = w.alongX ? [mid, w.fixed + inward * 2.6] : [w.fixed + inward * 2.6, mid];
+    this.dynamicPads.push({ id: `repair-${w.id}-${this.time.toFixed(0)}`, pos, cost: WALLS.repairCost, icon: '🔨', label: w.gate ? 'Repair Gate' : 'Repair Wall', repair: w });
+    this.refreshPads();
+  }
+
+  restoreWall(w) {
+    this.root.remove(w.mesh);
+    w.state = 'built';
+    w.hp = w.maxHp;
+    w.mesh = this.makeWallMesh(w);
+    w.bar = makeHealthBar(2.6);
+    w.bar.position.y = 2.2;
+    w.mesh.add(w.bar);
+    this.popIn(w.mesh);
+    this.root.add(w.mesh);
   }
 
   // ---------- combat helpers ----------
@@ -357,6 +492,7 @@ export class Game {
     if (e.hp <= 0) return;
     e.hp -= dmg;
     e.flash = 0.12;
+    audio.hit();
     setHealthBar(e.bar, Math.max(0, e.hp / e.maxHp));
     this.popup(`-${Math.round(dmg)}`, hitPos, e.type === 'boss' ? '#ffffff' : '#ffe27a', e.type === 'boss' ? 2.6 : 1.4);
     if (e.hp <= 0) this.killEnemy(e);
@@ -368,6 +504,7 @@ export class Game {
     this.dying.push({ mesh: e.mesh, t: 0.5 });
     const n = randInt(e.stats.coins[0], e.stats.coins[1]);
     for (let i = 0; i < n; i++) this.dropCoin(e.mesh.position);
+    audio.enemyDie();
     if (e.type === 'boss') this.hud.toast('Boss defeated!', 1800);
   }
 
@@ -394,6 +531,7 @@ export class Game {
     if (u.hp <= 0) return;
     u.hp -= dmg;
     u.lastHit = this.time;
+    if (u.type === 'king') audio.hurt();
     setHealthBar(u.bar, Math.max(0, u.hp / u.maxHp));
     if (u.hp <= 0) {
       if (u.type === 'king') {
@@ -457,6 +595,7 @@ export class Game {
       if (-8 - p.x < -14 - p.z) p.x = -8;
       else p.z = -14;
     }
+    this.collideWalls(p, 0.55, true);
     this.animateWalk(k, inp.mag, dt);
     // king fires his own bow
     k.cooldown -= dt;
@@ -517,6 +656,8 @@ export class Game {
         moving = Math.min(1, d);
         if (!target) u.mesh.rotation.y = this.lerpAngle(u.mesh.rotation.y, Math.atan2(tmp2.x, tmp2.z), 1 - Math.exp(-dt * 10));
       }
+      this.collideWalls(p, 0.3, true);
+      if (d > 14) p.set(kp.x + rand(-1, 1), 0, kp.z + rand(-1, 1));
       this.animateWalk(u, moving, dt);
 
       // attack
@@ -581,11 +722,21 @@ export class Game {
       const d = tmp2.length();
       const reach = e.radius + 0.7;
       this.faceTowards(e.mesh, t.mesh.position, dt, 8);
+      let blocked = null;
       if (d > reach) {
         tmp2.normalize().multiplyScalar(Math.min(e.stats.speed * dt, d - reach + 0.01));
         p.add(tmp2);
-        this.animateWalk(e, 1, dt);
-      } else {
+        blocked = this.collideWalls(p, e.radius, false);
+        this.animateWalk(e, blocked ? 0.4 : 1, dt);
+      }
+      if (blocked) {
+        if (e.cooldown <= 0) {
+          e.cooldown = 1 / e.stats.attackRate;
+          e.mesh.userData.body.rotation.x = 0.6;
+          this.damageWall(blocked, e.stats.damage * (e.stats.aoe ? 2 : 1));
+          if (e.stats.aoe) this.shake = 0.2;
+        }
+      } else if (d <= reach) {
         this.animateWalk(e, 0, dt);
         if (e.cooldown <= 0) {
           e.cooldown = 1 / e.stats.attackRate;
@@ -609,6 +760,7 @@ export class Game {
           p.add(tmp2);
         }
       }
+      this.collideWalls(p, e.radius, false);
       // hit flash squash
       if (e.flash > 0) {
         e.flash -= dt;
@@ -681,11 +833,15 @@ export class Game {
         if (p.distanceTo(tmp) < 0.5) {
           this.coinsCarried++;
           this.coinsEarned++;
+          this.comboTimer = 0.6;
+          audio.coin(this.coinCombo++);
           this.root.remove(c.mesh);
           this.coins.splice(i, 1);
         }
       }
     }
+    this.comboTimer -= dt;
+    if (this.comboTimer <= 0) this.coinCombo = 0;
     // coins flying from the stack into a pad
     for (let i = this.flyCoins.length - 1; i >= 0; i--) {
       const f = this.flyCoins[i];
@@ -722,6 +878,7 @@ export class Game {
       if (inside && this.coinsCarried > 0 && pad.paid + pending < pad.cost && this.spendTimer <= 0) {
         this.spendTimer = CFG.spend.tick;
         this.coinsCarried--;
+        audio.ching();
         const c = makeCoin();
         c.position.copy(kp);
         c.position.y = 2.4 + this.stackCount() * 0.11;
@@ -750,6 +907,7 @@ export class Game {
   }
 
   updateEffects(dt) {
+    for (const w of this.walls) if (w.mesh && w.mesh.position.y > 0) w.mesh.position.y = Math.max(0, w.mesh.position.y - dt * 0.4);
     for (let i = this.dying.length - 1; i >= 0; i--) {
       const d = this.dying[i];
       d.t -= dt;
@@ -775,6 +933,8 @@ export class Game {
       for (let i = this.popping.length - 1; i >= 0; i--) {
         const o = this.popping[i];
         o.userData.popT -= dt;
+        if (o.userData.popT > 0.45) continue;
+        o.visible = true;
         const s = 1 - Math.max(0, o.userData.popT / 0.45);
         o.scale.setScalar(0.01 + s * (1 + Math.sin(s * Math.PI) * 0.2));
         if (o.userData.popT <= 0) {

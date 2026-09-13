@@ -9,6 +9,13 @@ No storyline, just the loop:
 4. Pads build your village: an archery range, more archers, watchtowers, a palisade, a barracks...
 5. Every build unlocks new pads, so your army and village keep growing while the waves get harder.
 
+The palisade is a real wall. Its outline is laid out as a ghost before you pay, each wall goes up section by
+section with gates the King can walk through, and raiders have to bash a section down before they can get
+in. Broken sections show a repair pad. Gate guards and corner towers unlock once the walls are up.
+
+Sound is synthesised in the browser (no audio files): a looping background melody, arrow hits, coin pickups,
+the "ching" of coins being spent, build fanfares and wave horns. The speaker button in the corner mutes it.
+
 ## Run it locally
 
 ```bash
@@ -33,6 +40,7 @@ All balance lives in [`src/config.js`](src/config.js):
 - `CFG` holds unit stats, wave pacing, enemy stats and the coin pickup radius.
 - `PADS` is the build tree. Each pad has a position, a cost, an icon, what it requires, and what it does
   (spawn units, build a structure, or apply an upgrade). Add an entry and it appears in the game.
+- `WALLS` is the palisade layout: the village rectangle, the sections along each side, gates, and wall HP.
 
 ## Project layout
 
@@ -44,6 +52,7 @@ src/models.js     low-poly model builders (king, archers, knights, boss, buildin
 src/world.js      terrain, paths, cliffs, trees, lighting
 src/input.js      virtual joystick + keyboard
 src/hud.js        DOM overlay
+src/audio.js      Web Audio synth: music loop and sound effects
 src/config.js     balance and build tree
 ```
 

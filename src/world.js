@@ -104,10 +104,10 @@ export function buildWorld(scene) {
 
 export function setupLights(scene) {
   scene.background = new THREE.Color(0x47a262);
-  scene.fog = new THREE.Fog(0x47a262, 55, 95);
-  const hemi = new THREE.HemisphereLight(0xffffff, 0x3a7a4a, 0.85);
+  scene.fog = new THREE.Fog(0x47a262, 40, 85);
+  const hemi = new THREE.HemisphereLight(0xfff6e8, 0x4a8a5a, 1.25);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xfff4e0, 1.6);
+  const sun = new THREE.DirectionalLight(0xfff4e0, 1.15);
   sun.position.set(18, 30, 12);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -119,6 +119,7 @@ export function setupLights(scene) {
   sun.shadow.camera.near = 1;
   sun.shadow.camera.far = 90;
   sun.shadow.bias = -0.0006;
+  sun.shadow.radius = 4;
   scene.add(sun);
   scene.add(sun.target);
   return { sun, hemi };

@@ -261,31 +261,69 @@ export function makeBarracks() {
 
 export function makeFence(length) {
   const g = new THREE.Group();
-  const rail = box(length, 0.16, 0.12, C.wood, 0, 0.9, 0);
-  const rail2 = box(length, 0.16, 0.12, C.wood, 0, 0.4, 0);
+  const rail = box(length, 0.2, 0.14, C.wood, 0, 1.35, 0.2);
+  const rail2 = box(length, 0.2, 0.14, C.wood, 0, 0.55, 0.2);
   g.add(rail, rail2);
-  const n = Math.max(2, Math.round(length / 0.45));
-  const picketGeo = new THREE.BoxGeometry(0.22, 1.5, 0.22);
+  const n = Math.max(2, Math.round(length / 0.48));
+  const picketGeo = new THREE.BoxGeometry(0.34, 2.1, 0.34);
   const pickets = new THREE.InstancedMesh(picketGeo, mat(C.darkWood), n);
-  pickets.castShadow = true;
+  const tipGeo = new THREE.ConeGeometry(0.24, 0.35, 4);
+  const tips = new THREE.InstancedMesh(tipGeo, mat(C.wood), n);
+  pickets.castShadow = tips.castShadow = true;
   pickets.receiveShadow = true;
   const m = new THREE.Matrix4();
   for (let i = 0; i < n; i++) {
-    const x = -length / 2 + (i / (n - 1)) * length;
-    m.makeTranslation(x, 0.75, 0);
+    const x = -length / 2 + 0.2 + (i / (n - 1)) * (length - 0.4);
+    const h = 1.05 + ((i * 7) % 3) * 0.06;
+    m.makeTranslation(x, h, 0);
     pickets.setMatrixAt(i, m);
+    m.makeRotationY(Math.PI / 4);
+    m.setPosition(x, h + 1.22, 0);
+    tips.setMatrixAt(i, m);
   }
-  g.add(pickets);
+  g.add(pickets, tips);
+  return g;
+}
+
+export function makeRubble(length) {
+  const g = new THREE.Group();
+  const n = Math.max(3, Math.round(length / 1.6));
+  for (let i = 0; i < n; i++) {
+    const x = -length / 2 + 0.6 + (i / Math.max(1, n - 1)) * (length - 1.2);
+    const b = box(0.22, 0.4 + Math.random() * 0.5, 0.22, C.darkWood, x, 0.2, (Math.random() - 0.5) * 0.4);
+    b.rotation.z = (Math.random() - 0.5) * 0.9;
+    b.rotation.x = (Math.random() - 0.5) * 0.9;
+    g.add(b);
+  }
+  const plank = box(1.4, 0.12, 0.3, C.wood, 0, 0.08, 0.3);
+  plank.rotation.y = 0.5;
+  g.add(plank);
   return g;
 }
 
 export function makeGate() {
   const g = new THREE.Group();
-  const postL = box(0.4, 2.6, 0.4, C.darkWood, -1.6, 1.3, 0);
-  const postR = box(0.4, 2.6, 0.4, C.darkWood, 1.6, 1.3, 0);
-  const top = box(3.8, 0.4, 0.5, C.wood, 0, 2.7, 0);
-  const banner = box(0.7, 0.9, 0.06, C.blue, 0, 2.1, 0);
-  g.add(postL, postR, top, banner);
+  const postL = box(0.5, 3.2, 0.5, C.darkWood, -1.85, 1.6, 0);
+  const postR = box(0.5, 3.2, 0.5, C.darkWood, 1.85, 1.6, 0);
+  const top = box(4.4, 0.45, 0.6, C.wood, 0, 3.4, 0);
+  const cap = box(4.8, 0.2, 0.8, C.darkWood, 0, 3.7, 0);
+  const banner = box(0.9, 1.1, 0.08, C.blue, 0, 2.6, 0.3);
+  const crest = cyl(0.22, 0.22, 0.1, C.gold, 0, 2.65, 0.36, 6);
+  crest.rotation.x = Math.PI / 2;
+  // doors standing open, swung inward
+  const doorL = new THREE.Group();
+  const panelL = makeFence(1.5);
+  panelL.position.x = 0.75;
+  doorL.add(panelL);
+  doorL.position.set(-1.6, 0, 0.1);
+  doorL.rotation.y = -1.15;
+  const doorR = new THREE.Group();
+  const panelR = makeFence(1.5);
+  panelR.position.x = -0.75;
+  doorR.add(panelR);
+  doorR.position.set(1.6, 0, 0.1);
+  doorR.rotation.y = 1.15;
+  g.add(postL, postR, top, cap, banner, crest, doorL, doorR);
   return g;
 }
 
@@ -389,9 +427,12 @@ export function drawPad(canvas, tex, { icon, remaining, label, paid }) {
   ctx.textBaseline = 'middle';
   ctx.fillText(icon, 128, 78);
   // label
-  ctx.font = 'bold 22px "Trebuchet MS", system-ui, sans-serif';
+  ctx.font = 'bold 27px "Trebuchet MS", system-ui, sans-serif';
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+  ctx.strokeText(label, 128, 142);
   ctx.fillStyle = '#ffffff';
-  ctx.fillText(label, 128, 140);
+  ctx.fillText(label, 128, 142);
   // coin + cost
   ctx.beginPath();
   ctx.arc(78, 200, 22, 0, Math.PI * 2);
