@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CFG, PADS, TIERS, NODES, MAP } from './config.js';
 import { audio } from './audio.js';
+import { makeRigged } from './rig.js';
 import { buildWorld, setupLights } from './world.js';
 import { Input } from './input.js';
 import {
@@ -404,8 +405,12 @@ export class Game {
     let mesh;
     let stats;
     if (type === 'king') {
-      mesh = this.mounted ? makeKing() : makeKingFoot();
+      const rig = this.mounted ? null : makeRigged('king');
+      mesh = rig ? rig.mesh : this.mounted ? makeKing() : makeKingFoot();
       stats = CFG.king;
+    } else if (type === 'queen' && makeRigged('queen')) {
+      mesh = makeRigged('queen').mesh;
+      stats = CFG.queen;
     } else if (type === 'archer') {
       mesh = makeArcher();
       stats = CFG.archer;
@@ -702,6 +707,7 @@ export class Game {
     const b = this.keep.mesh.userData.balcony;
     q.mesh.position.set(this.keep.x + b.x, b.y, this.keep.z + b.z);
     q.mesh.rotation.y = 0;
+    q.moving = false;
     this.hud.toast('The Queen is inside the keep.', 1500);
   }
 
@@ -1156,6 +1162,12 @@ export class Game {
       this.updateIndicators(dt);
     }
     this.world.update(dt);
+    for (const u of this.units) {
+      const rig = u.mesh.userData.rig;
+      if (!rig) continue;
+      rig.mixer.update(dt);
+      if (!u.rigOnce || u.rigOnce <= this.time) rig.play(u.moving ? 'Walk' : 'Idle');
+    }
     this.updateFx(dt);
     this.updateEffects(dt);
     this.updateStack(dt);
@@ -1168,7 +1180,7 @@ export class Game {
     const inp = this.input.read();
     const speed = this.mounted ? k.stats.speed : k.stats.footSpeed;
     k.vel.set(inp.x * speed, 0, inp.z * speed);
-    if (k.mesh.userData.body.rotation.x > 0) k.mesh.userData.body.rotation.x = Math.max(0, k.mesh.userData.body.rotation.x - dt * 3);
+    if (k.mesh.userData.body && k.mesh.userData.body.rotation.x > 0) k.mesh.userData.body.rotation.x = Math.max(0, k.mesh.userData.body.rotation.x - dt * 3);
     const p = k.mesh.position;
     p.x += k.vel.x * dt;
     p.z += k.vel.z * dt;
@@ -1183,6 +1195,7 @@ export class Game {
     this.collideWalls(p, 0.55, true);
     this.collideRiver(p, 0.5);
     this.collideKeep(p, 0.5);
+    k.moving = inp.mag > 0.05;
     this.animateWalk(k, inp.mag, dt);
     // king fires his own bow
     k.cooldown -= dt;
@@ -1193,6 +1206,10 @@ export class Game {
         k.cooldown = 1 / k.stats.fireRate;
         tmp.copy(p).y += 1.6;
         this.fireArrow(tmp, target, k.stats.damage * this.damageMul);
+        if (k.mesh.userData.rig) {
+          k.mesh.userData.rig.play('Attack', true);
+          k.rigOnce = this.time + 0.6;
+        }
       }
     } else if (inp.mag > 0.05) {
       k.mesh.rotation.y = this.lerpAngle(k.mesh.rotation.y, Math.atan2(inp.x, inp.z), 1 - Math.exp(-dt * 12));
@@ -1249,7 +1266,11 @@ export class Game {
     best.stock--;
     this.setNodeLook(best);
     audio.mine(best.type);
-    this.king.mesh.userData.body.rotation.x = 0.35;
+    if (this.king.mesh.userData.body) this.king.mesh.userData.body.rotation.x = 0.35;
+    else if (this.king.mesh.userData.rig) {
+      this.king.mesh.userData.rig.play('Attack', true);
+      this.king.rigOnce = this.time + 0.5;
+    }
     // tool in hand, matching the material
     if (!this.tool || this.toolType !== best.type || this.tool.parent !== this.king.mesh) {
       if (this.tool && this.tool.parent) this.tool.parent.remove(this.tool);
@@ -1335,6 +1356,7 @@ export class Game {
     this.collideRiver(p, 0.3);
     this.collideKeep(p, 0.3);
     if (d > 16) p.set(k.position.x + rand(-1, 1), 0, k.position.z + rand(-1, 1));
+    q.moving = moving > 0.05;
     this.animateWalk(q, moving, dt);
     this.regen(q, dt);
     q.bar.visible = true;

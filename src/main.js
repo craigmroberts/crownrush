@@ -1,6 +1,7 @@
 import { Game } from './game.js';
 import { Hud } from './hud.js';
 import { audio } from './audio.js';
+import { preloadRigs } from './rig.js';
 
 const canvas = document.getElementById('game');
 const hud = new Hud();
@@ -13,6 +14,13 @@ try {
 }
 
 hud.showStart(game.best);
+const startBtn = document.getElementById('start-btn');
+startBtn.disabled = true;
+startBtn.textContent = 'Loading…';
+preloadRigs(['king', 'queen']).then(() => {
+  startBtn.disabled = false;
+  startBtn.textContent = 'Play';
+});
 document.getElementById('start-btn').addEventListener('click', () => game.start());
 document.getElementById('restart-btn').addEventListener('click', () => game.start());
 document.getElementById('continue-btn').addEventListener('click', () => game.resume());

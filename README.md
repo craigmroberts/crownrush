@@ -77,7 +77,9 @@ index.html        HUD + start / game-over screens
 src/main.js       bootstraps the game loop
 src/game.js       the whole simulation: player, army, enemies, waves, coins, pads, camera
 src/models.js     buildings, walls, scenery, pads, effects (and the baking helpers)
-src/characters.js smooth toy-figure characters with painted faces (king, queen, army, raiders)
+src/characters.js smooth toy-figure characters with painted faces (army, raiders, mounted king)
+src/rig.js        loads rigged GLB characters and plays their animations
+tools/blender/    Blender script that builds and exports rigged characters (public/models/*.glb)
 src/world.js      terrain, paths, cliffs, trees, lighting
 src/input.js      virtual joystick + keyboard
 src/hud.js        DOM overlay
@@ -86,6 +88,18 @@ src/config.js     balance and build tree
 ```
 
 Built with [Three.js](https://threejs.org/) and [Vite](https://vitejs.dev/). No other dependencies.
+
+## Making characters in Blender
+
+`tools/blender/make_character.py` builds a rigged chibi character from primitives, gives it Idle, Walk and
+Attack clips, exports a GLB and renders a preview:
+
+```bash
+blender -b -P tools/blender/make_character.py -- king public/models/king.glb .shots/king.png
+```
+
+The King and Queen currently come from these GLBs; the game falls back to the code-built figures if a model
+fails to load. Add a `build_<name>()` function to the script to make a new character.
 
 ## Deploying
 
