@@ -21,8 +21,12 @@ gradientMap.colorSpace = THREE.NoColorSpace;
 const matCache = new Map();
 export function mat(color, opts = {}) {
   const key = color + JSON.stringify(opts);
-  if (!matCache.has(key)) matCache.set(key, new THREE.MeshToonMaterial({ color, gradientMap, ...opts }));
+  if (!matCache.has(key)) matCache.set(key, new THREE.MeshStandardMaterial({ color, roughness: 0.88, metalness: 0, ...opts }));
   return matCache.get(key);
+}
+// faceted low-poly look for rocks, canopies and cliffs
+export function matFlat(color, opts = {}) {
+  return mat(color, { flatShading: true, ...opts });
 }
 export const GHOST_MAT = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.4, depthWrite: false });
 const OUTLINE_MAT = new THREE.MeshBasicMaterial({ color: 0x1b1b24, side: THREE.BackSide });
@@ -88,7 +92,7 @@ export function ghostify(group) {
 }
 
 // ---- baking: collapse a model's static parts into one vertex-coloured mesh (one draw call) ----
-export const BAKED_MAT = new THREE.MeshToonMaterial({ color: 0xffffff, gradientMap, vertexColors: true });
+export const BAKED_MAT = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.88, metalness: 0, vertexColors: true });
 export const BAKED_STD = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, metalness: 0.05, vertexColors: true });
 function prepGeo(geo) {
   const g = geo.index ? geo.toNonIndexed() : geo.clone();
@@ -132,12 +136,15 @@ export function bake(g, keep = []) {
   });
   const toGeo = (o, color) => {
     const geo = prepGeo(o.geometry);
+    if (o.material.flatShading) {
+      geo.deleteAttribute('normal');
+      geo.computeVertexNormals(); // non-indexed, so this gives crisp per-face normals
+    }
     geo.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
     return color ? colorize(geo, color) : geo;
   };
   if (parts.length) {
-    const smooth = parts.some((o) => o.material.isMeshStandardMaterial);
-    const m = new THREE.Mesh(mergeGeometries(parts.map((o) => toGeo(o, o.material.color)), false), smooth ? BAKED_STD : BAKED_MAT);
+    const m = new THREE.Mesh(mergeGeometries(parts.map((o) => toGeo(o, o.material.color)), false), BAKED_STD);
     m.castShadow = true;
     m.receiveShadow = true;
     for (const o of parts) o.parent.remove(o);
@@ -244,11 +251,21 @@ export { makeArcher, makeSwordsman, makeKnight, makeElite, makeBrute, makeBoss, 
 // The Royal Keep: a small stone castle with a balcony the Queen stands on.
 export function makeKeep() {
   const g = new THREE.Group();
-  const base = box(3.4, 2.6, 3.4, 0x8d9096, 0, 1.3, 0);
+  const base = new THREE.Mesh(new RoundedBoxGeometry(3.4, 2.6, 3.4, 2, 0.18), mat(0x8d9096));
+  base.position.y = 1.3;
+  base.castShadow = base.receiveShadow = true;
   g.add(base);
   for (let y = 0.45; y < 2.6; y += 0.5) {
     g.add(box(3.44, 0.05, 3.44, 0x6b6f75, 0, y, 0));
     for (let x = -1.2 + ((y * 7) % 2) * 0.5; x < 1.6; x += 1.0) g.add(box(0.05, 0.45, 3.45, 0x6b6f75, x, y + 0.27, 0));
+  }
+  // crenellated parapet
+  for (let i = 0; i < 4; i++) {
+    for (let t = -1.2; t <= 1.2; t += 0.8) {
+      const x = i < 2 ? t : (i === 2 ? 1.6 : -1.6);
+      const z = i < 2 ? (i === 0 ? 1.6 : -1.6) : t;
+      g.add(box(0.4, 0.4, 0.4, 0x7d848e, x, 2.8, z, matFlat(0x7d848e)));
+    }
   }
   for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) g.add(cyl(0.5, 0.55, 3.4, 0x7d848e, sx * 1.6, 1.7, sz * 1.6, 8));
   const tower = cyl(1.1, 1.2, 2.2, 0x8d9096, 0, 3.6, 0, 10);
@@ -277,7 +294,7 @@ export function makeKeep() {
 
 // ---- items ----
 const coinGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.09, 14);
-const coinMat = new THREE.MeshToonMaterial({ color: C.gold, gradientMap, emissive: 0x3a2a00 });
+const coinMat = new THREE.MeshStandardMaterial({ color: C.gold, roughness: 0.45, metalness: 0.2, emissive: 0x3a2a00 });
 export function makeCoin() {
   const g = new THREE.Group();
   const c = new THREE.Mesh(coinGeo, coinMat);
@@ -363,52 +380,92 @@ export function makeBurst(color = '#ffffff') {
 }
 
 // ---- structures ----
+// prism roof with overhang: a triangle extruded along z, plus shingle rows
+function roof(width, depth, height, color, y, shingle) {
+  const g = new THREE.Group();
+  const shape = new THREE.Shape([new THREE.Vector2(-width / 2, 0), new THREE.Vector2(width / 2, 0), new THREE.Vector2(0, height)]);
+  const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false });
+  geo.translate(0, 0, -depth / 2);
+  const m = new THREE.Mesh(geo, matFlat(color));
+  m.position.y = y;
+  m.castShadow = true;
+  m.receiveShadow = true;
+  g.add(m);
+  const slope = Math.hypot(width / 2, height);
+  const ang = Math.atan2(height, width / 2);
+  const rows = Math.max(2, Math.floor(slope / 0.42));
+  for (let i = 0; i < rows; i++) {
+    const t = (i + 0.5) / rows;
+    for (const side of [-1, 1]) {
+      const b = box(0.05, 0.06, depth + 0.02, shingle, side * (width / 2) * (1 - t), y + height * t + 0.03, 0, matFlat(shingle));
+      b.rotation.z = -side * (Math.PI / 2 - ang);
+      g.add(b);
+    }
+  }
+  return g;
+}
+
 export function makeHut() {
   const g = new THREE.Group();
-  const base = box(3.4, 1.7, 2.6, C.wood, 0, 0.85, 0);
-  g.add(base);
-  for (let y = 0.35; y < 1.7; y += 0.42) g.add(box(3.44, 0.04, 2.64, C.darkWood, 0, y, 0));
-  const door = box(0.7, 1.1, 0.1, 0x3a2a1a, 0.6, 0.55, 1.33);
-  const window = box(0.5, 0.5, 0.1, 0x9ad4ff, -0.7, 1.0, 1.33);
-  const frame = box(0.6, 0.6, 0.06, C.darkWood, -0.7, 1.0, 1.31);
-  const roofL = box(2.1, 0.22, 3.2, C.roof, -0.95, 2.15, 0);
-  roofL.rotation.z = 0.6;
-  const roofR = box(2.1, 0.22, 3.2, C.roof, 0.95, 2.15, 0);
-  roofR.rotation.z = -0.6;
-  for (let i = 0; i < 4; i++) {
-    const sl = box(0.06, 0.05, 3.24, 0x5e3c22, -0.35 - i * 0.42, 1.73 + i * 0.29, 0);
-    sl.rotation.z = 0.6;
-    const sr = box(0.06, 0.05, 3.24, 0x5e3c22, 0.35 + i * 0.42, 1.73 + i * 0.29, 0);
-    sr.rotation.z = -0.6;
-    g.add(sl, sr);
+  // log walls
+  const W = 3.4;
+  const D = 2.6;
+  for (let i = 0; i < 5; i++) {
+    const y = 0.2 + i * 0.32;
+    const long = i % 2 === 0;
+    const lx = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, W + (long ? 0.4 : 0), 8), mat(C.wood));
+    lx.rotation.z = Math.PI / 2;
+    lx.position.set(0, y, D / 2);
+    const lx2 = lx.clone();
+    lx2.position.z = -D / 2;
+    const lz = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, D + (long ? 0 : 0.4), 8), mat(C.darkWood));
+    lz.rotation.x = Math.PI / 2;
+    lz.position.set(W / 2, y, 0);
+    const lz2 = lz.clone();
+    lz2.position.x = -W / 2;
+    for (const l of [lx, lx2, lz, lz2]) l.castShadow = l.receiveShadow = true;
+    g.add(lx, lx2, lz, lz2);
   }
-  const ridge = box(0.3, 0.3, 3.3, C.darkWood, 0, 2.7, 0);
-  const target = cyl(0.45, 0.45, 0.1, C.white, 0, 1.2, -1.36, 12);
+  g.add(box(W - 0.2, 1.7, D - 0.2, C.wood, 0, 0.85, 0));
+  const door = box(0.7, 1.1, 0.12, 0x3a2a1a, 0.6, 0.55, D / 2 + 0.1);
+  door.add(box(0.8, 0.08, 0.14, C.darkWood, 0, 0.58, 0), new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 5), mat(C.gold)).translateX(0.25).translateZ(0.08));
+  const window = box(0.5, 0.5, 0.12, 0x9ad4ff, -0.7, 1.0, D / 2 + 0.1);
+  window.add(box(0.6, 0.6, 0.06, C.darkWood, 0, 0, -0.04), box(0.06, 0.5, 0.14, C.darkWood, 0, 0, 0.01), box(0.5, 0.06, 0.14, C.darkWood, 0, 0, 0.01));
+  g.add(door, window);
+  g.add(roof(W + 0.9, D + 0.8, 1.35, C.roof, 1.72, 0x5e3c22));
+  g.add(box(0.36, 0.34, D + 0.9, C.darkWood, 0, 3.1, 0));
+  // chimney with a lazy smoke trail
+  const chimney = box(0.4, 0.9, 0.4, 0x7d848e, -0.9, 2.6, -0.5, matFlat(0x7d848e));
+  g.add(chimney, box(0.5, 0.12, 0.5, 0x6b6f75, -0.9, 3.05, -0.5));
+  for (let i = 0; i < 3; i++) {
+    const puff = new THREE.Mesh(new THREE.SphereGeometry(0.14 + i * 0.07, 7, 6), new THREE.MeshStandardMaterial({ color: 0xeeeeee, transparent: true, opacity: 0.55 - i * 0.12, roughness: 1 }));
+    puff.position.set(-0.9 + i * 0.12, 3.3 + i * 0.3, -0.5 - i * 0.08);
+    g.add(puff);
+  }
+  // archery target and lantern
+  const target = cyl(0.45, 0.45, 0.1, C.white, 0, 1.2, -D / 2 - 0.35, 12);
   target.rotation.x = Math.PI / 2;
-  const target2 = cyl(0.28, 0.28, 0.12, C.red, 0, 1.2, -1.38, 12);
+  const target2 = cyl(0.28, 0.28, 0.12, C.red, 0, 1.2, -D / 2 - 0.37, 12);
   target2.rotation.x = Math.PI / 2;
-  const target3 = cyl(0.1, 0.1, 0.14, C.white, 0, 1.2, -1.4, 12);
+  const target3 = cyl(0.1, 0.1, 0.14, C.white, 0, 1.2, -D / 2 - 0.39, 12);
   target3.rotation.x = Math.PI / 2;
-  const post = box(0.16, 1.0, 0.16, C.darkWood, 1.9, 0.5, 1.5);
-  const post2 = box(0.16, 1.0, 0.16, C.darkWood, -1.9, 0.5, 1.5);
   const lantern = box(0.12, 1.8, 0.12, C.darkWood, 2.3, 0.9, -1.2);
   const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.34, 0.3), new THREE.MeshBasicMaterial({ color: 0xffd166 }));
   lamp.position.set(2.3, 1.85, -1.2);
   const lampCap = box(0.4, 0.08, 0.4, C.darkWood, 2.3, 2.06, -1.2);
-  g.add(door, window, frame, roofL, roofR, ridge, target, target2, target3, post, post2, lantern, lamp, lampCap);
+  g.add(target, target2, target3, lantern, lamp, lampCap);
   // gold bow sign on the ridge
   const sign = new THREE.Group();
-  const bowArc = new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.09, 8, 18, Math.PI), mat(C.gold));
+  const bowArc = new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.09, 8, 18, Math.PI), mat(C.gold, { roughness: 0.4, metalness: 0.2 }));
   bowArc.rotation.z = -Math.PI / 2;
   const string = box(0.05, 1.5, 0.05, 0xfff2c0, -0.02, 0, 0);
   const arrowShaft = box(0.07, 0.07, 1.6, C.gold, 0.35, 0, 0.1);
   const arrowTip = cone(0.14, 0.3, 0xfff2c0, 0.35, 0, 1.0, 4);
   arrowTip.rotation.x = Math.PI / 2;
   sign.add(bowArc, string, arrowShaft, arrowTip);
-  sign.position.set(0, 3.7, 0);
+  sign.position.set(0, 4.0, 0);
   sign.rotation.y = Math.PI / 2;
-  const signPost = box(0.1, 1.0, 0.1, C.darkWood, 0, 3.2, 0);
-  g.add(sign, signPost);
+  g.add(sign, box(0.1, 0.8, 0.1, C.darkWood, 0, 3.5, 0));
   return bake(g);
 }
 
@@ -451,37 +508,30 @@ export function makeTower() {
 
 export function makeBarracks() {
   const g = new THREE.Group();
-  const base = box(4.2, 2.0, 3.0, 0x8d9096, 0, 1.0, 0);
+  const base = new THREE.Mesh(new RoundedBoxGeometry(4.2, 2.0, 3.0, 2, 0.16), mat(0x8d9096));
+  base.position.y = 1.0;
+  base.castShadow = base.receiveShadow = true;
   g.add(base);
   // stone block courses
   for (let y = 0.3; y < 2.0; y += 0.45) {
     g.add(box(4.24, 0.05, 3.04, 0x6b6f75, 0, y, 0));
     for (let x = -1.6 + ((y * 7) % 2) * 0.45; x < 2.0; x += 0.9) g.add(box(0.05, 0.4, 3.05, 0x6b6f75, x, y + 0.24, 0));
   }
-  const roofL = box(2.5, 0.22, 3.5, 0x555a66, -1.15, 2.5, 0);
-  roofL.rotation.z = 0.55;
-  const roofR = box(2.5, 0.22, 3.5, 0x555a66, 1.15, 2.5, 0);
-  roofR.rotation.z = -0.55;
-  for (let i = 0; i < 4; i++) {
-    const sl = box(0.06, 0.05, 3.54, 0x3f4450, -0.4 - i * 0.5, 2.05 + i * 0.3, 0);
-    sl.rotation.z = 0.55;
-    const sr = box(0.06, 0.05, 3.54, 0x3f4450, 0.4 + i * 0.5, 2.05 + i * 0.3, 0);
-    sr.rotation.z = -0.55;
-    g.add(sl, sr);
-  }
+  g.add(roof(4.9, 3.7, 1.3, 0x555a66, 1.98, 0x3f4450));
+  g.add(box(0.3, 0.3, 3.8, 0x3f4450, 0, 3.28, 0));
   const door = box(1.0, 1.4, 0.1, 0x3a2a1a, 0, 0.7, 1.53);
   const arch = box(1.2, 0.2, 0.12, 0x6b6f75, 0, 1.5, 1.52);
   const flagPole = cyl(0.05, 0.05, 2.6, C.darkWood, 1.6, 3.8, 0, 5);
   const flag = box(1.0, 0.55, 0.05, C.blue, 2.1, 4.8, 0);
-  const shield = rbox(0.9, 1.1, 0.1, C.red, 0, 2.1, 1.56, 0.12);
-  const swords = box(0.12, 1.6, 0.08, C.gold, 0, 2.1, 1.64);
+  const shield = rbox(0.9, 1.1, 0.1, C.red, 0, 2.1, 1.86, 0.12);
+  const swords = box(0.12, 1.6, 0.08, C.gold, 0, 2.1, 1.94);
   swords.rotation.z = 0.7;
-  const swords2 = box(0.12, 1.6, 0.08, C.gold, 0, 2.1, 1.64);
+  const swords2 = box(0.12, 1.6, 0.08, C.gold, 0, 2.1, 1.94);
   swords2.rotation.z = -0.7;
   g.add(shield);
   const crate = rbox(0.7, 0.7, 0.7, 0xd6b24a, -2.6, 0.35, 0.9, 0.06);
   const crate2 = rbox(0.55, 0.55, 0.55, 0xd6b24a, -2.5, 0.28, 0.1, 0.06);
-  g.add(roofL, roofR, door, arch, flagPole, flag, swords, swords2, crate, crate2);
+  g.add(door, arch, flagPole, flag, swords, swords2, crate, crate2);
   return bake(g);
 }
 
@@ -596,11 +646,29 @@ export function makeGate(level = 0) {
 // ---- scenery ----
 export function makeTree(scale = 1) {
   const g = new THREE.Group();
-  const trunk = cyl(0.18, 0.24, 0.8, C.mane, 0, 0.4, 0, 6);
-  const l1 = cone(1.2, 1.4, C.leafDark, 0, 1.3, 0, 7);
-  const l2 = cone(0.95, 1.3, C.leaf, 0, 2.1, 0, 7);
-  const l3 = cone(0.65, 1.1, C.leaf, 0, 2.85, 0, 7);
-  g.add(trunk, l1, l2, l3);
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.26, 1.1, 7), matFlat(C.mane));
+  trunk.position.y = 0.55;
+  trunk.castShadow = true;
+  g.add(trunk);
+  if (Math.random() < 0.55) {
+    // round canopy: a cluster of faceted blobs in two greens
+    const blobs = [[0, 2.0, 0, 1.05, C.leaf], [-0.55, 1.6, 0.3, 0.7, C.leafDark], [0.6, 1.7, -0.25, 0.72, C.leafDark], [0.1, 2.6, 0.2, 0.62, 0x4fb56a], [-0.2, 1.5, -0.6, 0.6, C.leafDark]];
+    for (const [x, y, z, r, c] of blobs) {
+      const b = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), matFlat(c));
+      b.position.set(x, y, z);
+      b.rotation.set(Math.random(), Math.random(), Math.random());
+      b.castShadow = true;
+      g.add(b);
+    }
+  } else {
+    // pine: three faceted tiers, lighter towards the top
+    for (const [y, r, h, c] of [[1.4, 1.25, 1.5, C.leafDark], [2.2, 0.95, 1.35, C.leaf], [2.95, 0.62, 1.1, 0x4fb56a]]) {
+      const t = new THREE.Mesh(new THREE.ConeGeometry(r, h, 7), matFlat(c));
+      t.position.y = y;
+      t.castShadow = true;
+      g.add(t);
+    }
+  }
   g.scale.setScalar(scale);
   g.rotation.y = Math.random() * Math.PI;
   return bake(g);
@@ -610,22 +678,25 @@ export function makeBush() {
   const g = new THREE.Group();
   for (let i = 0; i < 3; i++) {
     const r = 0.45 + Math.random() * 0.25;
-    const m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), mat(i === 1 ? C.leaf : C.leafDark));
+    const m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), matFlat(i === 1 ? C.leaf : C.leafDark));
     m.position.set((Math.random() - 0.5) * 0.9, r * 0.7, (Math.random() - 0.5) * 0.9);
+    m.rotation.set(Math.random(), Math.random(), 0);
     m.castShadow = true;
     g.add(m);
   }
+  // a couple of berries
+  for (let i = 0; i < 2; i++) g.add(new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), mat(0xe8342a)).translateX((Math.random() - 0.5) * 0.8).translateY(0.6 + Math.random() * 0.3).translateZ(0.3));
   return bake(g);
 }
 
 export function makeRock(scale = 1) {
   const g = new THREE.Group();
-  const m = new THREE.Mesh(new THREE.DodecahedronGeometry(0.55, 0), mat(C.rock));
+  const m = new THREE.Mesh(new THREE.DodecahedronGeometry(0.55, 0), matFlat(C.rock));
   m.scale.set(scale * 1.2, scale * 0.7, scale);
   m.position.y = 0.3 * scale;
   m.castShadow = true;
   m.receiveShadow = true;
-  const cap = new THREE.Mesh(new THREE.DodecahedronGeometry(0.34, 0), mat(0xa9aeb5));
+  const cap = new THREE.Mesh(new THREE.DodecahedronGeometry(0.34, 0), matFlat(0xa9aeb5));
   cap.scale.set(scale * 1.1, scale * 0.45, scale * 0.9);
   cap.position.y = 0.55 * scale;
   g.add(m, cap);
@@ -790,13 +861,31 @@ export function makeWheatField(w, d) {
 }
 
 export function makeCliff(w, h, d) {
-  const side = mat(C.cliff);
-  const top = mat(C.grass);
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [side, side, top, side, side, side]);
-  m.castShadow = true;
-  m.receiveShadow = true;
-  m.position.y = h / 2 - 0.05;
-  return m;
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), matFlat(0x6e7378));
+  body.position.y = h / 2 - 0.05;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  g.add(body);
+  // strata bands in warm and cool greys so the layers read from a distance
+  for (const [f, col, t] of [[0.22, 0x8a8078, 0.32], [0.48, 0x5a5f64, 0.22], [0.7, 0x9a9590, 0.28], [0.88, 0x565b60, 0.18]]) {
+    g.add(box(w + 0.08, h * t * 0.35, d + 0.08, col, 0, h * f, 0, matFlat(col)));
+  }
+  const cap = new THREE.Mesh(new RoundedBoxGeometry(w + 0.2, 0.6, d + 0.2, 2, 0.25), matFlat(C.grass));
+  cap.position.y = h - 0.15;
+  cap.castShadow = true;
+  cap.receiveShadow = true;
+  g.add(cap);
+  // rubble at the foot
+  for (let i = 0; i < 5; i++) {
+    const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.4 + Math.random() * 0.4, 0), matFlat(C.rock));
+    const a = Math.random() * Math.PI * 2;
+    r.position.set(Math.cos(a) * (w / 2 + 0.6), 0.25, Math.sin(a) * (d / 2 + 0.6));
+    r.scale.y = 0.6;
+    r.castShadow = true;
+    g.add(r);
+  }
+  return bake(g);
 }
 
 // ---- build pad (canvas-textured plane) ----

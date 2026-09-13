@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { CFG, MAP, TIERS, NODES } from './config.js';
 import {
-  mat, makeTree, makeBush, makeRock, makeSpikes, makeCliff, makePeak, makeBridge, makeHayBale, makeWheatField, mergeGroup,
+  mat, matFlat, makeTree, makeBush, makeRock, makeSpikes, makeCliff, makePeak, makeBridge, makeHayBale, makeWheatField, mergeGroup,
 } from './models.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 // Deterministic pseudo-random so the map is the same every run.
 function rng(seed) {
@@ -75,6 +76,58 @@ function nearestOnPolyline(samples, x, z) {
   return { i: bi, d: Math.sqrt(bd) };
 }
 
+function waterTexture() {
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 256;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#3d9bd4';
+  ctx.fillRect(0, 0, 256, 256);
+  // lighter mid-channel
+  const grad = ctx.createLinearGradient(0, 0, 256, 0);
+  grad.addColorStop(0, 'rgba(99,189,234,0)');
+  grad.addColorStop(0.5, 'rgba(99,189,234,0.9)');
+  grad.addColorStop(1, 'rgba(99,189,234,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 256, 256);
+  // wavy highlight lines, tiled vertically so they can scroll
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  const r = rng(7);
+  for (let i = 0; i < 9; i++) {
+    const y = (i / 9) * 256;
+    const x0 = 30 + r() * 150;
+    const len = 30 + r() * 50;
+    for (const oy of [-256, 0, 256]) {
+      ctx.beginPath();
+      ctx.moveTo(x0, y + oy);
+      ctx.quadraticCurveTo(x0 + len / 2, y + oy + 6, x0 + len, y + oy);
+      ctx.stroke();
+    }
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function foamTexture() {
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 64;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(64, 32, 4, 64, 32, 40);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.6, 'rgba(255,255,255,0.6)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 64);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 function groundTexture() {
   const c = document.createElement('canvas');
   c.width = 256;
@@ -114,8 +167,7 @@ export function buildWorld(scene) {
   const world = { river: null, bridges: [], crossings: [], roads: [], foam: [], time: 0 };
 
   // ---- ground ----
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshToonMaterial({ map: groundTexture(), color: 0xffffff }));
-  ground.material.gradientMap = mat(0xffffff).gradientMap;
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshStandardMaterial({ map: groundTexture(), color: 0xffffff, roughness: 1 }));
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
@@ -124,12 +176,33 @@ export function buildWorld(scene) {
   const riverSamples = spline(MAP.river.points, 160);
   world.river = { samples: riverSamples, halfWidth: MAP.river.halfWidth };
   scene.add(ribbon(riverSamples, MAP.river.halfWidth * 2 + 2.6, 0xd8cc9d, 0.012));
-  scene.add(ribbon(riverSamples, MAP.river.halfWidth * 2, 0x3d9bd4, 0.02));
-  const highlight = ribbon(riverSamples, MAP.river.halfWidth * 1.1, 0x63bdea, 0.028);
-  scene.add(highlight);
-  // foam flecks drifting downstream
-  const foamGeo = new THREE.PlaneGeometry(1.1, 0.22);
-  const foamMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 });
+  const waterTex = waterTexture();
+  const waterMat = new THREE.MeshStandardMaterial({ map: waterTex, color: 0xffffff, roughness: 0.35, metalness: 0.05, side: THREE.DoubleSide });
+  scene.add(ribbon(riverSamples, MAP.river.halfWidth * 2, 0x3d9bd4, 0.02, { material: waterMat }));
+  world.waterTex = waterTex;
+  // pebbles along both banks
+  const pebbleGeo = new THREE.DodecahedronGeometry(0.22, 0);
+  const pebbles = new THREE.InstancedMesh(pebbleGeo, matFlat(0x9a9ea3), 240);
+  const pm = new THREE.Matrix4();
+  for (let i = 0; i < 240; i++) {
+    const t = rand();
+    const idx = Math.floor(t * (riverSamples.length - 1));
+    const a = riverSamples[idx];
+    const b = riverSamples[Math.min(riverSamples.length - 1, idx + 1)];
+    const tx = b.x - a.x;
+    const tz = b.z - a.z;
+    const l = Math.hypot(tx, tz) || 1;
+    const off = (MAP.river.halfWidth + 0.5 + rand() * 1.0) * (i % 2 ? 1 : -1);
+    pm.makeRotationY(rand() * Math.PI);
+    pm.scale(new THREE.Vector3(0.7 + rand() * 0.8, 0.5, 0.7 + rand() * 0.8));
+    pm.setPosition(a.x - (tz / l) * off, 0.08, a.z + (tx / l) * off);
+    pebbles.setMatrixAt(i, pm);
+  }
+  pebbles.castShadow = true;
+  scene.add(pebbles);
+  // soft foam flecks drifting downstream
+  const foamGeo = new THREE.PlaneGeometry(1.3, 0.5);
+  const foamMat = new THREE.MeshBasicMaterial({ map: foamTexture(), color: 0xffffff, transparent: true, opacity: 0.8, depthWrite: false });
   const foam = new THREE.InstancedMesh(foamGeo, foamMat, 70);
   foam.frustumCulled = false;
   scene.add(foam);
@@ -277,8 +350,16 @@ export function buildWorld(scene) {
   }
 
   // grass tufts and flowers, instanced
-  const tuftGeo = new THREE.ConeGeometry(0.16, 0.55, 4);
-  const tufts = new THREE.InstancedMesh(tuftGeo, mat(0x3aa25c), 700);
+  const blades = [];
+  for (let i = 0; i < 3; i++) {
+    const b = new THREE.ConeGeometry(0.07, 0.55 + i * 0.1, 3);
+    b.translate(0, 0.28, 0);
+    b.rotateX((i - 1) * 0.35);
+    b.rotateY(i * 2.1);
+    blades.push(b);
+  }
+  const tuftGeo = mergeGeometries(blades, false);
+  const tufts = new THREE.InstancedMesh(tuftGeo, matFlat(0x5fbd5a), 700);
   const flowerGeo = new THREE.SphereGeometry(0.14, 6, 5);
   const flowerColors = [0xffffff, 0xffd54a, 0xff8aa8];
   const flowers = flowerColors.map((c) => new THREE.InstancedMesh(flowerGeo, mat(c), 70));
@@ -290,7 +371,8 @@ export function buildWorld(scene) {
     const z = (rand() * 2 - 1) * half;
     if (!free(x, z, 0.5)) continue;
     m4.makeRotationY(rand() * Math.PI);
-    m4.setPosition(x, 0.2, z);
+    m4.scale(new THREE.Vector3(1, 0.8 + rand() * 0.6, 1));
+    m4.setPosition(x, 0, z);
     tufts.setMatrixAt(ti++, m4);
     if (rand() < 0.28) {
       const k = Math.floor(rand() * 3);
@@ -313,6 +395,7 @@ export function buildWorld(scene) {
   // ---- per-frame animation ----
   world.update = (dt) => {
     world.time += dt;
+    if (world.waterTex) world.waterTex.offset.y -= dt * 0.08;
     for (const r of world.roads) {
       if (!r.revealed || r.progress >= 1) continue;
       r.progress = Math.min(1, r.progress + dt / 2.2);
