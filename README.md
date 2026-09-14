@@ -17,7 +17,7 @@ No storyline, just the loop:
   raiders then bash the keep instead, and if it falls she is thrown out until you repair it. Keep HP grows
   with your wall upgrades.
 - The King starts on foot and gathers wood, stone and straw by standing next to lumber groves, ore outcrops
-  and wheat fields. Walls, towers, bridges, expansions and his warhorse cost coins plus materials.
+  and wheat fields. Materials feed the Keep and nothing else; everything on a build pad costs coins.
 - Roads grow out of the gates as you wall the village, and bridges over the river are built from pads at the
   crossings. Until a bridge exists, raiders only come from your side of the river.
 - Unexplored land is hidden under fog that clears as the King travels; the minimap in the corner (tap to
@@ -32,7 +32,7 @@ No storyline, just the loop:
   wall ring. When the outer ring is complete the old inner wall is torn down.
 - Walls are real: raiders are blocked and bash at short sections. A battered section degrades to the
   previous material (iron to stone to brick to wood) before it finally falls and shows a repair pad.
-  Upgrade pads rebuild every section from wood to brick, stone and iron.
+  Walls are rebuilt from wood to brick, stone and iron automatically as the Keep levels up.
 - Watchtowers are built empty. A "Man the Tower" pad next to each one takes archers from your army
   (the price is people, not coins). Gate guards work the same way.
 - Red arrows at the screen edge point at raiders you can't see, with a count and a skull for bosses.
@@ -56,6 +56,16 @@ same Wi-Fi and open the "Network" URL that Vite prints instead.
 - Pause with the ⏸ button, P or Esc. The game also pauses when the tab goes into the background.
 - Everything else is automatic: the King and his archers shoot the nearest enemy, coins are picked up by
   walking near them, and standing on a build pad spends coins one at a time.
+
+## The Keep is the base
+
+Wood, stone and straw you mine are spent on one thing only: **feeding the Keep**. Stand on the pad at
+its door to pour in materials; when the level's requirement is met the Keep levels up (1 to 15,
+`CFG.base.levels`). Each level raises how many archers and swordsmen the village supports
+(`CFG.base.archers` / `swordsmen`; recruit pads lock with a "Keep Lv N" card when you hit the cap),
+speeds up every bow (1x at level 1, 2x at level 8, 3x at level 15) and rebuilds all walls in the next
+material at levels 4, 8 and 12 (`CFG.base.wallAt`). Some pads only appear at a Keep level
+(`minLevel`: village expansions, barracks). Coins still buy everything else.
 
 ## Tuning the game
 

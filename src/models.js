@@ -975,7 +975,7 @@ export function makePadTexture() {
   return { canvas, tex };
 }
 
-export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 'coins', res = [], active = false }) {
+export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 'coins', res = [], active = false, sub = null, locked = null }) {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 256, 256);
   const r = 26;
@@ -1035,7 +1035,15 @@ export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 
     ctx.fillText(String(n), 0, 0);
     ctx.restore();
   };
-  bigNum(remaining, 158, priceY, hasRes ? 64 : 78);
+  if (remaining !== null && remaining !== undefined) bigNum(remaining, 158, priceY, hasRes ? 64 : 78);
+  else if (sub) {
+    ctx.font = '800 30px "Baloo 2", "Trebuchet MS", system-ui, sans-serif';
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+    ctx.strokeText(sub, 128, priceY);
+    ctx.fillStyle = '#ffe98a';
+    ctx.fillText(sub, 128, priceY);
+  }
   const cols = res.length;
   res.forEach((row, i) => {
     const x = 128 + (i - (cols - 1) / 2) * 96;
@@ -1043,6 +1051,20 @@ export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 
     if (ri) ctx.drawImage(ri, x - 46, 192, 36, 36);
     bigNum(row.remaining, x + 20, 212, 40);
   });
+  if (locked) {
+    ctx.beginPath();
+    ctx.roundRect(14, 14, 228, 228, r);
+    ctx.fillStyle = 'rgba(20, 16, 30, 0.55)';
+    ctx.fill();
+    const li = iconImage('keep');
+    if (li) ctx.drawImage(li, 128 - 28, 96, 56, 56);
+    ctx.font = '800 30px "Baloo 2", "Trebuchet MS", system-ui, sans-serif';
+    ctx.lineWidth = 7;
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+    ctx.strokeText(locked, 128, 178);
+    ctx.fillStyle = '#ffd23d';
+    ctx.fillText(locked, 128, 178);
+  }
   tex.needsUpdate = true;
 }
 
@@ -1057,51 +1079,109 @@ export function makePad() {
   return { mesh, canvas, tex };
 }
 
-// ---- health bar: one sprite drawn on a canvas, so background and fill always line up ----
-function drawBar(bar) {
-  const { canvas, tex, green, frac } = bar.userData;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = '#1b1b24';
-  ctx.beginPath();
-  ctx.roundRect(0, 0, canvas.width, canvas.height, 6);
-  ctx.fill();
-  ctx.fillStyle = green ? '#4ad06a' : '#e8342a';
-  const w = Math.max(0, (canvas.width - 6) * Math.min(1, frac));
-  if (w > 0) {
-    ctx.beginPath();
-    ctx.roundRect(3, 3, w, canvas.height - 6, 4);
-    ctx.fill();
-  }
-  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.roundRect(1, 1, canvas.width - 2, canvas.height - 2, 6);
-  ctx.stroke();
-  tex.needsUpdate = true;
-}
+// ---- health bars: every bar in the game is one instance of a single billboard mesh ----
+// makeHealthBar() returns an empty Object3D you parent to a character; HealthBars.update() reads each
+// bar's world position/scale every frame and fills one InstancedMesh, so 300 bars cost one draw call.
+const BAR_LIST = [];
 export function makeHealthBar(width = 1.2, green = false) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 96;
-  canvas.height = 16;
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.minFilter = THREE.LinearFilter;
-  const m = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
-  const s = new THREE.Sprite(m);
-  s.scale.set(width, width / 6, 1);
-  s.renderOrder = 10;
-  s.visible = false;
-  s.userData = { canvas, tex, green, frac: 1 };
-  drawBar(s);
-  return s;
+  const b = new THREE.Object3D();
+  b.isHealthBar = true;
+  b.scale.set(width, width / 6, 1);
+  b.visible = false;
+  b.userData = { green, frac: 1 };
+  BAR_LIST.push(b);
+  return b;
 }
 export function setHealthBar(bar, frac) {
   const f = Math.max(0, Math.min(1, frac));
-  if (Math.abs(f - bar.userData.frac) > 0.004) {
-    bar.userData.frac = f;
-    drawBar(bar);
-  }
+  bar.userData.frac = f;
   bar.visible = f < 0.999;
+}
+export function disposeHealthBar(bar) {
+  const i = BAR_LIST.indexOf(bar);
+  if (i >= 0) BAR_LIST.splice(i, 1);
+}
+export function clearHealthBars() {
+  BAR_LIST.length = 0;
+}
+const BAR_VS = `
+attribute float aFrac;
+attribute float aGreen;
+varying vec2 vUv;
+varying float vFrac;
+varying float vGreen;
+void main() {
+  vUv = uv;
+  vFrac = aFrac;
+  vGreen = aGreen;
+  vec4 center = modelViewMatrix * vec4(instanceMatrix[3].xyz, 1.0);
+  float sx = length(instanceMatrix[0].xyz);
+  float sy = length(instanceMatrix[1].xyz);
+  gl_Position = projectionMatrix * vec4(center.xyz + vec3(position.x * sx, position.y * sy, 0.0), 1.0);
+}`;
+const BAR_FS = `
+varying vec2 vUv;
+varying float vFrac;
+varying float vGreen;
+float box(vec2 p, vec2 b, float r) {
+  vec2 q = abs(p) - b + r;
+  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+}
+void main() {
+  vec2 p = (vUv - 0.5) * vec2(6.0, 1.0);
+  float d = box(p, vec2(3.0, 0.5), 0.38);
+  if (d > 0.0) discard;
+  vec3 col = vec3(0.106, 0.106, 0.14);
+  float x0 = -3.0 + 0.19;
+  float x1 = x0 + (6.0 - 0.38) * vFrac;
+  float inner = box(vec2(p.x - (x0 + x1) * 0.5, p.y), vec2((x1 - x0) * 0.5, 0.5 - 0.19), 0.2);
+  if (vFrac > 0.0 && inner < 0.0) col = vGreen > 0.5 ? vec3(0.29, 0.816, 0.416) : vec3(0.91, 0.204, 0.165);
+  if (d > -0.12) col = vec3(0.92);
+  gl_FragColor = vec4(pow(col, vec3(2.2)), 1.0);
+  #include <colorspace_fragment>
+}`;
+export class HealthBars {
+  constructor(max = 600) {
+    const geo = new THREE.PlaneGeometry(1, 1);
+    this.frac = new THREE.InstancedBufferAttribute(new Float32Array(max), 1);
+    this.green = new THREE.InstancedBufferAttribute(new Float32Array(max), 1);
+    geo.setAttribute('aFrac', this.frac);
+    geo.setAttribute('aGreen', this.green);
+    const mat = new THREE.ShaderMaterial({ vertexShader: BAR_VS, fragmentShader: BAR_FS, transparent: true, depthTest: false, depthWrite: false, toneMapped: false });
+    this.mesh = new THREE.InstancedMesh(geo, mat, max);
+    this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = 10;
+    this.mesh.count = 0;
+    this.max = max;
+    this.m = new THREE.Matrix4();
+    this.p = new THREE.Vector3();
+    this.q = new THREE.Quaternion();
+    this.s = new THREE.Vector3();
+  }
+  update() {
+    let n = 0;
+    for (let i = BAR_LIST.length - 1; i >= 0; i--) {
+      const bar = BAR_LIST[i];
+      let top = bar;
+      while (top.parent) top = top.parent;
+      if (!top.isScene) {
+        BAR_LIST.splice(i, 1); // its owner left the scene
+        continue;
+      }
+      if (!bar.visible || n >= this.max) continue;
+      bar.updateWorldMatrix(true, false);
+      bar.matrixWorld.decompose(this.p, this.q, this.s);
+      this.m.makeScale(this.s.x, this.s.y, 1).setPosition(this.p);
+      this.mesh.setMatrixAt(n, this.m);
+      this.frac.array[n] = bar.userData.frac;
+      this.green.array[n] = bar.userData.green ? 1 : 0;
+      n++;
+    }
+    this.mesh.count = n;
+    this.mesh.instanceMatrix.needsUpdate = true;
+    this.frac.needsUpdate = true;
+    this.green.needsUpdate = true;
+  }
 }
 
 // ---- damage popup ----

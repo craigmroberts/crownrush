@@ -7,7 +7,7 @@ import { Input } from './input.js';
 import {
   makeKing, makeKingFoot, makeQueen, makeKeep, makeLumberTree, makeOreRock, makeResourceCube, RES_MATS, CHIP_GEO, makeTool, makeArcher, makeSwordsman, makeKnight, makeElite, makeBrute, makeBoss, makeCoin, makeArrow,
   makeHut, makeTower, makeBarracks, makeWallSegment, makeGate, makeRubble, makeBridge, makePad, drawPad, ghostify,
-  makeHealthBar, setHealthBar, makePopup, makeRing, makeSpawnFx, makeBurst, makeCoinStack,
+  makeHealthBar, setHealthBar, HealthBars, disposeHealthBar, clearHealthBars, makePopup, makeRing, makeSpawnFx, makeBurst, makeCoinStack,
 } from './models.js';
 
 const V3 = THREE.Vector3;
@@ -41,6 +41,9 @@ export class Game {
     if (this.mobile) sun.shadow.mapSize.set(1024, 1024);
     this.world = buildWorld(this.scene);
     this.buildFog();
+    // every health bar in the game is drawn by this one instanced mesh
+    this.bars = new HealthBars(600);
+    this.scene.add(this.bars.mesh);
     // Phones: characters get one instanced "blob" shadow each instead of rendering into the shadow map
     // (that pass cost a second draw call per character); buildings and trees keep real shadows.
     setRigShadows(!this.mobile);
@@ -76,6 +79,7 @@ export class Game {
   // ---------- lifecycle ----------
   reset() {
     if (this.root) this.scene.remove(this.root);
+    clearHealthBars();
     this.root = new THREE.Group();
     this.scene.add(this.root);
 
@@ -97,6 +101,8 @@ export class Game {
     this.buyCount = {};
     this.tier = 0;
     this.wallLevel = 0;
+    this.baseLevel = 0; // Keep level: 0 until the Keep is built, then 1..CFG.base.maxLevel
+    this.feedDef = null;
     this.mounted = false;
     this.res = { wood: 0, stone: 0, straw: 0 };
     this.flyRes = [];
@@ -174,7 +180,7 @@ export class Game {
     this.refreshPads();
     this.hud.showNextWave(false);
     this.hud.hidePadTip();
-    this.hud.set(0, 1, 0, null, CFG.waves.goal, this.res, 0, 1);
+    this.hud.set(0, 1, 0, null, CFG.waves.goal, this.res, 0, 1, 1, 0);
     this.hud.setIndicators([]);
   }
 
@@ -543,6 +549,7 @@ export class Game {
       if (def.tier !== undefined && def.tier > this.tier) continue;
       const okReq = (def.requires || []).every((id) => this.built[id]);
       if (!okReq) continue;
+      if (def.minLevel && this.baseLevel < def.minLevel) continue;
       if (def.maxBuys && (this.buyCount[def.id] || 0) >= def.maxBuys) continue;
       this.addPad(def);
       added++;
@@ -561,7 +568,7 @@ export class Game {
     mesh.position.set(def.pos[0], 0.03, def.pos[1]);
     mesh.scale.setScalar(0.01);
     this.root.add(mesh);
-    const pad = { def, mesh, canvas, tex, cost: this.padCost(def), paid: 0, ghosts: [], res: Object.entries(def.res || {}).map(([type, need]) => ({ type, need, paid: 0 })) };
+    const pad = { def, mesh, canvas, tex, cost: this.padCost(def), paid: 0, ghosts: [], res: Object.entries((def.feed ? this.levelReq() : def.res) || {}).map(([type, need]) => ({ type, need, paid: 0 })) };
     // ghost previews: units on the pad, structures where they'd be built, wall outlines along the edge
     if (def.units) {
       for (let i = 0; i < def.units.count; i++) {
@@ -613,6 +620,8 @@ export class Game {
       this.root.add(g);
       pad.ghosts.push(g);
     }
+    // a fresh feed pad pauses for a beat so each level-up is a visible moment, not a blur
+    if (def.feed) pad.resTimer = 0.9;
     this.drawPad(pad);
     this.pads.push(pad);
   }
@@ -621,10 +630,12 @@ export class Game {
     const total = pad.cost + pad.res.reduce((a, r) => a + r.need, 0);
     const paidAll = pad.paid + pad.res.reduce((a, r) => a + r.paid, 0);
     drawPad(pad.canvas, pad.tex, {
-      icon: pad.def.icon, label: pad.def.label, remaining: pad.cost - pad.paid, paid: paidAll / total,
+      icon: pad.def.icon, label: pad.def.label, remaining: pad.def.feed ? null : pad.cost - pad.paid, paid: total ? paidAll / total : 0,
       currency: pad.def.crew ? 'archers' : 'coins',
       res: pad.res.map((r) => ({ type: r.type, remaining: r.need - r.paid })),
       active: !!pad.active,
+      sub: pad.def.feed ? `Level ${this.baseLevel} → ${this.baseLevel + 1}` : null,
+      locked: pad.locked ? `Keep Lv ${pad.locked}` : null,
     });
   }
 
@@ -671,6 +682,7 @@ export class Game {
       this.king.hp = this.king.maxHp;
     }
     if (def.effect === 'wallLevel') this.upgradeWalls();
+    if (def.feed) this.levelUp();
     if (def.effect === 'expand') this.expand();
     if (def.effect === 'horse') this.mountKing();
     if (def.bridge) {
@@ -690,7 +702,8 @@ export class Game {
     audio.build();
     if (def.toast) this.hud.toast(def.toast);
 
-    if (def.repeatable && !(def.maxBuys && this.buyCount[def.id] >= def.maxBuys)) {
+    const again = def.repeatable && !(def.maxBuys && this.buyCount[def.id] >= def.maxBuys) && !(def.feed && !this.levelReq());
+    if (again) {
       this.root.remove(pad.mesh);
       this.pads.splice(this.pads.indexOf(pad), 1);
       this.addPad(def);
@@ -721,11 +734,72 @@ export class Game {
       this.keep.bar.position.y = 4.4;
       m.add(this.keep.bar);
       this.queenEnterKeep();
+      this.baseLevel = Math.max(1, this.baseLevel);
+      this.addFeedPad();
     }
   }
 
   keepHp() {
-    return CFG.keep.hp + this.wallLevel * CFG.keep.hpPerLevel;
+    return CFG.keep.hp + Math.max(0, this.baseLevel - 1) * CFG.keep.hpPerLevel;
+  }
+
+  // ---------- the Keep as the base: feed it materials to level up ----------
+  levelReq() {
+    return CFG.base.levels[this.baseLevel] || null;
+  }
+
+  addFeedPad() {
+    if (!this.keep || !this.levelReq() || this.feedDef) return;
+    // the feed pad sits at the Keep's front door
+    this.feedDef = { id: 'feed', pos: [this.keep.x, this.keep.z + 3.7], cost: 0, icon: 'keep', label: 'Feed the Keep', repeatable: true, feed: true };
+    this.dynamicPads.push(this.feedDef);
+    this.refreshPads();
+  }
+
+  levelUp() {
+    this.baseLevel = Math.min(CFG.base.maxLevel, this.baseLevel + 1);
+    const L = this.baseLevel;
+    // walls follow the Keep: wood -> brick -> stone -> iron at the levels in CFG.base.wallAt
+    const target = CFG.base.wallAt.filter((lv) => lv <= L).length - 1;
+    while (this.wallLevel < target) this.upgradeWalls();
+    if (this.keep && this.keep.state === 'built') {
+      this.keep.maxHp = this.keepHp();
+      this.keep.hp = this.keep.maxHp;
+      setHealthBar(this.keep.bar, 1);
+    }
+    const notes = [CFG.base.unlocks[L], `${CFG.base.archers[L]} archers`, `${CFG.base.swordsmen[L]} swordsmen`, `arrows ${this.fireMul().toFixed(1)}x`].filter(Boolean);
+    this.hud.toast(`Keep level ${L}! ${notes.join(' · ')}`, 3400);
+    this.spawnFx(this.keep.x, this.keep.z, 0xffd23d);
+    this.addScore(CFG.score.levelUp * L);
+    audio.unlock();
+    if (!this.levelReq() && this.feedDef) this.feedDef = null;
+  }
+
+  // archery speed grows with the Keep (archers, towers and the King's own bow)
+  fireMul() {
+    return CFG.base.fireRate(this.baseLevel);
+  }
+
+  unitCount(type) {
+    let n = 0;
+    for (const u of this.units) if (u.type === type) n++;
+    if (type === 'archer') n += this.turrets.length;
+    return n;
+  }
+
+  unitCap(type) {
+    const t = type === 'archer' ? CFG.base.archers : CFG.base.swordsmen;
+    return t[Math.min(this.baseLevel, t.length - 1)];
+  }
+
+  // Keep level needed before a recruit pad can add its units; null if it can recruit now
+  padLocked(def) {
+    if (!def.units) return null;
+    const wanted = this.unitCount(def.units.type) + def.units.count;
+    if (wanted <= this.unitCap(def.units.type)) return null;
+    const t = def.units.type === 'archer' ? CFG.base.archers : CFG.base.swordsmen;
+    for (let l = 0; l < t.length; l++) if (t[l] >= wanted) return l;
+    return CFG.base.maxLevel;
   }
 
   queenEnterKeep() {
@@ -1194,10 +1268,8 @@ export class Game {
       rig.mixer.uncacheRoot(mesh);
     }
     mesh.traverse((o) => {
-      if (o.isSprite) {
-        if (o.material.map) o.material.map.dispose();
-        o.material.dispose();
-      } else if (o.isSkinnedMesh) o.skeleton.dispose();
+      if (o.isHealthBar) disposeHealthBar(o);
+      else if (o.isSkinnedMesh) o.skeleton.dispose();
     });
   }
 
@@ -1253,16 +1325,26 @@ export class Game {
       this.hud.showNextWave(between && this.wave > 0 && this.waveTimer > 3 && !this.won);
       this.alarmT -= dt;
       this.hud.showAlarm(this.alarmT > 0 ? this.alarmText : null);
-      this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, CFG.waves.goal, this.res, this.score, this.king.hp / this.king.maxHp, this.queen.hp / this.queen.maxHp);
+      this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, CFG.waves.goal, this.res, this.score, this.king.hp / this.king.maxHp, this.queen.hp / this.queen.maxHp, this.baseLevel);
       this.updateIndicators(dt);
     }
     this.world.focus.copy(this.king.mesh.position);
     this.world.update(dt);
     this.updateDaylight(dt);
+    // characters far from the King (at or beyond the screen edge) animate at half rate
+    const kp = this.king.mesh.position;
+    this.animFrame = (this.animFrame || 0) + 1;
+    let idx = 0;
     for (const ent of [...this.units, ...this.enemies, ...this.turrets]) {
       const rig = ent.mesh.userData.rig;
       if (!rig) continue;
-      rig.mixer.update(dt);
+      idx++;
+      if (ent.mesh.position.distanceToSquared(kp) > 18 * 18) {
+        ent.animAcc = (ent.animAcc || 0) + dt;
+        if ((this.animFrame + idx) & 1) continue;
+        rig.mixer.update(ent.animAcc);
+        ent.animAcc = 0;
+      } else rig.mixer.update(dt);
       if (!ent.rigOnce || ent.rigOnce <= this.time) rig.play(ent.moving ? 'Walk' : 'Idle');
     }
     this.updateFx(dt);
@@ -1270,6 +1352,7 @@ export class Game {
     this.updateStack(dt);
     this.updateBlobs();
     this.updateCamera(dt);
+    this.bars.update();
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -1301,7 +1384,7 @@ export class Game {
     if (target) {
       this.faceTowards(k.mesh, target.mesh.position, dt, 14);
       if (k.cooldown <= 0) {
-        k.cooldown = 1 / k.stats.fireRate;
+        k.cooldown = 1 / (k.stats.fireRate * this.fireMul());
         tmp.copy(p).y += 1.6;
         this.fireArrow(tmp, target, k.stats.damage * this.damageMul);
         if (k.mesh.userData.rig) {
@@ -1513,7 +1596,7 @@ export class Game {
         this.faceTowards(u.mesh, target.mesh.position, dt, 12);
         const dist = p.distanceTo(target.mesh.position) - target.radius;
         if (u.cooldown <= 0 && dist <= u.stats.range + 0.3) {
-          u.cooldown = 1 / u.stats.fireRate;
+          u.cooldown = 1 / (u.stats.fireRate * this.fireMul());
           if (u.melee) {
             tmp.copy(target.mesh.position);
             tmp.y += 0.3;
@@ -1559,7 +1642,7 @@ export class Game {
       if (target) {
         this.faceTowards(t.mesh, target.mesh.position, dt, 10);
         if (t.cooldown <= 0) {
-          t.cooldown = 1 / CFG.tower.fireRate;
+          t.cooldown = 1 / (CFG.tower.fireRate * this.fireMul());
           this.fireArrow(t.pos, target, CFG.tower.damage * this.damageMul);
           this.attackAnim(t);
         }
@@ -1839,19 +1922,22 @@ export class Game {
       const sy = (-tmp.y * 0.5 + 0.5) * window.innerHeight - 30;
       const chips = [];
       const def = nearest.def;
+      const locked = this.padLocked(def);
       if (def.crew) {
         const free = this.units.filter((u) => u.type === 'archer' && !u.assign).length;
         chips.push({ icon: 'person', text: `${nearest.cost - nearest.paid} archers`, state: free > 0 ? 'ok' : 'short' });
       } else {
         const needC = nearest.cost - nearest.paid;
-        chips.push({ icon: 'coin', text: `${needC} coins`, state: needC <= 0 ? 'ok' : this.coinsCarried >= needC ? 'ok' : this.coinsCarried > 0 ? '' : 'short' });
+        if (nearest.cost > 0) chips.push({ icon: 'coin', text: `${needC} coins`, state: needC <= 0 ? 'ok' : this.coinsCarried >= needC ? 'ok' : this.coinsCarried > 0 ? '' : 'short' });
         for (const r of nearest.res) {
           const need = r.need - r.paid;
           chips.push({ icon: r.type, text: `${need} ${r.type} (have ${this.res[r.type]})`, state: need <= 0 || this.res[r.type] >= need ? 'ok' : this.res[r.type] > 0 ? '' : 'short' });
         }
+        if (locked) chips.push({ icon: 'keep', text: `Keep level ${locked} needed`, state: 'short' });
+        if (def.units) chips.push({ icon: def.units.type, text: `${this.unitCount(def.units.type)} / ${this.unitCap(def.units.type)} ${def.units.type}s`, state: locked ? 'short' : 'ok' });
       }
-      const note = def.crew ? 'Stand here to send archers' : nd < CFG.spend.padRadius ? 'Paying…' : 'Stand on the pad to pay';
-      this.hud.showPadTip(sx, sy, def.label, chips, note);
+      const note = locked ? 'Feed the Keep to raise the limit' : def.feed ? `Stand here to pour in materials (level ${this.baseLevel} → ${this.baseLevel + 1})` : def.crew ? 'Stand here to send archers' : nd < CFG.spend.padRadius ? 'Paying…' : 'Stand on the pad to pay';
+      this.hud.showPadTip(sx, sy, def.feed ? `Feed the Keep · Lv ${this.baseLevel}` : def.label, chips, note);
     } else this.hud.hidePadTip();
     for (const pad of this.pads) {
       // pop-in / settle animation
@@ -1859,8 +1945,10 @@ export class Game {
       if (s < 1) pad.mesh.scale.setScalar(Math.min(1, s + dt * 4));
       else if (s > 1) pad.mesh.scale.setScalar(Math.max(1, s - dt * 0.8));
       const inside = kp.distanceTo(pad.mesh.position) < CFG.spend.padRadius;
-      if (inside !== !!pad.active) {
+      const locked = this.padLocked(pad.def);
+      if (inside !== !!pad.active || locked !== (pad.locked || null)) {
         pad.active = inside;
+        pad.locked = locked;
         this.drawPad(pad);
       }
       if (pad.def.crew) {
@@ -1900,7 +1988,7 @@ export class Game {
       }
       pad.resTimer = (pad.resTimer || 0) - dt;
       let pending = this.flyCoins.filter((f) => f.pad === pad).length;
-      while (inside && this.coinsCarried > 0 && pad.paid + pending < pad.cost && this.spendTimer <= 0) {
+      while (inside && !locked && this.coinsCarried > 0 && pad.paid + pending < pad.cost && this.spendTimer <= 0) {
         this.spendTimer += tick;
         this.coinsCarried--;
         pending++;

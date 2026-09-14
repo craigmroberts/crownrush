@@ -20,6 +20,7 @@ export class Hud {
     this.minimap = document.getElementById('minimap');
     this.resEls = { wood: document.getElementById('res-wood'), stone: document.getElementById('res-stone'), straw: document.getElementById('res-straw') };
     this.scoreEl = document.getElementById('score-num');
+    this.levelEl = document.getElementById('keep-level');
     this.kingHpEl = document.getElementById('king-hp-fill');
     this.queenHpEl = document.getElementById('queen-hp-fill');
     this.lastScore = -1;
@@ -28,7 +29,11 @@ export class Hud {
     this.lastArmy = -1;
     this.lastNext = -1;
   }
-  set(coins, wave, army, nextIn, goal, res, score, kingFrac, queenFrac) {
+  set(coins, wave, army, nextIn, goal, res, score, kingFrac, queenFrac, level) {
+    if (level !== undefined && level !== this.lastLevel) {
+      this.levelEl.textContent = level;
+      this.lastLevel = level;
+    }
     if (queenFrac !== undefined) this.queenHpEl.style.width = `${Math.max(0, Math.min(1, queenFrac)) * 100}%`;
     if (res) {
       for (const k of ['wood', 'stone', 'straw']) {
