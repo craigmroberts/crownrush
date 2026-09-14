@@ -236,11 +236,19 @@ export class Game {
     this.queen.captive = true;
     for (let i = 0; i < CFG.rescue.captors; i++) {
       const a = (i / CFG.rescue.captors) * Math.PI * 2 + 0.6;
-      const e = this.spawnEnemy('knight', CFG.rescue.pos[0] + Math.cos(a) * 2.3, CFG.rescue.pos[1] + Math.sin(a) * 2.3, 0);
+      const e = this.spawnEnemy('knight', CFG.rescue.pos[0] + Math.cos(a) * 2.3, CFG.rescue.pos[1] + Math.sin(a) * 2.3, CFG.rescue.captorRank || 0);
       e.captor = true;
       e.orbit = a;
       e.orbitDir = i % 2 ? -1 : 1;
       e.mesh.rotation.y = Math.atan2(-Math.cos(a), -Math.sin(a));
+    }
+    if (CFG.rescue.captain) {
+      // #30: the one who actually holds her. A brute, so the rescue has to be fought rather than walked.
+      const cap = this.spawnEnemy('brute', CFG.rescue.pos[0], CFG.rescue.pos[1] - 2.6, CFG.rescue.captainRank || 1);
+      cap.captor = true;
+      cap.orbit = -Math.PI / 2;
+      cap.orbitDir = 1;
+      cap.mesh.rotation.y = Math.PI;
     }
     const hc = TIERS[0].bounds;
     this.homeSide = this.world.riverInfo((hc.x0 + hc.x1) / 2, (hc.z0 + hc.z1) / 2).side;
@@ -1241,7 +1249,11 @@ export class Game {
     const newRank = CFG.ranks.find((r) => r.fromLevel === L);
     const coinNote = CFG.coins.tierAt.includes(L) && L > 0 ? `coins are now ${this.coinTier()}` : null;
     const notes = [CFG.base.unlocks[L], coinNote, newRank ? `${newRank.name}s now join the raids` : null, `${CFG.base.archers[L]} archers`, `${CFG.base.swordsmen[L]} swordsmen`, `arrows ${this.fireMul().toFixed(1)}x`].filter(Boolean);
-    this.hud.toast(`Keep level ${L}! ${notes.join(' · ')}`, 3400);
+    this.hud.toast(`Keep level ${L}! ${notes.join(' · ')}`, 4200);
+    // #29: a playtester never worked out that raising the Keep is what opens new materials, so the
+    // level that opens one says so on its own, after the rest of the level's news.
+    const opened = Object.keys(CFG.base.materialAt).find((m) => CFG.base.materialAt[m] === L);
+    if (opened) this.hud.toast(`${opened[0].toUpperCase() + opened.slice(1)} can now be gathered: look for new nodes out in the world.`, 5200);
     this.spawnFx(this.keep.x, this.keep.z, 0xffd23d);
     this.addScore(CFG.score.levelUp * L);
     audio.unlock();
@@ -2666,7 +2678,11 @@ export class Game {
     const F = CFG.finale;
     const kp = this.king.mesh.position;
     if (Math.hypot(kp.x - F.pos[0], kp.z - F.pos[1]) < F.wakeRadius) {
-      for (const x of this.enemies) if (x.camp) x.camp = false;
+      for (const x of this.enemies) if (x.camp) {
+        x.camp = false;
+        x.fromCamp = true;                                   // #28: and this is the post it returns to
+        x.post = { x: x.mesh.position.x, z: x.mesh.position.z };
+      }
       this.raiseAlarm('The camp is awake!');
       this.hud.toast(this.finaleOpen ? 'The Warlord rises. End this.' : 'You are not ready for this camp. Run!', 3000);
       audio.wave(true);
@@ -2674,6 +2690,47 @@ export class Game {
     }
     e.moving = false;
     this.animateWalk(e, 0, dt);
+  }
+
+  // #28: true while this one is disengaging, so the normal chase is skipped.
+  updateCampReturn(e, dt) {
+    const F = CFG.finale;
+    const kp = this.king.mesh.position;
+    const kingFar = Math.hypot(kp.x - F.pos[0], kp.z - F.pos[1]) > F.leash;
+    if (!kingFar && !e.returning) return false;
+    if (!e.returning) {
+      e.returning = true;
+      if (!this.campCalm) {
+        this.campCalm = true;
+        this.raiseAlarm('');
+        this.hud.toast('The camp breaks off the chase and falls back.', 3200);
+      }
+    }
+    if (!kingFar && e.returning && Math.hypot(kp.x - F.pos[0], kp.z - F.pos[1]) < F.leash * 0.7) {
+      e.returning = false;    // he came back for them
+      this.campCalm = false;
+      return false;
+    }
+    const post = e.post || { x: F.pos[0], z: F.pos[1] };
+    const dx = post.x - e.mesh.position.x;
+    const dz = post.z - e.mesh.position.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 1.2) {                       // home, rested and asleep again
+      e.returning = false;
+      e.camp = true;
+      e.hp = e.maxHp;
+      setHealthBar(e.bar, 1);
+      e.moving = false;
+      this.animateWalk(e, 0, dt);
+      return true;
+    }
+    const sp = (e.speed || 3) * dt;
+    e.mesh.position.x += (dx / d) * sp;
+    e.mesh.position.z += (dz / d) * sp;
+    e.mesh.rotation.y = Math.atan2(dx, dz);
+    e.moving = true;
+    this.animateWalk(e, sp, dt);
+    return true;
   }
 
   // the Warlord calls reinforcements from his tents while he lives
@@ -2777,6 +2834,9 @@ export class Game {
         this.updateCampSleeper(e, dt);
         continue;
       }
+      // #28: the camp defends the camp. Get far enough away and it breaks off, walks back to its
+      // posts and sleeps again, rather than chasing the King home and ending the run.
+      if (e.fromCamp && this.updateCampReturn(e, dt)) continue;
       if (e.chief && this.time - e.lastCall > CFG.finale.callEvery && e.hp < e.maxHp) this.chiefCall(e);
       if (e.escort) {
         this.updateEscort(e, dt);

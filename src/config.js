@@ -10,7 +10,10 @@ export const CFG = {
   // Nobody attacks the King until he takes the Queen back: the raids are the enemy coming to get
   // her, so nothing spawns while she is captive and `firstRaid` is the grace period after the rescue.
   rescue: {
-    pos: [-30, 9], captors: 3, freeRadius: 3.2, aggroRadius: 9, firstRaid: 22,
+    // #30: the opening has to feel like a rescue. Six guards at Raider strength and a Marauder
+    // captain holding her, rather than three bandits who fall over.
+    pos: [-30, 9], captors: 6, captorRank: 1, captain: true, captainRank: 2,
+    freeRadius: 3.2, aggroRadius: 9, firstRaid: 22,
     penRadius: 3.4, // how far she can drift before the guards push her back
     noticeRadius: 15, // the King is spotted here: guards turn, she calls out
     alert: 1.1, // beat between being spotted and the charge
@@ -78,7 +81,9 @@ export const CFG = {
   gatePost: { height: 1.55 },
   // #19: the raider camp. Raids come from it; the war ends when the King marches on it and kills
   // the Warlord. The march opens at Keep `level` (or night `night`, whichever comes first).
-  finale: { pos: [-4, -74], radius: 9, garrison: 8, wakeRadius: 20, level: 13, night: 30, chiefHp: 3.2, callEvery: 9, callCount: 3 },
+  // `leash`: how far from the camp the King has to get before the garrison gives up and goes home.
+  // Walking away has to be an answer, or an early visit to the camp ends the run (#28).
+  finale: { pos: [-4, -74], radius: 9, garrison: 8, wakeRadius: 20, leash: 38, level: 13, night: 30, chiefHp: 3.2, callEvery: 9, callCount: 3 },
   // #18: the King's one ability. The warhorn pulls the army to him and drives them for a few
   // seconds, and the blast shoves nearby raiders back and stuns them: an answer to a breach.
   horn: { cooldown: 22, duration: 6, radius: 7.5, push: 3.4, stun: 1.3, speed: 1.6, damage: 1.5, rallySpeed: 2.2 },

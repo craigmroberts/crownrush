@@ -74,13 +74,19 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 }
 #next-wave-btn.hidden { display: none; }
 /* #8: anchored bottom-right, clear of the minimap and the night button, never over the middle */
+/* #31: the pad panel is a sheet across the bottom edge rather than a card floating over the field,
+   so it reads in the same place as the settings sheet and leaves the play area clear. */
 #pad-tip {
-  position: fixed; right: 12px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 76px); pointer-events: none;
-  background: var(--parchment); border: var(--gold-line) solid var(--gold); border-radius: var(--radius); padding: 9px 14px;
-  width: 236px; max-width: calc(100vw - 24px); text-align: center; box-shadow: 0 8px 20px rgba(0,0,0,0.3); z-index: 4;
+  position: fixed; left: 0; right: 0; bottom: 0; pointer-events: none;
+  background: var(--parchment); border-top: var(--rim-line) solid var(--rim); border-radius: 18px 18px 0 0;
+  padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
+  padding-left: max(112px, env(safe-area-inset-left));    /* clear of the minimap */
+  padding-right: max(88px, env(safe-area-inset-right));   /* clear of the warhorn */
+  text-align: center; box-shadow: 0 -8px 24px rgba(0,0,0,0.3); z-index: 4;
+  transform: translateY(0); transition: transform 0.18s ease-out;
 }
-#pad-tip.hidden { display: none; }
-#pad-tip .tip-name { font-weight: 900; font-size: 18px; color: #2a3a2f; margin-bottom: 4px; }
+#pad-tip.hidden { display: block; transform: translateY(110%); }
+#pad-tip .tip-name { font-weight: 900; font-size: 19px; color: #2a3a2f; margin-bottom: 2px; }
 #pad-tip .tip-costs { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 #pad-tip .chip { font-weight: 800; font-size: 16px; padding: 2px 8px; border-radius: 999px; background: #eee6c8; color: #4a3a10; white-space: nowrap; }
 #pad-tip .chip.ok { background: #cdf2d2; color: #1f6b30; }
@@ -88,7 +94,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 #pad-tip .tip-note { font-size: 13px; color: #6b675c; margin-top: 4px; }
 #minimap {
   position: fixed; left: 12px; bottom: max(12px, env(safe-area-inset-bottom)); width: 92px; height: 92px;
-  border-radius: 50%; border: var(--rim-line) solid var(--rim); background: #2b2f33; pointer-events: auto;
+  border-radius: 50%; border: var(--rim-line) solid var(--rim); background: #2b2f33; pointer-events: auto; z-index: 5;
   box-shadow: 0 6px 16px rgba(0,0,0,0.3); transition: width 0.2s, height 0.2s; image-rendering: pixelated;
 }
 /* opened up it becomes a rounded square again: a circle would crop the corners of the map */
@@ -298,8 +304,8 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .indicator.thief .arrow { background: #2f8f5b; width: 40px; height: 40px; left: -20px; top: -20px; animation: alarmPulse2 0.45s ease-in-out infinite alternate; }
 .indicator.thief .count { font-size: 20px; top: 14px; }
 
-#pad-tip .tip-desc { font-size: 12.5px; color: #6b675c; line-height: 1.3; margin-bottom: 6px; }
-#pad-tip .tip-bar { height: 7px; border-radius: 4px; background: rgba(0,0,0,0.16); margin-top: 7px; overflow: hidden; }
+#pad-tip .tip-desc { font-size: 13px; color: #6b675c; line-height: 1.3; margin-bottom: 6px; max-width: 520px; margin-left: auto; margin-right: auto; }
+#pad-tip .tip-bar { height: 8px; border-radius: 999px; background: rgba(0,0,0,0.16); margin: 7px auto 0; max-width: 520px; overflow: hidden; }
 #pad-tip .tip-bar i { display: block; height: 100%; width: 0; background: #3fd455; border-radius: 4px; transition: width 0.1s linear; }
 
 .stat-row span.hidden { display: none; }
@@ -332,7 +338,6 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 #horn-btn b { position: absolute; color: #fff; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 20px; text-shadow: 0 2px 0 rgba(0,0,0,0.5); }
 @keyframes hornReady { from { box-shadow: 0 6px 16px rgba(0,0,0,0.35); } to { box-shadow: 0 0 22px rgba(245,184,0,0.75); } }
 /* the horn has the corner, so the pad tip sits above it */
-#pad-tip { bottom: calc(max(12px, env(safe-area-inset-bottom)) + 76px); }
 
 /* #5: the title screen */
 .panel.title { max-width: 520px; padding: 22px 22px 24px; }

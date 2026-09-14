@@ -72,11 +72,39 @@ export class Hud {
       this.lastArmy = army;
     }
   }
-  toast(text, ms = 2200) {
-    (document.getElementById('toast-text') || this.toastEl).textContent = text;
-    this.toastEl.classList.add('show');
+  // #29: notices queue rather than overwrite. A playtester missed the one telling him a pad wanted
+  // stone, because the next notice replaced it before he had read it. Each one now waits its turn,
+  // holds long enough to read, and is kept in a short log the info screen can show back.
+  toast(text, ms = 3200) {
+    if (!text) return;
+    this.toastQueue = this.toastQueue || [];
+    this.toastLog = this.toastLog || [];
+    if (this.toastLog[0] !== text) this.toastLog.unshift(text);
+    this.toastLog.length = Math.min(this.toastLog.length, 8);
+    // the same notice arriving twice in a row just extends it; it does not queue behind itself
+    if (this.toastShowing === text) {
+      clearTimeout(this.toastTimer);
+      this.toastTimer = setTimeout(() => this.nextToast(), ms);
+      return;
+    }
+    this.toastQueue.push({ text, ms: Math.max(ms, Math.min(7000, 1400 + text.length * 55)) });
+    if (!this.toastShowing) this.nextToast();
+  }
+  nextToast() {
+    const next = (this.toastQueue || []).shift();
     clearTimeout(this.toastTimer);
-    this.toastTimer = setTimeout(() => this.toastEl.classList.remove('show'), ms);
+    if (!next) {
+      this.toastShowing = null;
+      this.toastEl.classList.remove('show');
+      return;
+    }
+    this.toastShowing = next.text;
+    (document.getElementById('toast-text') || this.toastEl).textContent = next.text;
+    this.toastEl.classList.add('show');
+    this.toastTimer = setTimeout(() => this.nextToast(), next.ms);
+  }
+  recentNotices() {
+    return this.toastLog || [];
   }
   // #6: a stepped intro. `steps` = [{icon, title, text}], `onDone` runs after the last step or Skip.
   showIntro(steps, onDone) {
@@ -225,6 +253,12 @@ export class Hud {
     }
     h.push(`<h2>${iconSvg('skull', 22)} Enemy ranks</h2><p class="sub">Their colour says how dangerous they are. New ranks appear when the Keep levels up.</p><p>${d.ranks.map((r) => `<span class="ichip ${r.active ? 'ok' : ''}"><i class="swatch" style="background:${r.color}"></i>${esc(r.name)} · ${r.at === 0 ? 'from the start' : `Keep level ${r.at}`}</span>`).join(' ')}</p>`);
     h.push('<p class="sub">Shapes: square pads build things, round pads recruit (blue), upgrade (purple) or feed the Keep (green).</p>');
+    // #29: what the game told you recently, for when a notice went by before you could read it
+    const notices = this.recentNotices();
+    if (notices.length) {
+      h.push(`<h2>${iconSvg('info', 22)} Recently announced</h2>`);
+      for (const n of notices) h.push(`<div class="irow"><div>${esc(n)}</div></div>`);
+    }
     document.getElementById('info-body').innerHTML = h.join('');
     document.getElementById('info-screen').classList.remove('hidden');
     document.getElementById('info-screen').scrollTop = 0;
