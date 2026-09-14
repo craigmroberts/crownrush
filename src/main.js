@@ -224,3 +224,15 @@ requestAnimationFrame(frame);
 // expose for poking around in the console
 window.game = game;
 window.audio = audio;
+
+// Add to Home Screen. The service worker holds the whole game — two megabytes of bundle, models and
+// fonts — so once it has been opened with a connection it opens again without one.
+//
+// Only in a built site: in dev a worker caching the bundle would serve yesterday's code back over
+// Vite's own reloading, which is a maddening thing to debug.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL })
+      .catch((e) => console.warn('offline play unavailable:', e && e.message));
+  });
+}

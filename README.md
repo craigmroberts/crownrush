@@ -264,6 +264,7 @@ src/rig.js        loads rigged GLB characters and plays their animations
 src/crowd.js      draws the crowd as one instanced mesh per model, skinned on the GPU
 tools/blender/    Blender script that builds and exports rigged characters (public/models/*.glb)
 tools/fit/        fits a character to a reference image, locally, with no AI in the loop
+tools/icons/      draws the home-screen icons from the game's own crown (npm run icons)
 tools/models/     re-compresses the exported characters with meshopt (see Making characters)
 tools/probe/      drives the built game headless and reports what the renderer did (see its README)
 tools/scout/      offline pass that studies the game and files improvement issues (see its README)
@@ -346,6 +347,39 @@ a character to a front-view reference with no AI in the loop: rebuild, flat-rend
 and colour against the reference, nudge one proportion, keep it if better, stop when it stalls. It
 writes the best parameters to `tools/fit/params/<who>.json`, which the model build picks up
 automatically, and a reference | render | overlay report. See [tools/fit/README.md](tools/fit/README.md).
+
+## Installing it like an app
+
+The game is a progressive web app, so a phone can put it on the home screen and run it from there with
+no browser around it and no connection.
+
+- **iOS**: open it in Safari, Share, Add to Home Screen.
+- **Android**: Chrome offers Install, or Add to Home Screen from the menu.
+- **Desktop**: Chrome and Edge show an install control in the address bar.
+
+Once it has been opened with a connection, a service worker holds the whole thing — bundle, character
+models and fonts, about two megabytes — so it opens again without one. Verified by loading it, pulling
+the network, and playing.
+
+Two pieces make that work, and both are generated rather than written by hand:
+
+`public/manifest.webmanifest` names the app, sets the green the splash screen uses, and points at the
+icons. `npm run icons` draws those from the game's own crown (`tools/icons/make-app-icons.mjs`) so they
+stay on-brand, including the separate maskable one that Android crops to a circle.
+
+The service worker is written at build time by a plugin in `vite.config.js`, because the list of files
+to cache cannot be written by hand: Vite hashes the bundle's names on every build. The cache is named
+after a hash of that list, and a new worker deletes every cache that is not its own, so a deploy
+replaces the lot rather than serving half of one version and half of another. That costs a full
+re-download per deploy, which is the price of the files under `public/` — the character models — being
+unhashed and otherwise uncacheable-safely.
+
+Cache lookups pass `ignoreVary`. Without it the shell loads offline and the bundle does not: a server
+answering `Vary: Accept-Encoding` makes the browser compare request headers against the ones that
+filled the cache, and a module script does not ask the way the install-time fetch did.
+
+Registration is skipped in `npm run dev`, where a worker caching the bundle would fight Vite's
+reloading.
 
 ## Deploying
 
