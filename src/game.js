@@ -36,9 +36,17 @@ export class Game {
     this.canvas = canvas;
     this.hud = hud;
     this.mobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: !this.mobile, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.mobile ? 1.5 : 2));
-    this.renderer.shadowMap.enabled = true;
+    // ?safe=1 strips the game back to the plainest renderer it can use: no shadows, no antialiasing,
+    // one device pixel per CSS pixel, and no preference for a particular GPU. It exists for devices
+    // where the normal path shows nothing, and safeMode() turns it on by itself if that happens.
+    this.safe = /[?&]safe=1/.test(location.search);
+    this.renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: !this.mobile && !this.safe,
+      powerPreference: this.safe ? 'default' : 'high-performance',
+    });
+    this.setPixelRatio();
+    this.renderer.shadowMap.enabled = !this.safe;
     this.renderer.shadowMap.type = this.mobile ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -107,9 +115,22 @@ export class Game {
     });
   }
 
+  // The drawing buffer is capped by area as well as by ratio. A big foldable at 1.5x asks for a
+  // buffer several times a phone's, and a driver that will not give us one leaves a blank canvas.
+  setPixelRatio() {
+    const dpr = window.devicePixelRatio || 1;
+    let r = this.safe ? 1 : Math.min(dpr, this.mobile ? 1.5 : 2);
+    const w = window.innerWidth || 1;
+    const h = window.innerHeight || 1;
+    const maxPixels = this.safe ? 1.6e6 : this.mobile ? 2.6e6 : 5e6;
+    if (w * h * r * r > maxPixels) r = Math.max(1, Math.sqrt(maxPixels / (w * h)));
+    this.renderer.setPixelRatio(r);
+  }
+
   resize() {
     const w = window.innerWidth;
     const h = window.innerHeight;
+    this.setPixelRatio();
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
@@ -289,9 +310,53 @@ export class Game {
     this.hud.setIndicators([]);
   }
 
+  // A blank canvas with a working HUD is the hardest kind of bug to report, so the game checks its
+  // own output. A page cannot see what the compositor finally puts on screen, but it can see the
+  // three failures it would be: a lost context, a drawing buffer with no size, and a frame that
+  // submits no draw calls at all. Any of those drops the game to safe mode, and if that changes
+  // nothing it says what the graphics stack is doing instead of leaving a blank screen.
+  watchRender() {
+    clearTimeout(this.renderWatch);
+    const broken = () => {
+      const c = this.canvas;
+      return this.contextLost || !c.width || !c.height || this.renderer.info.render.calls === 0;
+    };
+    this.renderWatch = setTimeout(() => {
+      // a backgrounded tab stops painting too, and that is not a fault
+      if (!this.running || document.hidden || !broken()) return;
+      if (!this.safe) {
+        this.safe = true;
+        this.renderer.shadowMap.enabled = false;
+        this.setPixelRatio();
+        this.resize();
+        this.hud.toast('Graphics trouble: switching to safe mode.', 3000);
+        this.watchRender();
+        return;
+      }
+      if (window.__showError) window.__showError(this.glReport());
+    }, 2500);
+  }
+
+  // What the graphics stack actually is, in one line, for a screenshot from a device I cannot hold.
+  glReport() {
+    const r = this.renderer;
+    const c = this.canvas;
+    let vendor = 'unknown';
+    try {
+      const gl = r.getContext();
+      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      if (dbg) vendor = `${gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL)} / ${gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)}`;
+      return `The world is not drawing. ${vendor}; buffer ${c.width}x${c.height} @${r.getPixelRatio().toFixed(2)}; css ${c.clientWidth}x${c.clientHeight}; dpr ${window.devicePixelRatio}; `
+        + `context ${gl.isContextLost() ? 'LOST' : 'ok'}; gl error ${gl.getError()}; frames ${this.frames || 0}; safe ${this.safe}`;
+    } catch (e) {
+      return `The world is not drawing, and the graphics context could not be read: ${e && e.message}`;
+    }
+  }
+
   start() {
     this.reset();
     this.running = true;
+    this.watchRender();
     this.hud.hideStart();
     this.hud.hideGameOver();
     this.hud.hideVictory();
@@ -1942,7 +2007,10 @@ export class Game {
     this.updateBlobs();
     this.updateCamera(dt);
     this.bars.update();
-    if (!this.contextLost) this.renderer.render(this.scene, this.camera);
+    if (!this.contextLost) {
+      this.renderer.render(this.scene, this.camera);
+      this.frames = (this.frames || 0) + 1;
+    }
   }
 
   updatePlayer(dt) {
