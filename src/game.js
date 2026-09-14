@@ -1427,7 +1427,8 @@ export class Game {
     this.refreshPads();
   }
 
-  // A stopped game with nothing on screen to explain it is the worst bug to report and the easiest
+  // Reported twice: once mid-run, once on night 14. A stopped game with nothing on screen to explain
+  // it is the worst bug to report and the easiest
   // to recover from: every legitimate pause has something visible attached to it (the pause screen,
   // a reward to choose, the info or settings sheets, the end of the run, a lost graphics context).
   // If the world has stopped and none of those hold, something failed to hand the pause back, so
