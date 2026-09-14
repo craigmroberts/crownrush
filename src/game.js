@@ -1,18 +1,19 @@
 import * as THREE from 'three';
 import { CFG, PADS, TIERS, NODES, MAP } from './config.js';
 import { audio } from './audio.js';
-import { makeRigged } from './rig.js';
+import { makeRigged, setRigShadows } from './rig.js';
 import { buildWorld, setupLights } from './world.js';
 import { Input } from './input.js';
 import {
   makeKing, makeKingFoot, makeQueen, makeKeep, makeLumberTree, makeOreRock, makeResourceCube, RES_MATS, CHIP_GEO, makeTool, makeArcher, makeSwordsman, makeKnight, makeElite, makeBrute, makeBoss, makeCoin, makeArrow,
   makeHut, makeTower, makeBarracks, makeWallSegment, makeGate, makeRubble, makeBridge, makePad, drawPad, ghostify,
-  makeHealthBar, setHealthBar, makePopup, makeRing, makeSpawnFx, makeBurst,
+  makeHealthBar, setHealthBar, makePopup, makeRing, makeSpawnFx, makeBurst, makeCoinStack,
 } from './models.js';
 
 const V3 = THREE.Vector3;
 const tmp = new V3();
 const tmp2 = new V3();
+const tmpM = new THREE.Matrix4();
 const rand = (a, b) => a + Math.random() * (b - a);
 const randInt = (a, b) => Math.floor(rand(a, b + 1));
 
@@ -40,6 +41,18 @@ export class Game {
     if (this.mobile) sun.shadow.mapSize.set(1024, 1024);
     this.world = buildWorld(this.scene);
     this.buildFog();
+    // Phones: characters get one instanced "blob" shadow each instead of rendering into the shadow map
+    // (that pass cost a second draw call per character); buildings and trees keep real shadows.
+    setRigShadows(!this.mobile);
+    if (this.mobile) {
+      const geo = new THREE.CircleGeometry(1, 18);
+      geo.rotateX(-Math.PI / 2);
+      this.blobs = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({ color: 0x24401c, transparent: true, opacity: 0.34, depthWrite: false }), 400);
+      this.blobs.frustumCulled = false;
+      this.blobs.position.y = 0.04;
+      this.blobs.count = 0;
+      this.scene.add(this.blobs);
+    }
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -150,12 +163,9 @@ export class Game {
 
     // coin stack carried above the king
     this.stack = [];
-    for (let i = 0; i < 70; i++) {
-      const c = makeCoin();
-      c.visible = false;
-      this.root.add(c);
-      this.stack.push(c);
-    }
+    this.stackMesh = makeCoinStack(70);
+    this.root.add(this.stackMesh.outer, this.stackMesh.inner);
+    for (let i = 0; i < 70; i++) this.stack.push({ position: new V3(0, 2.4 + i * 0.11, 0) });
 
     this.nodeRing = makeRing(3.2);
     this.nodeRing.visible = false;
@@ -464,6 +474,10 @@ export class Game {
       scale: rig ? { knight: 1.0, elite: 1.1, brute: 1.35, boss: 2.4 }[type] : type === 'boss' ? 1 : 1.15,
     };
     mesh.scale.setScalar(e.scale);
+    // the bar is a child of the scaled mesh: undo that scale so bar size/height are in world units
+    bar.scale.x /= e.scale;
+    bar.scale.y /= e.scale;
+    bar.position.y /= e.scale;
     this.enemies.push(e);
     return e;
   }
@@ -1039,7 +1053,7 @@ export class Game {
     audio.hit();
     this.burstFx(hitPos, '#dff4ff', 0.9, 0.18);
     setHealthBar(e.bar, Math.max(0, e.hp / e.maxHp));
-    this.popup(`-${Math.round(dmg)}`, hitPos, e.type === 'boss' ? '#ffffff' : '#ffe27a', e.type === 'boss' ? 2.6 : 1.4);
+    this.popup(`-${Math.round(dmg)}`, hitPos, e.type === 'boss' ? '#ffffff' : '#ffe27a', e.type === 'boss' ? 2.6 : 1.4, e, dmg);
     if (e.hp <= 0) this.killEnemy(e);
   }
 
@@ -1070,6 +1084,10 @@ export class Game {
   tintHair(mesh) {
     const colors = [0x5a3416, 0x2a1e16, 0x8a5a2b, 0x1c1c22, 0x6b3f1d];
     const c = colors[Math.floor(Math.random() * colors.length)];
+    if (mesh.userData.rig && mesh.userData.rig.tint) {
+      mesh.userData.rig.tint('hair', c);
+      return mesh;
+    }
     mesh.traverse((o) => {
       if (!o.isMesh) return;
       const mats = Array.isArray(o.material) ? o.material : [o.material];
@@ -1142,13 +1160,45 @@ export class Game {
     }
   }
 
-  popup(text, pos, color, scale = 1.4) {
+  // Damage numbers. Hits on the same target within a quarter second merge into one bigger number:
+  // a crowd of archers no longer spawns dozens of sprites a second.
+  popup(text, pos, color, scale = 1.4, owner = null, value = 0) {
+    if (owner) {
+      const p = this.popups.find((q) => q.owner === owner && q.t > 0.45);
+      if (p) {
+        p.value += value;
+        const s = makePopup(`-${Math.round(p.value)}`, color);
+        s.position.copy(p.mesh.position);
+        s.scale.copy(p.mesh.scale);
+        this.root.remove(p.mesh);
+        p.mesh.material.dispose();
+        this.root.add(s);
+        p.mesh = s;
+        p.t = Math.max(p.t, 0.6);
+        return;
+      }
+    }
     const s = makePopup(text, color);
     s.position.copy(pos);
     s.position.y += 1.6;
     s.scale.set(scale, scale / 2, 1);
     this.root.add(s);
-    this.popups.push({ mesh: s, t: 0.7 });
+    this.popups.push({ mesh: s, t: 0.7, owner, value });
+  }
+
+  // Free GPU resources of a character that left the scene (health-bar texture, skeleton bone texture).
+  disposeEntity(mesh) {
+    const rig = mesh.userData.rig;
+    if (rig) {
+      rig.mixer.stopAllAction();
+      rig.mixer.uncacheRoot(mesh);
+    }
+    mesh.traverse((o) => {
+      if (o.isSprite) {
+        if (o.material.map) o.material.map.dispose();
+        o.material.dispose();
+      } else if (o.isSkinnedMesh) o.skeleton.dispose();
+    });
   }
 
   damageUnit(u, dmg) {
@@ -1218,6 +1268,7 @@ export class Game {
     this.updateFx(dt);
     this.updateEffects(dt);
     this.updateStack(dt);
+    this.updateBlobs();
     this.updateCamera(dt);
     this.renderer.render(this.scene, this.camera);
   }
@@ -1488,6 +1539,7 @@ export class Game {
       if (d < 0.5) {
         this.units.splice(this.units.indexOf(u), 1);
         this.root.remove(u.mesh);
+        this.disposeEntity(u.mesh);
         this.addTurret(x, z, y);
         continue;
       }
@@ -1516,6 +1568,16 @@ export class Game {
   }
 
   updateEnemies(dt) {
+    // bucket enemies into cells so separation only checks neighbours (was O(n^2));
+    // the cell must be at least two boss radii so a boss pair is never missed
+    const cell = 4.5;
+    const grid = new Map();
+    for (const o of this.enemies) {
+      const k = Math.floor(o.mesh.position.x / cell) * 4096 + Math.floor(o.mesh.position.z / cell);
+      let arr = grid.get(k);
+      if (!arr) grid.set(k, (arr = []));
+      arr.push(o);
+    }
     for (const e of this.enemies) {
       e.cooldown -= dt;
       e.retarget -= dt;
@@ -1546,7 +1608,13 @@ export class Game {
       const d = tmp2.length();
       const reach = e.radius + 0.7 + (t.isKeep ? CFG.keep.half : 0);
       // if the target is across the river, walk to the nearest bridge first
-      const wp = this.bridgeWaypoint(e, t.mesh.position);
+      // (recomputed 5x a second, not every frame: it searches the whole river polyline)
+      if (e.wpTarget !== t || this.time >= e.wpT) {
+        e.wp = this.bridgeWaypoint(e, t.mesh.position);
+        e.wpT = this.time + 0.2;
+        e.wpTarget = t;
+      }
+      const wp = e.wp;
       let blocked = null;
       if (wp) {
         tmp2.set(wp.x - p.x, 0, wp.z - p.z);
@@ -1557,7 +1625,6 @@ export class Game {
           p.add(tmp2);
         }
         blocked = this.collideWalls(p, e.radius, false) || this.collideKeep(p, e.radius);
-        this.collideRiver(p, e.radius);
         this.animateWalk(e, 1, dt);
       } else {
         this.faceTowards(e.mesh, t.mesh.position, dt, 8);
@@ -1565,7 +1632,6 @@ export class Game {
           tmp2.normalize().multiplyScalar(Math.min(e.stats.speed * dt, d - reach + 0.01));
           p.add(tmp2);
           blocked = this.collideWalls(p, e.radius, false) || this.collideKeep(p, e.radius);
-          this.collideRiver(p, e.radius);
           this.animateWalk(e, blocked ? 0.4 : 1, dt);
         }
       }
@@ -1594,13 +1660,21 @@ export class Game {
       }
       if (e.mesh.userData.body && e.mesh.userData.body.rotation.x > 0) e.mesh.userData.body.rotation.x = Math.max(0, e.mesh.userData.body.rotation.x - dt * 3);
       // simple separation so enemies don't stack into one blob
-      for (const o of this.enemies) {
-        if (o === e) continue;
-        const dd = p.distanceTo(o.mesh.position);
-        const min = e.radius + o.radius;
-        if (dd < min && dd > 0.001) {
-          tmp2.subVectors(p, o.mesh.position).multiplyScalar(((min - dd) / dd) * 0.5);
-          p.add(tmp2);
+      const cx = Math.floor(p.x / cell);
+      const cz = Math.floor(p.z / cell);
+      for (let gx = cx - 1; gx <= cx + 1; gx++) {
+        for (let gz = cz - 1; gz <= cz + 1; gz++) {
+          const arr = grid.get(gx * 4096 + gz);
+          if (!arr) continue;
+          for (const o of arr) {
+            if (o === e) continue;
+            const dd = p.distanceTo(o.mesh.position);
+            const min = e.radius + o.radius;
+            if (dd < min && dd > 0.001) {
+              tmp2.subVectors(p, o.mesh.position).multiplyScalar(((min - dd) / dd) * 0.5);
+              p.add(tmp2);
+            }
+          }
         }
       }
       this.collideWalls(p, e.radius, false);
@@ -1943,6 +2017,7 @@ export class Game {
       d.mesh.scale.multiplyScalar(1 - dt * 1.5);
       if (d.t <= 0) {
         this.root.remove(d.mesh);
+        this.disposeEntity(d.mesh);
         this.dying.splice(i, 1);
       }
     }
@@ -1953,6 +2028,7 @@ export class Game {
       p.mesh.material.opacity = Math.min(1, p.t * 3);
       if (p.t <= 0) {
         this.root.remove(p.mesh);
+        p.mesh.material.dispose();
         this.popups.splice(i, 1);
       }
     }
@@ -1975,19 +2051,37 @@ export class Game {
     const kp = this.king.mesh.position;
     const n = this.stackCount();
     const v = this.king.vel;
-    for (let i = 0; i < this.stack.length; i++) {
+    const { outer, inner } = this.stackMesh;
+    for (let i = 0; i < n; i++) {
       const c = this.stack[i];
-      if (i >= n) {
-        c.visible = false;
-        continue;
-      }
-      c.visible = true;
       // the stack leans against the direction of travel, more the higher it goes
       const lean = 0.004 * Math.min(i, 30);
       tmp.set(kp.x - v.x * lean, 2.4 + i * 0.11, kp.z - v.z * lean);
       tmp.x += Math.sin(this.time * 2.5 + i * 0.2) * 0.004 * Math.min(i, 30);
       c.position.lerp(tmp, 1 - Math.exp(-dt * (18 - Math.min(10, i * 0.15))));
+      tmpM.makeTranslation(c.position.x, c.position.y, c.position.z);
+      outer.setMatrixAt(i, tmpM);
+      inner.setMatrixAt(i, tmpM);
     }
+    outer.count = inner.count = n;
+    outer.instanceMatrix.needsUpdate = inner.instanceMatrix.needsUpdate = true;
+  }
+
+  // Mobile blob shadows: one disc per unit / enemy, all in a single instanced draw.
+  updateBlobs() {
+    const b = this.blobs;
+    if (!b) return;
+    let i = 0;
+    const put = (ent, r) => {
+      if (i >= 400 || ent.inKeep) return;
+      const p = ent.mesh.position;
+      tmpM.makeScale(r, 1, r).setPosition(p.x, 0, p.z);
+      b.setMatrixAt(i++, tmpM);
+    };
+    for (const u of this.units) put(u, 0.5 * (u.scale || 1));
+    for (const e of this.enemies) put(e, e.radius * 1.15 + 0.1);
+    b.count = i;
+    b.instanceMatrix.needsUpdate = true;
   }
 
   // Slow day cycle across waves: morning, noon, golden evening, dusk, then dawn again every 12 waves.

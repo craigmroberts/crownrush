@@ -61,14 +61,41 @@ muteBtn.addEventListener('click', () => {
 // browsers only allow sound after a user gesture; catch the first one anywhere
 window.addEventListener('pointerdown', () => audio.init(), { once: true });
 
+// Performance overlay: add ?perf=1 to the URL to see frame time, draw calls and triangles live.
+// Aim for under 16 ms (60 fps) on desktop and under 33 ms (30 fps) on phones.
+let perf = null;
+if (/[?&]perf=1/.test(location.search)) {
+  perf = document.createElement('div');
+  perf.id = 'perf';
+  document.body.appendChild(perf);
+}
+let perfT = 0;
+let perfFrames = 0;
+let perfMs = 0;
+
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
+  const t0 = perf ? performance.now() : 0;
   try {
     game.update(dt);
   } catch (err) {
     console.error(err);
+  }
+  if (perf) {
+    perfMs += performance.now() - t0;
+    perfFrames++;
+    perfT += dt;
+    if (perfT >= 0.5) {
+      const info = game.renderer.info.render;
+      const ms = perfMs / perfFrames;
+      perf.textContent = `${(perfFrames / perfT).toFixed(0)} fps · ${ms.toFixed(1)} ms cpu · ${info.calls} draws · ${(info.triangles / 1000).toFixed(0)}k tris · ${game.units.length + game.enemies.length} chars`;
+      perf.style.color = ms > 33 ? '#ff7a7a' : ms > 16 ? '#ffd27a' : '#b8ffb0';
+      perfT = 0;
+      perfFrames = 0;
+      perfMs = 0;
+    }
   }
   requestAnimationFrame(frame);
 }

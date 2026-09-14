@@ -319,6 +319,16 @@ export function makeKeep() {
 // ---- items ----
 const coinGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.09, 14);
 const coinMat = new THREE.MeshStandardMaterial({ color: C.gold, roughness: 0.45, metalness: 0.2, emissive: 0x3a2a00 });
+// The stack of coins carried above the King: two instanced meshes (face + rim) instead of 140 meshes.
+export function makeCoinStack(n) {
+  const outer = new THREE.InstancedMesh(coinGeo, coinMat, n);
+  const inner = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.24, 0.24, 0.1, 14), mat(C.goldDark), n);
+  outer.castShadow = true;
+  outer.frustumCulled = inner.frustumCulled = false;
+  outer.count = inner.count = 0;
+  return { outer, inner };
+}
+
 export function makeCoin() {
   const g = new THREE.Group();
   const c = new THREE.Mesh(coinGeo, coinMat);

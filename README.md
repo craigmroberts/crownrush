@@ -103,6 +103,33 @@ Every character (King on foot and mounted, Queen, archer, swordsman, raider, eli
 Draco-compressed GLBs; the game falls back to the code-built figures if a model fails to load. Add a
 `build_<name>()` function to the script to make a new character.
 
+## Performance
+
+Open the game with `?perf=1` on the end of the URL (works on the live site and on a phone) to see a
+live readout: fps, CPU ms per frame, draw calls, triangles and character count. Budgets:
+
+| Metric | Aim for | Why |
+| --- | --- | --- |
+| Frame time | < 16 ms desktop, < 33 ms phone | 60 / 30 fps; anything slower feels laggy |
+| Draw calls | < 400 late game | each one costs CPU time no matter how small it is |
+| Triangles | < 1M late game | phones slow down past this, especially with shadows |
+| Triangles per character | ~5k (King 6.5k) | 100+ characters can be on screen |
+| Load | < 3 MB total | first play on mobile data |
+
+What keeps it fast:
+- Every character is ONE skinned mesh with vertex colours and a per-vertex roughness/metalness
+  attribute (`src/rig.js`), so a character costs one draw call instead of the 8-11 primitives Blender
+  exports.
+- `tools/blender/make_character.py` bakes each part's modifiers before joining (join keeps only the
+  first part's subdivision, which used to smooth the whole body to 17-62k triangles) and lowers
+  sphere/cylinder resolution for small parts.
+- Static scenery is merged into a few meshes; grass, pebbles, wheat, fence pickets and the King's coin
+  stack are instanced. Off-screen characters are frustum-culled.
+- Phones use blob shadows for characters (one instanced draw) instead of rendering every character
+  into the shadow map, a 1024 shadow map and pixel ratio 1.5.
+- Enemy separation uses a spatial grid; the river/bridge search is cached per enemy.
+- Dead characters release their health-bar and skeleton textures.
+
 ## Deploying
 
 Every push to `main` builds the game and publishes it to GitHub Pages through the workflow in

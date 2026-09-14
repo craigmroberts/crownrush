@@ -46,21 +46,34 @@ Z_OFF = 0.0
 LEG_X = 0.14
 ROYAL = WHO in ("king", "queen", "king_mounted")
 SEG = (16, 12) if ROYAL else (12, 9)
+# Level of detail by size: a 2 cm pupil does not need the same mesh density as the head.
+# Keeps the silhouette of big parts and drops ~3x triangles overall (the game shows 100+ characters).
+def lod(size):
+    if size <= 0.05:
+        return (6, 4)
+    if size <= 0.12:
+        return (8, 6)
+    if size <= 0.25:
+        return (12, 8)
+    return SEG
+
 def part(kind, name, loc, scale=(1, 1, 1), rot=(0, 0, 0), color="skin", bone="spine", smooth=True, sub=1, **kw):
     loc = (loc[0], loc[1], loc[2] + Z_OFF)
+    size = max(scale[0], scale[1]) if kind in ("sphere", "cyl", "cone") else max(scale)
+    seg = lod(size)
     if kind == "sphere":
-        bpy.ops.mesh.primitive_uv_sphere_add(radius=1, segments=SEG[0], ring_count=SEG[1], location=loc)
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=1, segments=seg[0], ring_count=seg[1], location=loc)
     elif kind == "cube":
         bpy.ops.mesh.primitive_cube_add(size=1, location=loc)
     elif kind == "cyl":
-        bpy.ops.mesh.primitive_cylinder_add(radius=1, depth=1, vertices=SEG[0], location=loc)
+        bpy.ops.mesh.primitive_cylinder_add(radius=1, depth=1, vertices=min(seg[0], SEG[0]), location=loc)
     elif kind == "cone":
-        bpy.ops.mesh.primitive_cone_add(radius1=1, radius2=0, depth=1, vertices=16, location=loc)
+        bpy.ops.mesh.primitive_cone_add(radius1=1, radius2=0, depth=1, vertices=8 if size <= 0.12 else 12, location=loc)
     elif kind == "frustum":
-        bpy.ops.mesh.primitive_cone_add(radius1=kw["r1"], radius2=kw["r2"], depth=kw["depth"], vertices=24, location=loc)
+        bpy.ops.mesh.primitive_cone_add(radius1=kw["r1"], radius2=kw["r2"], depth=kw["depth"], vertices=20, location=loc)
         scale = (1, 1, 1)
     elif kind == "torus":
-        bpy.ops.mesh.primitive_torus_add(major_radius=scale[0], minor_radius=kw.get("minor", 0.04), major_segments=24, minor_segments=10, location=loc)
+        bpy.ops.mesh.primitive_torus_add(major_radius=scale[0], minor_radius=kw.get("minor", 0.04), major_segments=16, minor_segments=6, location=loc)
         scale = (1, 1, 1)
     o = bpy.context.active_object
     o.name = name
@@ -369,6 +382,17 @@ for side, x in (("L", LEG_X), ("R", -LEG_X)):
     bone(f"leg.{side}", (x, 0, 0.47 + RZ), (x, 0, 0.05 + RZ), "root")
 bpy.ops.object.mode_set(mode="OBJECT")
 
+# ---------- bake each part's own modifiers first ----------
+# join() keeps only the ACTIVE object's modifier stack, so parts[0]'s subsurf used to smooth the whole
+# character (3-4x the triangles, and it rounded off parts meant to stay sharp). Apply per part instead.
+for o in parts:
+    if o.modifiers:
+        bpy.ops.object.select_all(action="DESELECT")
+        o.select_set(True)
+        bpy.context.view_layer.objects.active = o
+        for m in list(o.modifiers):
+            bpy.ops.object.modifier_apply(modifier=m.name)
+
 # ---------- join parts into one skinned mesh ----------
 bpy.ops.object.select_all(action="DESELECT")
 for o in parts:
@@ -494,6 +518,10 @@ if not MOUNTED:
      scales={"root": [(1, (1, 1, 1)), (6, (0.97, 1.04, 0.97)), (11, (1.06, 0.92, 1.06)), (20, (1, 1, 1))]})
 
 # ---------- export ----------
+dg = bpy.context.evaluated_depsgraph_get()
+ev_mesh = body.evaluated_get(dg).data
+ev_mesh.calc_loop_triangles()
+print("TRIS", WHO, len(ev_mesh.loop_triangles))
 bpy.ops.object.select_all(action="SELECT")
 bpy.ops.export_scene.gltf(filepath=OUT, export_format="GLB", export_apply=True, export_animations=True, export_yup=True, use_selection=True, export_draco_mesh_compression_enable=True, export_draco_mesh_compression_level=6)
 print("exported", OUT)
