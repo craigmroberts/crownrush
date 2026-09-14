@@ -107,19 +107,48 @@ const syncSound = () => {
     Object.assign(document.createElement('span'), { innerHTML: iconSvg(audio.muted ? 'speakerOff' : 'speaker', 24) }).firstChild,
   );
 };
-document.getElementById('settings-btn').addEventListener('click', () => game.toggleSettings());
-document.getElementById('set-close').addEventListener('click', () => game.hideSettings());
+// Restart asks twice. It used to live behind the pause screen, which you only reach by deciding to
+// stop; the settings sheet is opened to turn the sound off, and one stray tap there should not be
+// able to throw away a run. The second tap has to come within a few seconds, so the row cannot sit
+// armed and catch someone out the next time they open the sheet.
+const restartRow = document.getElementById('set-restart');
+const restartHint = document.getElementById('set-restart-hint');
+let restartTimer = 0;
+const disarmRestart = () => {
+  clearTimeout(restartTimer);
+  restartTimer = 0;
+  restartRow.classList.remove('armed');
+  restartHint.textContent = '';
+};
+restartRow.addEventListener('click', () => {
+  if (!restartRow.classList.contains('armed')) {
+    restartRow.classList.add('armed');
+    restartHint.textContent = 'Tap again';
+    restartTimer = setTimeout(disarmRestart, 4000);
+    return;
+  }
+  disarmRestart();
+  game.hideSettings(true);
+  game.start();
+});
+
+document.getElementById('settings-btn').addEventListener('click', () => {
+  disarmRestart();
+  game.toggleSettings();
+});
+document.getElementById('set-close').addEventListener('click', () => {
+  disarmRestart();
+  game.hideSettings();
+});
 settingsScreen.addEventListener('click', (e) => {
-  if (e.target === settingsScreen) game.hideSettings();  // tapping outside the sheet closes it
+  if (e.target !== settingsScreen) return;   // tapping outside the sheet closes it
+  disarmRestart();
+  game.hideSettings();
 });
 document.getElementById('set-sound').addEventListener('click', () => {
   audio.init();
   audio.setMuted(!audio.muted);
   syncSound();
-});
-document.getElementById('set-pause').addEventListener('click', () => {
-  game.hideSettings(true);
-  game.pause();
 });
 document.getElementById('set-info').addEventListener('click', () => {
   game.hideSettings(true);
@@ -133,7 +162,10 @@ window.addEventListener('keydown', (e) => {
   if (game.offer) return; // an upgrade choice must be made before anything else
   if (e.key === ' ' || e.key === 'e' || e.key === 'E') return game.useHorn();
   if (e.key === 'i' || e.key === 'I') game.toggleInfo();
-  else if (e.key === 'Escape' && game.settingsOpen) game.hideSettings();
+  else if (e.key === 'Escape' && game.settingsOpen) {
+    disarmRestart();
+    game.hideSettings();
+  }
   else if (e.key === 'Escape' && game.infoOpen) game.hideInfo();
   else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') game.togglePause();
 });

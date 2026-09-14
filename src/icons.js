@@ -43,6 +43,9 @@ export const ICONS = {
   skull: `<path d="M12 3a8 8 0 0 0-8 8c0 3 2 5 4 6v3h8v-3c2-1 4-3 4-6a8 8 0 0 0-8-8z" fill="#fff" ${S}/><circle cx="9" cy="11" r="2" fill="${O}"/><circle cx="15" cy="11" r="2" fill="${O}"/><path d="M10.5 17v2M13.5 17v2" stroke="${O}" stroke-width="1.6"/>`,
   next: `<path d="M5 5l10 10M19 5L9 15" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><path d="M13 15l3 3M11 15l-3 3" stroke="#ffd23f" stroke-width="2.4" stroke-linecap="round"/>`,
   person: `<circle cx="12" cy="7" r="4" fill="#f6cfae" ${S}/><path d="M5 21c0-5 3-8 7-8s7 3 7 8z" fill="#2f6fd6" ${S}/>`,
+  // An arrow round three quarters of a circle. Drawn as a dark arc with a gold one laid over it,
+  // because a stroked path takes no outline of its own and the sheet rows it sits on are near-white.
+  restart: `<path d="M12 4.5a7.5 7.5 0 1 0 7.5 7.5" fill="none" stroke="${O}" stroke-width="5.2" stroke-linecap="round"/><path d="M12 4.5a7.5 7.5 0 1 0 7.5 7.5" fill="none" stroke="#f5b800" stroke-width="2.6" stroke-linecap="round"/><path d="M10.6 0.4l5.2 4.1-5.2 4.1z" fill="#f5b800" ${S}/>`,
 };
 
 export function iconSvg(name, size = 20, cls = '') {
