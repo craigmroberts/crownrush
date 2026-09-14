@@ -51,9 +51,12 @@
           </div>
         </div>
       </div>
-      <div id="coin-hud"><i id="coin-icon" data-icon="bronze" data-size="40"></i><span id="coin-count">0</span></div>
-      <!-- #23: sound, pause and info live in the settings sheet now; only coin and gear sit on the field -->
-      <button id="settings-btn" title="Settings"><i data-icon="gear" data-size="22"></i></button>
+      <!-- the controls hang under the plaques, in the flow, so they clear them whatever height they are -->
+      <div id="side-controls">
+        <div id="coin-hud"><i id="coin-icon" data-icon="bronze" data-size="40"></i><span id="coin-count">0</span></div>
+        <!-- #23: sound, pause and info live in the settings sheet now; only coin and gear sit on the field -->
+        <button id="settings-btn" title="Settings"><i data-icon="gear" data-size="22"></i></button>
+      </div>
       <button id="next-wave-btn" class="hidden"><i data-icon="next" data-size="22"></i> Bring on the night</button>
       <button id="horn-btn" class="hidden" title="Warhorn (Space): rally the army"><span class="ring"></span><i data-icon="horn" data-size="30"></i><b id="horn-cd"></b></button>
       <div id="pad-tip" class="hidden"><div class="tip-name"></div><div class="tip-desc"></div><div class="tip-costs"></div><div class="tip-bar"><i></i></div><div class="tip-note"></div></div>

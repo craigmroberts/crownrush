@@ -24,7 +24,9 @@
 html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; font-family: "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
 #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 
-#hud { position: fixed; inset: 0; pointer-events: none; padding: max(14px, env(safe-area-inset-top)) 16px; }
+/* the HUD stacks: the plaques, then the controls under them. Both are in the flow, so the controls
+   always clear the plaques however tall they end up on a given screen. */
+#hud { position: fixed; inset: 0; pointer-events: none; display: flex; flex-direction: column; align-items: stretch; padding: 0; }
 
 #toast.show { opacity: 1; }
 
@@ -113,7 +115,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 /* #22: the status strip. Two plaques hanging from the top edge with a gap between them, the left
    one for the night and the royals, the right one for what you are carrying. */
 #topbar {
-  position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: stretch; justify-content: space-between;
+  position: relative; display: flex; align-items: stretch; justify-content: space-between;
   gap: 10px; padding: 0 10px; padding-top: max(4px, env(safe-area-inset-top));
   padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right));
   color: #fff; background: none; pointer-events: none;
@@ -133,9 +135,15 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 #topbar .tb-right { display: flex; align-items: center; justify-content: space-evenly; min-width: 0; flex: 1 1 50%; overflow: hidden; }
 #topbar .tb-right .stat-row { flex: 1 1 auto; justify-content: space-evenly; }
 /* when the bar is tight it is the wording that gives way, never the health bars or the chips */
-#wave-hud { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 22px; font-weight: 800; line-height: 1.05; text-shadow: 0 2px 3px rgba(0,0,0,0.5); white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* No clipping here. Baloo 2's glyphs stand taller than a tight line box, so an `overflow: hidden`
+   on this line (added to truncate it on a phone) sliced the tops off "Night 1 · Keep 0/13". The
+   plaques share the width now, so the line has room and wraps on a phone instead of truncating. */
+#wave-hud { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 22px; font-weight: 800; line-height: 1.25; text-shadow: 0 2px 3px rgba(0,0,0,0.5); white-space: nowrap; min-width: 0; }
 #wave-hud .goal { font-size: 13px; opacity: 0.85; }
-#next-wave { font-family: "Nunito", system-ui, sans-serif; font-size: 11px; font-weight: 700; opacity: 0.85; }
+/* the countdown rides on the night line rather than starting a second row: a one-row plaque is what
+   the mock has, and it keeps the plaque's height from depending on what is in it */
+#next-wave { display: inline; font-family: "Nunito", system-ui, sans-serif; font-size: 13px; font-weight: 700; opacity: 0.85; }
+#next-wave:not(:empty)::before { content: " · "; }
 .bar-row { display: flex; align-items: center; gap: 8px; }
 .bar-row .track {
   flex: 1; height: 14px; border-radius: 999px; background: rgba(0,0,0,0.45);
@@ -153,9 +161,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   #topbar .tb-bars { flex-direction: row; gap: 6px; flex-basis: auto; }
   #topbar .bar-row { width: 62px; gap: 4px; }
   #topbar .bar-row .track { height: 11px; }
-  #wave-hud { font-size: 16px; }
+  #wave-hud { font-size: 16px; white-space: normal; }
   #wave-hud .goal { font-size: 11px; }
-  #next-wave { font-size: 10px; }
+  #next-wave { display: block; font-size: 10px; }   /* on a phone it goes back to its own line */
+  #next-wave:not(:empty)::before { content: none; }
   /* the chips wrap onto a second short row rather than being clipped: every number stays readable */
   #topbar .stat-row { gap: 7px; font-size: 14px; flex-wrap: wrap; justify-content: flex-end; row-gap: 0; }
   #topbar .tb-right { overflow: visible; flex: 1 1 auto; }
@@ -168,8 +177,11 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .stat-row span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; text-shadow: 0 2px 3px rgba(0,0,0,0.5); }
 .stat-row em { font-style: normal; opacity: 0.7; font-size: 12px; }
 /* under the plaques, not on them: on a phone the badge used to sit over the resource chips */
+#side-controls {
+  align-self: flex-end; display: flex; flex-direction: column; align-items: flex-end; gap: 12px;
+  padding: 12px; padding-right: max(12px, env(safe-area-inset-right));
+}
 #coin-hud {
-  position: absolute; top: calc(max(4px, env(safe-area-inset-top)) + var(--bar-h) + 14px); right: 12px;
   display: flex; align-items: center; gap: 8px;
   background: var(--plaque); border: var(--rim-line) solid var(--rim); border-radius: 999px; padding: 3px 16px 3px 4px;
   color: #fff; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 26px; letter-spacing: 1px;
@@ -177,7 +189,6 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 }
 /* #23: the only control left on the field, in the same column under the coin */
 #settings-btn {
-  position: absolute; right: 12px; top: calc(max(4px, env(safe-area-inset-top)) + var(--bar-h) + 76px);
   pointer-events: auto; width: 52px; height: 52px; border-radius: 50%; border: var(--rim-line) solid var(--rim); cursor: pointer;
   background: var(--plaque); display: grid; place-items: center; box-shadow: 0 5px 14px rgba(0,0,0,0.3);
 }
