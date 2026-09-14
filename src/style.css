@@ -4,7 +4,11 @@
   --gold: #f5b800;
   --gold-dark: #b07a00;
   --gold-line: 2px;          /* the one stroke weight: bar, dialog, buttons, minimap */
-  --wood: linear-gradient(180deg, rgba(74, 52, 30, 0.82), rgba(46, 32, 18, 0.86));
+  /* dark wood: a grain of fine vertical bands over the base, so the bar reads as a plank rather
+     than a flat fill, and still lets the grass through at ~80% opacity */
+  --wood:
+    repeating-linear-gradient(90deg, rgba(0,0,0,0.13) 0 2px, rgba(255,255,255,0.035) 2px 7px),
+    linear-gradient(180deg, rgba(78, 55, 32, 0.84), rgba(44, 30, 17, 0.88));
   --wood-solid: #4a341e;
   --parchment: linear-gradient(180deg, #fffbe8, #f3e6c4);
   --ink: #2a3a2f;
