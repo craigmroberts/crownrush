@@ -24,6 +24,12 @@ def flag(name, default=None):
 PARAMS_PATH = flag("--params")
 FRONT = flag("--front")
 IDS = flag("--ids")  # with --front: colour every part by index and write [[part, role], ...] to this JSON
+# --half builds only the +X side of every mirrored pair. These characters are symmetric and the fitter
+# mirrors the render back to whole in numpy for free, so a third of the primitives need never be made.
+# Never use it for an exported model: it is a fitting proxy, not the character.
+HALF = "--half" in args
+if HALF:
+    args.remove("--half")
 BLEND = flag("--blend")  # also save a .blend file, to open the character in Blender and look at it
 WHO = args[0] if args else "king"
 OUT = args[1] if len(args) > 1 else f"public/models/{WHO}.glb"   # "-" skips the export
@@ -108,6 +114,8 @@ def part(kind, name, loc, scale=(1, 1, 1), rot=(0, 0, 0), color="skin", bone="sp
     `sides` gives a cylinder or cone that many flat faces; 4 makes a square prism, turned so a face
     points at the camera and widened so its flat-to-flat width equals the diameter it replaces.
     """
+    if HALF and name.endswith(".R"):
+        return None
     loc = (loc[0], loc[1], loc[2] + Z_OFF)
     size = max(scale[0], scale[1]) if kind in ("sphere", "cyl", "cone", "box") else max(scale)
     seg = lod(size)
@@ -193,15 +201,23 @@ def band(name, loc, r, h, color, bone, rot=(0, 0, 0), dy=None):
         return part("box", name, loc, scale=(r, dy or r, h / 2), rot=rot, color=color, bone=bone, bevel=0.12)
     return part("cyl", name, loc, scale=(r, r, h), color=color, bone=bone, sub=0, rot=rot)
 
-def arm_chain(side, px, pz, length, r, hand_r, color, trim, ang, cuff_r=None):
+def arm_chain(side, px, pz, length, r, hand_r, color, trim, ang, cuff_r=None, sleeve=0.0, sleeve_r=None, py=0.0):
     """Upper arm, cuff and hand hanging from the shoulder point (px, pz), swung `ang` radians out
-    from the body. The fitter uses the angle: reference art rarely has the arms straight down."""
+    from the body. The fitter uses the angle: reference art rarely has the arms straight down.
+    `sleeve` is the fraction of the arm covered by a wider cuff of `color`, the rest bare skin: that
+    is a gown's short cap sleeve. At 0 the sleeve runs the whole arm and ends in a trim cuff.
+    `py` carries the arm forward, toward the viewer, so a wide skirt cannot swallow it."""
     sx = 1 if side == "L" else -1
     d = (sx * math.sin(ang), -math.cos(ang))
-    at = lambda t: (px + d[0] * t, 0, pz + d[1] * t)
+    at = lambda t: (px + d[0] * t, py, pz + d[1] * t)
     rot = (0, -sx * ang, 0)
-    limb(f"arm.{side}", at(length / 2), r, length, color, f"arm.{side}", rot=rot)
-    band(f"cuff.{side}", at(length - 0.03), cuff_r or r * 1.12, 0.06, trim, f"arm.{side}", rot=rot)
+    if sleeve > 0.01:
+        sl = length * sleeve
+        limb(f"sleeve.{side}", at(sl / 2), sleeve_r or r * 1.4, sl, color, f"arm.{side}", rot=rot)
+        limb(f"arm.{side}", at((sl + length) / 2), r, length - sl, "skin", f"arm.{side}", rot=rot)
+    else:
+        limb(f"arm.{side}", at(length / 2), r, length, color, f"arm.{side}", rot=rot)
+        band(f"cuff.{side}", at(length - 0.03), cuff_r or r * 1.12, 0.06, trim, f"arm.{side}", rot=rot)
     ell(f"hand.{side}", at(length + hand_r * 0.7), (hand_r, hand_r, hand_r), "skin", f"arm.{side}")
 
 def bow_arc(name, loc, color, bone, half=0.4, belly=0.17):
@@ -281,11 +297,14 @@ def build_hair(style):
     for side, sx in (("L", 1), ("R", -1)):
         ell(f"side.{side}", (sx * (0.455 - 0.075 * hw), -0.02, 1.4), (0.075 * hw, 0.14, 0.17 * (1 + 0.5 * (hw - 1))), hair, "head")
     if style == "queen":
-        # long hair down the back and over the shoulders
-        ell("mane", (0, 0.2, 1.05), (0.32, 0.2, 0.48), hair, "head")
-        for side, x in (("L", 0.34), ("R", -0.34)):
-            ell(f"strand.{side}", (x, -0.02, 1.08), (0.1, 0.13, 0.32), hair, "head")
-            ell(f"curl.{side}", (x * 1.05, -0.08, 0.8), (0.1, 0.11, 0.1), hair, "head")
+        # long hair down the back and over the shoulders. hair_len shortens it from the bottom (the top
+        # stays against the head), so the fitter can lift it off the shoulders and let the arms show.
+        hl = PROPS.get("hair_len", 1.0)
+        ell("mane", (0, 0.2, 1.53 - 0.48 * hl), (0.32 * hw, 0.2, 0.48 * hl), hair, "head")
+        for side, sx in (("L", 1), ("R", -1)):
+            x = sx * 0.34 * hw
+            ell(f"strand.{side}", (x, -0.02, 1.4 - 0.32 * hl), (0.1 * hw, 0.13, 0.32 * hl), hair, "head")
+            ell(f"curl.{side}", (x * 1.05, -0.08, 1.4 - 0.64 * hl + 0.08), (0.1 * hw, 0.11, 0.1 * hl), hair, "head")
 
 def build_figure(style, tunic, trim, boots="boot", pants="leather", dress=False, hair=True, bare_arms=False,
                  torso=(0.34, 0.29, 0.33), arm_r=0.09, arm_len=0.32, hand_r=0.085, leg_r=0.105, head_s=1.0, seam=True):
@@ -310,20 +329,38 @@ def build_figure(style, tunic, trim, boots="boot", pants="leather", dress=False,
         CROTCH = 0.5
         SHOULDER_X = 0.378
         gs, gh = PROPS.get("gown_s", 1.0), PROPS.get("gown_h", 1.0)
-        part("frustum", "gown", (0, 0, 0.33 * gh), color=tunic, bone="root", sub=0, r1=0.62 * gs, r2=0.25, depth=0.66 * gh)
-        band("hem", (0, 0, 0.04), 0.63 * gs, 0.07, trim, "root")
-        part("cube", "front", (0, -0.3, 0.33), scale=(0.05, 0.03, 0.62), rot=(math.radians(-24), 0, 0), color=trim, bone="root", sub=0)
+        gw = PROPS.get("gown_waist", 1.0)   # waist width, separate from the hem: how hard the skirt flares
+        fh = PROPS.get("foot_h", 0.1)       # the gown clears the floor by this much, and the feet show below
+        hem_r, waist_r = 0.5 * gs, 0.22 * gw
+        # two stacked cones rather than one: gown_bell sets the width halfway down, so the skirt can
+        # curve out into a bell instead of being a straight-sided cone (0.5 is straight)
+        mid_r = waist_r + (hem_r - waist_r) * PROPS.get("gown_bell", 0.5) * 2 * 0.5
+        part("frustum", "gownlow", (0, 0, fh + 0.165 * gh), color=tunic, bone="root", sub=0, r1=hem_r, r2=mid_r, depth=0.33 * gh)
+        part("frustum", "gown", (0, 0, fh + 0.495 * gh), color=tunic, bone="root", sub=0, r1=mid_r, r2=waist_r, depth=0.33 * gh)
+        band("hem", (0, 0, fh + 0.035), hem_r * 1.02, 0.07, trim, "root")
+        for side, x in (("L", 0.11), ("R", -0.11)):
+            ell(f"foot.{side}", (x, -0.02, fh * 0.45), (0.075, 0.1, max(0.03, fh * 0.55)), "skin", "root")
+        part("cube", "front", (0, -0.3, fh + 0.33 * gh), scale=(0.05, 0.03, 0.62 * gh), rot=(math.radians(-24), 0, 0), color=trim, bone="root", sub=0)
         part("frustum", "bodice", (0, 0, 0.82), color=tunic, bone="spine", sub=0, r1=0.26, r2=0.2, depth=0.42)
         ell("chest", (0, 0, 0.9), (0.24, 0.2, 0.2), tunic, "spine")
         band("belt", (0, 0, 0.62), 0.275, 0.07, trim, "spine")
         part("cube", "stripe", (0, -0.22, 0.86), scale=(0.04, 0.03, 0.3), color=trim, bone="spine", sub=0)
         band("collar", (0, 0, 1.06), 0.15, 0.05, trim, "spine")
         part("cyl", "neck", (0, 0, 1.05), scale=(0.1, 0.1, 0.14), color="skin", bone="spine", sub=1)
-        # slim gown sleeves: their own defaults, so a fit's arm values only apply when given
-        ar, al, hr = PROPS.get("arm_r", 0.07), PROPS.get("arm_len", 0.3), PROPS.get("hand_r", 0.075)
-        for side, x in (("L", 0.36), ("R", -0.36)):
-            ell(f"puff.{side}", (x, 0, 0.94), (0.15 * shoulder_s, 0.14 * shoulder_s, 0.15 * shoulder_s), tunic, f"arm.{side}")
-            arm_chain(side, x * 1.05, 0.87, al, ar, hr, tunic, trim, arm_ang, cuff_r=ar * 1.2)
+        # a short cap sleeve then a bare arm, hanging close to the bodice
+        ar, al, hr = PROPS.get("arm_r", 0.075), PROPS.get("arm_len", 0.34), PROPS.get("hand_r", 0.075)
+        # The sleeve stays anchored at the bodice edge whatever the settings, and the arm hangs a little
+        # forward of the body. Without that the skirt simply grew over the arms and the search, seeing
+        # no cost, shrank them away; the reference has them plainly visible down the sides.
+        # arm_x is where they hang. In the reference art the arms sit at the very edge of the silhouette,
+        # barely inside the skirt hem, so this needs to reach well past the bodice on its own.
+        ax = PROPS.get("arm_x", 0.3)
+        for side, sx in (("L", 1), ("R", -1)):
+            # a shoulder that always spans bodice edge to sleeve, however far out the arm hangs
+            mid, half = (0.24 + ax) / 2, (ax - 0.24) / 2 + ar * 1.3
+            ell(f"puff.{side}", (sx * mid, -0.04, 0.95), (half, ar * 1.5, ar * 1.5 * shoulder_s), tunic, f"arm.{side}")
+            arm_chain(side, sx * ax, 0.93, al, ar, hr, tunic, trim, arm_ang, py=-PROPS.get("arm_fwd", 0.16),
+                      sleeve=PROPS.get("sleeve_len", 0.3), sleeve_r=ar * 1.5 * shoulder_s)
     else:
         tw = torso[0] / 0.34
         CROTCH = 0.18 + 0.32 * leg_h

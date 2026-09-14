@@ -1,41 +1,42 @@
 {
   "props": {
     "torso": [
-      0.42,
+      0.3132990033562908,
       0.29,
-      0.34
+      0.43381694405361154
     ],
-    "arm_r": 0.105,
-    "arm_len": 0.32,
-    "hand_r": 0.105,
-    "leg_r": 0.13,
-    "head_s": 0.86,
-    "head_w": 1.0,
-    "leg_x": 0.19,
-    "boot_s": 1.1,
-    "leg_h": 1.0,
-    "body_h": 1.15,
-    "arm_ang": 12.0,
-    "shoulder_s": 1.0,
-    "hair_w": 1.0,
-    "hair_fringe": 0.9,
-    "crown_s": 1.0,
-    "crown_h": 1.0,
-    "crown_z": -0.05,
-    "crown_points": 3,
-    "beard_s": 1.0,
-    "beard_h": 1.0,
-    "boxy": 1
+    "arm_r": 0.12855316749380793,
+    "arm_len": 0.3526807043600812,
+    "hand_r": 0.1143560416144586,
+    "leg_r": 0.12255639673752104,
+    "head_s": 0.82,
+    "leg_x": 0.21440248650524593,
+    "boot_s": 1.2415796417744664,
+    "crown_s": 1.4962092917811032,
+    "crown_h": 0.7194999999999999,
+    "crown_z": -0.08526245713004978,
+    "beard_s": 1.1750042432165388,
+    "beard_h": 1.2368787438863853,
+    "crown_points": 6.0,
+    "body_h": 1.0327538427448175,
+    "leg_h": 1.0879266541236081,
+    "head_w": 0.8,
+    "arm_ang": 18.801424651114598,
+    "shoulder_s": 0.8941595744316121,
+    "hair_w": 1.5,
+    "hair_fringe": 0.8795857788012812
   },
   "colors": {
-    "skin": "#f0c096",
     "hair": "#5a3a22",
     "blue": "#1d5bb8",
     "gold": "#e0b23a",
+    "leather": "#7a5230",
     "boot": "#4a3222",
     "beard": "#4e3320",
-    "leather": "#7a5230"
+    "skin": "#f0c096"
   },
-  "note": "proportions set by hand to the reference art; boxy is a style choice, not something the search picks",
+  "score": 0.6497,
+  "silhouette": 0.888,
+  "colour": 1.0,
   "reference": "tools/fit/refs/king.png"
 }

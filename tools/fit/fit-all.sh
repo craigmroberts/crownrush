@@ -10,7 +10,7 @@
 set -u
 cd "$(dirname "$0")/../.."
 BLENDER="${BLENDER:-/opt/homebrew/bin/blender}"
-ITERS="${ITERS:-2500}"; TARGET="${TARGET:-0.8}"; JOBS="${JOBS:-4}"
+ITERS="${ITERS:-2500}"; TARGET="${TARGET:-0.8}"; JOBS="${JOBS:-1}"  # Blender already uses every core, so parallel seeds mostly contend; raise only on a big machine
 if [ $# -gt 0 ]; then names="$*"; else names=$(ls tools/fit/refs 2>/dev/null | grep -v '^_' | grep -E '^(king|queen|king_mounted|archer|swordsman|raider|elite|brute|boss)\.(png|jpg|jpeg)$' | sed -E 's/\.(png|jpg|jpeg)$//' | sort -u); fi
 [ -z "$names" ] && { echo "No references found. Put front-view images in tools/fit/refs/<who>.png"; exit 1; }
 summary=()

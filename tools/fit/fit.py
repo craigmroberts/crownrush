@@ -52,9 +52,16 @@ TARGET = flag("--target", 0.8, float)      # layout score (0..1) that counts as 
 PATIENCE = flag("--patience", 0, int)      # kept for old command lines; the sweep search has its own stop
 RES = flag("--res", 160, int)
 SEED = flag("--seed", 1, int)
+MIRROR = flag("--mirror", "auto", str)     # auto | left | right | off: mirror the better half of the reference
+HALF = "--whole" not in args               # build only one side of each mirrored pair and flip it back
+if not HALF:
+    args.remove("--whole")
 SNAP = flag("--snapshot", 0, int)  # write reports/<who>-stage-N.png every N renders, to watch a run
 JOBS = flag("--jobs", 1, int)              # run this many seeds in parallel Blenders and keep the best
 TAG = flag("--tag", "")                     # set by --jobs for its children: suffix for their work files
+FRESH = "--fresh" in args                  # ignore params/<who>.json and start from the builder's defaults
+if FRESH:
+    args.remove("--fresh")
 SUBPROCESS = "--subprocess" in args        # one Blender per render (slow, but isolated) instead of in-process
 if SUBPROCESS:
     args.remove("--subprocess")
@@ -104,12 +111,19 @@ if JOBS > 1:
     best_tag = results[0][1]
     tail = [l for l in open(os.path.join(REPORT_DIR, f"_{WHO}{best_tag}.log")).read().split("\n") if l.startswith(("  ", "colours", "stalled", "complete", "parts costing"))]
     print("\n".join(tail[-16:]))
-    shutil.copy(os.path.join(PARAMS_DIR, f"{WHO}{best_tag}.json"), os.path.join(PARAMS_DIR, f"{WHO}.json"))
-    shutil.copy(os.path.join(REPORT_DIR, f"{WHO}{best_tag}.png"), os.path.join(REPORT_DIR, f"{WHO}.png"))
-    shutil.copy(os.path.join(REPORT_DIR, f"_{WHO}{best_tag}.verdict"), os.path.join(REPORT_DIR, f"_{WHO}.verdict"))
-    for f in os.listdir(REPORT_DIR):  # the losers' files
-        if f.startswith(f"_{WHO}-s") or f.startswith(f"{WHO}-s"):
-            os.remove(os.path.join(REPORT_DIR, f))
+    # the winner's files become the character's, diagnostics included; only the losers' are dropped
+    for src, dst in ((os.path.join(PARAMS_DIR, f"{WHO}{best_tag}.json"), os.path.join(PARAMS_DIR, f"{WHO}.json")),
+                     (os.path.join(REPORT_DIR, f"{WHO}{best_tag}.png"), os.path.join(REPORT_DIR, f"{WHO}.png")),
+                     (os.path.join(REPORT_DIR, f"_{WHO}{best_tag}.verdict"), os.path.join(REPORT_DIR, f"_{WHO}.verdict")),
+                     (os.path.join(REPORT_DIR, f"_{WHO}{best_tag}-labels.png"), os.path.join(REPORT_DIR, f"_{WHO}-labels.png")),
+                     (os.path.join(REPORT_DIR, f"_{WHO}{best_tag}.log"), os.path.join(REPORT_DIR, f"_{WHO}.log"))):
+        if os.path.exists(src):
+            shutil.copy(src, dst)
+    keep = {os.path.basename(p_) for p_ in (f"{WHO}{best_tag}.json",)}
+    for d in (REPORT_DIR, PARAMS_DIR):
+        for f in os.listdir(d):
+            if (f.startswith(f"_{WHO}-s") or f.startswith(f"{WHO}-s")) and f not in keep:
+                os.remove(os.path.join(d, f))
     for f in os.listdir(PARAMS_DIR):
         if f.startswith(f"{WHO}-s"):
             os.remove(os.path.join(PARAMS_DIR, f))
@@ -126,6 +140,7 @@ BOUNDS = {
     "body_h": (0.8, 1.8), "leg_h": (0.6, 1.8), "head_w": (0.8, 1.45), "arm_ang": (0.0, 40.0), "shoulder_s": (0.7, 1.7),
     "crown_s": (0.8, 2.0), "crown_h": (0.7, 2.0), "crown_z": (-0.35, 0.1), "beard_s": (0.8, 1.5), "beard_h": (0.6, 1.3), "hair_w": (0.7, 1.5),
     "hair_fringe": (0.05, 1.3),
+    "sleeve_len": (0.08, 0.9), "gown_waist": (0.6, 1.25), "foot_h": (0.0, 0.22), "hair_len": (0.3, 1.3), "gown_bell": (0.35, 1.0), "arm_fwd": (0.05, 0.3), "arm_x": (0.24, 0.55),
     # discrete: stepped whole, never nudged
     "crown_points": (3, 6),
 }
@@ -133,7 +148,7 @@ DISCRETE = {"crown_points"}
 _NEW = dict(body_h=1.0, leg_h=1.0, head_w=1.0, arm_ang=0.0, shoulder_s=1.0, hair_w=1.0, hair_fringe=1.0)
 DEFAULTS = {
     "king": dict(torso_x=0.34, torso_y=0.29, torso_z=0.33, arm_r=0.09, arm_len=0.32, hand_r=0.085, leg_r=0.105, head_s=1.0, leg_x=0.14, boot_s=1.0, crown_s=1.0, crown_h=1.0, crown_z=0.0, beard_s=1.0, beard_h=1.0, crown_points=5, **_NEW),
-    "queen": dict(torso_x=0.34, torso_y=0.29, torso_z=0.33, arm_r=0.07, arm_len=0.3, hand_r=0.075, leg_r=0.105, head_s=1.0, gown_s=1.0, gown_h=1.0, **_NEW),
+    "queen": dict(torso_x=0.34, torso_y=0.29, torso_z=0.33, arm_r=0.075, arm_len=0.34, hand_r=0.075, leg_r=0.105, head_s=1.0, gown_s=1.0, gown_h=1.0, gown_waist=1.0, sleeve_len=0.3, foot_h=0.1, hair_len=1.0, gown_bell=0.5, arm_fwd=0.16, arm_x=0.34, **_NEW),
     "brute": dict(torso_x=0.42, torso_y=0.36, torso_z=0.36, arm_r=0.12, arm_len=0.36, hand_r=0.11, leg_r=0.13, head_s=1.0, leg_x=0.14, boot_s=1.0, **_NEW),
     "boss": dict(torso_x=0.44, torso_y=0.38, torso_z=0.4, arm_r=0.13, arm_len=0.46, hand_r=0.14, leg_r=0.15, head_s=0.92, leg_x=0.14, boot_s=1.0, **_NEW),
 }
@@ -141,10 +156,11 @@ DEFAULTS = {
 _COMMON = ["torso_x", "torso_z", "arm_r", "arm_len", "hand_r", "head_s", "head_w", "body_h", "arm_ang", "shoulder_s", "hair_w", "hair_fringe"]
 # searched in sections, in the order the frame is anchored: the hands set the width and the boots the
 # floor, so body first, then stance, then head, then everything together
-_BODY = ["torso_x", "torso_z", "body_h", "shoulder_s", "arm_r", "arm_len", "arm_ang", "hand_r", "gown_s", "gown_h"]
-_HEAD = ["head_s", "head_w", "hair_w", "hair_fringe", "beard_s", "beard_h", "crown_s", "crown_h", "crown_z", "crown_points"]
+_BODY = ["torso_x", "torso_z", "body_h", "shoulder_s", "arm_r", "arm_len", "arm_ang", "hand_r", "gown_s", "gown_h", "gown_waist", "gown_bell", "sleeve_len", "foot_h", "arm_fwd", "arm_x"]
+_HEAD = ["head_s", "head_w", "hair_w", "hair_fringe", "hair_len", "beard_s", "beard_h", "crown_s", "crown_h", "crown_z", "crown_points"]
 _LEGS = ["leg_r", "leg_x", "boot_s", "leg_h"]
-KEYS = {"king": _COMMON + _LEGS + ["crown_s", "crown_h", "crown_z", "beard_s", "beard_h", "crown_points"], "queen": _COMMON + ["gown_s", "gown_h"]}
+KEYS = {"king": _COMMON + _LEGS + ["crown_s", "crown_h", "crown_z", "beard_s", "beard_h", "crown_points"],
+        "queen": _COMMON + ["gown_s", "gown_h", "gown_waist", "gown_bell", "sleeve_len", "foot_h", "hair_len", "arm_fwd", "arm_x"]}
 # every palette name the builder knows; each gets a unique flat ID colour for the role render
 PALETTE = ["skin", "hair", "beard", "blue", "gold", "leather", "boot", "white", "black", "red", "pink", "blueEye",
            "horse", "muzzle", "mane", "steel", "steelDark", "navy", "darkRed", "ink", "bone", "boneDark", "wood", "glow"]
@@ -214,6 +230,31 @@ def foreground(px):
         return a > 0.5
     corner = np.median(np.concatenate([px[:4, :4, :3].reshape(-1, 3), px[-4:, -4:, :3].reshape(-1, 3), px[:4, -4:, :3].reshape(-1, 3), px[-4:, :4, :3].reshape(-1, 3)]), axis=0)
     return np.linalg.norm(px[..., :3] - corner, axis=2) > 0.12
+
+def symmetrise(mask, rgb, choose):
+    """These characters are bilaterally symmetric and the art is lit from one side, so one half sits in
+    shadow. The model is built symmetric and rendered flat, so that difference is noise in the score
+    and it drags shaded colours onto the wrong roles. Find the mirror axis and mirror the named half
+    across it. Which half is better is not guessable (brightness gets it wrong), so the caller scores
+    both. Returns the symmetric mask and colours, plus a line saying what it did."""
+    h, w = mask.shape
+    # the mirror axis: flip, then find the shift that best lines the silhouette up with itself
+    flipped = mask[:, ::-1]
+    best_s, best_iou = 0, -1.0
+    for sh in range(-24, 25):
+        cand = np.roll(flipped, sh, axis=1)
+        union = np.logical_or(mask, cand).sum()
+        sc = np.logical_and(mask, cand).sum() / union if union else 0.0
+        if sc > best_iou:
+            best_iou, best_s = sc, sh
+    axis = (w - 1 + best_s) / 2.0
+    idx = np.clip(w - 1 + best_s - np.arange(w), 0, w - 1)
+    mir_m, mir_c = mask[:, idx], rgb[:, idx]
+    cols = np.arange(w)
+    use_mir = (cols > axis) if choose == "left" else (cols < axis)
+    out_m = np.where(use_mir[None, :], mir_m, mask)
+    out_c = np.where(use_mir[None, :, None], mir_c, rgb)
+    return out_m, out_c, f"{choose} half mirrored about x={axis:.1f}, halves {int(best_iou * 100)}% alike"
 
 def fit_frame(mask, rgb, n, height):
     """Crop to the mask's bounding box, scale it to n wide (aspect kept), and stand it on the floor of an
@@ -348,7 +389,7 @@ def quiet():
         os.close(null)
 
 _builder_src = None
-def render(params, ids=False):
+def render(params, ids=False, half=False):
     """Build + front-render with these params. In-process by default: the builder resets the scene
     itself, so running it again in the same Blender is a fresh build without the 1 s start-up.
     ids=True colours every part by index instead (see part_table)."""
@@ -357,6 +398,8 @@ def render(params, ids=False):
     argv = ["blender", "-b", "-P", BUILDER, "--", WHO, "-", "--params", WORK_PARAMS, "--front", WORK_RENDER]
     if ids:
         argv += ["--ids", WORK_IDS]
+    if half:
+        argv += ["--half"]
     if SUBPROCESS:
         r = subprocess.run([BLENDER] + argv[1:], capture_output=True, text=True, cwd=ROOT)
         if not os.path.exists(WORK_RENDER):
@@ -376,7 +419,16 @@ def render(params, ids=False):
             raise SystemExit("builder produced no render (run with --subprocess to see its output)")
     px = load_rgba(WORK_RENDER)
     os.remove(WORK_RENDER)
+    if half:
+        px = unmirror(px)
     return px
+
+def unmirror(px):
+    """Put back the side the half build skipped. The camera is centred on the model, so the mirror is
+    an exact column flip; parts on the centre line are in both and keep their own pixels."""
+    mir = px[:, ::-1]
+    have = px[..., 3] > 0.5
+    return np.where(have[..., None], px, mir)
 
 def to_props(p):
     return {"torso": [p["torso_x"], p["torso_y"], p["torso_z"]], **{k: v for k, v in p.items() if not k.startswith("torso_")}}
@@ -404,18 +456,31 @@ def compose(ref_m, ref_c, m, c, ref_lab=None, lab=None):
 # ---------- go ----------
 t0 = time.time()
 ref = load_rgba(REF)
-_fg = foreground(ref)
-_ys, _xs = np.where(_fg)
+_fg0, _rgb0 = foreground(ref), ref[..., :3]
+# These characters are symmetric but the art is lit from one side. Mirroring one half removes that
+# difference, which is pure noise against a symmetric model. Which half reads better is decided by
+# score further down, not guessed here.
+CANDS = {"off": (_fg0, _rgb0, "reference used whole")}
+if MIRROR != "off":
+    for _h in ("left", "right"):
+        _m2, _c2, _n2 = symmetrise(_fg0, _rgb0, _h)
+        CANDS[_h] = (_m2, _c2, _n2)
+_fg = CANDS[MIRROR][0] if MIRROR in CANDS else _fg0
+_ys, _xs = np.where(_fg0)
 # frame: RES wide, the reference's own height plus a quarter of headroom for a taller guess
 FRAME_H = int(round((RES - 4) * (_ys.max() - _ys.min() + 1) / (_xs.max() - _xs.min() + 1) * 1.25)) + 2
-ref_m, ref_c = fit_frame(_fg, ref[..., :3], RES, FRAME_H)
+def framed(name):
+    m_, c_, n_ = CANDS[name]
+    fm, fc = fit_frame(m_, c_, RES, FRAME_H)
+    return fm, fc, n_
+ref_m, ref_c, _ = framed(MIRROR if MIRROR in CANDS else "off")
 print(f"reference {os.path.basename(REF)}: {ref.shape[1]}x{ref.shape[0]}, subject covers {int(foreground(ref).mean() * 100)}% of the image")
 
 colors = {}
 
 p = dict(DEFAULTS.get(WHO, DEFAULTS["king"]))
 existing = os.path.join(PARAMS_DIR, f"{WHO}.json")
-if os.path.exists(existing):
+if os.path.exists(existing) and not FRESH:
     prev = json.load(open(existing))
     if "props" in prev:
         pr = prev["props"]
@@ -424,9 +489,10 @@ if os.path.exists(existing):
 keys = [k for k in KEYS.get(WHO, _COMMON + _LEGS) if k in p]
 
 renders = 0
-def render_fit(p, cols, ids=False, aa=True):
+def render_fit(p, cols, ids=False, aa=True, half=None):
     global renders
-    px = render({"props": to_props(p), "colors": cols, "front_res": RES, "front_aa": aa}, ids=ids)
+    px = render({"props": to_props(p), "colors": cols, "front_res": RES, "front_aa": aa},
+                ids=ids, half=HALF if half is None else half)
     renders += 1
     return fit_frame(foreground(px), px[..., :3], RES, FRAME_H)
 
@@ -434,7 +500,7 @@ def part_table(p):
     """Which parts sit where the reference shows something else. Every part is rendered in its own
     colour, so each yellow pixel of the overlay can be charged to a part by name: the list of what to
     add a control for, or take away, next."""
-    m, c = render_fit(p, {}, ids=True, aa=False)
+    m, c = render_fit(p, {}, ids=True, aa=False, half=False)
     names = json.load(open(WORK_IDS))
     idx = np.round(c * 7).astype(int)
     part_of = idx[..., 0] + idx[..., 1] * 8 + idx[..., 2] * 64
@@ -535,8 +601,33 @@ def evaluate(p):
     lab = label(m, c, centres)
     return layout_score(ref_m, ref_lab, m, lab), m, c, lab
 
+if HALF:
+    # The half build is a proxy for the real character. Prove it matches before trusting it: fitting a
+    # model we do not ship is exactly the sort of quiet mismatch that wasted a run earlier.
+    hm, _ = render_fit(p, colors, half=True)
+    wm, _ = render_fit(p, colors, half=False)
+    agree = iou_of(hm, wm)
+    if agree < 0.99:
+        HALF = False
+        print(f"half builds disabled: they differ from the real character (overlap {agree:.3f}); building whole")
+    else:
+        print(f"half builds on: a third fewer primitives, {agree:.4f} overlap with the real character")
+
 # phase 1: shape and layout, with the colours fixed.
 best, best_m, best_c, best_lab = evaluate(p)
+if MIRROR == "auto":
+    # score the same render against the whole reference and each mirrored half, and keep the best.
+    # Relabelling is arithmetic on a render we already have, so this costs no extra Blender work.
+    picks = []
+    for name in CANDS:
+        fm, fc, note = framed(name)
+        flab = label(fm, fc, centres)
+        picks.append((layout_score(fm, flab, best_m, best_lab), name, fm, fc, flab, note))
+    picks.sort(key=lambda t: -t[0])
+    print("reference halves: " + ", ".join(f"{n} {sc:.3f}" for sc, n, *_ in picks))
+    sc, name, ref_m, ref_c, ref_lab, note = picks[0]
+    print(f"using the {name} reading ({note})")
+    best, best_m, best_c, best_lab = evaluate(p)
 print(f"start  score {best:.3f} (silhouette {iou_of(ref_m, best_m):.3f})  ({len(keys)} controls: {', '.join(keys)})")
 step = {k: 0.12 for k in keys}  # as a fraction of each control's range
 last_snap = 0
