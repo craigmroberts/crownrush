@@ -1,7 +1,7 @@
 import { Game } from './game.js';
 import { Hud } from './hud.js';
 import { audio } from './audio.js';
-import { preloadRigs } from './rig.js';
+import { preloadRigs, renderPortrait } from './rig.js';
 import { preloadIcons, mountIcons, iconSvg } from './icons.js';
 
 const canvas = document.getElementById('game');
@@ -17,12 +17,31 @@ try {
 hud.showStart(game.best);
 const startBtn = document.getElementById('start-btn');
 startBtn.disabled = true;
-startBtn.textContent = 'Loading…';
+startBtn.classList.add('hidden');
 mountIcons();
-Promise.all([preloadIcons(), document.fonts ? document.fonts.ready : Promise.resolve(), preloadRigs(['king', 'queen', 'king_mounted', 'archer', 'swordsman', 'raider', 'elite', 'brute', 'boss'])]).then(() => {
+// #5: a real loading bar. The nine character models are most of the download, so they drive it.
+const loadBar = document.getElementById('load-bar');
+const setLoad = (frac, text) => {
+  loadBar.firstElementChild.style.width = `${Math.round(frac * 100)}%`;
+  document.getElementById('load-text').textContent = text;
+};
+setLoad(0.05, 'Loading…');
+const RIGS = ['king', 'queen', 'king_mounted', 'archer', 'swordsman', 'raider', 'elite', 'brute', 'boss'];
+Promise.all([preloadIcons(), document.fonts ? document.fonts.ready : Promise.resolve(), preloadRigs(RIGS, (n, total) => setLoad(0.1 + (0.85 * n) / total, `Loading ${n} of ${total}…`))]).then(() => {
   game.pads.forEach((p) => game.drawPad(p));
+  // the title portraits come from the rigs that just loaded
+  try {
+    const k = renderPortrait('king');
+    const q = renderPortrait('queen');
+    if (k) document.getElementById('hero-king').src = k;
+    if (q) document.getElementById('hero-queen').src = q;
+  } catch (e) {
+    console.warn('portraits skipped', e);
+  }
+  setLoad(1, 'Ready');
+  loadBar.classList.add('done');
   startBtn.disabled = false;
-  startBtn.textContent = 'Play';
+  startBtn.classList.remove('hidden');
 });
 // #6: the first time through, Play opens a short stepped intro; after that it goes straight in
 const INTRO_KEY = 'crownrush-intro-seen';

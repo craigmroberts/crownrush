@@ -119,7 +119,8 @@ export function rigReady(name) {
 }
 
 // Preload; call before the game starts so spawns can use the models synchronously.
-export async function preloadRigs(names) {
+export async function preloadRigs(names, onProgress = null) {
+  let done = 0;
   for (const n of names) {
     try {
       const gltf = await loadRig(n);
@@ -127,7 +128,39 @@ export async function preloadRigs(names) {
     } catch (e) {
       console.warn('rig failed to load', n, e);
     }
+    done++;
+    if (onProgress) onProgress(done, names.length);
   }
+}
+
+// #5: a portrait of a character for the title screen, rendered from the real rig in a throwaway
+// renderer so the art always matches the game and costs nothing extra to download.
+export function renderPortrait(name, w = 300, h = 380, tints = null) {
+  const rig = makeRigged(name, tints);
+  if (!rig) return null;
+  const canvas = document.createElement('canvas');
+  const r = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+  r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  r.setSize(w, h, false);
+  r.outputColorSpace = THREE.SRGBColorSpace;
+  r.toneMapping = THREE.ACESFilmicToneMapping;
+  r.toneMappingExposure = 1.15;
+  const scene = new THREE.Scene();
+  scene.add(new THREE.HemisphereLight(0xfff8ea, 0x8fb86a, 1.5));
+  const sun = new THREE.DirectionalLight(0xfff1d6, 1.6);
+  sun.position.set(2, 4, 3);
+  scene.add(sun);
+  rig.mesh.rotation.y = name === 'queen' ? 0.35 : -0.35;
+  scene.add(rig.mesh);
+  rig.play('Idle');
+  rig.mixer.update(0.4);
+  const cam = new THREE.PerspectiveCamera(30, w / h, 0.1, 20);
+  cam.position.set(0, 1.35, 4.6);
+  cam.lookAt(0, 1.05, 0);
+  r.render(scene, cam);
+  const url = canvas.toDataURL('image/png');
+  r.dispose();
+  return url;
 }
 
 // Recoloured variants (enemy ranks, hair colours) share one geometry per variant, so a hundred

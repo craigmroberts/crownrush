@@ -51,10 +51,15 @@
     <div id="alarm" class="hidden">The Keep is under attack!</div>
 
     <div id="start-screen" class="overlay">
-      <div class="panel">
-        <h1>Crown Rush</h1>
+      <div class="panel title">
+        <div class="heroes">
+          <img id="hero-king" alt="" draggable="false">
+          <div class="lockup"><i data-icon="crown" data-size="44"></i><h1>Crown Rush</h1></div>
+          <img id="hero-queen" alt="" draggable="false">
+        </div>
         <p>Rescue the Queen, then hold the kingdom through the nights.</p>
         <p class="hint">Drag anywhere to move · or use WASD / arrow keys.</p>
+        <div id="load-bar"><i></i><span id="load-text">Loading…</span></div>
         <button id="start-btn">Play</button>
         <p class="best">Best: night <span id="best-wave">1</span></p>
       </div>

@@ -57,6 +57,13 @@ same Wi-Fi and open the "Network" URL that Vite prints instead.
 - Everything else is automatic: the King and his archers shoot the nearest enemy, coins are picked up by
   walking near them, and standing on a build pad spends coins one at a time.
 
+## The title screen
+
+The start panel shows the King and Queen either side of a gold "Crown Rush" lockup. The portraits are
+rendered at load from the real character rigs in a throwaway renderer (`renderPortrait` in
+[src/rig.js](src/rig.js)), so they always match the game and add nothing to the download. A loading
+bar counts the nine character models in and hands over to the Play button when everything is ready.
+
 ## The intro
 
 The first time you press Play, four short steps explain the game one idea at a time (find the Queen,
