@@ -59,8 +59,11 @@ same Wi-Fi and open the "Network" URL that Vite prints instead.
 
 ## The opening: rescue the Queen
 
-The Queen starts captive in the wilds (`CFG.rescue`), guarded by three Bandits who stand still until
-the King comes close. A pink arrow points to her.
+The Queen starts captive in the wilds (`CFG.rescue`). Three Bandits circle her and she edges away from
+whichever is nearest, so the scene reads as a capture from a distance rather than as four figures
+standing in a field. A pink arrow points to her. Come within sight and she calls out with a heart while
+the guards turn and square up, then a beat later they charge. Free her and she goes up in a burst of
+hearts, with the odd one drifting up between the two of them afterwards on a quiet day.
 
 **Nothing happens until you go and get her.** No raiders spawn while she is captive, however long you
 take, and no build pad will accept payment: pads stay visible but shut, marked "Free the Queen". The

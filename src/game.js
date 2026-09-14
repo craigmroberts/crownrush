@@ -9,7 +9,7 @@ import {
   makeKing, makeKingFoot, makeQueen, makeKeep, makeLumberTree, makeOreRock, makeResourceCube, RES_MATS, CHIP_GEO, makeTool, makeArcher, makeSwordsman, makeKnight, makeElite, makeBrute, makeBoss, makeCoin, makeArrow,
   makeHut, makeTower, makeBarracks, makeWallSegment, makeGate, makeRubble, makeBridge, makePad, drawPad, ghostify,
   makeHealthBar, setHealthBar, HealthBars, disposeHealthBar, clearHealthBars, makePopup, makeRing, makeSpawnFx, makeBurst, makeCoinStack,
-  makeBank, makeGatePost, COIN_TIER_COLORS,
+  makeBank, makeGatePost, makeHeart, COIN_TIER_COLORS,
 } from './models.js';
 
 const V3 = THREE.Vector3;
@@ -128,6 +128,12 @@ export class Game {
     this.fx = [];
     this.alarmT = 0;
     this.raidWarning = 0;
+    this.rescueSpotted = false;
+    this.alertT = 0;
+    this.queenHop = 0;
+    this.heartTimer = 0;
+    this._pen = new V3(CFG.rescue.pos[0], 0, CFG.rescue.pos[1]);
+    this._penDir = new V3();
     this.lastAlarm = -99;
     this.swing = 0;
     this.activePad = null;
@@ -166,8 +172,10 @@ export class Game {
     this.queen.captive = true;
     for (let i = 0; i < CFG.rescue.captors; i++) {
       const a = (i / CFG.rescue.captors) * Math.PI * 2 + 0.6;
-      const e = this.spawnEnemy('knight', CFG.rescue.pos[0] + Math.cos(a) * 2.4, CFG.rescue.pos[1] + Math.sin(a) * 2.4, 0);
+      const e = this.spawnEnemy('knight', CFG.rescue.pos[0] + Math.cos(a) * 2.3, CFG.rescue.pos[1] + Math.sin(a) * 2.3, 0);
       e.captor = true;
+      e.orbit = a;
+      e.orbitDir = i % 2 ? -1 : 1;
       e.mesh.rotation.y = Math.atan2(-Math.cos(a), -Math.sin(a));
     }
     const hc = TIERS[0].bounds;
@@ -1491,6 +1499,21 @@ export class Game {
     this.fx.push({ kind: 'spawn', mesh: g, t: 0, life: 1.1 });
   }
 
+  // #10: the rescue gets hearts rather than the generic spawn flourish every purchase uses
+  heartFx(pos, n = 10, spread = 1.1) {
+    for (let i = 0; i < n; i++) {
+      const s = makeHeart();
+      s.position.copy(pos);
+      s.position.x += rand(-spread, spread);
+      s.position.z += rand(-spread, spread);
+      s.position.y += rand(0.2, 1.2);
+      const size = rand(0.5, 0.95);
+      s.scale.setScalar(size);
+      this.root.add(s);
+      this.fx.push({ kind: 'heart', mesh: s, t: 0, life: rand(1.1, 1.9), size, vy: rand(1.5, 2.8), vx: rand(-0.5, 0.5), vz: rand(-0.5, 0.5), sway: rand(0, 6.3) });
+    }
+  }
+
   burstFx(pos, color, size, life) {
     const s = makeBurst(color);
     s.position.copy(pos);
@@ -1520,6 +1543,13 @@ export class Game {
           sp.userData.vy -= 4 * dt;
           sp.material.opacity = 1 - p;
         }
+      } else if (f.kind === 'heart') {
+        f.mesh.position.y += f.vy * dt;
+        f.mesh.position.x += (f.vx + Math.sin(f.sway + f.t * 3) * 0.5) * dt;
+        f.mesh.position.z += f.vz * dt;
+        f.vy *= 1 - dt * 0.7;
+        f.mesh.scale.setScalar(f.size * (0.4 + Math.min(1, p * 4) * 0.6) * (1 + p * 0.25));
+        f.mesh.material.opacity = p < 0.25 ? p / 0.25 : 1 - (p - 0.25) / 0.75;
       } else {
         f.mesh.scale.setScalar(f.size * (0.4 + p * 0.8));
         f.mesh.material.opacity = 1 - p * p;
@@ -1821,17 +1851,91 @@ export class Game {
   // The Queen trails the King until she has a keep to shelter in.
   // Captive Queen: stands still under guard. Captors wake when the King gets close; once they are
   // gone and he reaches her, she is free and follows him from then on.
+  // #11: she is held, not parked. She edges away from whichever guard is nearest and they close
+  // back in, which reads as a capture from a distance without needing the toast to explain it.
   updateCaptive(dt) {
     const q = this.queen;
-    q.moving = false;
-    this.animateWalk(q, 0, dt);
-    q.bar.visible = false;
+    const R = CFG.rescue;
+    const p = q.mesh.position;
     const kp = this.king.mesh.position;
-    const d = kp.distanceTo(q.mesh.position);
-    if (d < 14) q.mesh.rotation.y = this.lerpAngle(q.mesh.rotation.y, Math.atan2(kp.x - q.mesh.position.x, kp.z - q.mesh.position.z), 1 - Math.exp(-dt * 6));
-    if (d < CFG.rescue.aggroRadius) for (const e of this.enemies) if (e.captor) e.captor = false;
-    const guarded = this.enemies.some((e) => e.mesh.position.distanceTo(q.mesh.position) < 10);
-    if (d < CFG.rescue.freeRadius && !guarded) this.freeQueen();
+    const d = kp.distanceTo(p);
+    const captors = this.enemies.filter((e) => e.captor);
+
+    // spotted: the guards turn on him after a beat, and she calls out
+    if (d < R.noticeRadius && !this.rescueSpotted) {
+      this.rescueSpotted = true;
+      this.alertT = R.alert;
+      this.queenHop = 1;
+      tmp.copy(p).setY(2.5);
+      this.heartFx(tmp, 1, 0.05);
+      audio.alarm();
+    }
+    if (this.rescueSpotted && this.alertT > 0) {
+      this.alertT -= dt;
+      if (this.alertT <= 0) for (const e of captors) e.captor = false;
+    }
+
+    // she backs away from the nearest guard, but her pen pulls her back, so she paces
+    let near = null;
+    let nd = Infinity;
+    for (const e of captors) {
+      const dd = e.mesh.position.distanceToSquared(p);
+      if (dd < nd) {
+        nd = dd;
+        near = e;
+      }
+    }
+    let moving = 0;
+    if (near) {
+      tmp2.subVectors(p, near.mesh.position);
+      tmp2.y = 0;
+      const back = p.distanceTo(this._pen) / R.penRadius;
+      tmp2.normalize().addScaledVector(this._penDir.subVectors(this._pen, p).setY(0).normalize(), back * 1.6);
+      if (tmp2.lengthSq() > 1e-4) {
+        tmp2.normalize().multiplyScalar(R.queenSpeed * dt);
+        p.add(tmp2);
+        moving = 0.7;
+      }
+    }
+    this.collideRiver(p, 0.3);
+    if (this.queenHop > 0) this.queenHop = Math.max(0, this.queenHop - dt * 1.6);
+    p.y = this.queenHop > 0 ? Math.sin((1 - this.queenHop) * Math.PI) * 0.45 : 0;
+    const look = d < R.noticeRadius ? kp : near ? near.mesh.position : this._pen;
+    q.mesh.rotation.y = this.lerpAngle(q.mesh.rotation.y, Math.atan2(look.x - p.x, look.z - p.z), 1 - Math.exp(-dt * 6));
+    q.moving = moving > 0;
+    this.animateWalk(q, moving, dt);
+    q.bar.visible = false;
+
+    if (d < R.freeRadius && captors.length === 0) this.freeQueen();
+  }
+
+  // Guards circle their prisoner and close in when she drifts, rather than standing in a triangle.
+  updateCaptor(e, dt) {
+    const R = CFG.rescue;
+    const q = this.queen.mesh.position;
+    const p = e.mesh.position;
+    if (this.rescueSpotted && this.alertT > 0) {
+      // spotted him: turn and square up before the charge
+      this.faceTowards(e.mesh, this.king.mesh.position, dt, 6);
+      e.moving = false;
+      this.animateWalk(e, 0, dt);
+      return;
+    }
+    if (e.orbit === undefined) e.orbit = Math.atan2(p.z - q.z, p.x - q.x);
+    e.orbit += dt * 0.32 * (e.orbitDir || 1);
+    const ring = 2.3;
+    tmp2.set(q.x + Math.cos(e.orbit) * ring - p.x, 0, q.z + Math.sin(e.orbit) * ring - p.z);
+    const d = tmp2.length();
+    let moving = 0;
+    if (d > 0.12) {
+      tmp2.normalize().multiplyScalar(Math.min(R.guardSpeed * dt, d));
+      p.add(tmp2);
+      moving = Math.min(1, d);
+    }
+    this.collideRiver(p, e.radius);
+    this.faceTowards(e.mesh, q, dt, 5);
+    e.moving = moving > 0.05;
+    this.animateWalk(e, moving, dt);
   }
 
   freeQueen() {
@@ -1839,7 +1943,9 @@ export class Game {
     q.captive = false;
     q.hp = q.maxHp;
     setHealthBar(q.bar, 1);
-    this.spawnFx(q.mesh.position.x, q.mesh.position.z, 0xf7a1c4);
+    tmp.copy(q.mesh.position).setY(1.0);
+    this.heartFx(tmp, 14, 1.2);
+    this.heartTimer = 9;
     audio.unlock();
     this.addScore(CFG.score.rescue);
     // taking her back is what brings the raiders: wind the sun to just before dusk
@@ -1875,6 +1981,15 @@ export class Game {
     this.collideRiver(p, 0.3);
     this.collideKeep(p, 0.3);
     if (d > 16) p.set(k.position.x + rand(-1, 1), 0, k.position.z + rand(-1, 1));
+    // a heart now and then while she is close and safe, rarely enough to stay charming
+    this.heartTimer -= dt;
+    if (this.heartTimer <= 0) {
+      this.heartTimer = rand(16, 26);
+      if (d < 4 && this.enemies.length === 0 && !this.night) {
+        tmp.copy(p).setY(2.3).lerp(tmp2.copy(k.position).setY(2.3), 0.5);
+        this.heartFx(tmp, 1, 0.25);
+      }
+    }
     // passing an intact Keep, she steps inside
     if (this.keep && this.keep.state === 'built' && Math.hypot(p.x - this.keep.x, p.z - this.keep.z) < 3.6) return this.queenEnterKeep();
     q.moving = moving > 0.05;
@@ -2078,9 +2193,7 @@ export class Game {
     }
     for (const e of this.enemies) {
       if (e.captor) {
-        // guarding the Queen: stand still until the King comes close
-        e.moving = false;
-        this.animateWalk(e, 0, dt);
+        this.updateCaptor(e, dt);
         continue;
       }
       if (e.type === 'thief') {

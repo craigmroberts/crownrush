@@ -404,6 +404,45 @@ export function makeSpawnFx(color = 0xff9a2e) {
 }
 
 const burstCache = {};
+// A little heart, used for the rescue and for the odd quiet moment while she follows the King.
+let heartTex = null;
+export function makeHeart() {
+  if (!heartTex) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const ctx = c.getContext('2d');
+    const heart = (scale, fill) => {
+      ctx.save();
+      ctx.translate(64, 70);
+      ctx.scale(scale, scale);
+      ctx.beginPath();
+      ctx.moveTo(0, 22);
+      ctx.bezierCurveTo(-34, -2, -26, -34, 0, -18);
+      ctx.bezierCurveTo(26, -34, 34, -2, 0, 22);
+      ctx.closePath();
+      ctx.fillStyle = fill;
+      ctx.fill();
+      ctx.restore();
+    };
+    heart(1.5, '#b3255c');
+    heart(1.3, '#ff5d8f');
+    ctx.save();
+    ctx.translate(52, 48);
+    ctx.rotate(-0.5);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 9, 5, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.fill();
+    ctx.restore();
+    heartTex = new THREE.CanvasTexture(c);
+    heartTex.colorSpace = THREE.SRGBColorSpace;
+  }
+  const m = new THREE.SpriteMaterial({ map: heartTex, transparent: true, depthTest: false, toneMapped: false });
+  const s = new THREE.Sprite(m);
+  s.renderOrder = 21;
+  return s;
+}
+
 export function makeBurst(color = '#ffffff') {
   if (!burstCache[color]) {
     const c = document.createElement('canvas');
