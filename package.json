@@ -12,7 +12,7 @@
     "probe": "node tools/probe/probe.mjs"
   },
   "dependencies": {
-    "three": "^0.170.0"
+    "three": "^0.186.0"
   },
   "devDependencies": {
     "playwright": "^1.63.0",
