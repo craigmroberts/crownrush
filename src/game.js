@@ -131,6 +131,7 @@ export class Game {
     this.alarmT = 0;
     this.raidWarning = 0;
     this.rescueSpotted = false;
+    this.recaptures = 0;
     this.alertT = 0;
     this.queenHop = 0;
     this.heartTimer = 0;
@@ -863,6 +864,7 @@ export class Game {
   // Towers keep their level and crew, the Keep keeps its health bar and the Queen on the balcony.
   rebuildStructures() {
     this.structures.forEach((s, i) => {
+      if (s.kind === 'keep' && (!this.keep || this.keep.state !== 'built')) return;
       const t = s.kind === 'tower' ? this.towers[s.id] : null;
       const m = this.makeStructureMesh(s.kind, t ? t.level : 1);
       m.position.copy(s.mesh.position);
@@ -1198,7 +1200,8 @@ export class Game {
   restoreKeep() {
     const k = this.keep;
     this.root.remove(k.mesh);
-    k.mesh = makeKeep();
+    k.mesh = makeKeep(this.materialName());
+    { const rec = this.structures.find((x) => x.kind === 'keep'); if (rec) rec.mesh = k.mesh; }
     k.mesh.position.set(k.x, 0, k.z);
     k.state = 'built';
     k.level = this.wallLevel;
@@ -1494,6 +1497,7 @@ export class Game {
 
   killEnemy(e) {
     this.enemies.splice(this.enemies.indexOf(e), 1);
+    if (e.escort && this.queen.taken && !this.enemies.some((x) => x.escort)) this.rescueTaken();
     e.bar.visible = false;
     this.dying.push({ mesh: e.mesh, t: 0.5 });
     tmp.copy(e.mesh.position).setY(e.type === 'boss' ? 2.5 : 1.0);
@@ -1673,7 +1677,8 @@ export class Game {
     if (u.type === 'queen') this.raiseAlarm('The Queen is under attack!');
     setHealthBar(u.bar, Math.max(0, u.hp / u.maxHp));
     if (u.hp <= 0) {
-      if (u.type === 'king' || u.type === 'queen') {
+      if (u.type === 'queen') return this.captureQueen();
+      if (u.type === 'king') {
         this.gameOver(u.type);
         return;
       }
@@ -1948,6 +1953,7 @@ export class Game {
   // back in, which reads as a capture from a distance without needing the toast to explain it.
   updateCaptive(dt) {
     const q = this.queen;
+    if (q.taken) return this.updateTaken(dt);
     const R = CFG.rescue;
     const p = q.mesh.position;
     const kp = this.king.mesh.position;
@@ -2199,6 +2205,101 @@ export class Game {
     }
   }
 
+  // Nearest map edge reachable WITHOUT crossing the river (a runner that had to cross would pin
+  // itself against the bank and never leave).
+  edgeExit(p) {
+    const half = CFG.world.size / 2 - 4;
+    const mySide = this.world.riverInfo(p.x, p.z).side;
+    const cands = [{ x: half, z: p.z }, { x: -half, z: p.z }, { x: p.x, z: half }, { x: p.x, z: -half }];
+    cands.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z));
+    return cands.find((c) => this.world.riverInfo(c.x, c.z).side === mySide) || cands[0];
+  }
+
+  topRank() {
+    let top = 0;
+    CFG.ranks.forEach((r, i) => { if (r.fromLevel <= this.baseLevel) top = i; });
+    return top;
+  }
+
+  // #16: losing the Queen starts a chase, not a lose screen. Raiders pick her up and carry her toward
+  // the edge; cut the escort down before they get there and she is back, wounded, and the Keep pays.
+  // It can happen once per run. The second time is the end.
+  captureQueen() {
+    const q = this.queen;
+    if (this.recaptures >= CFG.rescue.recaptures) return this.gameOver('queen');
+    this.recaptures++;
+    q.captive = true;
+    q.taken = true;
+    q.inKeep = false;
+    q.hp = q.maxHp * 0.25;
+    q.bar.visible = false;
+    const p = q.mesh.position;
+    const exit = this.edgeExit(p);
+    const rank = this.topRank();
+    q.escort = [];
+    for (let i = 0; i < CFG.rescue.escort; i++) {
+      const e = this.spawnEnemy('knight', p.x + rand(-1.3, 1.3), p.z + rand(-1.3, 1.3), rank);
+      e.escort = true;
+      e.exit = exit;
+      e.maxHp = e.hp = e.maxHp * 1.5;
+      q.escort.push(e);
+    }
+    this.raiseAlarm('The Queen has been taken!');
+    this.hud.toast('The Queen has been taken! Cut down her escort before they reach the edge.', 3800);
+    audio.wave(true);
+  }
+
+  // escorts march for the edge with her; the first one alive is the one carrying her
+  updateEscort(e, dt) {
+    const p = e.mesh.position;
+    const R = CFG.rescue;
+    tmp2.set(e.exit.x - p.x, 0, e.exit.z - p.z);
+    const d = tmp2.length();
+    this.faceTowards(e.mesh, tmp.set(e.exit.x, 0, e.exit.z), dt, 8);
+    if (d > 0.1) {
+      tmp2.normalize().multiplyScalar(Math.min(R.escortSpeed * dt, d));
+      p.add(tmp2);
+    }
+    this.collideRiver(p, e.radius);
+    e.moving = true;
+    this.animateWalk(e, 1, dt);
+    const half = CFG.world.size / 2 - 4;
+    if (Math.abs(p.x) > half - 0.5 || Math.abs(p.z) > half - 0.5) this.gameOver('taken');
+  }
+
+  updateTaken(dt) {
+    const q = this.queen;
+    const lead = (q.escort || []).find((e) => this.enemies.includes(e));
+    if (!lead) return this.rescueTaken();
+    const lp = lead.mesh.position;
+    // carried just behind the leader
+    tmp.set(lp.x - Math.sin(lead.mesh.rotation.y) * 0.9, 0, lp.z - Math.cos(lead.mesh.rotation.y) * 0.9);
+    q.mesh.position.lerp(tmp, 1 - Math.exp(-dt * 12));
+    q.mesh.position.y = 0;
+    q.mesh.rotation.y = lead.mesh.rotation.y;
+    q.moving = true;
+    this.animateWalk(q, 1, dt);
+    q.bar.visible = false;
+  }
+
+  rescueTaken() {
+    const q = this.queen;
+    q.taken = false;
+    q.captive = false;
+    q.escort = null;
+    q.hp = q.maxHp * 0.4;
+    setHealthBar(q.bar, q.hp / q.maxHp);
+    tmp.copy(q.mesh.position).setY(1.0);
+    this.heartFx(tmp, 8, 0.9);
+    this.addScore(CFG.score.recapture);
+    if (this.keep && this.keep.state === 'built') {
+      this.keep.hp = Math.max(1, this.keep.hp - this.keep.maxHp * CFG.rescue.keepCost);
+      setHealthBar(this.keep.bar, this.keep.hp / this.keep.maxHp);
+      this.hud.toast('The Queen is back, shaken. The Keep paid dearly for it.', 3400);
+    } else this.hud.toast('The Queen is back, shaken. Get her somewhere safe.', 3200);
+    audio.unlock();
+  }
+
   // A thief runs at the King, grabs coins off his stack and bolts for the edge of the map. It ignores
   // walls and never fights, so the answer is archers and speed, not fortification.
   updateThief(e, dt) {
@@ -2206,13 +2307,7 @@ export class Game {
     const half = CFG.world.size / 2 - 4;
     if (e.state === 'flee') {
       // head for whichever edge is nearest, carrying the loot in plain sight
-      if (!e.exit) {
-        // nearest edge it can reach WITHOUT crossing the river, or it would pin itself on the bank
-        const mySide = this.world.riverInfo(p.x, p.z).side;
-        const cands = [{ x: half, z: p.z }, { x: -half, z: p.z }, { x: p.x, z: half }, { x: p.x, z: -half }];
-        cands.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z));
-        e.exit = cands.find((c) => this.world.riverInfo(c.x, c.z).side === mySide) || cands[0];
-      }
+      if (!e.exit) e.exit = this.edgeExit(p);
       tmp2.set(e.exit.x - p.x, 0, e.exit.z - p.z);
       const d = tmp2.length();
       this.faceTowards(e.mesh, tmp.set(e.exit.x, 0, e.exit.z), dt, 10);
@@ -2287,6 +2382,10 @@ export class Game {
     for (const e of this.enemies) {
       if (e.captor) {
         this.updateCaptor(e, dt);
+        continue;
+      }
+      if (e.escort) {
+        this.updateEscort(e, dt);
         continue;
       }
       if (e.type === 'thief') {

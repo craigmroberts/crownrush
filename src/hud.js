@@ -119,7 +119,7 @@ export class Hud {
     this.startScreen.classList.add('hidden');
   }
   showGameOver(wave, coins, score, best, reason = 'king') {
-    document.getElementById('gameover-title').textContent = reason === 'queen' ? 'The Queen Has Fallen' : 'The King Has Fallen';
+    document.getElementById('gameover-title').textContent = reason === 'taken' ? 'The Queen Was Carried Away' : reason === 'queen' ? 'The Queen Was Lost' : 'The King Has Fallen';
     document.getElementById('final-wave').textContent = wave;
     document.getElementById('final-coins').textContent = coins;
     document.getElementById('final-score').textContent = score.toLocaleString();

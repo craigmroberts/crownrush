@@ -113,6 +113,14 @@ so walking across one costs nothing.
 - **Train Archers** at the range: +25% damage and +20% health per level for every archer, including
   ones already recruited (`CFG.archerTraining`).
 
+## Losing the Queen is a chase
+
+If the Queen's health hits zero she is not killed: raiders pick her up and march her toward the map
+edge at a pace the King can catch (`CFG.rescue.escort`, `escortSpeed`). The pink arrow points to her
+and nothing can be built until she is back. Cut down the whole escort and she is freed, shaken, and
+the Keep loses a chunk of its health for it. It can happen once per run (`recaptures`); a second
+capture, or an escort reaching the edge, ends the game.
+
 ## Day and night
 
 The sun is the clock. Daylight is for gathering, building, recruiting and repairing; the raid arrives

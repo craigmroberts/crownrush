@@ -16,6 +16,12 @@ export const CFG = {
     alert: 1.1, // beat between being spotted and the charge
     queenSpeed: 2.2,
     guardSpeed: 2.6,
+    // #16: losing her is a chase, not a lose screen. `escort` raiders carry her toward the map edge
+    // at `escortSpeed`; catch them and she is back, wounded, and the Keep pays. `recaptures` times.
+    escort: 2,
+    escortSpeed: 4.0,
+    recaptures: 1,
+    keepCost: 0.4,
   },
   keep: { hp: 420, hpPerLevel: 90, radius: 2.1, half: 1.7, materialBonus: 420 },
 
@@ -57,7 +63,7 @@ export const CFG = {
 
   mining: { radius: 2.8, tick: 0.55, regrow: 9 },
 
-  score: { earlyWavePerSecond: 4, kill: { knight: 10, elite: 25, brute: 20, boss: 200, thief: 40 }, coin: 1, material: 2, buildPerCoin: 2, buildPerMaterial: 3, soldierPerWave: 2, waveClear: 50, levelUp: 60, rescue: 150 },
+  score: { earlyWavePerSecond: 4, kill: { knight: 10, elite: 25, brute: 20, boss: 200, thief: 40 }, coin: 1, material: 2, buildPerCoin: 2, buildPerMaterial: 3, soldierPerWave: 2, waveClear: 50, levelUp: 60, rescue: 150, recapture: 90 },
 
   archer: { hp: 30, range: 9.5, fireRate: 0.9, damage: 10, speed: 9 },
   swordsman: { hp: 70, range: 1.4, fireRate: 1.1, damage: 14, speed: 8.5, aggro: 5 },
