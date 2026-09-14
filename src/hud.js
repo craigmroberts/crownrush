@@ -75,6 +75,42 @@ export class Hud {
     clearTimeout(this.toastTimer);
     this.toastTimer = setTimeout(() => this.toastEl.classList.remove('show'), ms);
   }
+  // #6: a stepped intro. `steps` = [{icon, title, text}], `onDone` runs after the last step or Skip.
+  showIntro(steps, onDone) {
+    this.introSteps = steps;
+    this.introDone = onDone;
+    this.introAt = 0;
+    document.getElementById('intro-screen').classList.remove('hidden');
+    this.renderIntro();
+  }
+  renderIntro() {
+    const i = this.introAt;
+    const s = this.introSteps[i];
+    document.getElementById('intro-icon').innerHTML = iconSvg(s.icon, 56);
+    document.getElementById('intro-title').textContent = s.title;
+    document.getElementById('intro-text').textContent = s.text;
+    document.getElementById('intro-dots').innerHTML = this.introSteps.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('');
+    document.getElementById('intro-next').textContent = i === this.introSteps.length - 1 ? 'Play' : 'Next';
+    document.getElementById('intro-skip').style.visibility = i === 0 ? 'visible' : 'hidden';
+  }
+  introNext() {
+    if (!this.introSteps) return;
+    if (this.introAt < this.introSteps.length - 1) {
+      this.introAt++;
+      this.renderIntro();
+    } else this.finishIntro();
+  }
+  finishIntro() {
+    if (!this.introSteps) return;
+    document.getElementById('intro-screen').classList.add('hidden');
+    const done = this.introDone;
+    this.introSteps = null;
+    if (done) done();
+  }
+  introOpen() {
+    return !!this.introSteps;
+  }
+
   showStart(best) {
     document.getElementById('best-wave').textContent = best;
     this.startScreen.classList.remove('hidden');

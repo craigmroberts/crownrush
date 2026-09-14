@@ -210,3 +210,15 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 #pad-tip .tip-bar i { display: block; height: 100%; width: 0; background: #3fd455; border-radius: 4px; transition: width 0.1s linear; }
 
 .stat-row span.hidden { display: none; }
+
+/* the stepped intro */
+.panel.intro { max-width: 380px; padding: 26px 26px 20px; }
+.panel.intro .intro-icon { height: 60px; display: grid; place-items: center; margin-bottom: 4px; }
+.panel.intro h2 { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 28px; color: #c9432b; margin: 0 0 8px; }
+.panel.intro p { font-size: 16px; line-height: 1.45; color: #4a4a3a; min-height: 4.4em; margin-bottom: 10px; }
+.panel.intro .intro-dots { display: flex; justify-content: center; gap: 7px; margin-bottom: 14px; }
+.panel.intro .intro-dots i { width: 9px; height: 9px; border-radius: 50%; background: #d9d0b0; display: inline-block; }
+.panel.intro .intro-dots i.on { background: #f5a800; }
+.panel.intro .intro-row { display: flex; align-items: center; justify-content: space-between; }
+.panel.intro .intro-row a { color: #8a8672; font-weight: 700; font-size: 14px; padding: 8px 6px; }
+.panel.intro .intro-row button { font-size: 22px; padding: 10px 34px; margin: 0; }

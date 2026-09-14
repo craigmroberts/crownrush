@@ -24,7 +24,30 @@ Promise.all([preloadIcons(), document.fonts ? document.fonts.ready : Promise.res
   startBtn.disabled = false;
   startBtn.textContent = 'Play';
 });
-document.getElementById('start-btn').addEventListener('click', () => game.start());
+// #6: the first time through, Play opens a short stepped intro; after that it goes straight in
+const INTRO_KEY = 'crownrush-intro-seen';
+const INTRO = [
+  { icon: 'tiara', title: 'Find the Queen', text: 'She has been taken. Follow the pink arrow, clear her guards and bring her home. Nothing can be built, and no raid comes, until she is free.' },
+  { icon: 'coin', title: 'Fight and collect', text: 'Your archers shoot on their own. Raiders drop coins: walk over them to pick them up. The colour a raider wears tells you how dangerous it is.' },
+  { icon: 'hammer', title: 'Build', text: 'Stop on a floor marker to spend coins. Square markers build; round ones recruit and upgrade. Walking across a marker costs nothing.' },
+  { icon: 'keep', title: 'Feed the Keep', text: 'Wood, stone and straw go into the Keep only. Feeding it levels up the whole kingdom: a bigger army, faster arrows, stronger walls. Gather by day. The raid comes at night.' },
+];
+const startGame = () => {
+  try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) { /* private mode */ }
+  game.start();
+};
+document.getElementById('start-btn').addEventListener('click', () => {
+  let seen = false;
+  try { seen = !!localStorage.getItem(INTRO_KEY); } catch (e) { /* private mode */ }
+  if (seen) return game.start();
+  hud.hideStart();
+  hud.showIntro(INTRO, startGame);
+});
+document.getElementById('intro-next').addEventListener('click', () => hud.introNext());
+document.getElementById('intro-skip').addEventListener('click', (e) => {
+  e.preventDefault();
+  hud.finishIntro();
+});
 document.getElementById('restart-btn').addEventListener('click', () => game.start());
 document.getElementById('continue-btn').addEventListener('click', () => game.resume());
 document.getElementById('victory-restart').addEventListener('click', (e) => {
@@ -50,6 +73,10 @@ document.getElementById('offer-cards').addEventListener('click', (e) => {
 document.getElementById('info-btn').addEventListener('click', () => game.toggleInfo());
 document.getElementById('info-close').addEventListener('click', () => game.hideInfo());
 window.addEventListener('keydown', (e) => {
+  if (hud.introOpen()) {
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') hud.introNext();
+    return;
+  }
   if (game.offer) return; // an upgrade choice must be made before anything else
   if (e.key === 'i' || e.key === 'I') game.toggleInfo();
   else if (e.key === 'Escape' && game.infoOpen) game.hideInfo();

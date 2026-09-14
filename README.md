@@ -57,6 +57,13 @@ same Wi-Fi and open the "Network" URL that Vite prints instead.
 - Everything else is automatic: the King and his archers shoot the nearest enemy, coins are picked up by
   walking near them, and standing on a build pad spends coins one at a time.
 
+## The intro
+
+The first time you press Play, four short steps explain the game one idea at a time (find the Queen,
+fight and collect, build, feed the Keep) with Next and a Skip. Enter, Space or the right arrow also
+advance. It is remembered in `localStorage`, so replays go straight in. The start screen itself is one
+line.
+
 ## The opening: rescue the Queen
 
 The run opens with an empty coin stack and the starting coins scattered along the road west, so

@@ -52,11 +52,24 @@
     <div id="start-screen" class="overlay">
       <div class="panel">
         <h1>Crown Rush</h1>
-        <p>Find the Queen, then defeat the raiders and grab their coins. Feed the Keep wood, stone and straw to level up your whole kingdom. Tap the blue <b>i</b> any time to see what the next level needs.</p>
-        <p><strong>Gather and build by day. The raid comes at nightfall.</strong> Hold 30 nights to secure the kingdom. Keep the King and the Queen alive: if either falls, it's over.</p>
-        <p class="hint">Drag anywhere to move · or use WASD / arrow keys. Stand by trees, rocks and wheat to gather materials.</p>
+        <p>Rescue the Queen, then hold the kingdom through the nights.</p>
+        <p class="hint">Drag anywhere to move · or use WASD / arrow keys.</p>
         <button id="start-btn">Play</button>
         <p class="best">Best: night <span id="best-wave">1</span></p>
+      </div>
+    </div>
+
+    <!-- #6: the opening explanation, one idea per step -->
+    <div id="intro-screen" class="overlay hidden">
+      <div class="panel intro">
+        <div class="intro-icon" id="intro-icon"></div>
+        <h2 id="intro-title"></h2>
+        <p id="intro-text"></p>
+        <div class="intro-dots" id="intro-dots"></div>
+        <div class="intro-row">
+          <a href="#" id="intro-skip">Skip</a>
+          <button id="intro-next">Next</button>
+        </div>
       </div>
     </div>
 
