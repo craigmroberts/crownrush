@@ -252,7 +252,12 @@ All balance lives in [`src/config.js`](src/config.js):
 ```
 index.html        HUD + start / game-over screens
 src/main.js       bootstraps the game loop
-src/game.js       the whole simulation: player, army, enemies, waves, coins, pads, camera
+src/game.js       the Game class: setting up, starting and stopping, and the one update loop
+src/game-build.js   the pads, what they cost, and the walls and Keep they put on the field
+src/game-enemies.js what a wave is made of, how each raider behaves, the Queen taken and got back
+src/game-units.js   the King and the army: recruiting, moving, fighting
+src/game-view.js    fog, minimap, time of day, camera, effects, popups, coins, resource nodes
+src/game-shared.js  the few scratch values and helpers all of the above share
 src/models.js     buildings, walls, scenery, pads, effects (and the baking helpers)
 src/characters.js smooth toy-figure characters with painted faces (army, raiders, mounted king)
 src/rig.js        loads rigged GLB characters and plays their animations
@@ -269,6 +274,10 @@ src/icons.js      hand-drawn SVG icon set used by the HUD and rasterised for the
 src/audio.js      Web Audio synth: music loop and sound effects
 src/config.js     balance and build tree
 ```
+
+The four `game-*.js` files are the same class. They export plain objects of methods that
+`game.js` puts on `Game.prototype`, so a method reads and behaves exactly as it did when all 3,651
+lines were in one file — `this` is the same `this`. The split is about being able to find things.
 
 Built with [Three.js](https://threejs.org/) and [Vite](https://vitejs.dev/). No other dependencies.
 

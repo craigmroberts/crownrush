@@ -8,6 +8,10 @@ Where the build stood when this was written: three.js r170, Vite 6, 233 kB gz of
 Draco-compressed models behind a ~250 kB decoder, nine characters each drawn as their own skinned mesh
 with their own `AnimationMixer`.
 
+**All five are done.** What each one actually cost and bought is recorded under it. Everything was
+measured with `tools/probe/probe.mjs` on the same seeded 183-character scene, so the numbers compare.
+What is left to do is at the bottom.
+
 ## 1. Upgrade three.js from r170 to r186
 
 `package.json` pinned `three@^0.170.0` and the lockfile resolved to 0.170.0, sixteen releases behind
@@ -23,6 +27,13 @@ The things most likely to break across that many releases, and so the things to 
 
 **Done when** the game boots, the world looks the same, and `?perf=1` shows no regression.
 
+**Done.** The chunk names all survived. Two things came out of it that were not expected: the bundle
+grew 842 kB to 900 kB raw, and on desktop the same 183-character scene went from 835k triangles and
+1048 draw calls to 1.70M and 1268 — about one extra draw of every character. The phone path, which has
+no shadow map, was unchanged, so the difference is confined to the shadow pass: r186 renders the
+characters into the shadow map where r170 did not. Which release changed that was not pinned down.
+Ticket 4 is what makes it cheap again.
+
 ## 2. Self-host the web fonts
 
 `index.html` pulled Baloo 2 and Nunito from `fonts.googleapis.com` through a render-blocking
@@ -34,6 +45,13 @@ Vendor the woff2 files, declare them with local `@font-face` rules and `font-dis
 `preconnect`s, subset to Latin.
 
 **Done when** the built site makes no third-party requests and the faces are unchanged.
+
+**Done.** Both families turned out to be variable fonts — one file covers 600 to 800 — so it is four
+files, not twelve: two families in two character ranges, of which an English player fetches two,
+72 kB. They live in `src/` rather than `public/` so Vite hashes them and writes URLs relative to the
+stylesheet; an absolute `/fonts/` path would have 404'd on the project page, which is served under a
+subpath. Verified in a headless browser: both `latin` faces load, both `latin-ext` stay unloaded, and
+the build makes no third-party request at all.
 
 ## 3. Swap Draco for meshopt
 
@@ -49,6 +67,14 @@ decoder saves, the change is still worth it for decode time, but say so in the c
 claiming a size win that is not there.
 
 **Done when** total bytes to first playable frame are down and the characters are identical.
+
+**Done, and meshopt won on both halves.** Brotli'd across the nine characters: Draco 341 kB of models
+behind a 57 kB decoder, meshopt 308 kB behind a 7 kB one, no compression at all 439 kB. Time to
+playable fell 4658 ms to 3600 ms and requests 20 to 14. Note the probe's byte figure moves the other
+way, 1838 kB to 1898 kB, because it counts decoded bytes and a meshopt GLB is larger before
+compression — the wire figures are the ones that reach a player. An unplanned bonus: r186's
+`DRACOLoader` had begun emitting a second copy of the Draco decoder into `dist/`, about a megabyte
+nothing ever fetched, and that went too.
 
 ## 4. Instance the crowd with baked bone textures
 
@@ -71,8 +97,51 @@ somewhere to land.
 **Done when** character draw calls fall from roughly one per character to one per type, CPU frame
 time drops with it, and the crowd animates as it did before.
 
+**Done** — `src/crowd.js`, six models, 165 of 181 instanced characters drawn in 6 calls.
+
+    desktop   draw calls 1305 -> 966,  textures 195 -> 35,  triangles flat
+    phone     draw calls  940 -> 862,  textures 158 -> 32
+
+The phone gain is smaller because its narrow viewport already culled most of the crowd.
+
+Three things were not obvious going in. The bones hang off an armature node rather than the character
+root, so the bake has to clone the real hierarchy rather than rebuild the skeleton by hand. The depth
+material needs the same skinning or every character casts a bind-pose shadow, and it has to build the
+matrix at the top of `main()` because the depth shader's `beginnormal_vertex` sits inside
+`#ifdef USE_DISPLACEMENTMAP`. And instancing gives up frustum culling — one instanced mesh is one
+object to the renderer — which cost 10% more triangles until the instance writer started testing each
+character against the view itself.
+
+The King and the Queen stay skinned. `?crowd=0` puts everything back.
+
 ## 5. Split game.js
 
 `src/game.js` is 3,633 lines. This one buys no frames; it buys the ability to keep working. Split
 along the seams already there — waves and spawning, combat, building and pads, camera and daylight —
 with no change in behaviour.
+
+**Done.** 3,651 lines became 642, with the rest in four files of roughly 400 to 930 lines each:
+`game-build.js`, `game-enemies.js`, `game-units.js`, `game-view.js`, plus `game-shared.js` for the
+scratch values they all use.
+
+They are still one class. Each file exports a plain object of methods and `game.js` puts them on
+`Game.prototype`, because a class method and an object-literal method are written identically — so
+every method moved verbatim and `this` is the same `this`. The cut was made by a script working from
+method boundaries rather than by hand, and the built bundle changed by 190 bytes, which is about the
+best evidence available that nothing was lost on the way.
+
+What stayed in `game.js` is the frame: constructing the renderer, resetting, starting and stopping,
+and the one `update` loop that calls everything else.
+
+## What is left
+
+The characters are no longer the ceiling. On the same 183-character scene the desktop renderer now
+draws 966 calls, and the scene it draws them from holds 1,055 visible objects: 443 boxes, 236 unnamed
+buffer geometries, 119 circles, 111 rings, 73 cylinders. That is scenery and pads, and it is where the
+next draw call is to be found — the README already claims static scenery is "merged into a few
+meshes", and that is no longer true of all of it.
+
+Two smaller things worth a look after that: three's `BatchedMesh` suits exactly that kind of
+static-but-distinct prop, and the WebGPU renderer would cut the per-call cost of whatever is left,
+though the `onBeforeCompile` patching in `rig.js` and `crowd.js` would have to be rewritten in TSL
+first.
