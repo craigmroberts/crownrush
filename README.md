@@ -95,6 +95,20 @@ feeds the Keep. Pads only take payment once the King has stopped on them (or hel
 - **Train Archers** at the range: +25% damage and +20% health per level for every archer, including
   ones already recruited (`CFG.archerTraining`).
 
+## Rewards: pick one of three
+
+Every Keep level pauses the game and offers three rewards; you keep one. The pool is in
+[src/upgrades.js](src/upgrades.js) and covers five areas: your army, watchtowers, walls, the economy
+and the King himself. Offers draw from different areas where they can, so a choice is never three
+flavours of the same idea, and a few rewards are rare and change how a run plays rather than how fast
+it goes.
+
+Each reward sets a multiplier or a flag on `game.mods`, and those are the only places gameplay code
+has to read, so adding a new one is a single entry in that file. Rewards apply retroactively where it
+matters: taking an archer reward upgrades the archers you already have, and a wall reward re-rates
+walls already standing. Levels can chain when you arrive with a full stockpile, so offers queue and
+come one at a time. The info screen lists everything you have taken.
+
 ## The Keep is the base
 
 Wood, stone and straw you mine are spent on one thing only: **feeding the Keep**. Stand on the pad at

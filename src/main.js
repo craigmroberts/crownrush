@@ -43,9 +43,14 @@ document.getElementById('pause-restart').addEventListener('click', (e) => {
   e.preventDefault();
   game.start();
 });
+document.getElementById('offer-cards').addEventListener('click', (e) => {
+  const card = e.target.closest('.offer-card');
+  if (card) game.takeUpgrade(card.dataset.id);
+});
 document.getElementById('info-btn').addEventListener('click', () => game.toggleInfo());
 document.getElementById('info-close').addEventListener('click', () => game.hideInfo());
 window.addEventListener('keydown', (e) => {
+  if (game.offer) return; // an upgrade choice must be made before anything else
   if (e.key === 'i' || e.key === 'I') game.toggleInfo();
   else if (e.key === 'Escape' && game.infoOpen) game.hideInfo();
   else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') game.togglePause();

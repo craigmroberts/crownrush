@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CFG, PADS, TIERS, NODES, MAP } from './config.js';
 import { audio } from './audio.js';
 import { makeRigged, setRigShadows } from './rig.js';
+import { MODS, UPGRADES, pickOffer } from './upgrades.js';
 import { buildWorld, setupLights } from './world.js';
 import { Input } from './input.js';
 import {
@@ -134,6 +135,10 @@ export class Game {
     this.fogTimer = 0;
     this.lastFogPos = new V3(999, 0, 999);
     this.damageMul = 1;
+    this.mods = { ...MODS };
+    this.taken = {};
+    this.offerQueue = 0;
+    this.offer = null;
     this.coinsCarried = CFG.coins.start;
     this.coinsEarned = 0;
     this.archerPower = 0;
@@ -232,7 +237,7 @@ export class Game {
   }
 
   unpause() {
-    if (!this.paused) return;
+    if (!this.paused || this.offer) return;
     this.paused = false;
     this.running = true;
     this.hud.hidePause();
@@ -301,9 +306,10 @@ export class Game {
       towers, fire: this.fireMul(), wall: CFG.wallLevels[this.wallLevel].name, keepHp: this.keep ? `${Math.round(this.keep.hp)} / ${this.keep.maxHp}` : null,
       training: this.archerPower,
     };
+    const taken = UPGRADES.filter((u) => this.taken[u.id]).map((u) => ({ icon: u.icon, name: u.name, desc: u.desc, n: this.taken[u.id] }));
     const tierIdx = CFG.coins.tiers.indexOf(this.coinTier());
     const coins = { tier: this.coinTier(), count: this.coinsCarried, nextTier: CFG.coins.tiers[tierIdx + 1] || null, nextAt: CFG.coins.tierAt[tierIdx + 1] || null };
-    return { level: L, max: CFG.base.maxLevel, hasKeep: !!this.keep, queenCaptive: !!this.queen.captive, need, unlocks, padsNow, later, ranks, army, coins, wave: this.wave, goal: CFG.waves.goal };
+    return { taken, level: L, max: CFG.base.maxLevel, hasKeep: !!this.keep, queenCaptive: !!this.queen.captive, need, unlocks, padsNow, later, ranks, army, coins, wave: this.wave, goal: CFG.waves.goal };
   }
 
   togglePause() {
@@ -560,8 +566,9 @@ export class Game {
     const v = veteran ? 1.5 : 1;
     return {
       ...CFG.archer,
-      damage: CFG.archer.damage * (1 + this.archerPower * CFG.archerTraining.damage) * v,
-      hp: CFG.archer.hp * (1 + this.archerPower * CFG.archerTraining.hp) * v,
+      damage: CFG.archer.damage * (1 + this.archerPower * CFG.archerTraining.damage) * v * this.mods.archerDamage,
+      hp: CFG.archer.hp * (1 + this.archerPower * CFG.archerTraining.hp) * v * this.mods.archerHp,
+      range: CFG.archer.range * this.mods.archerRange,
     };
   }
 
@@ -818,7 +825,7 @@ export class Game {
     const t = this.towers[id];
     const lv = CFG.tower.levels[t.level - 1];
     if (kind === 'crew') {
-      const add = lv.slots - t.crew;
+      const add = lv.slots + this.mods.towerSlots - t.crew;
       if (add <= 0) return this.queueTowerPad(id, 'up');
       this.dynamicPads.push({ id: `crew-${id}-${t.level}`, pos: t.pos, crew: add, icon: 'archer', label: 'Man the Tower', tower: id, toast: 'Tower manned!' });
     } else if (t.level < CFG.tower.levels.length) {
@@ -837,7 +844,8 @@ export class Game {
     pad.ghosts = [];
 
     if (def.units) {
-      for (let i = 0; i < def.units.count; i++) {
+      const n = def.units.count + this.mods.recruitBonus;
+      for (let i = 0; i < n; i++) {
         this.spawnUnit(def.units.type, def.pos[0] + rand(-0.8, 0.8), def.pos[1] + rand(-0.8, 0.8), !!def.units.veteran);
       }
     }
@@ -978,7 +986,68 @@ export class Game {
     this.spawnFx(this.keep.x, this.keep.z, 0xffd23d);
     this.addScore(CFG.score.levelUp * L);
     audio.unlock();
+    // #13: every level lets the player keep one of three upgrades. Levels can chain when the King
+    // arrives with a big stockpile, so offers queue and are presented one at a time.
+    this.offerQueue++;
+    if (!this.offer) this.showOffer();
     if (!this.levelReq() && this.feedDef) this.feedDef = null;
+  }
+
+  // Present one upgrade choice. Pauses the game; `takeUpgrade` resumes it or shows the next in the queue.
+  showOffer() {
+    if (this.over || this.won || this.offerQueue <= 0) return;
+    const list = pickOffer(this.taken);
+    if (!list.length) {
+      this.offerQueue = 0;
+      return;
+    }
+    this.offer = list;
+    this.pause(true);
+    this.hud.hideInfo();
+    this.infoOpen = false;
+    this.hud.showOffer(list, this.baseLevel, this.offerQueue);
+  }
+
+  takeUpgrade(id) {
+    const u = (this.offer || []).find((x) => x.id === id);
+    if (!u) return;
+    this.taken[u.id] = (this.taken[u.id] || 0) + 1;
+    u.apply(this);
+    this.applyMods();
+    this.offer = null;
+    this.offerQueue = Math.max(0, this.offerQueue - 1);
+    this.hud.hideOffer();
+    audio.build();
+    this.hud.toast(`${u.name}: ${u.desc}`, 3000);
+    if (this.offerQueue > 0) this.showOffer();
+    else {
+      this.paused = false;
+      this.running = true;
+    }
+  }
+
+  // Push modifier changes into things that were already built or recruited.
+  applyMods() {
+    for (const u of this.units) {
+      if (u.type !== 'archer') continue;
+      const st = this.archerStats(u.veteran);
+      const frac = u.hp / u.maxHp;
+      u.stats = st;
+      u.maxHp = st.hp;
+      u.hp = st.hp * frac;
+      setHealthBar(u.bar, frac);
+    }
+    for (const w of this.walls) {
+      if (w.state !== 'built') continue;
+      const frac = w.hp / w.maxHp;
+      w.maxHp = this.wallHp(w, w.level);
+      w.hp = w.maxHp * frac;
+      setHealthBar(w.bar, frac);
+    }
+    for (const id of Object.keys(this.towers)) {
+      const t = this.towers[id];
+      if (CFG.tower.levels[t.level - 1].slots + this.mods.towerSlots > t.crew) this.queueTowerPad(id, 'crew');
+    }
   }
 
   // archery speed grows with the Keep (archers, towers and the King's own bow)
@@ -995,7 +1064,7 @@ export class Game {
 
   unitCap(type) {
     const t = type === 'archer' ? CFG.base.archers : CFG.base.swordsmen;
-    return t[Math.min(this.baseLevel, t.length - 1)];
+    return t[Math.min(this.baseLevel, t.length - 1)] + (type === 'archer' ? this.mods.towerSlots * 4 : 0);
   }
 
   // Keep level needed before a recruit pad can add its units; null if it can recruit now
@@ -1135,7 +1204,7 @@ export class Game {
 
   wallHp(sec, level = this.wallLevel) {
     const lv = CFG.wallLevels[level];
-    return sec.gate ? lv.gateHp : lv.hp;
+    return (sec.gate ? lv.gateHp : lv.hp) * this.mods.wallHp;
   }
 
   // (re)build a section's mesh at a given material level with full HP
@@ -1265,8 +1334,9 @@ export class Game {
     return { x: best.x + best.dx * 5 * near, z: best.z + best.dz * 5 * near };
   }
 
-  damageWall(w, dmg) {
+  damageWall(w, dmg, attacker = null) {
     if (w.state !== 'built') return;
+    if (attacker && this.mods.wallThorns) this.damageEnemy(attacker, this.mods.wallThorns, attacker.mesh.position);
     if (w.isKeep) {
       this.raiseAlarm('The Keep is under attack!');
       w.hp -= dmg;
@@ -1345,7 +1415,7 @@ export class Game {
     this.burstFx(tmp, '#ffffff', e.type === 'boss' ? 6 : 2.6, 0.38);
     const rk = CFG.ranks[Math.min(e.rank || 0, CFG.ranks.length - 1)];
     const mult = e.type === 'boss' ? 4 : e.type === 'brute' || e.type === 'elite' ? 2 : 1;
-    const n = randInt(rk.coins[0], rk.coins[1]) * mult;
+    const n = randInt(rk.coins[0], rk.coins[1]) * mult + this.mods.coinBonus;
     for (let i = 0; i < n; i++) this.dropCoin(e.mesh.position);
     audio.enemyDie();
     this.addScore(CFG.score.kill[e.type] || 10);
@@ -1501,10 +1571,11 @@ export class Game {
     }
   }
 
-  nearestEnemy(pos, range) {
+  nearestEnemy(pos, range, skip = null) {
     let best = null;
     let bd = range * range;
     for (const e of this.enemies) {
+      if (e === skip || e.captor) continue;
       const d = pos.distanceToSquared(e.mesh.position);
       const r = d - e.radius * e.radius * 2;
       if (r < bd) {
@@ -1573,7 +1644,7 @@ export class Game {
   updatePlayer(dt) {
     const k = this.king;
     const inp = this.input.read();
-    const speed = this.mounted ? k.stats.speed : k.stats.footSpeed;
+    const speed = (this.mounted ? k.stats.speed : k.stats.footSpeed) * this.mods.kingSpeed;
     k.vel.set(inp.x * speed, 0, inp.z * speed);
     if (k.mesh.userData.body && k.mesh.userData.body.rotation.x > 0) k.mesh.userData.body.rotation.x = Math.max(0, k.mesh.userData.body.rotation.x - dt * 3);
     const p = k.mesh.position;
@@ -1600,7 +1671,10 @@ export class Game {
       if (k.cooldown <= 0) {
         k.cooldown = 1 / (k.stats.fireRate * this.fireMul());
         tmp.copy(p).y += 1.6;
-        this.fireArrow(tmp, target, k.stats.damage * this.damageMul);
+        for (let i = 0; i < this.mods.kingArrows; i++) {
+          const t2 = i === 0 ? target : this.nearestEnemy(p, k.stats.range, target) || target;
+          this.fireArrow(tmp, t2, k.stats.damage * this.damageMul);
+        }
         if (k.mesh.userData.rig) {
           k.mesh.userData.rig.play('Attack', true);
           k.rigOnce = this.time + 0.6;
@@ -1657,7 +1731,7 @@ export class Game {
       if (this.swing <= 0 && this.tool) this.tool.visible = false;
     }
     if (this.mineTimer > 0 || !best) return;
-    this.mineTimer = CFG.mining.tick;
+    this.mineTimer = CFG.mining.tick / this.mods.mineSpeed;
     best.stock--;
     this.setNodeLook(best);
     audio.mine(best.type);
@@ -1886,12 +1960,12 @@ export class Game {
     for (const t of this.turrets) {
       t.cooldown -= dt;
       const lv = t.tower && this.towers[t.tower] ? CFG.tower.levels[this.towers[t.tower].level - 1] : CFG.tower.levels[0];
-      const target = this.nearestEnemy(t.pos, CFG.tower.range * lv.range);
+      const target = this.nearestEnemy(t.pos, CFG.tower.range * lv.range * this.mods.towerRange);
       if (target) {
         this.faceTowards(t.mesh, target.mesh.position, dt, 10);
         if (t.cooldown <= 0) {
           t.cooldown = 1 / (CFG.tower.fireRate * this.fireMul());
-          this.fireArrow(t.pos, target, CFG.tower.damage * lv.damage * this.damageMul);
+          this.fireArrow(t.pos, target, CFG.tower.damage * lv.damage * this.damageMul * this.mods.towerDamage);
           this.attackAnim(t);
         }
       }
@@ -1977,7 +2051,7 @@ export class Game {
         if (e.cooldown <= 0) {
           e.cooldown = 1 / e.stats.attackRate;
           this.attackAnim(e);
-          this.damageWall(blocked, e.damage * (e.stats.aoe ? 2 : 1));
+          this.damageWall(blocked, e.damage * (e.stats.aoe ? 2 : 1), e);
           if (e.stats.aoe) this.shake = 0.2;
         }
       } else if (!wp && d <= reach) {
@@ -2080,7 +2154,7 @@ export class Game {
       } else if (c.state === 'ground') {
         c.mesh.rotation.y += dt * 2;
         p.y = 0.12 + Math.sin(c.t * 4) * 0.04;
-        if (p.distanceTo(kp) < CFG.king.pickupRadius + this.ringRadius * 0.3) c.state = 'fly';
+        if (p.distanceTo(kp) < CFG.king.pickupRadius * this.mods.pickup + this.ringRadius * 0.3) c.state = 'fly';
       } else {
         tmp.copy(kp);
         tmp.y = 2.4 + this.stackCount() * 0.11;
@@ -2542,7 +2616,7 @@ export class Game {
 
   regen(u, dt) {
     if (u.hp < u.maxHp && this.time - u.lastHit > CFG.regen.delay) {
-      u.hp = Math.min(u.maxHp, u.hp + CFG.regen.perSecond * dt);
+      u.hp = Math.min(u.maxHp, u.hp + CFG.regen.perSecond * this.mods.regen * dt);
       setHealthBar(u.bar, u.hp / u.maxHp);
     }
   }
