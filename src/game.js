@@ -315,7 +315,7 @@ export class Game {
     for (let i = 0; i < CFG.coins.start; i++) {
       const t = i / Math.max(1, CFG.coins.start - 1);
       tmp.set(-5 - t * 12 + rand(-1.2, 1.2), 0.6, 2 + t * 4 + rand(-1.6, 1.6));
-      this.dropCoin(tmp, 'bronze');
+      this.dropCoin(tmp);
     }
     this.refreshPads();
     this.hud.showNextWave(false);
@@ -477,7 +477,7 @@ export class Game {
       unlocks.push(`Army limit: ${CFG.base.archers[N]} archers, ${CFG.base.swordsmen[N]} swordsmen`);
       unlocks.push(`Arrow speed ${CFG.base.fireRate(N).toFixed(1)}x for archers, towers and the King`);
       if (CFG.base.wallAt.includes(N)) unlocks.push(`All walls rebuilt in ${CFG.wallLevels[CFG.base.wallAt.indexOf(N)].name.toLowerCase()}`);
-      if (CFG.coins.tierAt.includes(N)) unlocks.push(`Coins turn ${CFG.coins.tiers[CFG.coins.tierAt.indexOf(N)]} (worth more score)`);
+      if (CFG.coins.valueAt.includes(N)) unlocks.push(`Every coin is worth ${CFG.coins.value[CFG.coins.valueAt.indexOf(N)]} score instead of ${this.coinValue()}`);
       const rank = CFG.ranks.find((r) => r.fromLevel === N);
       if (rank) unlocks.push(`${rank.name}s start raiding: tougher, but they drop more coins`);
       for (const def of PADS) if (def.minLevel === N) unlocks.push(`${def.label} pad appears`);
@@ -496,8 +496,8 @@ export class Game {
       training: this.archerPower,
     };
     const taken = UPGRADES.filter((u) => this.taken[u.id]).map((u) => ({ icon: u.icon, name: u.name, desc: u.desc, n: this.taken[u.id] }));
-    const tierIdx = CFG.coins.tiers.indexOf(this.coinTier());
-    const coins = { tier: this.coinTier(), count: this.coinsCarried, nextTier: CFG.coins.tiers[tierIdx + 1] || null, nextAt: CFG.coins.tierAt[tierIdx + 1] || null };
+    const vi = CFG.coins.valueAt.reduce((acc, lv, i) => (this.baseLevel >= lv ? i : acc), 0);
+    const coins = { count: this.coinsCarried, value: this.coinValue(), nextValue: CFG.coins.value[vi + 1] || null, nextAt: CFG.coins.valueAt[vi + 1] || null };
     return { taken, level: L, max: CFG.base.maxLevel, hasKeep: !!this.keep, queenCaptive: !!this.queen.captive, need, unlocks, padsNow, later, ranks, army, coins, wave: this.wave, finaleOpen: this.finaleOpen, finaleLevel: CFG.finale.level };
   }
 
@@ -1240,7 +1240,7 @@ export class Game {
     }
     this.revealNodes();
     const newRank = CFG.ranks.find((r) => r.fromLevel === L);
-    const coinNote = CFG.coins.tierAt.includes(L) && L > 0 ? `coins are now ${this.coinTier()}` : null;
+    const coinNote = CFG.coins.valueAt.includes(L) && L > 0 ? `each coin is now worth ${this.coinValue()} score` : null;
     const notes = [CFG.base.unlocks[L], coinNote, newRank ? `${newRank.name}s now join the raids` : null, `${CFG.base.archers[L]} archers`, `${CFG.base.swordsmen[L]} swordsmen`, `arrows ${this.fireMul().toFixed(1)}x`].filter(Boolean);
     this.hud.toast(`Keep level ${L}! ${notes.join(' · ')}`, 4200);
     // #29: a playtester never worked out that raising the Keep is what opens new materials, so the
@@ -3072,7 +3072,7 @@ export class Game {
             this.coinsCarried++;
             this.coinsEarned++;
             this.comboTimer = 0.6;
-            this.addScore(CFG.coins.score[c.tier || 'bronze']);
+            this.addScore(this.coinValue());
             audio.coin(this.coinCombo++);
           }
           this.root.remove(c.mesh);
@@ -3133,10 +3133,14 @@ export class Game {
   }
 
   // the coin tier (look and score value) climbs with the Keep
+  // one currency, one colour; what the Keep changes is what a coin is worth
   coinTier() {
-    let t = 0;
-    CFG.coins.tierAt.forEach((lv, i) => { if (this.baseLevel >= lv) t = i; });
-    return CFG.coins.tiers[t];
+    return 'gold';
+  }
+  coinValue() {
+    let v = CFG.coins.value[0];
+    CFG.coins.valueAt.forEach((lv, i) => { if (this.baseLevel >= lv) v = CFG.coins.value[i]; });
+    return v;
   }
 
   stackCount() {

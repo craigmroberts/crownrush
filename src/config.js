@@ -91,12 +91,14 @@ export const CFG = {
   // "Train Archers" pad at the range: each level makes every archer hit harder and tougher
   archerTraining: { damage: 0.25, hp: 0.2 },
 
-  // One currency. Its look (and score value) climbs with the Keep: bronze, then silver at level 4,
-  // gold at 8, platinum at 12. Enemies drop more coins the higher their rank.
+  // One currency, and enemies drop more of it the higher their rank.
+  // Coins are gold, always. They used to change colour with the Keep (bronze, silver, gold,
+  // platinum), which read as four currencies when there is only ever one. What that colour really
+  // carried was score: a coin is worth more the higher the Keep stands, so that is kept and keyed to
+  // the Keep level directly. `valueAt` are the levels at which a coin starts being worth `value`.
   coins: {
-    tiers: ['bronze', 'silver', 'gold', 'platinum'],
-    tierAt: [0, 4, 8, 12],
-    score: { bronze: 1, silver: 3, gold: 8, platinum: 20 },
+    valueAt: [0, 4, 8, 12],
+    value: [1, 3, 8, 20],
     start: 10,
   },
 

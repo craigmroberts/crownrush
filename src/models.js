@@ -342,12 +342,10 @@ export function makeKeep(material = 'stone') {
 // ---- items ----
 const coinGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.09, 14);
 const rimGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.1, 14);
-// coin tiers: [face, rim]
+// Coins are gold: [face, rim]. They used to change colour with the Keep, which read as four
+// currencies when there is only one; what climbs with the Keep now is what a coin is worth.
 export const COIN_TIER_COLORS = {
-  bronze: [new THREE.Color(0xb87333), new THREE.Color(0x7a4a1e)],
-  silver: [new THREE.Color(0xd7dee6), new THREE.Color(0x8a949e)],
   gold: [new THREE.Color(C.gold), new THREE.Color(C.goldDark)],
-  platinum: [new THREE.Color(0xdff6ff), new THREE.Color(0x5aa9c4)],
 };
 const coinMats = {};
 const rimMats = {};
