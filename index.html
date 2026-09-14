@@ -20,6 +20,13 @@
         document.getElementById('error-msg').textContent = msg;
         el.classList.remove('hidden');
       };
+      // Some of what raises this screen recovers by itself — a graphics context taken away while the
+      // browser is in the background and handed back on return. Without a way to take the screen down
+      // again, the game would sit behind a dead "reload me" panel it had already recovered from.
+      window.__hideError = function () {
+        var el = document.getElementById('error-screen');
+        if (el) el.classList.add('hidden');
+      };
       window.addEventListener('error', function (e) { window.__showError(e.message || 'Unknown error'); });
       window.addEventListener('unhandledrejection', function (e) { window.__showError(String(e.reason && e.reason.message || e.reason)); });
     </script>

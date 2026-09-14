@@ -96,18 +96,35 @@ export class Game {
       this.contextLost = true;
       this.pause(true);
       this.hud.toast('Lost the graphics card for a moment. Restoring…', 4000);
-      clearTimeout(this.contextTimer);
-      this.contextTimer = setTimeout(() => {
-        if (this.contextLost && window.__showError) window.__showError('The graphics context was lost and did not come back. A reload fixes it.');
-      }, 6000);
+      this.waitForContext();
     });
     canvas.addEventListener('webglcontextrestored', () => {
       this.contextLost = false;
       clearTimeout(this.contextTimer);
+      if (window.__hideError) window.__hideError();   // in case we already gave up on it
       this.resize();
       if (!this.over && !this.won && !this.offer && !this.infoOpen && !this.settingsOpen) this.unpause();
       this.hud.toast('Graphics restored.', 2000);
     });
+    // A phone takes the graphics card back when the browser goes to the background, and gives it back
+    // when it returns. Both of those are normal, so neither should be judged while the page is hidden:
+    // the context cannot come back until the page is visible, and a countdown that expires in the
+    // meantime declares the game dead for a player who is only reading a message. Start the clock when
+    // they come back, not while they are away.
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) clearTimeout(this.contextTimer);
+      else if (this.contextLost) this.waitForContext();
+    });
+  }
+
+  // Give the context a few seconds to come back, and only say it is gone if the page was watching the
+  // whole time.
+  waitForContext() {
+    clearTimeout(this.contextTimer);
+    if (document.hidden) return;
+    this.contextTimer = setTimeout(() => {
+      if (this.contextLost && window.__showError) window.__showError('The graphics context was lost and did not come back. A reload fixes it.');
+    }, 6000);
   }
 
   // The drawing buffer is capped by area as well as by ratio. A big foldable at 1.5x asks for a
@@ -381,8 +398,18 @@ export class Game {
     this.running = true;
   }
 
+  // Stopping the world and putting the pause screen up are two different things, and conflating them
+  // is what broke Pause in the settings sheet: the sheet already pauses silently while it is open, so
+  // by the time the Pause row ran this the world was stopped, `!this.running` sent it straight back,
+  // and the screen never appeared. The player got a game frozen with nothing to press — until
+  // watchStuck noticed a second and a half later and handed the pause back, which read as Pause doing
+  // nothing at all.
   pause(silent = false) {
-    if (!this.running || this.over || this.won) return;
+    if (this.over || this.won) return;
+    // Nothing to pause before the first Play: `reset` leaves both of these false, so this is what
+    // keeps a backgrounded title screen from coming back with a pause panel over it. Once a run is
+    // under way one of the two is always true, including while a sheet holds a silent pause.
+    if (!this.running && !this.paused) return;
     this.running = false;
     this.paused = true;
     if (!silent) this.hud.showPause();
