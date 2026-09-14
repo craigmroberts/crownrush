@@ -6,14 +6,16 @@
 //  - Frustum culling is on with a padded bounding sphere, so off-screen characters are skipped entirely.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-const draco = new DRACOLoader();
-draco.setDecoderPath(`${import.meta.env.BASE_URL}draco/`);
+// The characters are meshopt-compressed (tools/models/compress.mjs). Draco was here before and cost
+// more on both halves of the sum: brotli'd, Draco was 341 kB of models behind a 57 kB decoder, and
+// meshopt is 308 kB behind a 7 kB one. The decoder is also a module we bundle rather than three files
+// fetched from public/ at run time, so there is no decoder path to get wrong on a subpath deploy.
 const loader = new GLTFLoader();
-loader.setDRACOLoader(draco);
+loader.setMeshoptDecoder(MeshoptDecoder);
 const cache = new Map();
 
 let rigShadows = true;
