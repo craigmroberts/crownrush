@@ -234,6 +234,27 @@ async function measure(url, { mobile }) {
     return window.__probe.samples;
   });
 
+  // What is actually in the scene at the end, so a draw-call total can be attributed rather than
+  // guessed at. Counts every visible drawable, which is more than the renderer submits once frustum
+  // culling has had its say, but it is the list the total is drawn from.
+  const scene = await page.evaluate(() => {
+    const g = window.game;
+    const by = {};
+    let drawables = 0;
+    g.scene.traverse((o) => {
+      if (!o.visible || !(o.isMesh || o.isSprite || o.isLine || o.isPoints)) return;
+      drawables++;
+      const name = o.material && o.material.name ? o.material.name : o.geometry && o.geometry.type ? o.geometry.type : '?';
+      const key = o.isSprite ? 'Sprite' : `${o.isInstancedMesh ? 'Instanced' : o.isSkinnedMesh ? 'Skinned' : 'Mesh'}:${name}`;
+      by[key] = (by[key] || 0) + 1;
+    });
+    return {
+      drawables,
+      top: Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 8),
+      crowd: typeof g.crowdStats === 'function' ? g.crowdStats() : null,
+    };
+  });
+
   await browser.close();
 
   // The first handful of frames include scene construction; drop them.
@@ -264,6 +285,9 @@ async function measure(url, { mobile }) {
     programs: s.length ? s[s.length - 1].programs : 0,
     geometries: s.length ? s[s.length - 1].geometries : 0,
     textures: s.length ? s[s.length - 1].textures : 0,
+    drawables: scene.drawables,
+    sceneTop: scene.top,
+    crowd: scene.crowd,
   };
 }
 
@@ -278,6 +302,8 @@ const fmt = (r) => [
   `    at peak crowd      ${r.callsAtPeakChars} calls for ${r.charsPeak} characters`,
   `    triangles          ${(r.trianglesMedian / 1000).toFixed(0)}k median`,
   `    gpu objects        ${r.programs} programs · ${r.geometries} geometries · ${r.textures} textures`,
+  r.crowd && r.crowd.characters ? `    instanced crowd    ${r.crowd.drawn}/${r.crowd.characters} characters in ${r.crowd.models} draws` : '',
+  r.sceneTop ? `    scene              ${r.drawables} visible drawables · ${r.sceneTop.map(([k, n]) => `${k} x${n}`).join(', ')}` : '',
   `    reached            night ${r.waveReached}`,
   r.errorScreen ? `    ERROR SCREEN       ${r.errorScreen}` : '',
   r.errors.length ? `    console errors     ${r.errors.join(' | ')}` : '',
