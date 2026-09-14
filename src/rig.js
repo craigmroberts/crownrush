@@ -133,18 +133,36 @@ export async function preloadRigs(names, onProgress = null) {
   }
 }
 
-// #5: a portrait of a character for the title screen, rendered from the real rig in a throwaway
+// #5: a portrait of a character for the title screen, rendered from the real rig in a second
 // renderer so the art always matches the game and costs nothing extra to download.
+//
+// That renderer needs its own WebGL context, and a browser only allows a handful of live ones per
+// page. `dispose()` frees three.js's objects but leaves the context alive until the garbage
+// collector gets to it, so a renderer per portrait quietly stacks them up; when the limit is hit the
+// browser drops the OLDEST context, which is the game's own canvas. The HUD and the minimap are DOM
+// and 2D canvas, so they carry on drawing while the world goes blank: a white screen with a working
+// interface. One shared portrait renderer, released the moment the title screen is built, instead.
+let portraitRenderer = null;
+export function releasePortraitRenderer() {
+  if (!portraitRenderer) return;
+  portraitRenderer.dispose();
+  portraitRenderer.forceContextLoss();  // dispose() alone keeps the context; this hands it back now
+  portraitRenderer = null;
+}
+
 export function renderPortrait(name, w = 300, h = 380, tints = null) {
   const rig = makeRigged(name, tints);
   if (!rig) return null;
-  const canvas = document.createElement('canvas');
-  const r = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+  if (!portraitRenderer) {
+    portraitRenderer = new THREE.WebGLRenderer({ canvas: document.createElement('canvas'), alpha: true, antialias: true });
+    portraitRenderer.outputColorSpace = THREE.SRGBColorSpace;
+    portraitRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+    portraitRenderer.toneMappingExposure = 1.15;
+  }
+  const r = portraitRenderer;
+  const canvas = r.domElement;
   r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   r.setSize(w, h, false);
-  r.outputColorSpace = THREE.SRGBColorSpace;
-  r.toneMapping = THREE.ACESFilmicToneMapping;
-  r.toneMappingExposure = 1.15;
   const scene = new THREE.Scene();
   scene.add(new THREE.HemisphereLight(0xfff8ea, 0x8fb86a, 1.5));
   const sun = new THREE.DirectionalLight(0xfff1d6, 1.6);
@@ -159,7 +177,7 @@ export function renderPortrait(name, w = 300, h = 380, tints = null) {
   cam.lookAt(0, 1.05, 0);
   r.render(scene, cam);
   const url = canvas.toDataURL('image/png');
-  r.dispose();
+  scene.clear();
   return url;
 }
 

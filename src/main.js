@@ -1,7 +1,7 @@
 import { Game } from './game.js';
 import { Hud } from './hud.js';
 import { audio } from './audio.js';
-import { preloadRigs, renderPortrait } from './rig.js';
+import { preloadRigs, renderPortrait, releasePortraitRenderer } from './rig.js';
 import { preloadIcons, mountIcons, iconSvg } from './icons.js';
 
 const canvas = document.getElementById('game');
@@ -37,6 +37,8 @@ Promise.all([preloadIcons(), document.fonts ? document.fonts.ready : Promise.res
     if (q) document.getElementById('hero-queen').src = q;
   } catch (e) {
     console.warn('portraits skipped', e);
+  } finally {
+    releasePortraitRenderer();  // hand the second WebGL context back before play starts
   }
   setLoad(1, 'Ready');
   loadBar.classList.add('done');
@@ -172,7 +174,9 @@ function frame(now) {
     if (perfT >= 0.5) {
       const info = game.renderer.info.render;
       const ms = perfMs / perfFrames;
-      perf.textContent = `${(perfFrames / perfT).toFixed(0)} fps · ${ms.toFixed(1)} ms cpu · ${info.calls} draws · ${(info.triangles / 1000).toFixed(0)}k tris · ${game.units.length + game.enemies.length} chars`;
+      const c = game.canvas;
+      perf.textContent = `${(perfFrames / perfT).toFixed(0)} fps · ${ms.toFixed(1)} ms cpu · ${info.calls} draws · ${(info.triangles / 1000).toFixed(0)}k tris · ${game.units.length + game.enemies.length} chars`
+        + ` · ${c.width}x${c.height} buf @${game.renderer.getPixelRatio()}${game.contextLost ? ' · GL CONTEXT LOST' : ''}`;
       perf.style.color = ms > 33 ? '#ff7a7a' : ms > 16 ? '#ffd27a' : '#b8ffb0';
       perfT = 0;
       perfFrames = 0;

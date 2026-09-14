@@ -74,11 +74,37 @@ export class Game {
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
+    this.watchContext(canvas);
 
     this.running = false;
     this.time = 0;
     this.best = Number(localStorage.getItem('crownrush-best') || 1);
     this.reset();
+  }
+
+  // A WebGL context can be taken away: the GPU process restarts, the device is folded onto another
+  // display, or too many contexts are live at once. The page keeps running, so the HUD and the
+  // minimap carry on drawing over a blank world, which reads as a white screen with a working
+  // interface. Stop drawing while it is gone, come back when it returns, and say so if it does not.
+  watchContext(canvas) {
+    this.contextLost = false;
+    canvas.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();   // without this the browser will not restore the context, ever
+      this.contextLost = true;
+      this.pause(true);
+      this.hud.toast('Lost the graphics card for a moment. Restoring…', 4000);
+      clearTimeout(this.contextTimer);
+      this.contextTimer = setTimeout(() => {
+        if (this.contextLost && window.__showError) window.__showError('The graphics context was lost and did not come back. A reload fixes it.');
+      }, 6000);
+    });
+    canvas.addEventListener('webglcontextrestored', () => {
+      this.contextLost = false;
+      clearTimeout(this.contextTimer);
+      this.resize();
+      if (!this.over && !this.won && !this.offer && !this.infoOpen && !this.settingsOpen) this.unpause();
+      this.hud.toast('Graphics restored.', 2000);
+    });
   }
 
   resize() {
@@ -1916,7 +1942,7 @@ export class Game {
     this.updateBlobs();
     this.updateCamera(dt);
     this.bars.update();
-    this.renderer.render(this.scene, this.camera);
+    if (!this.contextLost) this.renderer.render(this.scene, this.camera);
   }
 
   updatePlayer(dt) {
