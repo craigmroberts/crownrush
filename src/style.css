@@ -10,6 +10,11 @@
     repeating-linear-gradient(90deg, rgba(0,0,0,0.13) 0 2px, rgba(255,255,255,0.035) 2px 7px),
     linear-gradient(180deg, rgba(78, 55, 32, 0.84), rgba(44, 30, 17, 0.88));
   --wood-solid: #4a341e;
+  /* the HUD plaques: dark olive glass with a heavy tan-gold rim, the way the mock has them */
+  --plaque: linear-gradient(180deg, rgba(74, 90, 48, 0.9), rgba(52, 65, 33, 0.93));
+  --rim: #d8a83e;
+  --rim-dark: #8a6316;
+  --rim-line: 3px;
   --parchment: linear-gradient(180deg, #fffbe8, #f3e6c4);
   --ink: #2a3a2f;
   --radius: 14px;
@@ -105,62 +110,76 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 
 /* ---- HUD ---- */
 .icon { vertical-align: middle; display: inline-block; }
-/* #22: a single slim bar across the top, translucent so the grass reads through it */
+/* #22: the status strip. Two plaques hanging from the top edge with a gap between them, the left
+   one for the night and the royals, the right one for what you are carrying. */
 #topbar {
-  position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; min-height: var(--bar-h); padding: 6px 12px; padding-top: max(6px, env(safe-area-inset-top));
-  padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right));
-  background: var(--wood); border-top: var(--gold-line) solid var(--gold); border-bottom: var(--gold-line) solid var(--gold);
-  color: #fff; box-shadow: 0 4px 14px rgba(0,0,0,0.28);
+  position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: stretch; justify-content: space-between;
+  gap: 10px; padding: 0 10px; padding-top: max(4px, env(safe-area-inset-top));
+  padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right));
+  color: #fff; background: none; pointer-events: none;
+}
+#topbar .tb-left, #topbar .tb-right {
+  background: var(--plaque); border: var(--rim-line) solid var(--rim); border-top-color: rgba(216,168,62,0.75);
+  border-radius: 0 0 20px 20px; padding: 7px 14px 9px; min-height: var(--bar-h);
+  box-shadow: 0 5px 16px rgba(0,0,0,0.32), inset 0 0 0 1px rgba(0,0,0,0.25);
 }
 /* the blur is a desktop-only nicety: over a WebGL canvas it makes some mobile compositors read the
    frame back every frame, which costs more than it is worth on a phone. The wood is translucent
    either way, so the grass still shows through. */
 @media (hover: hover) and (min-width: 431px) { #topbar { backdrop-filter: blur(3px); } }
-#topbar .tb-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 auto; }
-#topbar .tb-bars { display: flex; flex-direction: column; gap: 3px; flex: 0 0 84px; }
-#topbar .tb-right { display: flex; align-items: center; min-width: 0; flex: 0 1 auto; overflow: hidden; }
+/* the two plaques share the width between them, the way a banner across the top would */
+#topbar .tb-left { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1 1 50%; }
+#topbar .tb-bars { display: flex; flex-direction: column; gap: 5px; flex: 1 1 auto; max-width: 320px; }
+#topbar .tb-right { display: flex; align-items: center; justify-content: space-evenly; min-width: 0; flex: 1 1 50%; overflow: hidden; }
+#topbar .tb-right .stat-row { flex: 1 1 auto; justify-content: space-evenly; }
 /* when the bar is tight it is the wording that gives way, never the health bars or the chips */
-#wave-hud { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 19px; font-weight: 800; line-height: 1.05; text-shadow: 0 2px 3px rgba(0,0,0,0.45); white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#wave-hud { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 22px; font-weight: 800; line-height: 1.05; text-shadow: 0 2px 3px rgba(0,0,0,0.5); white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 #wave-hud .goal { font-size: 13px; opacity: 0.85; }
 #next-wave { font-family: "Nunito", system-ui, sans-serif; font-size: 11px; font-weight: 700; opacity: 0.85; }
-.bar-row { display: flex; align-items: center; gap: 5px; }
-.bar-row .track { flex: 1; height: 9px; border-radius: 6px; background: rgba(0,0,0,0.5); border: 1.5px solid rgba(245,184,0,0.75); overflow: hidden; }
+.bar-row { display: flex; align-items: center; gap: 8px; }
+.bar-row .track {
+  flex: 1; height: 14px; border-radius: 999px; background: rgba(0,0,0,0.45);
+  border: 2px solid rgba(255,255,255,0.92); overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.35);
+}
+#king-hp-fill, #queen-hp-fill { border-radius: 999px; }
 /* the Queen's bar sits empty and dim while she is taken */
 #queen-hp.empty { opacity: 0.45; }
 /* a phone has no room for the desktop sizes: shrink the bar's type rather than drop anything from it */
 @media (max-width: 430px) {
-  #topbar { gap: 6px; padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
+  #topbar { gap: 6px; padding: 0 6px; padding-top: max(4px, env(safe-area-inset-top)); }
+  #topbar .tb-left, #topbar .tb-right { padding: 5px 9px 7px; border-radius: 0 0 16px 16px; }
   /* stack the night line over the two bars: side by side there is no room for both plus the chips */
-  #topbar .tb-left { flex-direction: column; align-items: flex-start; gap: 2px; }
+  #topbar .tb-left { flex-direction: column; align-items: flex-start; gap: 3px; }
   #topbar .tb-bars { flex-direction: row; gap: 6px; flex-basis: auto; }
-  #topbar .bar-row { width: 52px; }
-  #wave-hud { font-size: 15px; }
+  #topbar .bar-row { width: 62px; gap: 4px; }
+  #topbar .bar-row .track { height: 11px; }
+  #wave-hud { font-size: 16px; }
   #wave-hud .goal { font-size: 11px; }
   #next-wave { font-size: 10px; }
   /* the chips wrap onto a second short row rather than being clipped: every number stays readable */
-  #topbar .stat-row { gap: 5px; font-size: 12px; flex-wrap: wrap; justify-content: flex-end; row-gap: 0; }
+  #topbar .stat-row { gap: 7px; font-size: 14px; flex-wrap: wrap; justify-content: flex-end; row-gap: 0; }
   #topbar .tb-right { overflow: visible; flex: 1 1 auto; }
-  #coin-hud { font-size: 20px; padding: 2px 10px 2px 3px; }
+  #coin-hud { font-size: 22px; padding: 3px 13px 3px 3px; }
+  #settings-btn { width: 46px; height: 46px; }
 }
 #king-hp-fill { height: 100%; width: 100%; background: linear-gradient(#7de88f, #3fd455); transition: width 0.15s; }
 #queen-hp-fill { height: 100%; width: 100%; background: linear-gradient(#ffb3cf, #f07aa8); transition: width 0.15s; }
-.stat-row { display: flex; gap: 8px; font-weight: 800; font-size: 14px; flex-wrap: nowrap; }
-.stat-row span { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.stat-row { display: flex; gap: 12px; font-weight: 800; font-size: 17px; flex-wrap: nowrap; }
+.stat-row span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; text-shadow: 0 2px 3px rgba(0,0,0,0.5); }
 .stat-row em { font-style: normal; opacity: 0.7; font-size: 12px; }
-/* under the bar, not on it: on a phone the badge used to sit over the resource chips */
+/* under the plaques, not on them: on a phone the badge used to sit over the resource chips */
 #coin-hud {
-  position: absolute; top: calc(max(6px, env(safe-area-inset-top)) + var(--bar-h) + 10px); right: 12px;
-  display: flex; align-items: center; gap: 6px;
-  background: var(--wood); border: var(--gold-line) solid var(--gold); border-radius: 999px; padding: 2px 14px 2px 4px;
-  color: #fff; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 24px; letter-spacing: 1px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  position: absolute; top: calc(max(4px, env(safe-area-inset-top)) + var(--bar-h) + 14px); right: 12px;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--plaque); border: var(--rim-line) solid var(--rim); border-radius: 999px; padding: 3px 16px 3px 4px;
+  color: #fff; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 26px; letter-spacing: 1px;
+  box-shadow: 0 5px 14px rgba(0,0,0,0.3);
 }
-/* #23: the only control left on the field, directly under the coin badge */
+/* #23: the only control left on the field, in the same column under the coin */
 #settings-btn {
-  position: absolute; right: 12px; top: calc(max(6px, env(safe-area-inset-top)) + var(--bar-h) + 66px);
-  pointer-events: auto; width: 44px; height: 44px; border-radius: 50%; border: var(--gold-line) solid var(--gold); cursor: pointer;
-  background: var(--wood); display: grid; place-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  position: absolute; right: 12px; top: calc(max(4px, env(safe-area-inset-top)) + var(--bar-h) + 76px);
+  pointer-events: auto; width: 52px; height: 52px; border-radius: 50%; border: var(--rim-line) solid var(--rim); cursor: pointer;
+  background: var(--plaque); display: grid; place-items: center; box-shadow: 0 5px 14px rgba(0,0,0,0.3);
 }
 #settings-btn:active { transform: translateY(2px); }
 /* the settings sheet: the same parchment and gold as every other dialog */
@@ -182,7 +201,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   background: var(--parchment); color: var(--ink); padding: 8px 20px 8px 14px; border-radius: var(--radius);
   border: var(--gold-line) solid var(--gold); font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 19px;
   /* stays clear of the coin badge and gear stacked down the right-hand side */
-  width: max-content; max-width: min(420px, calc(100vw - 124px)); text-align: left;
+  width: max-content; max-width: min(420px, calc(100vw - 142px)); text-align: left;
   opacity: 0; transition: opacity 0.25s; pointer-events: none; display: flex; align-items: center; gap: 8px;
   box-shadow: 0 6px 16px rgba(0,0,0,0.3);
 }
