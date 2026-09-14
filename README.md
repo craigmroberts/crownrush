@@ -57,6 +57,20 @@ same Wi-Fi and open the "Network" URL that Vite prints instead.
 - Everything else is automatic: the King and his archers shoot the nearest enemy, coins are picked up by
   walking near them, and standing on a build pad spends coins one at a time.
 
+## The opening: rescue the Queen
+
+The Queen starts captive in the wilds (`CFG.rescue`), guarded by three Bandits who stand still until
+the King comes close. A pink arrow points to her and the raids hold off until she is free (or 50
+seconds pass). Clear the guards, reach her, and she follows the King from then on; passing an intact
+Keep she steps inside.
+
+## Reading the pads
+
+Square pads BUILD something (structures, walls, bridges, expansions). Round pads do everything else,
+with a coloured rim: blue recruits units or sends a crew, purple upgrades, gold trades coins, green
+feeds the Keep. Pads only take payment once the King has stopped on them (or held for a moment,
+`CFG.spend`), so walking across a pad costs nothing.
+
 ## Coins, ranks and towers
 
 - **Four coin tiers.** Bronze, silver, gold and platinum (`CFG.coins`). Buildings and walls cost bronze,

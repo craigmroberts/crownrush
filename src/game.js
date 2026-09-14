@@ -17,6 +17,15 @@ const tmp2 = new V3();
 const tmpM = new THREE.Matrix4();
 const HAIR = [0x5a3416, 0x2a1e16, 0x8a5a2b, 0x1c1c22, 0x6b3f1d];
 const cap = (t) => t[0].toUpperCase() + t.slice(1);
+// pad look by what it does (see drawPad in models.js)
+const PAD_STYLE = {
+  build: { shape: 'square', rim: '#ffffff', tag: 'BUILD' },
+  recruit: { shape: 'circle', rim: '#7fc8ff', tag: 'RECRUIT' },
+  crew: { shape: 'circle', rim: '#7fc8ff', tag: 'CREW' },
+  trade: { shape: 'circle', rim: '#ffd23f', tag: 'TRADE' },
+  feed: { shape: 'circle', rim: '#9cf07a', tag: 'FEED' },
+  upgrade: { shape: 'circle', rim: '#d59bff', tag: 'UPGRADE' },
+};
 const rand = (a, b) => a + Math.random() * (b - a);
 const randInt = (a, b) => Math.floor(rand(a, b + 1));
 
@@ -143,8 +152,16 @@ export class Game {
     // king (on foot until he earns a horse) and the Queen he must protect
     this.king = this.spawnUnit('king', 0, 2);
     this.keep = null;
-    this.queen = this.spawnUnit('queen', -1.2, 3.8);
+    // the Queen starts captive out in the wilds; the King's first job is to bring her home
+    this.queen = this.spawnUnit('queen', CFG.rescue.pos[0], CFG.rescue.pos[1]);
     this.queen.inKeep = false;
+    this.queen.captive = true;
+    for (let i = 0; i < CFG.rescue.captors; i++) {
+      const a = (i / CFG.rescue.captors) * Math.PI * 2 + 0.6;
+      const e = this.spawnEnemy('knight', CFG.rescue.pos[0] + Math.cos(a) * 2.4, CFG.rescue.pos[1] + Math.sin(a) * 2.4, 0);
+      e.captor = true;
+      e.mesh.rotation.y = Math.atan2(-Math.cos(a), -Math.sin(a));
+    }
     const hc = TIERS[0].bounds;
     this.homeSide = this.world.riverInfo((hc.x0 + hc.x1) / 2, (hc.z0 + hc.z1) / 2).side;
 
@@ -196,7 +213,7 @@ export class Game {
     this.hud.hideGameOver();
     this.hud.hideVictory();
     this.hud.hidePause();
-    this.hud.toast('Raiders incoming! Defend the King.', 2600);
+    this.hud.toast('The Queen has been taken! Follow the pink arrow and free her.', 3600);
     audio.init();
   }
 
@@ -679,7 +696,17 @@ export class Game {
     this.pads.push(pad);
   }
 
+  padKind(def) {
+    if (def.structure || def.wall || def.bridge || def.effect === 'expand' || def.repair || def.repairKeep) return 'build';
+    if (def.units) return 'recruit';
+    if (def.crew) return 'crew';
+    if (def.exchange) return 'trade';
+    if (def.feed) return 'feed';
+    return 'upgrade';
+  }
+
   drawPad(pad) {
+    const style = PAD_STYLE[this.padKind(pad.def)];
     const total = pad.cost + pad.res.reduce((a, r) => a + r.need, 0);
     const paidAll = pad.paid + pad.res.reduce((a, r) => a + r.paid, 0);
     drawPad(pad.canvas, pad.tex, {
@@ -689,6 +716,7 @@ export class Game {
       active: !!pad.active,
       sub: pad.def.feed ? `Level ${this.baseLevel} → ${this.baseLevel + 1}` : null,
       locked: pad.locked ? `Keep Lv ${pad.locked}` : null,
+      shape: style.shape, rim: style.rim, tag: style.tag,
     });
   }
 
@@ -926,7 +954,7 @@ export class Game {
 
   queenEnterKeep() {
     const q = this.queen;
-    if (!this.keep || this.keep.state !== 'built' || q.inKeep) return;
+    if (!this.keep || this.keep.state !== 'built' || q.inKeep || q.captive) return;
     q.inKeep = true;
     q.hp = q.maxHp;
     setHealthBar(q.bar, 1);
@@ -1411,7 +1439,7 @@ export class Game {
 
   damageUnit(u, dmg) {
     if (u.hp <= 0) return;
-    if (u.inKeep) return;
+    if (u.inKeep || u.captive) return;
     u.hp -= dmg;
     u.lastHit = this.time;
     if (u.type === 'king' || u.type === 'queen') audio.hurt();
@@ -1457,7 +1485,7 @@ export class Game {
       this.updateFog(dt);
       this.updateChips(dt);
       const army = this.units.filter((u) => u !== this.king && u !== this.queen && !u.assign).length;
-      const between = this.enemies.length === 0 && this.spawnQueue.length === 0;
+      const between = this.enemies.length === 0 && this.spawnQueue.length === 0 && !this.queen.captive;
       this.hud.showNextWave(between && this.wave > 0 && this.waveTimer > 3 && !this.won);
       this.alarmT -= dt;
       this.hud.showAlarm(this.alarmT > 0 ? this.alarmText : null);
@@ -1649,9 +1677,37 @@ export class Game {
   }
 
   // The Queen trails the King until she has a keep to shelter in.
+  // Captive Queen: stands still under guard. Captors wake when the King gets close; once they are
+  // gone and he reaches her, she is free and follows him from then on.
+  updateCaptive(dt) {
+    const q = this.queen;
+    q.moving = false;
+    this.animateWalk(q, 0, dt);
+    q.bar.visible = false;
+    const kp = this.king.mesh.position;
+    const d = kp.distanceTo(q.mesh.position);
+    if (d < 14) q.mesh.rotation.y = this.lerpAngle(q.mesh.rotation.y, Math.atan2(kp.x - q.mesh.position.x, kp.z - q.mesh.position.z), 1 - Math.exp(-dt * 6));
+    if (d < CFG.rescue.aggroRadius) for (const e of this.enemies) if (e.captor) e.captor = false;
+    const guarded = this.enemies.some((e) => e.mesh.position.distanceTo(q.mesh.position) < 10);
+    if (d < CFG.rescue.freeRadius && !guarded) this.freeQueen();
+  }
+
+  freeQueen() {
+    const q = this.queen;
+    q.captive = false;
+    q.hp = q.maxHp;
+    setHealthBar(q.bar, 1);
+    this.spawnFx(q.mesh.position.x, q.mesh.position.z, 0xf7a1c4);
+    this.hud.toast('The Queen is safe! Keep her close and bring her home.', 3200);
+    audio.unlock();
+    this.addScore(CFG.score.rescue);
+    this.waveTimer = CFG.waves.firstDelay + 10;
+  }
+
   updateQueen(dt) {
     const q = this.queen;
     if (!q || q.inKeep) return;
+    if (q.captive) return this.updateCaptive(dt);
     const k = this.king.mesh;
     const fx = Math.sin(k.rotation.y);
     const fz = Math.cos(k.rotation.y);
@@ -1673,6 +1729,8 @@ export class Game {
     this.collideRiver(p, 0.3);
     this.collideKeep(p, 0.3);
     if (d > 16) p.set(k.position.x + rand(-1, 1), 0, k.position.z + rand(-1, 1));
+    // passing an intact Keep, she steps inside
+    if (this.keep && this.keep.state === 'built' && Math.hypot(p.x - this.keep.x, p.z - this.keep.z) < 3.6) return this.queenEnterKeep();
     q.moving = moving > 0.05;
     this.animateWalk(q, moving, dt);
     this.regen(q, dt);
@@ -1799,6 +1857,12 @@ export class Game {
       arr.push(o);
     }
     for (const e of this.enemies) {
+      if (e.captor) {
+        // guarding the Queen: stand still until the King comes close
+        e.moving = false;
+        this.animateWalk(e, 0, dt);
+        continue;
+      }
       e.cooldown -= dt;
       e.retarget -= dt;
       if (e.retarget <= 0 || !e.target || e.target.hp <= 0 || (e.target.isKeep && (e.target.state !== 'built' || !this.queen.inKeep))) {
@@ -1806,7 +1870,7 @@ export class Game {
         let best = null;
         let bd = Infinity;
         for (const u of this.units) {
-          if (u.inKeep) continue;
+          if (u.inKeep || u.captive) continue;
           let d = e.mesh.position.distanceToSquared(u.mesh.position);
           if (u.type === 'queen') d *= CFG.queen.targetWeight;
           if (d < bd) {
@@ -2081,7 +2145,8 @@ export class Game {
         if (locked) chips.push({ icon: 'keep', text: `Keep level ${locked} needed`, state: 'short' });
         if (def.units) chips.push({ icon: def.units.type, text: `${this.unitCount(def.units.type)} / ${this.unitCap(def.units.type)} ${def.units.type}s`, state: locked ? 'short' : 'ok' });
       }
-      const note = locked ? 'Feed the Keep to raise the limit' : def.exchange ? 'Stand here to trade coins up' : def.feed ? `Stand here to pour in materials (level ${this.baseLevel} → ${this.baseLevel + 1})` : def.crew ? 'Stand here to send archers' : nd < CFG.spend.padRadius ? 'Paying…' : 'Stand on the pad to pay';
+      const onPad = nd < CFG.spend.padRadius;
+      const note = locked ? 'Feed the Keep to raise the limit' : onPad && this.king.moving && (nearest.holdT || 0) < CFG.spend.walkHold ? 'Stop here to pay' : def.exchange ? 'Stop here to trade coins up' : def.feed ? `Stop here to pour in materials (level ${this.baseLevel} → ${this.baseLevel + 1})` : def.crew ? 'Stop here to send archers' : onPad ? 'Paying…' : 'Stop on the pad to pay';
       this.hud.showPadTip(sx, sy, def.feed ? `Feed the Keep · Lv ${this.baseLevel}` : def.label, chips, note);
     } else this.hud.hidePadTip();
     for (const pad of this.pads) {
@@ -2096,9 +2161,13 @@ export class Game {
         pad.locked = locked;
         this.drawPad(pad);
       }
+      // coins pour faster the longer the King stands on the pad, so big purchases don't drag
+      pad.holdT = inside ? (pad.holdT || 0) + dt : 0;
+      // ...but only once he has actually stopped on it (or held for a moment): walking across is free
+      const paying = inside && pad.holdT > CFG.spend.arm && (!this.king.moving || pad.holdT > CFG.spend.walkHold);
       if (pad.def.crew) {
         // crew pads take archers from the army instead of coins
-        if (inside && pad.paid < pad.cost && this.spendTimer <= 0) {
+        if (paying && pad.paid < pad.cost && this.spendTimer <= 0) {
           const free = this.units.filter((u) => u.type === 'archer' && !u.assign);
           if (free.length) {
             this.spendTimer = CFG.spend.crewTick;
@@ -2116,13 +2185,11 @@ export class Game {
         }
         continue;
       }
-      // coins pour faster the longer the King stands on the pad, so big purchases don't drag
-      pad.holdT = inside ? (pad.holdT || 0) + dt : 0;
       const tick = THREE.MathUtils.lerp(CFG.spend.tick, CFG.spend.fastTick, Math.min(1, pad.holdT / 1.5));
       // materials pour in alongside the coins
       for (const row of pad.res) {
         const pendingRes = this.flyRes.filter((f) => f.pad === pad && f.row === row).length;
-        if (inside && this.res[row.type] > 0 && row.paid + pendingRes < row.need && (pad.resTimer || 0) <= 0) {
+        if (paying && this.res[row.type] > 0 && row.paid + pendingRes < row.need && (pad.resTimer || 0) <= 0) {
           pad.resTimer = tick * 1.6;
           this.res[row.type]--;
           audio.ching();
@@ -2135,7 +2202,7 @@ export class Game {
       pad.resTimer = (pad.resTimer || 0) - dt;
       let pending = this.flyCoins.filter((f) => f.pad === pad).length;
       const tier = pad.def.coin || 'bronze';
-      while (inside && !locked && this.purse[tier] > 0 && pad.paid + pending < pad.cost && this.spendTimer <= 0) {
+      while (paying && !locked && this.purse[tier] > 0 && pad.paid + pending < pad.cost && this.spendTimer <= 0) {
         this.spendTimer += tick;
         this.purse[tier]--;
         pending++;
@@ -2164,7 +2231,8 @@ export class Game {
       this.victory();
       return;
     }
-    this.waveTimer -= dt;
+    // the raids hold off while the Queen is still captive (up to a point)
+    if (!(this.queen.captive && this.time < CFG.rescue.holdWaves)) this.waveTimer -= dt;
     if (cleared && this.wave > 0 && this.waveTimer > CFG.waves.graceAfterClear) {
       this.waveTimer = CFG.waves.graceAfterClear;
     }
@@ -2217,6 +2285,19 @@ export class Game {
       const dy = Math.sin(ang);
       const t = Math.min((w * 0.5 - margin) / Math.max(1e-6, Math.abs(dx)), (h * 0.5 - margin) / Math.max(1e-6, Math.abs(dy)));
       list.push({ x: w * 0.5 + dx * t, y: h * 0.5 + dy * t, angle: ang, count: 0, home: true });
+    }
+    if (this.queen.captive) {
+      const qp = this.queen.mesh.position;
+      tmp.set(qp.x, 1, qp.z).project(this.camera);
+      const qx = tmp.x * w * 0.5;
+      const qy = -tmp.y * h * 0.5;
+      if (Math.abs(qx) > w * 0.5 - 30 || Math.abs(qy) > h * 0.5 - 30 || tmp.z >= 1) {
+        const ang = Math.atan2(qy, qx);
+        const dx = Math.cos(ang);
+        const dy = Math.sin(ang);
+        const t = Math.min((w * 0.5 - margin) / Math.max(1e-6, Math.abs(dx)), (h * 0.5 - margin) / Math.max(1e-6, Math.abs(dy)));
+        list.push({ x: w * 0.5 + dx * t, y: h * 0.5 + dy * t, angle: ang, count: 0, queen: true });
+      }
     }
     if (this.alarmT > 0) {
       const target = this.queen.inKeep && this.keep ? this.keep.mesh.position : this.queen.mesh.position;

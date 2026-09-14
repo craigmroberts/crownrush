@@ -6,6 +6,9 @@ export const CFG = {
 
   king: { speed: 7.5, footSpeed: 5.6, hp: 140, range: 8.5, fireRate: 1.2, damage: 10, pickupRadius: 3.0 },
   queen: { hp: 90, speed: 7.2, follow: 1.9, targetWeight: 0.55 },
+  // Opening: the Queen has been carried off. Find her, clear her captors, and she follows you home.
+  // Waves hold until she is free (or `holdWaves` seconds pass).
+  rescue: { pos: [-30, 9], captors: 3, freeRadius: 3.2, aggroRadius: 9, holdWaves: 50 },
   keep: { hp: 420, hpPerLevel: 130, radius: 2.1, half: 1.7 },
 
   // The Keep is the base. Materials you mine go ONLY into the Keep; each level unlocks more.
@@ -44,7 +47,7 @@ export const CFG = {
 
   mining: { radius: 2.8, tick: 0.55, regrow: 9 },
 
-  score: { earlyWavePerSecond: 4, kill: { knight: 10, elite: 25, brute: 20, boss: 200 }, coin: 1, material: 2, buildPerCoin: 2, buildPerMaterial: 3, soldierPerWave: 2, waveClear: 50, levelUp: 60 },
+  score: { earlyWavePerSecond: 4, kill: { knight: 10, elite: 25, brute: 20, boss: 200 }, coin: 1, material: 2, buildPerCoin: 2, buildPerMaterial: 3, soldierPerWave: 2, waveClear: 50, levelUp: 60, rescue: 150 },
 
   archer: { hp: 30, range: 9.5, fireRate: 0.9, damage: 10, speed: 9 },
   swordsman: { hp: 70, range: 1.4, fireRate: 1.1, damage: 14, speed: 8.5, aggro: 5 },
@@ -105,7 +108,8 @@ export const CFG = {
 
   regen: { delay: 4, perSecond: 3 },
 
-  spend: { tick: 0.07, fastTick: 0.022, crewTick: 0.28, padRadius: 2.0 },
+  // pads only take payment once you STOP on them (or hold for a moment), so walking past costs nothing
+  spend: { tick: 0.07, fastTick: 0.022, crewTick: 0.28, padRadius: 1.7, arm: 0.25, walkHold: 0.8 },
 
   arrow: { speed: 30, life: 2.0 },
 

@@ -1040,32 +1040,48 @@ export function makePadTexture() {
   return { canvas, tex };
 }
 
-export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 'coins', res = [], active = false, sub = null, locked = null }) {
+// Pad shapes say what a pad does: SQUARE = builds something (structure, wall, bridge, expansion),
+// CIRCLE = everything else (recruit, crew, upgrade, trade, feed), with a coloured rim per kind.
+export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 'coins', res = [], active = false, sub = null, locked = null, shape = 'square', rim = '#ffffff', tag = null }) {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 256, 256);
   const r = 26;
-  ctx.beginPath();
-  ctx.roundRect(14, 14, 228, 228, r);
+  const outline = () => {
+    ctx.beginPath();
+    if (shape === 'circle') ctx.arc(128, 128, 114, 0, Math.PI * 2);
+    else ctx.roundRect(14, 14, 228, 228, r);
+  };
+  outline();
   ctx.fillStyle = active ? 'rgba(255, 230, 120, 0.45)' : 'rgba(58, 42, 26, 0.5)';
   ctx.fill();
   if (paid > 0) {
     ctx.save();
+    outline();
     ctx.clip();
     const hgt = 228 * Math.min(1, paid);
     ctx.fillStyle = '#3fd455';
     ctx.fillRect(14, 242 - hgt, 228, hgt);
     ctx.restore();
   }
-  ctx.strokeStyle = active ? '#ffd93d' : 'rgba(255,255,255,0.95)';
+  ctx.strokeStyle = active ? '#ffd93d' : rim;
   ctx.lineWidth = active ? 14 : 11;
   ctx.lineCap = 'round';
-  const L = active ? 52 : 40;
-  for (const [x, y, sx, sy] of [[14, 14, 1, 1], [242, 14, -1, 1], [14, 242, 1, -1], [242, 242, -1, -1]]) {
-    ctx.beginPath();
-    ctx.moveTo(x + sx * L, y + sy * 6);
-    ctx.lineTo(x + sx * 6, y + sy * 6);
-    ctx.lineTo(x + sx * 6, y + sy * L);
-    ctx.stroke();
+  if (shape === 'circle') {
+    // a ring with four short gaps, so it still reads as a marker rather than a coin
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath();
+      ctx.arc(128, 128, 112, i * (Math.PI / 2) + 0.16, (i + 1) * (Math.PI / 2) - 0.16);
+      ctx.stroke();
+    }
+  } else {
+    const L = active ? 52 : 40;
+    for (const [x, y, sx, sy] of [[14, 14, 1, 1], [242, 14, -1, 1], [14, 242, 1, -1], [242, 242, -1, -1]]) {
+      ctx.beginPath();
+      ctx.moveTo(x + sx * L, y + sy * 6);
+      ctx.lineTo(x + sx * 6, y + sy * 6);
+      ctx.lineTo(x + sx * 6, y + sy * L);
+      ctx.stroke();
+    }
   }
   const hasRes = res.length > 0;
   // icon on a soft disc
@@ -1116,9 +1132,16 @@ export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 
     if (ri) ctx.drawImage(ri, x - 46, 192, 36, 36);
     bigNum(row.remaining, x + 20, 212, 40);
   });
+  if (tag && !hasRes) {
+    ctx.font = '800 17px "Baloo 2", "Trebuchet MS", system-ui, sans-serif';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    ctx.strokeText(tag, 128, 230);
+    ctx.fillStyle = rim;
+    ctx.fillText(tag, 128, 230);
+  }
   if (locked) {
-    ctx.beginPath();
-    ctx.roundRect(14, 14, 228, 228, r);
+    outline();
     ctx.fillStyle = 'rgba(20, 16, 30, 0.55)';
     ctx.fill();
     const li = iconImage('keep');

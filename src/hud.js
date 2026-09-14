@@ -160,10 +160,11 @@ export class Hud {
       el.style.display = 'block';
       el.style.transform = `translate(${it.x}px, ${it.y}px)`;
       el.firstChild.style.transform = `rotate(${it.angle}rad)`;
-      el.lastChild.innerHTML = it.alarm ? iconSvg('alert', 22) : it.home ? iconSvg('home', 22) : it.boss ? iconSvg('skull', 22) : it.count > 1 ? it.count : '';
+      el.lastChild.innerHTML = it.alarm ? iconSvg('alert', 22) : it.queen ? iconSvg('tiara', 22) : it.home ? iconSvg('home', 22) : it.boss ? iconSvg('skull', 22) : it.count > 1 ? it.count : '';
       el.classList.toggle('boss', !!it.boss);
       el.classList.toggle('home', !!it.home);
       el.classList.toggle('alarm', !!it.alarm);
+      el.classList.toggle('queen', !!it.queen);
     });
   }
 }
