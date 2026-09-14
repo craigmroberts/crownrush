@@ -10,7 +10,8 @@
     "preview": "vite preview --host",
     "scout": "node tools/scout/scout.mjs",
     "probe": "node tools/probe/probe.mjs",
-    "models": "node tools/models/compress.mjs"
+    "models": "node tools/models/compress.mjs",
+    "icons": "node tools/icons/make-app-icons.mjs"
   },
   "dependencies": {
     "three": "^0.186.0"
