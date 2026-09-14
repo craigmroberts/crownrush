@@ -1,0 +1,29 @@
+{
+  "props": {
+    "torso": [
+      0.34,
+      0.29,
+      0.33
+    ],
+    "arm_r": 0.09,
+    "arm_len": 0.32,
+    "hand_r": 0.085,
+    "leg_r": 0.105,
+    "head_s": 1.0,
+    "leg_x": 0.14,
+    "boot_s": 1.0,
+    "gown_s": 0.9760436893690753,
+    "gown_h": 1.0336104945525162
+  },
+  "colors": {
+    "skin": "#f4c8a2",
+    "hair": "#7a4a2a",
+    "gold": "#e2b84a",
+    "pink": "#ee6f97",
+    "beard": "#9a5e3a"
+  },
+  "score": 0.7351,
+  "silhouette": 0.7408,
+  "colour": 0.7245,
+  "reference": "tools/fit/refs/queen.png"
+}

@@ -49,6 +49,7 @@ TARGET = flag("--target", 0.86, float)
 PATIENCE = flag("--patience", 25, int)
 RES = flag("--res", 160, int)
 SEED = flag("--seed", 1, int)
+SNAP = flag("--snapshot", 0, int)  # write reports/<who>-stage-N.png every N renders, to watch a run
 if len(args) < 2:
     print(__doc__)
     sys.exit(1)
@@ -67,11 +68,13 @@ WORK_RENDER = os.path.join(REPORT_DIR, f"_{WHO}-trial.png")
 BOUNDS = {
     "torso_x": (0.24, 0.52), "torso_y": (0.2, 0.44), "torso_z": (0.24, 0.46),
     "arm_r": (0.06, 0.16), "arm_len": (0.22, 0.5), "hand_r": (0.06, 0.16), "leg_r": (0.08, 0.18), "head_s": (0.78, 1.25),
+    "leg_x": (0.1, 0.3), "boot_s": (0.8, 1.8), "gown_s": (0.7, 1.4), "gown_h": (0.8, 1.3),
 }
 DEFAULTS = {
-    "king": dict(torso_x=0.34, torso_y=0.29, torso_z=0.33, arm_r=0.09, arm_len=0.32, hand_r=0.085, leg_r=0.105, head_s=1.0),
-    "brute": dict(torso_x=0.42, torso_y=0.36, torso_z=0.36, arm_r=0.12, arm_len=0.36, hand_r=0.11, leg_r=0.13, head_s=1.0),
-    "boss": dict(torso_x=0.44, torso_y=0.38, torso_z=0.4, arm_r=0.13, arm_len=0.46, hand_r=0.14, leg_r=0.15, head_s=0.92),
+    "king": dict(torso_x=0.34, torso_y=0.29, torso_z=0.33, arm_r=0.09, arm_len=0.32, hand_r=0.085, leg_r=0.105, head_s=1.0, leg_x=0.14, boot_s=1.0),
+    "queen": dict(torso_x=0.34, torso_y=0.29, torso_z=0.33, arm_r=0.09, arm_len=0.32, hand_r=0.085, leg_r=0.105, head_s=1.0, gown_s=1.0, gown_h=1.0),
+    "brute": dict(torso_x=0.42, torso_y=0.36, torso_z=0.36, arm_r=0.12, arm_len=0.36, hand_r=0.11, leg_r=0.13, head_s=1.0, leg_x=0.14, boot_s=1.0),
+    "boss": dict(torso_x=0.44, torso_y=0.38, torso_z=0.4, arm_r=0.13, arm_len=0.46, hand_r=0.14, leg_r=0.15, head_s=0.92, leg_x=0.14, boot_s=1.0),
 }
 # every palette name the builder knows; each gets a unique flat ID colour for the role render
 PALETTE = ["skin", "hair", "beard", "blue", "gold", "leather", "boot", "white", "black", "red", "pink", "blueEye",
@@ -79,7 +82,43 @@ PALETTE = ["skin", "hair", "beard", "blue", "gold", "leather", "boot", "white", 
 _levels = [0.0, 0.5, 1.0]
 ID_COLORS = [(r, g, b) for r in _levels for g in _levels for b in _levels if (r, g, b) not in ((0, 0, 0), (1, 1, 1))]
 ID_OF = {name: ID_COLORS[i] for i, name in enumerate(PALETTE)}
+# the builder's default palette (linear) as sRGB, so a role can be matched to the reference by colour
+_LIN = {
+    "skin": (0.97, 0.80, 0.66), "hair": (0.32, 0.17, 0.07), "beard": (0.38, 0.22, 0.10), "blue": (0.16, 0.42, 0.85),
+    "gold": (0.95, 0.70, 0.18), "leather": (0.45, 0.27, 0.14), "boot": (0.32, 0.20, 0.12), "white": (0.97, 0.97, 0.97),
+    "black": (0.05, 0.05, 0.06), "red": (0.85, 0.12, 0.14), "pink": (0.94, 0.48, 0.66), "blueEye": (0.25, 0.50, 0.85),
+    "horse": (0.91, 0.84, 0.71), "muzzle": (0.85, 0.76, 0.6), "mane": (0.55, 0.36, 0.18),
+    "steel": (0.76, 0.78, 0.81), "steelDark": (0.45, 0.48, 0.52), "navy": (0.2, 0.22, 0.34), "darkRed": (0.52, 0.08, 0.1),
+    "ink": (0.13, 0.13, 0.16), "bone": (0.93, 0.89, 0.9), "boneDark": (0.82, 0.74, 0.76), "wood": (0.5, 0.33, 0.16), "glow": (1.0, 0.2, 0.2),
+}
+def _srgb(c):
+    return 12.92 * c if c <= 0.0031308 else 1.055 * c ** (1 / 2.4) - 0.055
+DEFAULT_COL = {k: np.array([_srgb(x) for x in v], np.float32) for k, v in _LIN.items()}
+NEAR = 0.3  # how far (RGB) a reference colour may be from a role's default and still count as "that role"
+
+def clusters(px, n=8, rounds=10):
+    """The reference's main materials as colour centres (k-means). A shaded tunic collapses to one
+    centre instead of hogging every histogram cell, so brown and peach get their own."""
+    rng = np.random.default_rng(0)
+    if len(px) > 20000:
+        px = px[rng.choice(len(px), 20000, replace=False)]
+    # seeds: farthest-point sampling, so small but distinct materials get a centre too
+    cents = [px[rng.integers(len(px))]]
+    for _ in range(n - 1):
+        d = np.min(np.stack([np.linalg.norm(px - c, axis=1) for c in cents]), axis=0)
+        cents.append(px[np.argmax(d)])
+    cents = np.stack(cents)
+    for _ in range(rounds):
+        lab = np.argmin(np.stack([np.linalg.norm(px - c, axis=1) for c in cents]), axis=0)
+        for i in range(n):
+            if (lab == i).any():
+                cents[i] = px[lab == i].mean(axis=0)
+    counts = [(lab == i).sum() for i in range(n)]
+    return [(cents[i], counts[i]) for i in range(n) if counts[i] > 0.01 * len(px)]
+
 MIN_ROLE = 0.012  # a role must cover this share of the silhouette to be worth recolouring
+# roles worth recolouring from a picture: broad areas. Thin details (beard, eyes, belts) are derived or kept.
+RECOLOR = {"skin", "hair", "blue", "red", "pink", "white", "navy", "ink", "bone", "boneDark", "darkRed", "boot", "leather", "gold", "steel", "steelDark", "wood", "horse"}
 
 # ---------- images ----------
 def load_rgba(path):
@@ -198,7 +237,7 @@ def render(params):
     return px
 
 def to_props(p):
-    return {"torso": [p["torso_x"], p["torso_y"], p["torso_z"]], "arm_r": p["arm_r"], "arm_len": p["arm_len"], "hand_r": p["hand_r"], "leg_r": p["leg_r"], "head_s": p["head_s"]}
+    return {"torso": [p["torso_x"], p["torso_y"], p["torso_z"]], "arm_r": p["arm_r"], "arm_len": p["arm_len"], "hand_r": p["hand_r"], "leg_r": p["leg_r"], "head_s": p["head_s"], "leg_x": p.get("leg_x", 0.14), "boot_s": p.get("boot_s", 1.0), "gown_s": p.get("gown_s", 1.0), "gown_h": p.get("gown_h", 1.0)}
 
 def hexc(c):
     return "#%02x%02x%02x" % tuple(int(round(max(0, min(1, v)) * 255)) for v in c)
@@ -206,6 +245,16 @@ def hexc(c):
 def hex_to_rgb(h):
     h = h.lstrip("#")
     return tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
+
+def compose(ref_m, ref_c, m, c):
+    n = ref_m.shape[0]
+    panel = lambda mm, cc: np.where(mm[..., None], cc, 1.0).astype(np.float32)
+    overlay = np.ones((n, n, 3), np.float32)
+    overlay[np.logical_and(ref_m, ~m)] = (0.9, 0.2, 0.2)
+    overlay[np.logical_and(m, ~ref_m)] = (0.2, 0.4, 0.9)
+    overlay[np.logical_and(ref_m, m)] = (0.55, 0.5, 0.6)
+    gap = np.ones((n, 4, 3), np.float32)
+    return np.concatenate([panel(ref_m, ref_c), gap, panel(m, c), gap, overlay], axis=1)
 
 # ---------- go ----------
 t0 = time.time()
@@ -221,7 +270,7 @@ if os.path.exists(existing):
     prev = json.load(open(existing))
     if "props" in prev:
         pr = prev["props"]
-        p.update(torso_x=pr["torso"][0], torso_y=pr["torso"][1], torso_z=pr["torso"][2], **{k: pr[k] for k in ("arm_r", "arm_len", "hand_r", "leg_r", "head_s") if k in pr})
+        p.update(torso_x=pr["torso"][0], torso_y=pr["torso"][1], torso_z=pr["torso"][2], **{k: pr[k] for k in ("arm_r", "arm_len", "hand_r", "leg_r", "head_s", "leg_x", "boot_s", "gown_s", "gown_h") if k in pr})
         print("starting from the previous fit")
 
 def evaluate(p, cols=None):
@@ -234,7 +283,7 @@ best, best_m, best_c = evaluate(p)
 print(f"start  silhouette {best:.3f}")
 step = 0.06
 stall = 0
-keys = list(BOUNDS)
+keys = [k for k in p if k in BOUNDS and not (WHO == "queen" and k in ("leg_r", "leg_x", "boot_s"))]
 for it in range(1, ITERS + 1):
     if best >= TARGET + 0.06 or stall >= PATIENCE:
         break
@@ -251,19 +300,48 @@ for it in range(1, ITERS + 1):
         stall += 1
         if stall % 6 == 0:
             step = max(0.015, step * 0.7)
+    if SNAP and it % SNAP == 0:
+        save_rgb(os.path.join(REPORT_DIR, f"{WHO}-stage-{it}.png"), compose(ref_m, ref_c, best_m, best_c))
+        print(f"snapshot {it}: silhouette {best:.3f} -> reports/{WHO}-stage-{it}.png")
 
 iou = best
 # phase 2: colours. Render the fitted shape with ID colours, then read the reference under each role.
 id_iou, id_m, id_c = evaluate(p, {name: hexc(ID_OF[name]) for name in PALETTE})
 masks = role_masks(id_m, id_c)
+# Two witnesses per role: WHERE the role sits (the pixels under its mask) and WHAT it looks like
+# (the reference colour nearest its default). Position is brittle when parts sit at different
+# heights, colour is brittle when two roles share a hue, so a role is recoloured when they agree,
+# and by colour alone when its default is unmistakable in the reference.
+ref_clusters = clusters(ref_c[ref_m])
 for name, m in masks.items():
+    if name not in RECOLOR or m.sum() < 0.04 * ref_m.sum():
+        continue
+    default = DEFAULT_COL[name]
+    by_colour, dist = min(((c, np.linalg.norm(c - default)) for c, _ in ref_clusters), key=lambda t: t[1])
     sel = np.logical_and(m, ref_m)
-    if sel.sum() >= 8:
-        colors[name] = hexc(dominant(ref_c[sel]))
+    by_place = dominant(ref_c[sel]) if sel.sum() >= 8 else None
+    if by_place is not None and np.linalg.norm(by_place - by_colour) < 0.2:
+        colors[name] = hexc(by_place)
+    elif dist < NEAR:
+        colors[name] = hexc(by_colour)
+    else:
+        print(f"  {name}: nothing in the reference looks like it (nearest {hexc(by_colour)}, {dist:.2f} away), keeping the default")
+if "hair" in colors:
+    colors["beard"] = colors["hair"]  # a beard is hair
+# pins win: tools/fit/refs/<who>.colors.json holds role colours eyedropped from the reference by a
+# person. Automatic guessing is reliable for broad areas and unreliable for skin, hair and trims on
+# shaded low-poly art, so this is the intended way to settle those in seconds.
+pins_path = os.path.join(os.path.dirname(REF), f"{WHO}.colors.json")
+if os.path.exists(pins_path):
+    pins = json.load(open(pins_path))
+    colors.update(pins)
+    print("pinned from", os.path.relpath(pins_path, ROOT) + ":", pins)
 print("colours from reference:", colors)
 if iou < 0.85:
     print(f"note: silhouette overlap is only {iou:.2f}, so some colours were read from the wrong parts. More iterations, or a cleaner reference, will fix both.")
-col = colour_score(masks, ref_m, ref_c, colors)
+# pinned roles were chosen by eye, so the colour score only judges what the tool guessed
+pinned = set(json.load(open(pins_path))) if os.path.exists(pins_path) else set()
+col = colour_score({k: v for k, v in masks.items() if k not in pinned}, ref_m, ref_c, colors)
 _, best_m, best_c = evaluate(p)
 best = float(0.65 * iou + 0.35 * col)
 
@@ -272,15 +350,7 @@ best = float(0.65 * iou + 0.35 * col)
 out = {"props": {k: ([float(x) for x in v] if isinstance(v, list) else float(v)) for k, v in to_props(p).items()}, "colors": colors,
        "score": round(float(best), 4), "silhouette": round(float(iou), 4), "colour": round(float(col), 4), "reference": os.path.relpath(REF, ROOT)}
 json.dump(out, open(os.path.join(PARAMS_DIR, f"{WHO}.json"), "w"), indent=2)
-n = RES
-panel = lambda m, c: np.where(m[..., None], c, 1.0).astype(np.float32)
-overlay = np.ones((n, n, 3), np.float32)
-overlay[np.logical_and(ref_m, ~best_m)] = (0.9, 0.2, 0.2)   # reference only: we are missing shape here
-overlay[np.logical_and(best_m, ~ref_m)] = (0.2, 0.4, 0.9)   # render only: we have shape the reference lacks
-overlay[np.logical_and(ref_m, best_m)] = (0.55, 0.5, 0.6)
-gap = np.ones((n, 4, 3), np.float32)
-report = np.concatenate([panel(ref_m, ref_c), gap, panel(best_m, best_c), gap, overlay], axis=1)
-save_rgb(os.path.join(REPORT_DIR, f"{WHO}.png"), report)
+save_rgb(os.path.join(REPORT_DIR, f"{WHO}.png"), compose(ref_m, ref_c, best_m, best_c))
 if os.path.exists(WORK_PARAMS):
     os.remove(WORK_PARAMS)
 missing = int(np.logical_and(ref_m, ~best_m).sum()) / max(1, int(ref_m.sum()))

@@ -15,6 +15,15 @@ It prints one verdict line and writes:
 - `tools/fit/reports/<who>.png` – reference | render | overlay. Red is reference shape the model
   cannot make; blue is model shape the reference lacks. Red means "add a part", not "run it longer".
 
+**Pinning colours.** Automatic colour matching is reliable for broad areas (a tunic, a dress, boots)
+and unreliable for skin, hair and small trims on shaded artwork. Eyedrop those from the reference into
+`tools/fit/refs/<who>.colors.json` and they override the guess:
+
+    { "skin": "#f0c096", "hair": "#5a3a22", "gold": "#e0b23a" }
+
+Role names are the builder's palette names (skin, hair, beard, blue, gold, leather, boot, white, red,
+pink, navy, darkRed, ink, bone, boneDark, steel, steelDark).
+
 Options: `--iters 150` (max renders), `--target 0.86` (score to stop at, 0..1), `--patience 25`,
 `--res 160` (comparison resolution), `--seed 2` (a different search path).
 

@@ -211,9 +211,13 @@ def build_figure(style, tunic, trim, boots="boot", pants="leather", dress=False,
     hand_r = PROPS.get("hand_r", hand_r)
     leg_r = PROPS.get("leg_r", leg_r)
     head_s = PROPS.get("head_s", head_s)
+    global LEG_X
+    LEG_X = PROPS.get("leg_x", LEG_X)
+    boot_s = PROPS.get("boot_s", 1.0)
     if dress:
-        part("frustum", "gown", (0, 0, 0.33), color=tunic, bone="root", sub=0, r1=0.62, r2=0.25, depth=0.66)
-        band("hem", (0, 0, 0.04), 0.63, 0.07, trim, "root")
+        gs, gh = PROPS.get("gown_s", 1.0), PROPS.get("gown_h", 1.0)
+        part("frustum", "gown", (0, 0, 0.33 * gh), color=tunic, bone="root", sub=0, r1=0.62 * gs, r2=0.25, depth=0.66 * gh)
+        band("hem", (0, 0, 0.04), 0.63 * gs, 0.07, trim, "root")
         part("cube", "front", (0, -0.3, 0.33), scale=(0.05, 0.03, 0.62), rot=(math.radians(-24), 0, 0), color=trim, bone="root", sub=0)
         part("frustum", "bodice", (0, 0, 0.82), color=tunic, bone="spine", sub=0, r1=0.26, r2=0.2, depth=0.42)
         ell("chest", (0, 0, 0.9), (0.24, 0.2, 0.2), tunic, "spine")
@@ -230,9 +234,9 @@ def build_figure(style, tunic, trim, boots="boot", pants="leather", dress=False,
         tw = torso[0] / 0.34
         for side, x in (("L", LEG_X), ("R", -LEG_X)):
             part("cyl", f"leg.{side}", (x, 0, 0.34), scale=(leg_r, leg_r, 0.32), color=pants, bone=f"leg.{side}")
-            part("cyl", f"boot.{side}", (x, 0, 0.12), scale=(leg_r * 1.15, leg_r * 1.15, 0.2), color=boots, bone=f"leg.{side}")
-            ell(f"toe.{side}", (x, -0.09, 0.06), (leg_r * 1.05, leg_r * 1.35, 0.075), boots, f"leg.{side}")
-            band(f"boottop.{side}", (x, 0, 0.21), leg_r * 1.2, 0.05, boots, f"leg.{side}")
+            part("cyl", f"boot.{side}", (x, 0, 0.12), scale=(leg_r * 1.15 * boot_s, leg_r * 1.15 * boot_s, 0.2 * boot_s), color=boots, bone=f"leg.{side}")
+            ell(f"toe.{side}", (x, -0.09 * boot_s, 0.06), (leg_r * 1.05 * boot_s, leg_r * 1.35 * boot_s, 0.075 * boot_s), boots, f"leg.{side}")
+            band(f"boottop.{side}", (x, 0, 0.21 * boot_s), leg_r * 1.2 * boot_s, 0.05, boots, f"leg.{side}")
         ell("torso", (0, 0, 0.77), torso, tunic, "spine")
         part("frustum", "skirt", (0, 0, 0.47), color=tunic, bone="spine", sub=0, r1=0.37 * tw, r2=0.3 * tw, depth=0.22)
         band("skirthem", (0, 0, 0.375), 0.375 * tw, 0.06, trim, "spine")
