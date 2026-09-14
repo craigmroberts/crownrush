@@ -6,10 +6,29 @@ Characters face -Y in Blender, which the glTF exporter turns into +Z (what the g
 import sys, math, bpy
 from mathutils import Vector
 
+import json, os
 args = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+# flags: --params <json>  override proportions and colours (see tools/fit/README.md)
+#        --front <png>    flat orthographic front render on a transparent background (what the fitter scores)
+def flag(name, default=None):
+    if name in args:
+        i = args.index(name)
+        v = args[i + 1]
+        del args[i:i + 2]
+        return v
+    return default
+PARAMS_PATH = flag("--params")
+FRONT = flag("--front")
 WHO = args[0] if args else "king"
-OUT = args[1] if len(args) > 1 else f"public/models/{WHO}.glb"
+OUT = args[1] if len(args) > 1 else f"public/models/{WHO}.glb"   # "-" skips the export
 PREVIEW = args[2] if len(args) > 2 else None
+# A fitted look (tools/fit) is picked up automatically when building the game's models.
+if PARAMS_PATH is None:
+    auto = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "fit", "params", f"{WHO}.json")
+    if os.path.exists(auto):
+        PARAMS_PATH = auto
+PARAMS = json.load(open(PARAMS_PATH)) if PARAMS_PATH else {}
+PROPS = PARAMS.get("props", {})
 
 # ---------- scene reset ----------
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -25,6 +44,16 @@ COL = {
     "steel": (0.76, 0.78, 0.81), "steelDark": (0.45, 0.48, 0.52), "navy": (0.2, 0.22, 0.34), "darkRed": (0.52, 0.08, 0.1),
     "ink": (0.13, 0.13, 0.16), "bone": (0.93, 0.89, 0.9), "boneDark": (0.82, 0.74, 0.76), "wood": (0.5, 0.33, 0.16), "glow": (1.0, 0.2, 0.2),
 }
+def hex_to_rgb(h):
+    """#rrggbb (sRGB, what a picture or a colour picker gives you) -> linear, which is what Blender's
+    colour inputs expect. Without this every overridden colour renders lighter and paler than asked."""
+    h = h.lstrip("#")
+    def lin(c):
+        c /= 255
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+    return tuple(lin(int(h[i:i + 2], 16)) for i in (0, 2, 4))
+for _name, _hex in PARAMS.get("colors", {}).items():
+    COL[_name] = hex_to_rgb(_hex)
 mats = {}
 def material(name):
     if name in mats:
@@ -33,6 +62,7 @@ def material(name):
     m.use_nodes = True
     bsdf = m.node_tree.nodes["Principled BSDF"]
     bsdf.inputs["Base Color"].default_value = (*COL[name], 1.0)
+    m.diffuse_color = (*COL[name], 1.0)  # Workbench (the fitter's flat render) reads this, not the node
     bsdf.inputs["Roughness"].default_value = 0.45 if name == "gold" else 0.8
     bsdf.inputs["Metallic"].default_value = 0.15 if name == "gold" else 0.0
     if name == "glow":
@@ -175,6 +205,12 @@ def build_hair(style):
 
 def build_figure(style, tunic, trim, boots="boot", pants="leather", dress=False, hair=True, bare_arms=False,
                  torso=(0.34, 0.29, 0.33), arm_r=0.09, arm_len=0.32, hand_r=0.085, leg_r=0.105, head_s=1.0):
+    torso = tuple(PROPS.get("torso", torso))
+    arm_r = PROPS.get("arm_r", arm_r)
+    arm_len = PROPS.get("arm_len", arm_len)
+    hand_r = PROPS.get("hand_r", hand_r)
+    leg_r = PROPS.get("leg_r", leg_r)
+    head_s = PROPS.get("head_s", head_s)
     if dress:
         part("frustum", "gown", (0, 0, 0.33), color=tunic, bone="root", sub=0, r1=0.62, r2=0.25, depth=0.66)
         band("hem", (0, 0, 0.04), 0.63, 0.07, trim, "root")
@@ -521,9 +557,33 @@ dg = bpy.context.evaluated_depsgraph_get()
 ev_mesh = body.evaluated_get(dg).data
 ev_mesh.calc_loop_triangles()
 print("TRIS", WHO, len(ev_mesh.loop_triangles))
-bpy.ops.object.select_all(action="SELECT")
-bpy.ops.export_scene.gltf(filepath=OUT, export_format="GLB", export_apply=True, export_animations=True, export_yup=True, use_selection=True, export_draco_mesh_compression_enable=True, export_draco_mesh_compression_level=6)
-print("exported", OUT)
+if OUT != "-":
+    bpy.ops.object.select_all(action="SELECT")
+    bpy.ops.export_scene.gltf(filepath=OUT, export_format="GLB", export_apply=True, export_animations=True, export_yup=True, use_selection=True, export_draco_mesh_compression_enable=True, export_draco_mesh_compression_level=6)
+    print("exported", OUT)
+
+# ---------- flat front render for the fitter ----------
+if FRONT:
+    # orthographic, flat material colours, transparent background: silhouette = alpha, colours exact
+    bpy.ops.object.camera_add(location=(0, -10, 1.05))
+    cam = bpy.context.active_object
+    cam.rotation_euler = (math.radians(90), 0, 0)
+    cam.data.type = "ORTHO"
+    cam.data.ortho_scale = 2.6
+    scene.camera = cam
+    scene.render.engine = "BLENDER_WORKBENCH"
+    scene.display.shading.light = "FLAT"
+    scene.display.shading.color_type = "MATERIAL"
+    scene.render.film_transparent = True
+    scene.render.resolution_x = scene.render.resolution_y = int(PARAMS.get("front_res", 192))
+    scene.render.image_settings.color_mode = "RGBA"
+    scene.view_settings.view_transform = "Standard"
+    for t in arm.animation_data.nla_tracks:
+        t.mute = True
+    scene.frame_set(1)
+    scene.render.filepath = FRONT
+    bpy.ops.render.render(write_still=True)
+    print("front", FRONT)
 
 # ---------- preview render ----------
 if PREVIEW:

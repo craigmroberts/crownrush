@@ -307,6 +307,14 @@ What keeps it fast:
 - Enemy separation uses a spatial grid; the river/bridge search is cached per enemy.
 - Dead characters release their health-bar and skeleton textures.
 
+## Fitting a character to a reference image
+
+`tools/fit/fit.py` runs inside Blender's own Python (numpy is bundled, nothing to install) and fits
+a character to a front-view reference with no AI in the loop: rebuild, flat-render, score silhouette
+and colour against the reference, nudge one proportion, keep it if better, stop when it stalls. It
+writes the best parameters to `tools/fit/params/<who>.json`, which the model build picks up
+automatically, and a reference | render | overlay report. See [tools/fit/README.md](tools/fit/README.md).
+
 ## Deploying
 
 Every push to `main` builds the game and publishes it to GitHub Pages through the workflow in
