@@ -3,21 +3,24 @@
 Runs INSIDE Blender's Python (numpy is bundled), so nothing needs installing:
 
     blender -b -P tools/fit/fit.py -- king tools/fit/refs/king.png
-    blender -b -P tools/fit/fit.py -- king tools/fit/refs/king.png --iters 150 --target 0.86
+    blender -b -P tools/fit/fit.py -- king tools/fit/refs/king.png --iters 600 --target 0.86 --snapshot 100
 
-What it does, over and over until the score stops improving:
-  1. build the character from the current parameters (tools/blender/make_character.py --params)
+What it does, over and over until the shape stops improving:
+  1. build the character from the current parameters (tools/blender/make_character.py --params),
+     in this same Blender process, so a try costs well under a second
   2. render a flat orthographic front view on a transparent background
-  3. score it against the reference:
-       - silhouette: intersection-over-union of the two shapes, each cropped to its bounding box
-         and fitted into the same square, so position and overall scale do not matter
-       - colour: the dominant colour of the foreground in each of several horizontal bands
-  4. nudge one proportion and keep the change if the score went up
+  3. score it against the reference: the two silhouettes are cropped to their bounding boxes and fitted
+     into the same square (so position and overall scale do not matter), every pixel is labelled by the
+     nearest part colour, and the score is the share of the union where both sides show the same part.
+     A plain outline overlap let the search grow the beard over the face; this does not.
+  4. search: sweep every proportion up and down by a step and keep whatever helps; when a whole sweep
+     helps nothing, try a few random multi-parameter jumps, then halve the step. Stops when the step
+     is tiny, the render budget is spent, or the target is reached.
 
-Colours are not searched. After the shape search, the character is rendered once more with every
-palette role wearing a unique ID colour, so each pixel of the fitted silhouette is known to belong to
-"hair" or "tunic" or "boot". The reference's dominant colour under each role's pixels is then assigned
-to that role directly. The search itself is over the six proportion values the builder exposes.
+Colours are not searched. Before and after the shape search the character is rendered with every
+palette role wearing a unique ID colour, so each pixel of the silhouette is known to belong to "hair"
+or "tunic" or "boot". The reference's dominant colour under each role's pixels is then assigned to
+that role directly, and tools/fit/refs/<who>.colors.json pins win over the guess.
 
 Outputs:
   tools/fit/params/<who>.json   the best parameters found (the game's build picks this up automatically)
@@ -28,7 +31,7 @@ The reference should be a front view of the character on a plain or transparent 
 this builder has no part for (a cape, a different hat) will show up as red in the overlay: that is a
 request for a new part, not something the search can invent.
 """
-import sys, os, json, math, random, subprocess, time
+import sys, os, json, math, random, subprocess, time, contextlib
 import numpy as np
 import bpy
 
@@ -44,12 +47,17 @@ def flag(name, default=None, cast=str):
         del args[i:i + 2]
         return cast(v)
     return default
-ITERS = flag("--iters", 120, int)
-TARGET = flag("--target", 0.86, float)
-PATIENCE = flag("--patience", 25, int)
+ITERS = flag("--iters", 500, int)          # render budget for the shape search
+TARGET = flag("--target", 0.8, float)      # layout score (0..1) that counts as done
+PATIENCE = flag("--patience", 0, int)      # kept for old command lines; the sweep search has its own stop
 RES = flag("--res", 160, int)
 SEED = flag("--seed", 1, int)
 SNAP = flag("--snapshot", 0, int)  # write reports/<who>-stage-N.png every N renders, to watch a run
+JOBS = flag("--jobs", 1, int)              # run this many seeds in parallel Blenders and keep the best
+TAG = flag("--tag", "")                     # set by --jobs for its children: suffix for their work files
+SUBPROCESS = "--subprocess" in args        # one Blender per render (slow, but isolated) instead of in-process
+if SUBPROCESS:
+    args.remove("--subprocess")
 if len(args) < 2:
     print(__doc__)
     sys.exit(1)
@@ -60,22 +68,83 @@ PARAMS_DIR = os.path.join(ROOT, "tools", "fit", "params")
 REPORT_DIR = os.path.join(ROOT, "tools", "fit", "reports")
 os.makedirs(PARAMS_DIR, exist_ok=True)
 os.makedirs(REPORT_DIR, exist_ok=True)
-WORK_PARAMS = os.path.join(REPORT_DIR, f"_{WHO}-trial.json")
-WORK_RENDER = os.path.join(REPORT_DIR, f"_{WHO}-trial.png")
+WORK_PARAMS = os.path.join(REPORT_DIR, f"_{WHO}{TAG}-trial.json")
+WORK_RENDER = os.path.join(REPORT_DIR, f"_{WHO}{TAG}-trial.png")
+WORK_IDS = os.path.join(REPORT_DIR, f"_{WHO}{TAG}-ids.json")
+OUT_PARAMS = os.path.join(PARAMS_DIR, f"{WHO}{TAG}.json")
+OUT_REPORT = os.path.join(REPORT_DIR, f"{WHO}{TAG}.png")
+OUT_VERDICT = os.path.join(REPORT_DIR, f"_{WHO}{TAG}.verdict")
+
+if JOBS > 1:
+    # the same fit from several seeds at once, one Blender each; the best one becomes the result
+    import shutil
+    base = [BLENDER, "-b", "-P", os.path.abspath(__file__), "--", WHO, REF, "--seed"]
+    rest = []
+    for k in ("--iters", "--target", "--res", "--snapshot"):
+        v = {"--iters": ITERS, "--target": TARGET, "--res": RES, "--snapshot": SNAP}[k]
+        rest += [k, str(v)]
+    logs = [open(os.path.join(REPORT_DIR, f"_{WHO}-s{SEED + k}.log"), "w") for k in range(JOBS)]
+    procs = [subprocess.Popen(base + [str(SEED + k), "--tag", f"-s{SEED + k}"] + rest, stdout=logs[k], stderr=subprocess.STDOUT, cwd=ROOT) for k in range(JOBS)]
+    print(f"{JOBS} seeds running in parallel ({SEED}..{SEED + JOBS - 1}); each logs to reports/_{WHO}-s<seed>.log")
+    for pr, lg in zip(procs, logs):
+        pr.wait()
+        lg.close()
+    results = []
+    for k in range(JOBS):
+        tag = f"-s{SEED + k}"
+        v = os.path.join(REPORT_DIR, f"_{WHO}{tag}.verdict")
+        if os.path.exists(v):
+            line = open(v).read().split()
+            results.append((float(line[2]), tag, " ".join(line)))
+    if not results:
+        raise SystemExit("every seed failed; run one seed without --jobs to see why")
+    results.sort(reverse=True)
+    for sc, tag, line in results:
+        print(f"  seed{tag}: {line}")
+    best_tag = results[0][1]
+    tail = [l for l in open(os.path.join(REPORT_DIR, f"_{WHO}{best_tag}.log")).read().split("\n") if l.startswith(("  ", "colours", "stalled", "complete", "parts costing"))]
+    print("\n".join(tail[-16:]))
+    shutil.copy(os.path.join(PARAMS_DIR, f"{WHO}{best_tag}.json"), os.path.join(PARAMS_DIR, f"{WHO}.json"))
+    shutil.copy(os.path.join(REPORT_DIR, f"{WHO}{best_tag}.png"), os.path.join(REPORT_DIR, f"{WHO}.png"))
+    shutil.copy(os.path.join(REPORT_DIR, f"_{WHO}{best_tag}.verdict"), os.path.join(REPORT_DIR, f"_{WHO}.verdict"))
+    for f in os.listdir(REPORT_DIR):  # the losers' files
+        if f.startswith(f"_{WHO}-s") or f.startswith(f"{WHO}-s"):
+            os.remove(os.path.join(REPORT_DIR, f))
+    for f in os.listdir(PARAMS_DIR):
+        if f.startswith(f"{WHO}-s"):
+            os.remove(os.path.join(PARAMS_DIR, f))
+    print(f"best seed{best_tag} kept: params -> tools/fit/params/{WHO}.json, report -> tools/fit/reports/{WHO}.png")
+    sys.exit(0 if results[0][0] >= TARGET else 2)
 
 # ---------- what the builder lets us move ----------
 # each character's defaults live in make_character.py; these are the search bounds
 BOUNDS = {
-    "torso_x": (0.24, 0.52), "torso_y": (0.2, 0.44), "torso_z": (0.24, 0.46),
-    "arm_r": (0.06, 0.16), "arm_len": (0.22, 0.5), "hand_r": (0.06, 0.16), "leg_r": (0.08, 0.18), "head_s": (0.78, 1.25),
-    "leg_x": (0.1, 0.3), "boot_s": (0.8, 1.8), "gown_s": (0.7, 1.4), "gown_h": (0.8, 1.3),
+    "torso_x": (0.24, 0.56), "torso_y": (0.2, 0.44), "torso_z": (0.2, 0.5),
+    "arm_r": (0.06, 0.18), "arm_len": (0.2, 0.6), "hand_r": (0.06, 0.18), "leg_r": (0.08, 0.2), "head_s": (0.82, 1.25),
+    "leg_x": (0.1, 0.32), "boot_s": (0.8, 1.8), "gown_s": (0.7, 1.4), "gown_h": (0.8, 1.3),
+    # added when the King's overlay showed shapes no earlier control could reach
+    "body_h": (0.8, 1.8), "leg_h": (0.6, 1.8), "head_w": (0.8, 1.45), "arm_ang": (0.0, 40.0), "shoulder_s": (0.7, 1.7),
+    "crown_s": (0.8, 2.0), "crown_h": (0.7, 2.0), "crown_z": (-0.35, 0.1), "beard_s": (0.8, 1.5), "beard_h": (0.6, 1.3), "hair_w": (0.7, 1.5),
+    "hair_fringe": (0.05, 1.3),
+    # discrete: stepped whole, never nudged
+    "crown_points": (3, 6),
 }
+DISCRETE = {"crown_points"}
+_NEW = dict(body_h=1.0, leg_h=1.0, head_w=1.0, arm_ang=0.0, shoulder_s=1.0, hair_w=1.0, hair_fringe=1.0)
 DEFAULTS = {
-    "king": dict(torso_x=0.34, torso_y=0.29, torso_z=0.33, arm_r=0.09, arm_len=0.32, hand_r=0.085, leg_r=0.105, head_s=1.0, leg_x=0.14, boot_s=1.0),
-    "queen": dict(torso_x=0.34, torso_y=0.29, torso_z=0.33, arm_r=0.09, arm_len=0.32, hand_r=0.085, leg_r=0.105, head_s=1.0, gown_s=1.0, gown_h=1.0),
-    "brute": dict(torso_x=0.42, torso_y=0.36, torso_z=0.36, arm_r=0.12, arm_len=0.36, hand_r=0.11, leg_r=0.13, head_s=1.0, leg_x=0.14, boot_s=1.0),
-    "boss": dict(torso_x=0.44, torso_y=0.38, torso_z=0.4, arm_r=0.13, arm_len=0.46, hand_r=0.14, leg_r=0.15, head_s=0.92, leg_x=0.14, boot_s=1.0),
+    "king": dict(torso_x=0.34, torso_y=0.29, torso_z=0.33, arm_r=0.09, arm_len=0.32, hand_r=0.085, leg_r=0.105, head_s=1.0, leg_x=0.14, boot_s=1.0, crown_s=1.0, crown_h=1.0, crown_z=0.0, beard_s=1.0, beard_h=1.0, crown_points=5, **_NEW),
+    "queen": dict(torso_x=0.34, torso_y=0.29, torso_z=0.33, arm_r=0.07, arm_len=0.3, hand_r=0.075, leg_r=0.105, head_s=1.0, gown_s=1.0, gown_h=1.0, **_NEW),
+    "brute": dict(torso_x=0.42, torso_y=0.36, torso_z=0.36, arm_r=0.12, arm_len=0.36, hand_r=0.11, leg_r=0.13, head_s=1.0, leg_x=0.14, boot_s=1.0, **_NEW),
+    "boss": dict(torso_x=0.44, torso_y=0.38, torso_z=0.4, arm_r=0.13, arm_len=0.46, hand_r=0.14, leg_r=0.15, head_s=0.92, leg_x=0.14, boot_s=1.0, **_NEW),
 }
+# what a front view can tell us about each character. torso_y is depth: invisible from the front, so never searched.
+_COMMON = ["torso_x", "torso_z", "arm_r", "arm_len", "hand_r", "head_s", "head_w", "body_h", "arm_ang", "shoulder_s", "hair_w", "hair_fringe"]
+# searched in sections, in the order the frame is anchored: the hands set the width and the boots the
+# floor, so body first, then stance, then head, then everything together
+_BODY = ["torso_x", "torso_z", "body_h", "shoulder_s", "arm_r", "arm_len", "arm_ang", "hand_r", "gown_s", "gown_h"]
+_HEAD = ["head_s", "head_w", "hair_w", "hair_fringe", "beard_s", "beard_h", "crown_s", "crown_h", "crown_z", "crown_points"]
+_LEGS = ["leg_r", "leg_x", "boot_s", "leg_h"]
+KEYS = {"king": _COMMON + _LEGS + ["crown_s", "crown_h", "crown_z", "beard_s", "beard_h", "crown_points"], "queen": _COMMON + ["gown_s", "gown_h"]}
 # every palette name the builder knows; each gets a unique flat ID colour for the role render
 PALETTE = ["skin", "hair", "beard", "blue", "gold", "leather", "boot", "white", "black", "red", "pink", "blueEye",
            "horse", "muzzle", "mane", "steel", "steelDark", "navy", "darkRed", "ink", "bone", "boneDark", "wood", "glow"]
@@ -146,26 +215,31 @@ def foreground(px):
     corner = np.median(np.concatenate([px[:4, :4, :3].reshape(-1, 3), px[-4:, -4:, :3].reshape(-1, 3), px[:4, -4:, :3].reshape(-1, 3), px[-4:, :4, :3].reshape(-1, 3)]), axis=0)
     return np.linalg.norm(px[..., :3] - corner, axis=2) > 0.12
 
-def fit_square(mask, rgb, n):
-    """Crop to the mask's bounding box and place it, aspect kept, in an n x n square."""
+def fit_frame(mask, rgb, n, height):
+    """Crop to the mask's bounding box, scale it to n wide (aspect kept), and stand it on the floor of an
+    n x height frame, centred. Width and floor rather than the whole box: the hands set the width and
+    the boots the floor, so a taller crown or a bigger head moves only head pixels, not the body."""
     ys, xs = np.where(mask)
     if len(ys) == 0:
-        return np.zeros((n, n), bool), np.zeros((n, n, 3), np.float32)
+        return np.zeros((height, n), bool), np.zeros((height, n, 3), np.float32)
     y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
     m = mask[y0:y1, x0:x1]
     c = rgb[y0:y1, x0:x1]
     h, w = m.shape
-    s = (n - 4) / max(h, w)
+    s = (n - 4) / w
     nh, nw = max(1, int(round(h * s))), max(1, int(round(w * s)))
     yi = np.clip((np.arange(nh) / s).astype(int), 0, h - 1)
     xi = np.clip((np.arange(nw) / s).astype(int), 0, w - 1)
     m2 = m[yi][:, xi]
     c2 = c[yi][:, xi]
-    out_m = np.zeros((n, n), bool)
-    out_c = np.zeros((n, n, 3), np.float32)
-    oy, ox = (n - nh) // 2, (n - nw) // 2
-    out_m[oy:oy + nh, ox:ox + nw] = m2
-    out_c[oy:oy + nh, ox:ox + nw] = c2
+    out_m = np.zeros((height, n), bool)
+    out_c = np.zeros((height, n, 3), np.float32)
+    ox = (n - nw) // 2
+    top = height - 2 - nh
+    if top < 0:  # taller than the frame: the excess is cut off the top (a wild guess, scored as such)
+        m2, c2, top = m2[-top:], c2[-top:], 0
+    out_m[top:top + m2.shape[0], ox:ox + nw] = m2
+    out_c[top:top + m2.shape[0], ox:ox + nw] = c2
     return out_m, out_c
 
 def dominant(colors):
@@ -178,20 +252,53 @@ def dominant(colors):
     near = colors[np.linalg.norm(colors - top, axis=1) < 0.09]
     return near.mean(axis=0) if len(near) else top
 
-BANDS = 5
-def band_colors(mask, rgb):
-    n = mask.shape[0]
-    out = []
-    for b in range(BANDS):
-        y0, y1 = int(n * b / BANDS), int(n * (b + 1) / BANDS)
-        sel = mask[y0:y1]
-        out.append(dominant(rgb[y0:y1][sel]))
-    return out
-
 def iou_of(ref_m, rn_m):
     inter = np.logical_and(ref_m, rn_m).sum()
     union = np.logical_or(ref_m, rn_m).sum()
     return inter / union if union else 0.0
+
+# ---------- layout: which part is where ----------
+# A silhouette cannot tell beard from face or sleeve from tunic, so the search also scores the layout:
+# every pixel is labelled by the nearest part colour (in a chroma + dim luminance space, so shading
+# on the reference keeps its label) and an overlap only counts when both sides wear the same label.
+def feat(rgb):
+    rgb = np.asarray(rgb, np.float32)
+    s = rgb.sum(-1, keepdims=True) + 1e-6
+    # brightness gets a quarter weight: a face in the crown's shadow must still read as skin, not gold
+    return np.concatenate([rgb / s, 0.25 * rgb.mean(-1, keepdims=True)], -1)
+
+def make_classes(role_rgb, merge=0.12):
+    """Cluster the parts' colours into classes (all the browns become one) -> (centres, role -> class)."""
+    names = list(role_rgb)
+    F = feat(np.array([role_rgb[n] for n in names]))
+    centres, of = [], {}
+    for i, n in enumerate(names):
+        for j, c in enumerate(centres):
+            if np.linalg.norm(F[i] - c) < merge:
+                of[n] = j
+                break
+        else:
+            centres.append(F[i])
+            of[n] = len(centres) - 1
+    return np.array(centres, np.float32), of
+
+def label(mask, rgb, centres, maxd=0.3):
+    """Class index per pixel: -2 background, -1 foreground unlike every class, else nearest class."""
+    out = np.full(mask.shape, -2, np.int32)
+    px = rgb[mask]
+    if len(px) == 0:
+        return out
+    d = np.linalg.norm(feat(px)[:, None, :] - centres[None, :, :], axis=2)
+    lab = d.argmin(axis=1)
+    lab[d.min(axis=1) > maxd] = -1
+    out[mask] = lab
+    return out
+
+def layout_score(ref_m, ref_lab, m, lab):
+    both = np.logical_and(ref_m, m)
+    agree = np.logical_and(both, np.logical_or(ref_lab == lab, ref_lab == -1))
+    union = np.logical_or(ref_m, m).sum()
+    return agree.sum() / union if union else 0.0
 
 def role_masks(id_m, id_c):
     """Which palette role each rendered pixel belongs to, from the ID-colour render."""
@@ -225,19 +332,54 @@ def colour_score(masks, ref_m, ref_c, colors):
     return tot / wsum if wsum else 1.0
 
 # ---------- driving the builder ----------
-def render(params):
+@contextlib.contextmanager
+def quiet():
+    """Silence Blender's per-render chatter (it prints straight to fd 1, past sys.stdout)."""
+    sys.stdout.flush()
+    keep = os.dup(1)
+    null = os.open(os.devnull, os.O_WRONLY)
+    os.dup2(null, 1)
+    try:
+        yield
+    finally:
+        sys.stdout.flush()
+        os.dup2(keep, 1)
+        os.close(keep)
+        os.close(null)
+
+_builder_src = None
+def render(params, ids=False):
+    """Build + front-render with these params. In-process by default: the builder resets the scene
+    itself, so running it again in the same Blender is a fresh build without the 1 s start-up.
+    ids=True colours every part by index instead (see part_table)."""
+    global _builder_src
     json.dump(params, open(WORK_PARAMS, "w"))
-    cmd = [BLENDER, "-b", "-P", BUILDER, "--", WHO, "-", "--params", WORK_PARAMS, "--front", WORK_RENDER]
-    r = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT)
-    if not os.path.exists(WORK_RENDER):
-        print(r.stdout[-1500:], r.stderr[-1500:])
-        raise SystemExit("builder failed")
+    argv = ["blender", "-b", "-P", BUILDER, "--", WHO, "-", "--params", WORK_PARAMS, "--front", WORK_RENDER]
+    if ids:
+        argv += ["--ids", WORK_IDS]
+    if SUBPROCESS:
+        r = subprocess.run([BLENDER] + argv[1:], capture_output=True, text=True, cwd=ROOT)
+        if not os.path.exists(WORK_RENDER):
+            print(r.stdout[-1500:], r.stderr[-1500:])
+            raise SystemExit("builder failed")
+    else:
+        if _builder_src is None:
+            _builder_src = compile(open(BUILDER).read(), BUILDER, "exec")
+        saved = sys.argv
+        sys.argv = argv
+        try:
+            with quiet():
+                exec(_builder_src, {"__name__": "__builder__", "__file__": BUILDER})
+        finally:
+            sys.argv = saved
+        if not os.path.exists(WORK_RENDER):
+            raise SystemExit("builder produced no render (run with --subprocess to see its output)")
     px = load_rgba(WORK_RENDER)
     os.remove(WORK_RENDER)
     return px
 
 def to_props(p):
-    return {"torso": [p["torso_x"], p["torso_y"], p["torso_z"]], "arm_r": p["arm_r"], "arm_len": p["arm_len"], "hand_r": p["hand_r"], "leg_r": p["leg_r"], "head_s": p["head_s"], "leg_x": p.get("leg_x", 0.14), "boot_s": p.get("boot_s", 1.0), "gown_s": p.get("gown_s", 1.0), "gown_h": p.get("gown_h", 1.0)}
+    return {"torso": [p["torso_x"], p["torso_y"], p["torso_z"]], **{k: v for k, v in p.items() if not k.startswith("torso_")}}
 
 def hexc(c):
     return "#%02x%02x%02x" % tuple(int(round(max(0, min(1, v)) * 255)) for v in c)
@@ -246,20 +388,27 @@ def hex_to_rgb(h):
     h = h.lstrip("#")
     return tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
 
-def compose(ref_m, ref_c, m, c):
-    n = ref_m.shape[0]
+def compose(ref_m, ref_c, m, c, ref_lab=None, lab=None):
+    h, w = ref_m.shape
     panel = lambda mm, cc: np.where(mm[..., None], cc, 1.0).astype(np.float32)
-    overlay = np.ones((n, n, 3), np.float32)
+    overlay = np.ones((h, w, 3), np.float32)
     overlay[np.logical_and(ref_m, ~m)] = (0.9, 0.2, 0.2)
     overlay[np.logical_and(m, ~ref_m)] = (0.2, 0.4, 0.9)
     overlay[np.logical_and(ref_m, m)] = (0.55, 0.5, 0.6)
-    gap = np.ones((n, 4, 3), np.float32)
+    if ref_lab is not None:  # overlap, but a different part there: yellow
+        wrong = np.logical_and(np.logical_and(ref_m, m), np.logical_and(ref_lab != lab, ref_lab != -1))
+        overlay[wrong] = (0.95, 0.8, 0.2)
+    gap = np.ones((h, 4, 3), np.float32)
     return np.concatenate([panel(ref_m, ref_c), gap, panel(m, c), gap, overlay], axis=1)
 
 # ---------- go ----------
 t0 = time.time()
 ref = load_rgba(REF)
-ref_m, ref_c = fit_square(foreground(ref), ref[..., :3], RES)
+_fg = foreground(ref)
+_ys, _xs = np.where(_fg)
+# frame: RES wide, the reference's own height plus a quarter of headroom for a taller guess
+FRAME_H = int(round((RES - 4) * (_ys.max() - _ys.min() + 1) / (_xs.max() - _xs.min() + 1) * 1.25)) + 2
+ref_m, ref_c = fit_frame(_fg, ref[..., :3], RES, FRAME_H)
 print(f"reference {os.path.basename(REF)}: {ref.shape[1]}x{ref.shape[0]}, subject covers {int(foreground(ref).mean() * 100)}% of the image")
 
 colors = {}
@@ -270,93 +419,268 @@ if os.path.exists(existing):
     prev = json.load(open(existing))
     if "props" in prev:
         pr = prev["props"]
-        p.update(torso_x=pr["torso"][0], torso_y=pr["torso"][1], torso_z=pr["torso"][2], **{k: pr[k] for k in ("arm_r", "arm_len", "hand_r", "leg_r", "head_s", "leg_x", "boot_s", "gown_s", "gown_h") if k in pr})
+        p.update(torso_x=pr["torso"][0], torso_y=pr["torso"][1], torso_z=pr["torso"][2], **{k: v for k, v in pr.items() if k in BOUNDS})
         print("starting from the previous fit")
+keys = [k for k in KEYS.get(WHO, _COMMON + _LEGS) if k in p]
 
-def evaluate(p, cols=None):
-    px = render({"props": to_props(p), "colors": cols or colors, "front_res": RES})
-    m, c = fit_square(foreground(px), px[..., :3], RES)
-    return iou_of(ref_m, m), m, c
+renders = 0
+def render_fit(p, cols, ids=False, aa=True):
+    global renders
+    px = render({"props": to_props(p), "colors": cols, "front_res": RES, "front_aa": aa}, ids=ids)
+    renders += 1
+    return fit_frame(foreground(px), px[..., :3], RES, FRAME_H)
 
-# phase 1: shape. Colour is decided afterwards, so it must not steer the search.
-best, best_m, best_c = evaluate(p)
-print(f"start  silhouette {best:.3f}")
-step = 0.06
-stall = 0
-keys = [k for k in p if k in BOUNDS and not (WHO == "queen" and k in ("leg_r", "leg_x", "boot_s"))]
-for it in range(1, ITERS + 1):
-    if best >= TARGET + 0.06 or stall >= PATIENCE:
-        break
-    q = dict(p)
-    k = random.choice(keys)
-    lo, hi = BOUNDS[k]
-    q[k] = float(np.clip(q[k] + random.choice([-1, 1]) * step * (hi - lo) * random.uniform(0.4, 1.6), lo, hi))
-    s, m, c = evaluate(q)
-    if s > best + 1e-4:
-        best, p, best_m, best_c = s, q, m, c
-        stall = 0
-        print(f"iter {it:3d}  silhouette {best:.3f}  {k} -> {p[k]:.3f}")
-    else:
-        stall += 1
-        if stall % 6 == 0:
-            step = max(0.015, step * 0.7)
-    if SNAP and it % SNAP == 0:
-        save_rgb(os.path.join(REPORT_DIR, f"{WHO}-stage-{it}.png"), compose(ref_m, ref_c, best_m, best_c))
-        print(f"snapshot {it}: silhouette {best:.3f} -> reports/{WHO}-stage-{it}.png")
+def part_table(p):
+    """Which parts sit where the reference shows something else. Every part is rendered in its own
+    colour, so each yellow pixel of the overlay can be charged to a part by name: the list of what to
+    add a control for, or take away, next."""
+    m, c = render_fit(p, {}, ids=True, aa=False)
+    names = json.load(open(WORK_IDS))
+    idx = np.round(c * 7).astype(int)
+    part_of = idx[..., 0] + idx[..., 1] * 8 + idx[..., 2] * 64
+    rows = []
+    for i, (name, role) in enumerate(names):
+        sel = np.logical_and(m, part_of == i)
+        n = int(sel.sum())
+        if n < 4:
+            continue
+        cls = class_of.get(role, -9)
+        inref = np.logical_and(sel, ref_m)
+        wrong = np.logical_and(inref, np.logical_and(ref_lab != cls, ref_lab != -1))
+        extra = np.logical_and(sel, ~ref_m)
+        bad = int(wrong.sum()) + int(extra.sum())
+        if bad < 0.004 * ref_m.sum():
+            continue
+        want = {}
+        for l in np.unique(ref_lab[wrong]):
+            want[l] = int((ref_lab[wrong] == l).sum())
+        want_names = []
+        for l, cnt in sorted(want.items(), key=lambda t: -t[1])[:2]:
+            roles = [r for r, k in class_of.items() if k == l]
+            want_names.append(f"{roles[0] if roles else '?'} {int(100 * cnt / max(1, wrong.sum()))}%")
+        rows.append((bad, name, role, n, int(wrong.sum()), int(extra.sum()), ", ".join(want_names)))
+    rows.sort(reverse=True)
+    print("parts costing the most: part, role, size, share of it sitting on a different part of the reference (and which), share outside the reference")
+    for bad, name, role, n, w, e, want in rows[:10]:
+        print(f"  {name:14s} {role:9s} {n:5d}px  wrong-part {int(100 * w / n):3d}% ({want})  outside {int(100 * e / n):3d}%")
+    # and what the model never reaches: red, by class and height
+    red = np.logical_and(ref_m, ~m)
+    if red.any():
+        ys = np.where(red)[0]
+        by = {}
+        for l in np.unique(ref_lab[red]):
+            roles = [r for r, k in class_of.items() if k == l]
+            by[roles[0] if roles else "?"] = int((ref_lab[red] == l).sum())
+        top = ", ".join(f"{k} {v}px" for k, v in sorted(by.items(), key=lambda t: -t[1])[:3])
+        print(f"  uncovered reference: {int(red.sum())}px, mostly {top}; centred {int(100 * ys.mean() / ref_m.shape[0])}% down the frame")
 
-iou = best
-# phase 2: colours. Render the fitted shape with ID colours, then read the reference under each role.
-id_iou, id_m, id_c = evaluate(p, {name: hexc(ID_OF[name]) for name in PALETTE})
-masks = role_masks(id_m, id_c)
-# Two witnesses per role: WHERE the role sits (the pixels under its mask) and WHAT it looks like
-# (the reference colour nearest its default). Position is brittle when parts sit at different
-# heights, colour is brittle when two roles share a hue, so a role is recoloured when they agree,
-# and by colour alone when its default is unmistakable in the reference.
-ref_clusters = clusters(ref_c[ref_m])
-for name, m in masks.items():
-    if name not in RECOLOR or m.sum() < 0.04 * ref_m.sum():
-        continue
-    default = DEFAULT_COL[name]
-    by_colour, dist = min(((c, np.linalg.norm(c - default)) for c, _ in ref_clusters), key=lambda t: t[1])
-    sel = np.logical_and(m, ref_m)
-    by_place = dominant(ref_c[sel]) if sel.sum() >= 8 else None
-    if by_place is not None and np.linalg.norm(by_place - by_colour) < 0.2:
-        colors[name] = hexc(by_place)
-    elif dist < NEAR:
-        colors[name] = hexc(by_colour)
-    else:
-        print(f"  {name}: nothing in the reference looks like it (nearest {hexc(by_colour)}, {dist:.2f} away), keeping the default")
-if "hair" in colors:
-    colors["beard"] = colors["hair"]  # a beard is hair
-# pins win: tools/fit/refs/<who>.colors.json holds role colours eyedropped from the reference by a
-# person. Automatic guessing is reliable for broad areas and unreliable for skin, hair and trims on
-# shaded low-poly art, so this is the intended way to settle those in seconds.
 pins_path = os.path.join(os.path.dirname(REF), f"{WHO}.colors.json")
-if os.path.exists(pins_path):
-    pins = json.load(open(pins_path))
-    colors.update(pins)
+pins = json.load(open(pins_path)) if os.path.exists(pins_path) else {}
+
+def guess_colours(p):
+    """Render the shape with ID colours, then read the reference under each role. Pins win."""
+    id_m, id_c = render_fit(p, {name: hexc(ID_OF[name]) for name in PALETTE})
+    masks = role_masks(id_m, id_c)
+    # Two witnesses per role: WHERE the role sits (the pixels under its mask) and WHAT it looks like
+    # (the reference colour nearest its default). Position is brittle when parts sit at different
+    # heights, colour is brittle when two roles share a hue, so a role is recoloured when they agree,
+    # and by colour alone when its default is unmistakable in the reference.
+    cols = {}
+    ref_clusters = clusters(ref_c[ref_m])
+    for name, m in masks.items():
+        if name not in RECOLOR or m.sum() < 0.04 * ref_m.sum():
+            continue
+        default = DEFAULT_COL[name]
+        by_colour, dist = min(((c, np.linalg.norm(c - default)) for c, _ in ref_clusters), key=lambda t: t[1])
+        sel = np.logical_and(m, ref_m)
+        by_place = dominant(ref_c[sel]) if sel.sum() >= 8 else None
+        if by_place is not None and np.linalg.norm(by_place - by_colour) < 0.2:
+            cols[name] = hexc(by_place)
+        elif dist < NEAR:
+            cols[name] = hexc(by_colour)
+        elif name in pins:
+            pass
+        else:
+            print(f"  {name}: nothing in the reference looks like it (nearest {hexc(by_colour)}, {dist:.2f} away), keeping the default")
+    if "hair" in cols:
+        cols["beard"] = cols["hair"]  # a beard is hair
+    # pins win: tools/fit/refs/<who>.colors.json holds role colours eyedropped from the reference by a
+    # person. Automatic guessing is reliable for broad areas and unreliable for skin, hair and trims on
+    # shaded low-poly art, so this is the intended way to settle those in seconds.
+    cols.update(pins)
+    return cols, masks
+
+# colours first (from the starting shape), so the search can score where each part sits
+colors, _ = guess_colours(p)
+if pins:
     print("pinned from", os.path.relpath(pins_path, ROOT) + ":", pins)
+print("colours:", colors)
+role_rgb = {name: np.array(hex_to_rgb(colors[name]) if name in colors else DEFAULT_COL[name], np.float32) for name in PALETTE}
+centres, class_of = make_classes(role_rgb)
+ref_lab = label(ref_m, ref_c, centres)
+print(f"layout classes: {len(centres)}; {int((ref_lab[ref_m] == -1).mean() * 100)}% of the reference matches no part colour")
+class_rgb = {}
+for name, cls in class_of.items():
+    class_rgb.setdefault(cls, role_rgb[name])
+def painted(lab):
+    """Each pixel in the flat colour of its class, so a label map can be looked at."""
+    out = np.ones(lab.shape + (3,), np.float32)
+    for cls, rgb in class_rgb.items():
+        out[lab == cls] = rgb
+    out[lab == -1] = (1.0, 0.0, 1.0)  # magenta: matched no part
+    return out
+
+def evaluate(p):
+    m, c = render_fit(p, colors)
+    lab = label(m, c, centres)
+    return layout_score(ref_m, ref_lab, m, lab), m, c, lab
+
+# phase 1: shape and layout, with the colours fixed.
+best, best_m, best_c, best_lab = evaluate(p)
+print(f"start  score {best:.3f} (silhouette {iou_of(ref_m, best_m):.3f})  ({len(keys)} controls: {', '.join(keys)})")
+step = {k: 0.12 for k in keys}  # as a fraction of each control's range
+last_snap = 0
+
+def consider(q, why):
+    """Render q; keep it if the score improves. Returns True on improvement."""
+    global best, p, best_m, best_c, best_lab, last_snap
+    s, m, c, lab = evaluate(q)
+    took = s > best + 1e-4
+    if took:
+        best, p, best_m, best_c, best_lab = s, q, m, c, lab
+        print(f"render {renders:4d}  score {best:.3f}  {why}")
+    if SNAP and renders - last_snap >= SNAP:
+        last_snap = renders
+        save_rgb(os.path.join(REPORT_DIR, f"{WHO}{TAG}-stage-{renders}.png"), compose(ref_m, ref_c, best_m, best_c, ref_lab, best_lab))
+        print(f"snapshot {renders}: score {best:.3f} silhouette {iou_of(ref_m, best_m):.3f} -> reports/{WHO}{TAG}-stage-{renders}.png")
+    return took
+
+def nudged(q, k, sign, size):
+    lo, hi = BOUNDS[k]
+    if k in DISCRETE:
+        v = float(np.clip(round(q[k]) + sign, lo, hi))
+    else:
+        v = float(np.clip(q[k] + sign * size * (hi - lo), lo, hi))
+    if abs(v - q[k]) < 1e-6:
+        return None
+    r = dict(q)
+    r[k] = v
+    return r
+
+def local_search(start_step, subset=None, floor=0.008):
+    """Sweep every control (or a subset) up and down, halving the step when a sweep helps nothing.
+    Runs until the step is under 1% of range, the budget is spent, or the target is met."""
+    global step, active
+    active = [k for k in (subset or keys) if k in keys]
+    step = {k: start_step for k in keys}
+    sweep = 0
+    while renders < ITERS and best < TARGET:
+        sweep += 1
+        if not one_sweep():
+            for k in keys:
+                step[k] *= 0.5
+            if max(step.values()) < floor:
+                return
+            print(f"sweep {sweep}: no gain, step halved to {max(step.values()):.3f} of range")
+
+def one_sweep():
+    """Returns True if anything improved this sweep."""
+    improved = False
+    order = list(active)
+    random.shuffle(order)
+    for k in order:
+        if renders >= ITERS or best >= TARGET:
+            break
+        for sign in (1, -1):
+            q = nudged(p, k, sign, step[k])
+            if q is None:
+                continue
+            if consider(q, f"{k} -> {q[k]:.3f}"):
+                improved = True
+                # keep walking the same way while it keeps paying
+                while renders < ITERS:
+                    q = nudged(p, k, sign, step[k])
+                    if q is None or not consider(q, f"{k} -> {q[k]:.3f} (again)"):
+                        break
+                break
+    if improved or renders >= ITERS:
+        return improved
+    # a whole sweep helped nothing: a few random multi-control jumps at this step before a finer one
+    for _ in range(4):
+        if renders >= ITERS:
+            break
+        q = dict(p)
+        picked = random.sample(active, min(3, len(active)))
+        for k in picked:
+            lo, hi = BOUNDS[k]
+            if k in DISCRETE:
+                q[k] = float(np.clip(round(q[k]) + random.choice([-1, 1]), lo, hi))
+            else:
+                q[k] = float(np.clip(q[k] + random.choice([-1, 1]) * step[k] * (hi - lo) * random.uniform(0.5, 1.5), lo, hi))
+        if consider(q, "jump on " + ", ".join(picked)):
+            return True
+    return False
+
+# sections first: each is a short search over the few controls that shape it, coarse steps only
+for label_, subset in (("body", _BODY), ("stance", _LEGS), ("head", _HEAD)):
+    if any(k in keys for k in subset):
+        local_search(0.12, subset, floor=0.03)
+        print(f"section {label_} done: score {best:.3f} after {renders} renders")
+# then everything together to convergence
+local_search(0.06)
+print(f"converged: steps are below 1% of range after {renders} renders")
+# basin hopping: kick every control at once and converge again from there, keeping the best of the two.
+# One control at a time cannot grow the head and shrink the crown together; a kick can.
+top = (best, dict(p), best_m, best_c, best_lab)
+hop = 0
+while renders < ITERS and best < TARGET:
+    hop += 1
+    q = dict(top[1])
+    for k in keys:
+        lo, hi = BOUNDS[k]
+        if k in DISCRETE:
+            continue
+        q[k] = float(np.clip(q[k] + random.uniform(-0.12, 0.12) * (hi - lo), lo, hi))
+    best, best_m, best_c, best_lab = evaluate(q)
+    p = q
+    print(f"hop {hop}: kicked every control, score {best:.3f}; searching again from there")
+    local_search(0.06)
+    if best > top[0] + 1e-4:
+        print(f"hop {hop} found better: {best:.3f} > {top[0]:.3f}")
+        top = (best, dict(p), best_m, best_c, best_lab)
+    else:
+        print(f"hop {hop} ended at {best:.3f}, keeping {top[0]:.3f}")
+best, p, best_m, best_c, best_lab = top[0], dict(top[1]), top[2], top[3], top[4]
+
+# phase 2: colours again, now that every part sits where the reference has it
+colors, masks = guess_colours(p)
 print("colours from reference:", colors)
-if iou < 0.85:
-    print(f"note: silhouette overlap is only {iou:.2f}, so some colours were read from the wrong parts. More iterations, or a cleaner reference, will fix both.")
 # pinned roles were chosen by eye, so the colour score only judges what the tool guessed
-pinned = set(json.load(open(pins_path))) if os.path.exists(pins_path) else set()
-col = colour_score({k: v for k, v in masks.items() if k not in pinned}, ref_m, ref_c, colors)
-_, best_m, best_c = evaluate(p)
-best = float(0.65 * iou + 0.35 * col)
+col = colour_score({k: v for k, v in masks.items() if k not in pins}, ref_m, ref_c, colors)
+score, best_m, best_c, best_lab = evaluate(p)
+iou = iou_of(ref_m, best_m)
+best = float(score)
 
 # ---------- outputs ----------
 # plain floats only: numpy's float32 is not JSON-serialisable and would leave this file half-written
 out = {"props": {k: ([float(x) for x in v] if isinstance(v, list) else float(v)) for k, v in to_props(p).items()}, "colors": colors,
        "score": round(float(best), 4), "silhouette": round(float(iou), 4), "colour": round(float(col), 4), "reference": os.path.relpath(REF, ROOT)}
-json.dump(out, open(os.path.join(PARAMS_DIR, f"{WHO}.json"), "w"), indent=2)
-save_rgb(os.path.join(REPORT_DIR, f"{WHO}.png"), compose(ref_m, ref_c, best_m, best_c))
-if os.path.exists(WORK_PARAMS):
-    os.remove(WORK_PARAMS)
+json.dump(out, open(OUT_PARAMS, "w"), indent=2)
+save_rgb(OUT_REPORT, compose(ref_m, ref_c, best_m, best_c, ref_lab, best_lab))
+gap = np.ones((FRAME_H, 4, 3), np.float32)
+save_rgb(os.path.join(REPORT_DIR, f"_{WHO}{TAG}-labels.png"), np.concatenate([painted(ref_lab), gap, painted(best_lab)], axis=1))  # how each side was read
+part_table(p)
+for f in (WORK_PARAMS, WORK_IDS):
+    if os.path.exists(f):
+        os.remove(f)
 missing = int(np.logical_and(ref_m, ~best_m).sum()) / max(1, int(ref_m.sum()))
+extra = int(np.logical_and(best_m, ~ref_m).sum()) / max(1, int(ref_m.sum()))
+both = np.logical_and(ref_m, best_m)
+wrong = int(np.logical_and(both, np.logical_and(ref_lab != best_lab, ref_lab != -1)).sum()) / max(1, int(ref_m.sum()))
 verdict = "complete" if best >= TARGET else "stalled"
-print(f"{verdict}: score {best:.3f} (target {TARGET}) after {it} renders in {int(time.time() - t0)}s. silhouette {iou:.3f}, colour {col:.3f}. "
-      f"{int(missing * 100)}% of the reference has no matching shape (red in the overlay). "
+print(f"{verdict}: score {best:.3f} (target {TARGET}) after {renders} renders in {int(time.time() - t0)}s. silhouette {iou:.3f}, colour {col:.3f}. "
+      f"Of the reference: {int(missing * 100)}% has no matching shape (red), {int(wrong * 100)}% has the wrong part there (yellow); "
+      f"{int(extra * 100)}% of the model is extra (blue). "
       f"params -> tools/fit/params/{WHO}.json, report -> tools/fit/reports/{WHO}.png")
-open(os.path.join(REPORT_DIR, f"_{WHO}.verdict"), "w").write(f"{verdict} score {best:.3f} silhouette {iou:.3f} colour {col:.3f} missing {int(missing * 100)}%\n")
+open(OUT_VERDICT, "w").write(f"{verdict} score {best:.3f} silhouette {iou:.3f} colour {col:.3f} missing {int(missing * 100)}% wrong-part {int(wrong * 100)}% extra {int(extra * 100)}%\n")
 sys.exit(0 if best >= TARGET else 2)

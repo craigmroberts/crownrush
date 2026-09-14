@@ -1,6 +1,10 @@
 """Build a rigged, animated chibi character in Blender and export it as GLB.
 
 Run headless:  blender -b -P tools/blender/make_character.py -- king public/models/king.glb .shots/king-blender.png
+
+To look at a character in Blender yourself, add --blend and open the file it writes:
+    blender -b -P tools/blender/make_character.py -- king - --blend .blend/king.blend
+    open .blend/king.blend
 Characters face -Y in Blender, which the glTF exporter turns into +Z (what the game expects).
 """
 import sys, math, bpy
@@ -19,14 +23,22 @@ def flag(name, default=None):
     return default
 PARAMS_PATH = flag("--params")
 FRONT = flag("--front")
+IDS = flag("--ids")  # with --front: colour every part by index and write [[part, role], ...] to this JSON
+BLEND = flag("--blend")  # also save a .blend file, to open the character in Blender and look at it
 WHO = args[0] if args else "king"
 OUT = args[1] if len(args) > 1 else f"public/models/{WHO}.glb"   # "-" skips the export
 PREVIEW = args[2] if len(args) > 2 else None
+# The fitter's render needs geometry only: no rig, no animation, no join, no export. Skipping them
+# roughly halves the cost of one of its tries.
+FAST = bool(FRONT) and OUT == "-" and not PREVIEW
+IDLE_ARM_SWING = 0.12  # radians the Idle pose turns the arms about the bone's z (its arm.L/arm.R keys); that is inward
 # A fitted look (tools/fit) is picked up automatically when building the game's models.
 if PARAMS_PATH is None:
-    auto = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "fit", "params", f"{WHO}.json")
-    if os.path.exists(auto):
-        PARAMS_PATH = auto
+    for cand in (WHO, WHO.split("_")[0]):  # king_mounted wears the king's fit
+        auto = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "fit", "params", f"{cand}.json")
+        if os.path.exists(auto):
+            PARAMS_PATH = auto
+            break
 PARAMS = json.load(open(PARAMS_PATH)) if PARAMS_PATH else {}
 PROPS = PARAMS.get("props", {})
 
@@ -44,14 +56,15 @@ COL = {
     "steel": (0.76, 0.78, 0.81), "steelDark": (0.45, 0.48, 0.52), "navy": (0.2, 0.22, 0.34), "darkRed": (0.52, 0.08, 0.1),
     "ink": (0.13, 0.13, 0.16), "bone": (0.93, 0.89, 0.9), "boneDark": (0.82, 0.74, 0.76), "wood": (0.5, 0.33, 0.16), "glow": (1.0, 0.2, 0.2),
 }
+def lin(c):
+    """sRGB 0..1 -> linear, which is what Blender's colour inputs expect."""
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
 def hex_to_rgb(h):
-    """#rrggbb (sRGB, what a picture or a colour picker gives you) -> linear, which is what Blender's
-    colour inputs expect. Without this every overridden colour renders lighter and paler than asked."""
+    """#rrggbb (sRGB, what a picture or a colour picker gives you) -> linear. Without this every
+    overridden colour renders lighter and paler than asked."""
     h = h.lstrip("#")
-    def lin(c):
-        c /= 255
-        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
-    return tuple(lin(int(h[i:i + 2], 16)) for i in (0, 2, 4))
+    return tuple(lin(int(h[i:i + 2], 16) / 255) for i in (0, 2, 4))
 for _name, _hex in PARAMS.get("colors", {}).items():
     COL[_name] = hex_to_rgb(_hex)
 mats = {}
@@ -87,23 +100,45 @@ def lod(size):
         return (12, 8)
     return SEG
 
-def part(kind, name, loc, scale=(1, 1, 1), rot=(0, 0, 0), color="skin", bone="spine", smooth=True, sub=1, **kw):
+def part(kind, name, loc, scale=(1, 1, 1), rot=(0, 0, 0), color="skin", bone="spine", smooth=True, sub=1, sides=None, bevel=None, **kw):
+    """One primitive.
+
+    kind "box" is a cube whose `scale` is its half-extents (same meaning as a sphere's radii) with a
+    bevel modifier: flat faces, rounded corners. That is the shape faceted reference art is made of.
+    `sides` gives a cylinder or cone that many flat faces; 4 makes a square prism, turned so a face
+    points at the camera and widened so its flat-to-flat width equals the diameter it replaces.
+    """
     loc = (loc[0], loc[1], loc[2] + Z_OFF)
-    size = max(scale[0], scale[1]) if kind in ("sphere", "cyl", "cone") else max(scale)
+    size = max(scale[0], scale[1]) if kind in ("sphere", "cyl", "cone", "box") else max(scale)
     seg = lod(size)
+    if BOXY:
+        smooth = False
+        if kind == "cube":
+            sub = 0                      # subdividing a cube rounds it into a blob; chamfer it instead
+            bevel = 0.1 if bevel is None else bevel
+        if kind in ("cyl", "cone", "frustum") and sides is None:
+            sides = 8
+        if sides == 4:
+            rot = (rot[0], rot[1], rot[2] + math.pi / 4)
+            if kind == "frustum":
+                kw = dict(kw, r1=kw["r1"] * math.sqrt(2), r2=kw["r2"] * math.sqrt(2))
+            else:
+                scale = (scale[0] * math.sqrt(2), scale[1] * math.sqrt(2), scale[2])
     if kind == "sphere":
         bpy.ops.mesh.primitive_uv_sphere_add(radius=1, segments=seg[0], ring_count=seg[1], location=loc)
+    elif kind == "box":
+        bpy.ops.mesh.primitive_cube_add(size=2, location=loc)
     elif kind == "cube":
         bpy.ops.mesh.primitive_cube_add(size=1, location=loc)
     elif kind == "cyl":
-        bpy.ops.mesh.primitive_cylinder_add(radius=1, depth=1, vertices=min(seg[0], SEG[0]), location=loc)
+        bpy.ops.mesh.primitive_cylinder_add(radius=1, depth=1, vertices=sides or min(seg[0], SEG[0]), location=loc)
     elif kind == "cone":
-        bpy.ops.mesh.primitive_cone_add(radius1=1, radius2=0, depth=1, vertices=8 if size <= 0.12 else 12, location=loc)
+        bpy.ops.mesh.primitive_cone_add(radius1=1, radius2=0, depth=1, vertices=sides or (8 if size <= 0.12 else 12), location=loc)
     elif kind == "frustum":
-        bpy.ops.mesh.primitive_cone_add(radius1=kw["r1"], radius2=kw["r2"], depth=kw["depth"], vertices=20, location=loc)
+        bpy.ops.mesh.primitive_cone_add(radius1=kw["r1"], radius2=kw["r2"], depth=kw["depth"], vertices=sides or 20, location=loc)
         scale = (1, 1, 1)
     elif kind == "torus":
-        bpy.ops.mesh.primitive_torus_add(major_radius=scale[0], minor_radius=kw.get("minor", 0.04), major_segments=16, minor_segments=6, location=loc)
+        bpy.ops.mesh.primitive_torus_add(major_radius=scale[0], minor_radius=kw.get("minor", 0.04), major_segments=8 if BOXY else 16, minor_segments=4 if BOXY else 6, location=loc)
         scale = (1, 1, 1)
     o = bpy.context.active_object
     o.name = name
@@ -112,6 +147,13 @@ def part(kind, name, loc, scale=(1, 1, 1), rot=(0, 0, 0), color="skin", bone="sp
     o.data.materials.append(material(color))
     if smooth:
         bpy.ops.object.shade_smooth()
+    if bevel and kind in ("box", "cube"):
+        # local width: the cube is 2 (box) or 1 (cube) across, so this is a fraction of the part
+        mod = o.modifiers.new("bevel", "BEVEL")
+        mod.width = bevel * (1.0 if kind == "box" else 0.5)
+        mod.segments = 2 if size > 0.07 else 1
+        mod.limit_method = "NONE"
+        mod.harden_normals = False
     if sub and kind in ("cube", "cyl"):
         mod = o.modifiers.new("sub", "SUBSURF")
         mod.levels = sub
@@ -122,11 +164,45 @@ def part(kind, name, loc, scale=(1, 1, 1), rot=(0, 0, 0), color="skin", bone="sp
     return o
 
 # ---------- the body (shared template) ----------
-def ell(name, loc, scale, color, bone, rot=(0, 0, 0)):
+# Faceted reference art is chamfered boxes and low-sided prisms: straight edges, rounded corners, flat
+# faces. props.boxy (the default) builds that; 0 gives the earlier rounded look, which is all spheres
+# and smooth cylinders and reads as bulgy next to the art.
+# Opt in per character (props.boxy in its params file). The parts were authored as overlapping
+# spheres, so a character needs a pass over its hair, beard and headgear before it reads well as
+# boxes: the King has had that pass, the rest of the cast has not.
+BOXY = bool(PROPS.get("boxy", 0))
+# too small for an edge to read; a sphere is cheaper and kinder on eyes and cheeks
+ROUND_PARTS = ("eye.", "iris.", "pupil.", "glint.", "lash", "blush.", "pearl", "hglint")
+BOX_FIT = 0.84  # a box with a sphere's radii reads much bulkier; this keeps the visual mass the same
+def ell(name, loc, scale, color, bone, rot=(0, 0, 0), bevel=None, fit=BOX_FIT):
+    if BOXY and not name.startswith(ROUND_PARTS):
+        return part("box", name, loc, scale=tuple(v * fit for v in scale), rot=rot, color=color, bone=bone,
+                    bevel=0.3 if bevel is None else bevel)
     return part("sphere", name, loc, scale=scale, rot=rot, color=color, bone=bone)
 
-def band(name, loc, r, h, color, bone):
-    return part("cyl", name, loc, scale=(r, r, h), color=color, bone=bone, sub=0)
+def limb(name, loc, r, h, color, bone, rot=(0, 0, 0), dy=None):
+    """A leg, boot or sleeve: a square-sided column when the look is boxy, else a cylinder."""
+    if BOXY:
+        return part("box", name, loc, scale=(r, dy or r, h / 2), rot=rot, color=color, bone=bone, bevel=0.28)
+    return part("cyl", name, loc, scale=(r, r, h), rot=rot, color=color, bone=bone)
+
+def band(name, loc, r, h, color, bone, rot=(0, 0, 0), dy=None):
+    """A belt, cuff, hem or collar: a flat band around the part it sits on. Boxy bands are boxes, so
+    they wrap a boxy body without its corners poking through; dy is the half-depth when it differs."""
+    if BOXY:
+        return part("box", name, loc, scale=(r, dy or r, h / 2), rot=rot, color=color, bone=bone, bevel=0.12)
+    return part("cyl", name, loc, scale=(r, r, h), color=color, bone=bone, sub=0, rot=rot)
+
+def arm_chain(side, px, pz, length, r, hand_r, color, trim, ang, cuff_r=None):
+    """Upper arm, cuff and hand hanging from the shoulder point (px, pz), swung `ang` radians out
+    from the body. The fitter uses the angle: reference art rarely has the arms straight down."""
+    sx = 1 if side == "L" else -1
+    d = (sx * math.sin(ang), -math.cos(ang))
+    at = lambda t: (px + d[0] * t, 0, pz + d[1] * t)
+    rot = (0, -sx * ang, 0)
+    limb(f"arm.{side}", at(length / 2), r, length, color, f"arm.{side}", rot=rot)
+    band(f"cuff.{side}", at(length - 0.03), cuff_r or r * 1.12, 0.06, trim, f"arm.{side}", rot=rot)
+    ell(f"hand.{side}", at(length + hand_r * 0.7), (hand_r, hand_r, hand_r), "skin", f"arm.{side}")
 
 def bow_arc(name, loc, color, bone, half=0.4, belly=0.17):
     curve = bpy.data.curves.new(name, "CURVE")
@@ -187,15 +263,23 @@ def build_head(style):
 
 def build_hair(style):
     hair = "hair"
-    # cap and back
-    ell("hair", (0, 0.03, 1.53), (0.405, 0.385, 0.33), hair, "head")
-    ell("hairback", (0, 0.2, 1.3), (0.34, 0.17, 0.3), hair, "head")
+    # cap and back. A sphere cap can sink into the head and only its top shows; a box of the same
+    # radii would be a helmet over the whole face, so boxy hair is a thinner slab sitting on top.
+    if BOXY:
+        ell("hair", (0, 0.04, 1.63), (0.4, 0.37, 0.16), hair, "head", fit=1.0)
+        ell("hairback", (0, 0.26, 1.34), (0.37, 0.11, 0.3), hair, "head", fit=1.0)
+    else:
+        ell("hair", (0, 0.03, 1.53), (0.405, 0.385, 0.33), hair, "head")
+        ell("hairback", (0, 0.2, 1.3), (0.34, 0.17, 0.3), hair, "head")
     # swept fringe: a soft band across the brow with a lock falling to one side
-    ell("fringe", (0.02, -0.27, 1.62), (0.36, 0.16, 0.1), hair, "head", rot=(math.radians(-18), math.radians(-6), 0))
-    ell("lock", (-0.22, -0.3, 1.56), (0.13, 0.1, 0.09), hair, "head", rot=(0, math.radians(30), 0))
-    ell("lock2", (0.26, -0.27, 1.58), (0.1, 0.09, 0.08), hair, "head", rot=(0, math.radians(-25), 0))
-    for side, x in (("L", 0.38), ("R", -0.38)):
-        ell(f"side.{side}", (x, -0.02, 1.4), (0.075, 0.14, 0.17), hair, "head")
+    fr = PROPS.get("hair_fringe", 1.0)  # the fringe over the brow; near 0 for a bare forehead under a crown
+    ell("fringe", (0.02, -0.3 if BOXY else -0.27, 1.6), (0.36 * fr, 0.1 * fr if BOXY else 0.16 * fr, 0.08 * fr), hair, "head",
+        rot=(0, 0, 0) if BOXY else (math.radians(-18), math.radians(-6), 0), fit=1.0)
+    ell("lock", (-0.22, -0.3, 1.56), (0.13 * fr, 0.1 * fr, 0.09 * fr), hair, "head", rot=(0, math.radians(30), 0))
+    ell("lock2", (0.26, -0.27, 1.58), (0.1 * fr, 0.09 * fr, 0.08 * fr), hair, "head", rot=(0, math.radians(-25), 0))
+    hw = PROPS.get("hair_w", 1.0)  # hair down the sides of the face: outer edge stays, it thickens inward over the cheeks
+    for side, sx in (("L", 1), ("R", -1)):
+        ell(f"side.{side}", (sx * (0.455 - 0.075 * hw), -0.02, 1.4), (0.075 * hw, 0.14, 0.17 * (1 + 0.5 * (hw - 1))), hair, "head")
     if style == "queen":
         # long hair down the back and over the shoulders
         ell("mane", (0, 0.2, 1.05), (0.32, 0.2, 0.48), hair, "head")
@@ -204,17 +288,27 @@ def build_hair(style):
             ell(f"curl.{side}", (x * 1.05, -0.08, 0.8), (0.1, 0.11, 0.1), hair, "head")
 
 def build_figure(style, tunic, trim, boots="boot", pants="leather", dress=False, hair=True, bare_arms=False,
-                 torso=(0.34, 0.29, 0.33), arm_r=0.09, arm_len=0.32, hand_r=0.085, leg_r=0.105, head_s=1.0):
+                 torso=(0.34, 0.29, 0.33), arm_r=0.09, arm_len=0.32, hand_r=0.085, leg_r=0.105, head_s=1.0, seam=True):
     torso = tuple(PROPS.get("torso", torso))
     arm_r = PROPS.get("arm_r", arm_r)
     arm_len = PROPS.get("arm_len", arm_len)
     hand_r = PROPS.get("hand_r", hand_r)
     leg_r = PROPS.get("leg_r", leg_r)
-    head_s = PROPS.get("head_s", head_s)
-    global LEG_X
+    global LEG_X, HEAD_S, HEAD_W, BODY_H, CROTCH, SHOULDER_X, DRESS
+    HEAD_S = PROPS.get("head_s", head_s)
+    HEAD_W = PROPS.get("head_w", 1.0)      # head width on top of head_s (wide, squat heads)
+    BODY_H = PROPS.get("body_h", 1.0)      # torso column stretched about the crotch
+    leg_h = PROPS.get("leg_h", 1.0)        # leg length; boots stay the same
+    arm_ang = math.radians(PROPS.get("arm_ang", 0.0))  # arms swung out from the body, degrees
+    if FAST:
+        arm_ang -= IDLE_ARM_SWING  # no rig in a fast render, so the Idle pose's swing goes into the geometry
+    shoulder_s = PROPS.get("shoulder_s", 1.0)
     LEG_X = PROPS.get("leg_x", LEG_X)
     boot_s = PROPS.get("boot_s", 1.0)
+    DRESS = dress
     if dress:
+        CROTCH = 0.5
+        SHOULDER_X = 0.378
         gs, gh = PROPS.get("gown_s", 1.0), PROPS.get("gown_h", 1.0)
         part("frustum", "gown", (0, 0, 0.33 * gh), color=tunic, bone="root", sub=0, r1=0.62 * gs, r2=0.25, depth=0.66 * gh)
         band("hem", (0, 0, 0.04), 0.63 * gs, 0.07, trim, "root")
@@ -225,58 +319,102 @@ def build_figure(style, tunic, trim, boots="boot", pants="leather", dress=False,
         part("cube", "stripe", (0, -0.22, 0.86), scale=(0.04, 0.03, 0.3), color=trim, bone="spine", sub=0)
         band("collar", (0, 0, 1.06), 0.15, 0.05, trim, "spine")
         part("cyl", "neck", (0, 0, 1.05), scale=(0.1, 0.1, 0.14), color="skin", bone="spine", sub=1)
+        # slim gown sleeves: their own defaults, so a fit's arm values only apply when given
+        ar, al, hr = PROPS.get("arm_r", 0.07), PROPS.get("arm_len", 0.3), PROPS.get("hand_r", 0.075)
         for side, x in (("L", 0.36), ("R", -0.36)):
-            ell(f"puff.{side}", (x, 0, 0.94), (0.15, 0.14, 0.15), tunic, f"arm.{side}")
-            part("cyl", f"arm.{side}", (x * 1.05, 0, 0.72), scale=(0.07, 0.07, 0.3), color=tunic, bone=f"arm.{side}")
-            band(f"cuff.{side}", (x * 1.05, 0, 0.6), 0.085, 0.06, trim, f"arm.{side}")
-            ell(f"hand.{side}", (x * 1.05, 0, 0.53), (0.075, 0.075, 0.075), "skin", f"arm.{side}")
+            ell(f"puff.{side}", (x, 0, 0.94), (0.15 * shoulder_s, 0.14 * shoulder_s, 0.15 * shoulder_s), tunic, f"arm.{side}")
+            arm_chain(side, x * 1.05, 0.87, al, ar, hr, tunic, trim, arm_ang, cuff_r=ar * 1.2)
     else:
         tw = torso[0] / 0.34
+        CROTCH = 0.18 + 0.32 * leg_h
+        SHOULDER_X = 0.43 * tw
         for side, x in (("L", LEG_X), ("R", -LEG_X)):
-            part("cyl", f"leg.{side}", (x, 0, 0.34), scale=(leg_r, leg_r, 0.32), color=pants, bone=f"leg.{side}")
-            part("cyl", f"boot.{side}", (x, 0, 0.12), scale=(leg_r * 1.15 * boot_s, leg_r * 1.15 * boot_s, 0.2 * boot_s), color=boots, bone=f"leg.{side}")
+            limb(f"leg.{side}", (x, 0, 0.18 + 0.16 * leg_h), leg_r, 0.32 * leg_h, pants, f"leg.{side}")
+            limb(f"boot.{side}", (x, 0, 0.12), leg_r * 1.15 * boot_s, 0.2 * boot_s, boots, f"leg.{side}")
             ell(f"toe.{side}", (x, -0.09 * boot_s, 0.06), (leg_r * 1.05 * boot_s, leg_r * 1.35 * boot_s, 0.075 * boot_s), boots, f"leg.{side}")
             band(f"boottop.{side}", (x, 0, 0.21 * boot_s), leg_r * 1.2 * boot_s, 0.05, boots, f"leg.{side}")
-        ell("torso", (0, 0, 0.77), torso, tunic, "spine")
-        part("frustum", "skirt", (0, 0, 0.47), color=tunic, bone="spine", sub=0, r1=0.37 * tw, r2=0.3 * tw, depth=0.22)
-        band("skirthem", (0, 0, 0.375), 0.375 * tw, 0.06, trim, "spine")
-        band("belt", (0, 0, 0.58), 0.315 * tw, 0.08, "leather", "spine")
-        part("cube", "buckle", (0, -0.31 * tw, 0.58), scale=(0.13, 0.05, 0.11), color=trim, bone="spine", sub=0)
-        part("cube", "seam", (0, -0.33 * tw, 0.78), scale=(0.05, 0.03, 0.34), color=trim, bone="spine", sub=0)
-        band("collar", (0, 0, 1.0), 0.16, 0.06, trim, "spine")
+        ell("torso", (0, 0, 0.77), torso, tunic, "spine", bevel=0.22)
+        # a boxy torso is full width at every height, so its bands have to clear its corners
+        bx, by = (torso[0] * 1.04, torso[1] * 1.04) if BOXY else (0.315 * tw, 0.315 * tw)
+        # the skirt hangs off the torso, so its width follows the torso rather than flaring into a plate
+        sk1, sk2 = (torso[0] * 1.06, torso[0] * 0.88) if BOXY else (0.37 * tw, 0.3 * tw)
+        part("frustum", "skirt", (0, 0, 0.47), color=tunic, bone="spine", sub=0, r1=sk1, r2=sk2, depth=0.22, sides=4 if BOXY else None)
+        band("skirthem", (0, 0, 0.375), sk1 * 1.02, 0.06, trim, "spine", dy=sk1 * 1.02)
+        band("belt", (0, 0, 0.58), bx, 0.08, "leather", "spine", dy=by)
+        part("cube", "buckle", (0, -(by + 0.02), 0.58), scale=(0.13, 0.05, 0.11), color=trim, bone="spine", sub=0)
+        if seam:
+            part("cube", "seam", (0, -(torso[1] + 0.015), 0.78), scale=(0.05, 0.03, 0.34), color=trim, bone="spine", sub=0)
+        band("collar", (0, 0, 1.0), 0.16, 0.06, trim, "spine", dy=min(0.16, torso[1] * 0.8) if BOXY else None)
         part("cyl", "neck", (0, 0, 1.02), scale=(0.11, 0.11, 0.14), color="skin", bone="spine", sub=1)
-        for side, x in (("L", 0.43 * tw), ("R", -0.43 * tw)):
-            ell(f"shoulder.{side}", (x * 0.9, 0, 0.94), (arm_r * 1.45, arm_r * 1.3, arm_r * 1.2), "skin" if bare_arms else tunic, f"arm.{side}")
-            part("cyl", f"arm.{side}", (x, 0, 0.9 - arm_len / 2), scale=(arm_r, arm_r, arm_len), color="skin" if bare_arms else tunic, bone=f"arm.{side}")
-            band(f"cuff.{side}", (x, 0, 0.9 - arm_len + 0.03), arm_r * 1.12, 0.06, trim, f"arm.{side}")
-            ell(f"hand.{side}", (x, 0, 0.9 - arm_len - hand_r * 0.7), (hand_r, hand_r, hand_r), "skin", f"arm.{side}")
+        for side, x in (("L", SHOULDER_X), ("R", -SHOULDER_X)):
+            ell(f"shoulder.{side}", (x * 0.9, 0, 0.94), (arm_r * 1.45 * shoulder_s, arm_r * 1.3 * shoulder_s, arm_r * 1.2 * shoulder_s),
+                "skin" if bare_arms else tunic, f"arm.{side}")
+            arm_chain(side, x, 0.9, arm_len, arm_r, hand_r, "skin" if bare_arms else tunic, trim, arm_ang)
     build_head(style)
-    if head_s != 1.0:
-        for o in parts:
-            if o.vertex_groups and o.vertex_groups[0].name == "head":
-                o.scale = tuple(v * head_s for v in o.scale)
-                o.location = (o.location.x * head_s, o.location.y * head_s, 1.05 + Z_OFF + (o.location.z - Z_OFF - 1.05) * head_s)
     if hair:
         build_hair(style)
 
+# proportions applied after every part exists (so hair, beard, crown and helmets follow the head)
+HEAD_S, HEAD_W, BODY_H, CROTCH, SHOULDER_X, DRESS = 1.0, 1.0, 1.0, 0.5, 0.42, False
+def bz(z):
+    """Where a torso-column height ends up once the legs and body have been stretched."""
+    return CROTCH + (z - 0.5) * BODY_H
+
+def finish_figure():
+    z0 = 0.5 + Z_OFF
+    neck = 1.05 + Z_OFF
+    head_shift = bz(1.05) - 1.05
+    for o in parts:
+        b = o.vertex_groups[0].name if o.vertex_groups else ""
+        if b == "spine" or (b == "root" and not DRESS):
+            o.location.z = z0 + (CROTCH - 0.5) + (o.location.z - z0) * BODY_H
+            o.scale.z *= BODY_H
+        elif b in ("arm.L", "arm.R"):
+            o.location.z += bz(0.9) - 0.9  # the whole arm rides on the shoulder; arm_len sets its length
+        elif b == "head":
+            o.location = (o.location.x * HEAD_S * HEAD_W, o.location.y * HEAD_S * HEAD_W, neck + head_shift + (o.location.z - neck) * HEAD_S)
+            o.scale = (o.scale.x * HEAD_S * HEAD_W, o.scale.y * HEAD_S * HEAD_W, o.scale.z * HEAD_S)
+
 def build_king():
-    build_figure("king", "blue", "gold")
-    part("cube", "clasp1", (0, -0.32, 0.86), scale=(0.05, 0.03, 0.26), rot=(0, math.radians(35), 0), color="gold", bone="spine", sub=0)
-    part("cube", "clasp2", (0, -0.32, 0.86), scale=(0.05, 0.03, 0.26), rot=(0, math.radians(-35), 0), color="gold", bone="spine", sub=0)
+    build_figure("king", "blue", "gold", seam=False)
+    # a gold cross on the chest
+    tw = PROPS.get("torso", [0.34])[0] / 0.34
+    part("cube", "crossv", (0, -0.33 * tw, 0.84), scale=(0.07, 0.03, 0.3), color="gold", bone="spine", sub=0)
+    part("cube", "crossh", (0, -0.33 * tw, 0.88), scale=(0.26, 0.03, 0.07), color="gold", bone="spine", sub=0)
     # beard wraps the jaw; moustache under the nose
-    ell("beard", (0, -0.08, 1.14), (0.37, 0.31, 0.16), "beard", "head")
-    ell("chin", (0, -0.22, 1.05), (0.22, 0.18, 0.13), "beard", "head")
+    n0 = len(parts)
+    ell("beard", (0, -0.1, 1.17), (0.35, 0.29, 0.15), "beard", "head", fit=0.92)
+    ell("chin", (0, -0.24, 1.07), (0.24, 0.15, 0.1), "beard", "head", fit=0.92)
     for side, x in (("L", 0.1), ("R", -0.1)):
         ell(f"mo.{side}", (x, -0.36, 1.31), (0.1, 0.04, 0.038), "beard", "head", rot=(0, math.radians(-25 if side == "L" else 25), 0))
+    bs, bh = PROPS.get("beard_s", 1.0), PROPS.get("beard_h", 1.0)  # beard width and depth; beard height
+    for o in parts[n0:]:
+        o.scale = (o.scale.x * bs, o.scale.y * bs, o.scale.z * bh)
+    # the mouth shows as a dark gap under the moustache
+    part("cube", "mouthgap", (0, -0.36 * bs, 1.255), scale=(0.11 * bs, 0.03, 0.03 * bh), color="ink", bone="head", sub=1)
     # crown sits on the hair
+    n1 = len(parts)
     part("cyl", "crown", (0, 0, 1.8), scale=(0.28, 0.28, 0.15), color="gold", bone="head", sub=1)
     band("crownrim", (0, 0, 1.87), 0.3, 0.05, "gold", "head")
     band("crownbase", (0, 0, 1.73), 0.3, 0.05, "gold", "head")
-    for i in range(5):
-        a = i / 5 * math.tau + math.pi / 2
-        part("cone", f"point{i}", (math.cos(a) * 0.25, math.sin(a) * 0.25, 1.98), scale=(0.065, 0.065, 0.22), color="gold", bone="head", sub=0)
-        ell(f"pearl{i}", (math.cos(a) * 0.25, math.sin(a) * 0.25, 2.1), (0.035, 0.035, 0.035), "gold", "head")
+    # points: 5 around the rim by default; any other count n puts n across the front (and the back)
+    n = int(round(PROPS.get("crown_points", 5)))
+    if n == 5:
+        angles = [i / 5 * math.tau + math.pi / 2 for i in range(5)]
+    else:
+        front = [math.pi / 2 + (k + 0.5 - n / 2) * (math.pi / n) for k in range(n)]
+        angles = front + [a + math.pi for a in front]
+    for i, a in enumerate(angles):
+        part("cone", f"point{i}", (math.cos(a) * 0.25, math.sin(a) * 0.25, 1.98), scale=(0.08, 0.08, 0.24), color="gold", bone="head", sub=0, sides=4 if BOXY else None)
+        if not BOXY:  # the faceted art has plain pyramids, no pearl on the tip
+            ell(f"pearl{i}", (math.cos(a) * 0.25, math.sin(a) * 0.25, 2.1), (0.035, 0.035, 0.035), "gold", "head")
     ell("jewel", (0, -0.27, 1.8), (0.055, 0.035, 0.065), "red", "head")
+    cs = PROPS.get("crown_s", 1.0)   # wider crown
+    ch = PROPS.get("crown_h", 1.0)   # taller crown, grown up from its base
+    cz = PROPS.get("crown_z", 0.0)   # crown lowered onto the brow (negative) or lifted
+    for o in parts[n1:]:
+        o.location = (o.location.x * cs, o.location.y * cs, 1.73 + cz + (o.location.z - 1.73) * ch)
+        o.scale = (o.scale.x * cs, o.scale.y * cs, o.scale.z * ch)
 
 def build_queen():
     build_figure("queen", "pink", "gold", dress=True)
@@ -392,175 +530,181 @@ def build_king_mounted():
 
 {"king": build_king, "queen": build_queen, "king_mounted": build_king_mounted, "archer": build_archer, "swordsman": build_swordsman,
  "raider": build_raider, "elite": build_elite, "brute": build_brute, "boss": build_boss}[WHO]()
+finish_figure()
 MOUNTED = WHO == "king_mounted"
 RZ = Z_OFF
 
-# ---------- armature ----------
-bpy.ops.object.armature_add(location=(0, 0, 0))
-arm = bpy.context.active_object
-arm.name = "Armature"
-bpy.ops.object.mode_set(mode="EDIT")
-eb = arm.data.edit_bones
-eb.remove(eb[0])
-def bone(name, head, tail, parent=None):
-    b = eb.new(name)
-    b.head, b.tail = Vector(head), Vector(tail)
-    if parent:
-        b.parent = eb[parent]
-    return b
-if MOUNTED:
-    bone("horse", (0, 0.3, 0.95), (0, -0.3, 0.95))
-    bone("hhead", (0, -0.55, 1.1), (0, -1.0, 1.65), "horse")
-    for name, x, y in (("FL", 0.2, -0.38), ("FR", -0.2, -0.38), ("BL", 0.2, 0.42), ("BR", -0.2, 0.42)):
-        bone(f"hleg.{name}", (x, y, 0.68), (x, y, 0.05), "horse")
-bone("root", (0, 0, 0.45 + RZ), (0, 0, 0.55 + RZ), "horse" if MOUNTED else None)
-bone("spine", (0, 0, 0.55 + RZ), (0, 0, 1.0 + RZ), "root")
-bone("head", (0, 0, 1.0 + RZ), (0, 0, 1.9 + RZ), "spine")
-for side, x in (("L", 0.42), ("R", -0.42)):
-    bone(f"arm.{side}", (x, 0, 0.9 + RZ), (x, 0, 0.5 + RZ), "spine")
-for side, x in (("L", LEG_X), ("R", -LEG_X)):
-    bone(f"leg.{side}", (x, 0, 0.47 + RZ), (x, 0, 0.05 + RZ), "root")
-bpy.ops.object.mode_set(mode="OBJECT")
+if not FAST:
+    # ---------- armature ----------
+    bpy.ops.object.armature_add(location=(0, 0, 0))
+    arm = bpy.context.active_object
+    arm.name = "Armature"
+    bpy.ops.object.mode_set(mode="EDIT")
+    eb = arm.data.edit_bones
+    eb.remove(eb[0])
+    def bone(name, head, tail, parent=None):
+        b = eb.new(name)
+        b.head, b.tail = Vector(head), Vector(tail)
+        if parent:
+            b.parent = eb[parent]
+        return b
+    if MOUNTED:
+        bone("horse", (0, 0.3, 0.95), (0, -0.3, 0.95))
+        bone("hhead", (0, -0.55, 1.1), (0, -1.0, 1.65), "horse")
+        for name, x, y in (("FL", 0.2, -0.38), ("FR", -0.2, -0.38), ("BL", 0.2, 0.42), ("BR", -0.2, 0.42)):
+            bone(f"hleg.{name}", (x, y, 0.68), (x, y, 0.05), "horse")
+    bone("root", (0, 0, bz(0.45) + RZ), (0, 0, bz(0.55) + RZ), "horse" if MOUNTED else None)
+    bone("spine", (0, 0, bz(0.55) + RZ), (0, 0, bz(1.0) + RZ), "root")
+    bone("head", (0, 0, bz(1.0) + RZ), (0, 0, bz(1.0) + 0.9 * HEAD_S + RZ), "spine")
+    for side, x in (("L", SHOULDER_X), ("R", -SHOULDER_X)):
+        bone(f"arm.{side}", (x, 0, bz(0.9) + RZ), (x, 0, bz(0.9) - 0.4 + RZ), "spine")
+    for side, x in (("L", LEG_X), ("R", -LEG_X)):
+        bone(f"leg.{side}", (x, 0, CROTCH - 0.03 + RZ), (x, 0, 0.05 + RZ), "root")
+    bpy.ops.object.mode_set(mode="OBJECT")
 
-# ---------- bake each part's own modifiers first ----------
-# join() keeps only the ACTIVE object's modifier stack, so parts[0]'s subsurf used to smooth the whole
-# character (3-4x the triangles, and it rounded off parts meant to stay sharp). Apply per part instead.
-for o in parts:
-    if o.modifiers:
-        bpy.ops.object.select_all(action="DESELECT")
+    # ---------- bake each part's own modifiers first ----------
+    # join() keeps only the ACTIVE object's modifier stack, so parts[0]'s subsurf used to smooth the whole
+    # character (3-4x the triangles, and it rounded off parts meant to stay sharp). Apply per part instead.
+    for o in parts:
+        if o.modifiers:
+            bpy.ops.object.select_all(action="DESELECT")
+            o.select_set(True)
+            bpy.context.view_layer.objects.active = o
+            for m in list(o.modifiers):
+                bpy.ops.object.modifier_apply(modifier=m.name)
+
+    # ---------- join parts into one skinned mesh ----------
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in parts:
         o.select_set(True)
-        bpy.context.view_layer.objects.active = o
-        for m in list(o.modifiers):
-            bpy.ops.object.modifier_apply(modifier=m.name)
+    bpy.context.view_layer.objects.active = parts[0]
+    bpy.ops.object.join()
+    body = bpy.context.active_object
+    body.name = WHO.capitalize()
+    mod = body.modifiers.new("Armature", "ARMATURE")
+    mod.object = arm
+    body.parent = arm
 
-# ---------- join parts into one skinned mesh ----------
-bpy.ops.object.select_all(action="DESELECT")
-for o in parts:
-    o.select_set(True)
-bpy.context.view_layer.objects.active = parts[0]
-bpy.ops.object.join()
-body = bpy.context.active_object
-body.name = WHO.capitalize()
-mod = body.modifiers.new("Armature", "ARMATURE")
-mod.object = arm
-body.parent = arm
-
-# ---------- animations ----------
-arm.animation_data_create()
-def pose(name):
-    return arm.pose.bones[name]
-for pb in arm.pose.bones:
-    pb.rotation_mode = "XYZ"
-def action(name, length, keys, locs=None, scales=None):
-    """keys: {bone: [(frame, (rx, ry, rz)), ...]} in radians; locs/scales likewise in bone-local space."""
-    act = bpy.data.actions.new(name)
-    arm.animation_data.action = act
-    try:
-        if hasattr(act, "slots") and len(act.slots) == 0:
-            act.slots.new(id_type="OBJECT", name=name)
-            arm.animation_data.action_slot = act.slots[0]
-    except Exception as e:
-        print("slot note:", e)
+    # ---------- animations ----------
+    arm.animation_data_create()
+    def pose(name):
+        return arm.pose.bones[name]
     for pb in arm.pose.bones:
-        pb.rotation_euler = (0, 0, 0)
-        pb.location = (0, 0, 0)
-        pb.scale = (1, 1, 1)
-    for bname, frames in keys.items():
-        pb = pose(bname)
-        for frame, rot in frames:
-            pb.rotation_euler = rot
-            pb.keyframe_insert("rotation_euler", frame=frame)
-    for bname, frames in (locs or {}).items():
-        pb = pose(bname)
-        for frame, loc in frames:
-            pb.location = loc
-            pb.keyframe_insert("location", frame=frame)
-    for bname, frames in (scales or {}).items():
-        pb = pose(bname)
-        for frame, sc in frames:
-            pb.scale = sc
-            pb.keyframe_insert("scale", frame=frame)
-    try:
-        act.use_frame_range = True
-        act.frame_range = (1, length)
-    except Exception as e:
-        print("range note:", e)
-    track = arm.animation_data.nla_tracks.new()
-    track.name = name
-    track.strips.new(name, 1, act)
-    arm.animation_data.action = None
-    return act
+        pb.rotation_mode = "XYZ"
+    def action(name, length, keys, locs=None, scales=None):
+        """keys: {bone: [(frame, (rx, ry, rz)), ...]} in radians; locs/scales likewise in bone-local space."""
+        act = bpy.data.actions.new(name)
+        arm.animation_data.action = act
+        try:
+            if hasattr(act, "slots") and len(act.slots) == 0:
+                act.slots.new(id_type="OBJECT", name=name)
+                arm.animation_data.action_slot = act.slots[0]
+        except Exception as e:
+            print("slot note:", e)
+        for pb in arm.pose.bones:
+            pb.rotation_euler = (0, 0, 0)
+            pb.location = (0, 0, 0)
+            pb.scale = (1, 1, 1)
+        for bname, frames in keys.items():
+            pb = pose(bname)
+            for frame, rot in frames:
+                pb.rotation_euler = rot
+                pb.keyframe_insert("rotation_euler", frame=frame)
+        for bname, frames in (locs or {}).items():
+            pb = pose(bname)
+            for frame, loc in frames:
+                pb.location = loc
+                pb.keyframe_insert("location", frame=frame)
+        for bname, frames in (scales or {}).items():
+            pb = pose(bname)
+            for frame, sc in frames:
+                pb.scale = sc
+                pb.keyframe_insert("scale", frame=frame)
+        try:
+            act.use_frame_range = True
+            act.frame_range = (1, length)
+        except Exception as e:
+            print("range note:", e)
+        track = arm.animation_data.nla_tracks.new()
+        track.name = name
+        track.strips.new(name, 1, act)
+        arm.animation_data.action = None
+        return act
 
-sw = 0.55
-SIT = -1.25
-if MOUNTED:
-    action("Idle", 48, {
-        "horse": [(1, (0, 0, 0)), (24, (0.02, 0, 0)), (48, (0, 0, 0))],
-        "hhead": [(1, (0, 0, 0)), (24, (0.08, 0, 0)), (48, (0, 0, 0))],
-        "leg.L": [(1, (SIT, 0, 0.2))], "leg.R": [(1, (SIT, 0, -0.2))],
-        "arm.L": [(1, (-0.5, 0, 0.12)), (24, (-0.45, 0, 0.16)), (48, (-0.5, 0, 0.12))], "arm.R": [(1, (-0.5, 0, -0.12)), (24, (-0.45, 0, -0.16)), (48, (-0.5, 0, -0.12))],
-        "spine": [(1, (0, 0, 0)), (24, (0.03, 0, 0)), (48, (0, 0, 0))],
-    }, locs={"horse": [(1, (0, 0, 0)), (24, (0, 0, -0.015)), (48, (0, 0, 0))]})
-    g = 0.5
-    action("Walk", 20, {
-        "hleg.FL": [(1, (g, 0, 0)), (11, (-g, 0, 0)), (20, (g, 0, 0))],
-        "hleg.BR": [(1, (g, 0, 0)), (11, (-g, 0, 0)), (20, (g, 0, 0))],
-        "hleg.FR": [(1, (-g, 0, 0)), (11, (g, 0, 0)), (20, (-g, 0, 0))],
-        "hleg.BL": [(1, (-g, 0, 0)), (11, (g, 0, 0)), (20, (-g, 0, 0))],
-        "horse": [(1, (0.04, 0, 0)), (6, (-0.04, 0, 0)), (11, (0.04, 0, 0)), (16, (-0.04, 0, 0)), (20, (0.04, 0, 0))],
-        "hhead": [(1, (0.05, 0, 0)), (11, (-0.05, 0, 0)), (20, (0.05, 0, 0))],
-        "leg.L": [(1, (SIT, 0, 0.2))], "leg.R": [(1, (SIT, 0, -0.2))],
-        "arm.L": [(1, (-0.5, 0, 0.12))], "arm.R": [(1, (-0.5, 0, -0.12))],
-        "spine": [(1, (0.05, 0, 0)), (11, (-0.03, 0, 0)), (20, (0.05, 0, 0))],
-        "head": [(1, (-0.04, 0, 0)), (6, (0.05, 0, 0)), (11, (-0.04, 0, 0)), (16, (0.05, 0, 0)), (20, (-0.04, 0, 0))],
-    }, locs={"horse": [(1, (0, 0, 0)), (6, (0, 0, 0.07)), (11, (0, 0, 0)), (16, (0, 0, 0.07)), (20, (0, 0, 0))],
-             "root": [(1, (0, 0, 0)), (4, (0, 0.03, 0)), (11, (0, 0, 0)), (14, (0, 0.03, 0)), (20, (0, 0, 0))]})
-    action("Attack", 20, {
-        "arm.R": [(1, (-0.5, 0, -0.12)), (6, (-2.5, 0, -0.35)), (11, (0.5, 0, -0.1)), (20, (-0.5, 0, -0.12))],
-        "arm.L": [(1, (-0.5, 0, 0.12)), (6, (-0.7, 0, 0.3)), (11, (-0.3, 0, 0.1)), (20, (-0.5, 0, 0.12))],
-        "leg.L": [(1, (SIT, 0, 0.2))], "leg.R": [(1, (SIT, 0, -0.2))],
-        "spine": [(1, (0, 0, 0)), (6, (-0.15, 0, 0.3)), (11, (0.18, 0, -0.25)), (20, (0, 0, 0))],
+    sw = 0.55
+    SIT = -1.25
+    if MOUNTED:
+        action("Idle", 48, {
+            "horse": [(1, (0, 0, 0)), (24, (0.02, 0, 0)), (48, (0, 0, 0))],
+            "hhead": [(1, (0, 0, 0)), (24, (0.08, 0, 0)), (48, (0, 0, 0))],
+            "leg.L": [(1, (SIT, 0, 0.2))], "leg.R": [(1, (SIT, 0, -0.2))],
+            "arm.L": [(1, (-0.5, 0, 0.12)), (24, (-0.45, 0, 0.16)), (48, (-0.5, 0, 0.12))], "arm.R": [(1, (-0.5, 0, -0.12)), (24, (-0.45, 0, -0.16)), (48, (-0.5, 0, -0.12))],
+            "spine": [(1, (0, 0, 0)), (24, (0.03, 0, 0)), (48, (0, 0, 0))],
+        }, locs={"horse": [(1, (0, 0, 0)), (24, (0, 0, -0.015)), (48, (0, 0, 0))]})
+        g = 0.5
+        action("Walk", 20, {
+            "hleg.FL": [(1, (g, 0, 0)), (11, (-g, 0, 0)), (20, (g, 0, 0))],
+            "hleg.BR": [(1, (g, 0, 0)), (11, (-g, 0, 0)), (20, (g, 0, 0))],
+            "hleg.FR": [(1, (-g, 0, 0)), (11, (g, 0, 0)), (20, (-g, 0, 0))],
+            "hleg.BL": [(1, (-g, 0, 0)), (11, (g, 0, 0)), (20, (-g, 0, 0))],
+            "horse": [(1, (0.04, 0, 0)), (6, (-0.04, 0, 0)), (11, (0.04, 0, 0)), (16, (-0.04, 0, 0)), (20, (0.04, 0, 0))],
+            "hhead": [(1, (0.05, 0, 0)), (11, (-0.05, 0, 0)), (20, (0.05, 0, 0))],
+            "leg.L": [(1, (SIT, 0, 0.2))], "leg.R": [(1, (SIT, 0, -0.2))],
+            "arm.L": [(1, (-0.5, 0, 0.12))], "arm.R": [(1, (-0.5, 0, -0.12))],
+            "spine": [(1, (0.05, 0, 0)), (11, (-0.03, 0, 0)), (20, (0.05, 0, 0))],
+            "head": [(1, (-0.04, 0, 0)), (6, (0.05, 0, 0)), (11, (-0.04, 0, 0)), (16, (0.05, 0, 0)), (20, (-0.04, 0, 0))],
+        }, locs={"horse": [(1, (0, 0, 0)), (6, (0, 0, 0.07)), (11, (0, 0, 0)), (16, (0, 0, 0.07)), (20, (0, 0, 0))],
+                 "root": [(1, (0, 0, 0)), (4, (0, 0.03, 0)), (11, (0, 0, 0)), (14, (0, 0.03, 0)), (20, (0, 0, 0))]})
+        action("Attack", 20, {
+            "arm.R": [(1, (-0.5, 0, -0.12)), (6, (-2.5, 0, -0.35)), (11, (0.5, 0, -0.1)), (20, (-0.5, 0, -0.12))],
+            "arm.L": [(1, (-0.5, 0, 0.12)), (6, (-0.7, 0, 0.3)), (11, (-0.3, 0, 0.1)), (20, (-0.5, 0, 0.12))],
+            "leg.L": [(1, (SIT, 0, 0.2))], "leg.R": [(1, (SIT, 0, -0.2))],
+            "spine": [(1, (0, 0, 0)), (6, (-0.15, 0, 0.3)), (11, (0.18, 0, -0.25)), (20, (0, 0, 0))],
+            "head": [(1, (0, 0, 0)), (6, (-0.1, 0, 0.15)), (11, (0.08, 0, -0.1)), (20, (0, 0, 0))],
+        })
+    else:
+      action("Idle", 48, {
+        "spine": [(1, (0, 0, 0)), (24, (0.04, 0, 0)), (48, (0, 0, 0))],
+        "head": [(1, (0, 0, 0)), (24, (-0.05, 0, 0)), (48, (0, 0, 0))],
+        "arm.L": [(1, (0, 0, IDLE_ARM_SWING)), (24, (0.04, 0, 0.2)), (48, (0, 0, IDLE_ARM_SWING))],
+        "arm.R": [(1, (0, 0, -IDLE_ARM_SWING)), (24, (0.04, 0, -0.2)), (48, (0, 0, -IDLE_ARM_SWING))],
+      }, locs={"root": [(1, (0, 0, 0)), (24, (0, -0.018, 0)), (48, (0, 0, 0))]},
+         scales={"root": [(1, (1, 1, 1)), (24, (1.015, 0.985, 1.015)), (48, (1, 1, 1))]})
+    if not MOUNTED and WHO != "queen":
+        action("Walk", 24, {
+            "leg.L": [(1, (sw, 0, 0)), (13, (-sw, 0, 0)), (24, (sw, 0, 0))],
+            "leg.R": [(1, (-sw, 0, 0)), (13, (sw, 0, 0)), (24, (-sw, 0, 0))],
+            "arm.L": [(1, (-sw * 0.8, 0, 0.12)), (13, (sw * 0.8, 0, 0.12)), (24, (-sw * 0.8, 0, 0.12))],
+            "arm.R": [(1, (sw * 0.8, 0, -0.12)), (13, (-sw * 0.8, 0, -0.12)), (24, (sw * 0.8, 0, -0.12))],
+            "spine": [(1, (0.1, 0, 0)), (7, (0.08, 0, 0.05)), (13, (0.1, 0, 0)), (19, (0.08, 0, -0.05)), (24, (0.1, 0, 0))],
+            "head": [(1, (-0.06, 0, 0)), (7, (0.02, 0, -0.03)), (13, (-0.06, 0, 0)), (19, (0.02, 0, 0.03)), (24, (-0.06, 0, 0))],
+        }, locs={"root": [(1, (0, 0, 0)), (7, (0, 0.06, 0)), (13, (0, 0, 0)), (19, (0, 0.06, 0)), (24, (0, 0, 0))]},
+           scales={"root": [(1, (1.03, 0.96, 1.03)), (7, (0.98, 1.03, 0.98)), (13, (1.03, 0.96, 1.03)), (19, (0.98, 1.03, 0.98)), (24, (1.03, 0.96, 1.03))]})
+    elif not MOUNTED:
+        action("Walk", 24, {
+            "arm.L": [(1, (-0.3, 0, 0.2)), (13, (0.3, 0, 0.2)), (24, (-0.3, 0, 0.2))],
+            "arm.R": [(1, (0.3, 0, -0.2)), (13, (-0.3, 0, -0.2)), (24, (0.3, 0, -0.2))],
+            "spine": [(1, (0.04, 0, 0.05)), (13, (0.04, 0, -0.05)), (24, (0.04, 0, 0.05))],
+            "head": [(1, (0, 0, -0.03)), (13, (0, 0, 0.03)), (24, (0, 0, -0.03))],
+        }, locs={"root": [(1, (0, 0, 0)), (7, (0, 0.03, 0)), (13, (0, 0, 0)), (19, (0, 0.03, 0)), (24, (0, 0, 0))]})
+    if not MOUNTED:
+      action("Attack", 20, {
+        "arm.R": [(1, (0, 0, -0.12)), (6, (-2.5, 0, -0.35)), (11, (0.6, 0, -0.1)), (20, (0, 0, -0.12))],
+        "arm.L": [(1, (0, 0, 0.12)), (6, (-0.5, 0, 0.3)), (11, (0.2, 0, 0.1)), (20, (0, 0, 0.12))],
+        "spine": [(1, (0, 0, 0)), (6, (-0.15, 0, 0.3)), (11, (0.2, 0, -0.25)), (20, (0, 0, 0))],
         "head": [(1, (0, 0, 0)), (6, (-0.1, 0, 0.15)), (11, (0.08, 0, -0.1)), (20, (0, 0, 0))],
-    })
-else:
-  action("Idle", 48, {
-    "spine": [(1, (0, 0, 0)), (24, (0.04, 0, 0)), (48, (0, 0, 0))],
-    "head": [(1, (0, 0, 0)), (24, (-0.05, 0, 0)), (48, (0, 0, 0))],
-    "arm.L": [(1, (0, 0, 0.12)), (24, (0.04, 0, 0.2)), (48, (0, 0, 0.12))],
-    "arm.R": [(1, (0, 0, -0.12)), (24, (0.04, 0, -0.2)), (48, (0, 0, -0.12))],
-  }, locs={"root": [(1, (0, 0, 0)), (24, (0, -0.018, 0)), (48, (0, 0, 0))]},
-     scales={"root": [(1, (1, 1, 1)), (24, (1.015, 0.985, 1.015)), (48, (1, 1, 1))]})
-if not MOUNTED and WHO != "queen":
-    action("Walk", 24, {
-        "leg.L": [(1, (sw, 0, 0)), (13, (-sw, 0, 0)), (24, (sw, 0, 0))],
-        "leg.R": [(1, (-sw, 0, 0)), (13, (sw, 0, 0)), (24, (-sw, 0, 0))],
-        "arm.L": [(1, (-sw * 0.8, 0, 0.12)), (13, (sw * 0.8, 0, 0.12)), (24, (-sw * 0.8, 0, 0.12))],
-        "arm.R": [(1, (sw * 0.8, 0, -0.12)), (13, (-sw * 0.8, 0, -0.12)), (24, (sw * 0.8, 0, -0.12))],
-        "spine": [(1, (0.1, 0, 0)), (7, (0.08, 0, 0.05)), (13, (0.1, 0, 0)), (19, (0.08, 0, -0.05)), (24, (0.1, 0, 0))],
-        "head": [(1, (-0.06, 0, 0)), (7, (0.02, 0, -0.03)), (13, (-0.06, 0, 0)), (19, (0.02, 0, 0.03)), (24, (-0.06, 0, 0))],
-    }, locs={"root": [(1, (0, 0, 0)), (7, (0, 0.06, 0)), (13, (0, 0, 0)), (19, (0, 0.06, 0)), (24, (0, 0, 0))]},
-       scales={"root": [(1, (1.03, 0.96, 1.03)), (7, (0.98, 1.03, 0.98)), (13, (1.03, 0.96, 1.03)), (19, (0.98, 1.03, 0.98)), (24, (1.03, 0.96, 1.03))]})
-elif not MOUNTED:
-    action("Walk", 24, {
-        "arm.L": [(1, (-0.3, 0, 0.2)), (13, (0.3, 0, 0.2)), (24, (-0.3, 0, 0.2))],
-        "arm.R": [(1, (0.3, 0, -0.2)), (13, (-0.3, 0, -0.2)), (24, (0.3, 0, -0.2))],
-        "spine": [(1, (0.04, 0, 0.05)), (13, (0.04, 0, -0.05)), (24, (0.04, 0, 0.05))],
-        "head": [(1, (0, 0, -0.03)), (13, (0, 0, 0.03)), (24, (0, 0, -0.03))],
-    }, locs={"root": [(1, (0, 0, 0)), (7, (0, 0.03, 0)), (13, (0, 0, 0)), (19, (0, 0.03, 0)), (24, (0, 0, 0))]})
-if not MOUNTED:
-  action("Attack", 20, {
-    "arm.R": [(1, (0, 0, -0.12)), (6, (-2.5, 0, -0.35)), (11, (0.6, 0, -0.1)), (20, (0, 0, -0.12))],
-    "arm.L": [(1, (0, 0, 0.12)), (6, (-0.5, 0, 0.3)), (11, (0.2, 0, 0.1)), (20, (0, 0, 0.12))],
-    "spine": [(1, (0, 0, 0)), (6, (-0.15, 0, 0.3)), (11, (0.2, 0, -0.25)), (20, (0, 0, 0))],
-    "head": [(1, (0, 0, 0)), (6, (-0.1, 0, 0.15)), (11, (0.08, 0, -0.1)), (20, (0, 0, 0))],
-  }, locs={"root": [(1, (0, 0, 0)), (6, (0, 0.04, 0)), (11, (0, -0.02, 0.06)), (20, (0, 0, 0))]},
-     scales={"root": [(1, (1, 1, 1)), (6, (0.97, 1.04, 0.97)), (11, (1.06, 0.92, 1.06)), (20, (1, 1, 1))]})
+      }, locs={"root": [(1, (0, 0, 0)), (6, (0, 0.04, 0)), (11, (0, -0.02, 0.06)), (20, (0, 0, 0))]},
+         scales={"root": [(1, (1, 1, 1)), (6, (0.97, 1.04, 0.97)), (11, (1.06, 0.92, 1.06)), (20, (1, 1, 1))]})
 
 # ---------- export ----------
-dg = bpy.context.evaluated_depsgraph_get()
-ev_mesh = body.evaluated_get(dg).data
-ev_mesh.calc_loop_triangles()
-print("TRIS", WHO, len(ev_mesh.loop_triangles))
+if not FAST:
+    dg = bpy.context.evaluated_depsgraph_get()
+    ev_mesh = body.evaluated_get(dg).data
+    ev_mesh.calc_loop_triangles()
+    print("TRIS", WHO, len(ev_mesh.loop_triangles))
+if BLEND:
+    bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(BLEND))
+    print("blend", BLEND)
 if OUT != "-":
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.export_scene.gltf(filepath=OUT, export_format="GLB", export_apply=True, export_animations=True, export_yup=True, use_selection=True, export_draco_mesh_compression_enable=True, export_draco_mesh_compression_level=6)
@@ -582,8 +726,31 @@ if FRONT:
     scene.render.resolution_x = scene.render.resolution_y = int(PARAMS.get("front_res", 192))
     scene.render.image_settings.color_mode = "RGBA"
     scene.view_settings.view_transform = "Standard"
-    for t in arm.animation_data.nla_tracks:
-        t.mute = True
+    if not PARAMS.get("front_aa", True):
+        scene.display.render_aa = "OFF"  # ID renders must not blend two IDs at an edge
+    if IDS:
+        # every part in its own flat colour (index-coded), and a list of which part and role each is,
+        # so the fitter can say which part sits where the reference shows something else
+        names = []
+        for i, o in enumerate(parts):
+            role = o.data.materials[0].name if o.data.materials else ""
+            m = bpy.data.materials.new(f"id{i}")
+            m.diffuse_color = (lin((i % 8) / 7), lin(((i // 8) % 8) / 7), lin((i // 64) / 7), 1.0)  # lands on i/7 after the sRGB output
+            o.data.materials.clear()
+            o.data.materials.append(m)
+            names.append([o.name, role])
+        json.dump(names, open(IDS, "w"))
+    if not FAST:
+        # the rest pose the game shows: every bone at rest, arms at Idle's first-frame swing. Keying the
+        # actions leaves the last keyed pose (a Walk stride) in the scene, so reset rather than trust it.
+        for t in arm.animation_data.nla_tracks:
+            t.mute = True
+        for pb in arm.pose.bones:
+            pb.rotation_euler = (0, 0, 0)
+            pb.location = (0, 0, 0)
+            pb.scale = (1, 1, 1)
+        arm.pose.bones["arm.L"].rotation_euler = (0, 0, IDLE_ARM_SWING)
+        arm.pose.bones["arm.R"].rotation_euler = (0, 0, -IDLE_ARM_SWING)
     scene.frame_set(1)
     scene.render.filepath = FRONT
     bpy.ops.render.render(write_still=True)

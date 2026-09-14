@@ -4,3 +4,6 @@ dist
 *.log
 .shots
 design/crown-rush-art-pass.html
+
+# Blender working files written by make_character.py --blend (open these to inspect a character)
+.blend/
