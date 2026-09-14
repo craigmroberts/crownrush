@@ -2,7 +2,8 @@ import { iconSvg } from './icons.js';
 
 export class Hud {
   constructor() {
-    this.coinEl = document.getElementById('coin-count');
+    this.coinEls = { bronze: document.getElementById('coin-bronze'), silver: document.getElementById('coin-silver'), gold: document.getElementById('coin-gold'), platinum: document.getElementById('coin-platinum') };
+    this.lastPurse = {};
     this.waveEl = document.getElementById('wave-num');
     this.armyEl = document.getElementById('army-count');
     this.toastEl = document.getElementById('toast');
@@ -52,9 +53,14 @@ export class Hud {
       this.lastNext = n;
     }
     if (goal !== undefined) this.goalEl.textContent = wave > goal ? '· endless' : `/ ${goal}`;
-    if (coins !== this.lastCoins) {
-      this.coinEl.textContent = coins;
-      this.lastCoins = coins;
+    if (coins) {
+      for (const tier of ['bronze', 'silver', 'gold', 'platinum']) {
+        if (coins[tier] !== this.lastPurse[tier]) {
+          this.coinEls[tier].textContent = coins[tier];
+          this.coinEls[tier].parentElement.classList.toggle('empty', coins[tier] === 0 && tier !== 'bronze');
+          this.lastPurse[tier] = coins[tier];
+        }
+      }
     }
     if (wave !== this.lastWave) {
       this.waveEl.textContent = wave;

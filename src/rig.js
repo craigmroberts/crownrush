@@ -130,12 +130,42 @@ export async function preloadRigs(names) {
   }
 }
 
+// Recoloured variants (enemy ranks, hair colours) share one geometry per variant, so a hundred
+// bandits cost the GPU one colour buffer, not a hundred.
+const variants = new Map();
+function variantScene(gltf, name, tints) {
+  const key = `${name}|${tints.map(([p, h]) => `${p}:${h}`).join(',')}`;
+  if (variants.has(key)) return variants.get(key);
+  const scene = cloneSkeleton(gltf.scene);
+  let skinned = null;
+  scene.traverse((o) => { if (o.isSkinnedMesh && !skinned) skinned = o; });
+  if (skinned) {
+    const src = skinned.geometry;
+    const g = new THREE.BufferGeometry();
+    g.setIndex(src.index);
+    for (const [k, attr] of Object.entries(src.attributes)) g.setAttribute(k, k === 'color' ? attr.clone() : attr);
+    g.boundingSphere = src.boundingSphere;
+    skinned.geometry = g;
+    const col = g.attributes.color;
+    const c = new THREE.Color();
+    for (const [part, hex] of tints) {
+      const ranges = skinned.userData.parts && skinned.userData.parts[part];
+      if (!ranges) continue;
+      c.set(hex);
+      for (const r of ranges) for (let i = r.start; i < r.start + r.count; i++) col.setXYZ(i, c.r, c.g, c.b);
+    }
+  }
+  variants.set(key, scene);
+  return scene;
+}
+
 // Returns { mesh, mixer, actions, play(name, once), tint(part, hex) } or null if not loaded.
-export function makeRigged(name) {
+// `tints` = [[partName, hex], ...] picks a shared recoloured variant of the character.
+export function makeRigged(name, tints = null) {
   const entry = cache.get(name);
   const gltf = entry && entry.loaded;
   if (!gltf) return null;
-  const mesh = cloneSkeleton(gltf.scene);
+  const mesh = cloneSkeleton(tints && tints.length ? variantScene(gltf, name, tints) : gltf.scene);
   mesh.traverse((o) => { if (o.isSkinnedMesh) o.castShadow = rigShadows; });
   const mixer = new THREE.AnimationMixer(mesh);
   const actions = {};

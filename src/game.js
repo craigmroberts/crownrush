@@ -8,12 +8,15 @@ import {
   makeKing, makeKingFoot, makeQueen, makeKeep, makeLumberTree, makeOreRock, makeResourceCube, RES_MATS, CHIP_GEO, makeTool, makeArcher, makeSwordsman, makeKnight, makeElite, makeBrute, makeBoss, makeCoin, makeArrow,
   makeHut, makeTower, makeBarracks, makeWallSegment, makeGate, makeRubble, makeBridge, makePad, drawPad, ghostify,
   makeHealthBar, setHealthBar, HealthBars, disposeHealthBar, clearHealthBars, makePopup, makeRing, makeSpawnFx, makeBurst, makeCoinStack,
+  makeBank, makeGatePost, COIN_TIER_COLORS,
 } from './models.js';
 
 const V3 = THREE.Vector3;
 const tmp = new V3();
 const tmp2 = new V3();
 const tmpM = new THREE.Matrix4();
+const HAIR = [0x5a3416, 0x2a1e16, 0x8a5a2b, 0x1c1c22, 0x6b3f1d];
+const cap = (t) => t[0].toUpperCase() + t.slice(1);
 const rand = (a, b) => a + Math.random() * (b - a);
 const randInt = (a, b) => Math.floor(rand(a, b + 1));
 
@@ -121,8 +124,10 @@ export class Game {
     this.fogTimer = 0;
     this.lastFogPos = new V3(999, 0, 999);
     this.damageMul = 1;
-    this.coinsCarried = 0;
+    this.purse = { ...CFG.coins.start };
     this.coinsEarned = 0;
+    this.archerPower = 0;
+    this.rankSeen = {};
     this.coinCombo = 0;
     this.comboTimer = 0;
     this.wave = 0;
@@ -180,7 +185,7 @@ export class Game {
     this.refreshPads();
     this.hud.showNextWave(false);
     this.hud.hidePadTip();
-    this.hud.set(0, 1, 0, null, CFG.waves.goal, this.res, 0, 1, 1, 0);
+    this.hud.set(this.purse, 1, 0, null, CFG.waves.goal, this.res, 0, 1, 1, 0);
     this.hud.setIndicators([]);
   }
 
@@ -423,7 +428,7 @@ export class Game {
   }
 
   // ---------- spawning ----------
-  spawnUnit(type, x, z) {
+  spawnUnit(type, x, z, veteran = false) {
     let mesh;
     let stats;
     if (type === 'king') {
@@ -434,9 +439,10 @@ export class Game {
       mesh = makeRigged('queen').mesh;
       stats = CFG.queen;
     } else if (type === 'archer') {
-      const rig = makeRigged('archer');
-      mesh = rig ? this.tintHair(rig.mesh) : makeArcher();
-      stats = CFG.archer;
+      const hair = HAIR[Math.floor(Math.random() * HAIR.length)];
+      const rig = makeRigged('archer', veteran ? [['hair', hair], ['white', 0xf2d16b], ['blue', 0x8d1d22]] : [['hair', hair]]);
+      mesh = rig ? rig.mesh : makeArcher();
+      stats = this.archerStats(veteran);
     } else if (type === 'queen') {
       mesh = makeQueen();
       stats = CFG.queen;
@@ -453,7 +459,7 @@ export class Game {
     const royal = type === 'king' || type === 'queen';
     const u = {
       type, mesh, bar, hp: stats.hp, maxHp: stats.hp, stats, cooldown: rand(0, 0.5), lastHit: -99,
-      melee: type === 'swordsman', vel: new V3(), popT: royal ? 0 : 0.5, assign: null,
+      melee: type === 'swordsman', vel: new V3(), popT: royal ? 0 : 0.5, assign: null, veteran,
       scale: royal ? 1.15 : mesh.userData.rig ? 1.05 : 1.2,
     };
     mesh.scale.setScalar(u.popT ? 0.01 : u.scale);
@@ -462,20 +468,46 @@ export class Game {
     return u;
   }
 
-  spawnEnemy(type, x, z) {
+  // archer stats grow with "Train Archers"; veterans (platinum recruits) are half again as strong
+  archerStats(veteran = false) {
+    const v = veteran ? 1.5 : 1;
+    return {
+      ...CFG.archer,
+      damage: CFG.archer.damage * (1 + this.archerPower * CFG.archerTraining.damage) * v,
+      hp: CFG.archer.hp * (1 + this.archerPower * CFG.archerTraining.hp) * v,
+    };
+  }
+
+  // which parts of each enemy rig wear the rank colours
+  rankTints(type, rk) {
+    if (type === 'knight') return [['red', rk.tunic], ['darkRed', rk.trim]];
+    if (type === 'elite') return [['darkRed', rk.tunic], ['ink', rk.dark]];
+    if (type === 'brute') return [['darkRed', rk.tunic], ['leather', rk.trim]];
+    return [['bone', rk.light], ['boneDark', rk.trim]];
+  }
+
+  spawnEnemy(type, x, z, rank = 0) {
     const stats = CFG.enemy[type];
-    const rig = makeRigged(type === 'knight' ? 'raider' : type);
+    rank = Math.min(rank, CFG.ranks.length - 1);
+    const rk = CFG.ranks[rank];
+    const rig = makeRigged(type === 'knight' ? 'raider' : type, this.rankTints(type, rk));
     const mesh = rig ? rig.mesh : type === 'boss' ? makeBoss() : type === 'brute' ? makeBrute() : type === 'elite' ? makeElite() : makeKnight();
     mesh.position.set(x, 0, z);
     const w = Math.max(1, this.wave);
-    const hpMul = 1 + CFG.waves.hpGrowthPerWave * (w - 1);
-    const dmgMul = 1 + CFG.waves.dmgGrowthPerWave * (w - 1);
+    const L = Math.max(0, this.baseLevel - 1);
+    // waves, rank and Keep level all scale the enemy
+    const hpMul = (1 + CFG.waves.hpGrowthPerWave * (w - 1)) * rk.hp * (1 + CFG.base.enemyHpPerLevel * L);
+    const dmgMul = (1 + CFG.waves.dmgGrowthPerWave * (w - 1)) * rk.damage * (1 + CFG.base.enemyDmgPerLevel * L);
+    if (!this.rankSeen[rank] && this.running) {
+      this.rankSeen[rank] = true;
+      if (rank > 0) this.hud.toast(`${rk.name}s have arrived! Watch for their colours.`, 2800);
+    }
     const bar = makeHealthBar(type === 'boss' ? 3.4 : type === 'brute' ? 1.5 : 1.0);
     bar.position.y = type === 'boss' ? 5.0 : type === 'brute' ? 2.7 : 1.9;
     mesh.add(bar);
     this.root.add(mesh);
     const e = {
-      type, mesh, bar, stats, hp: stats.hp * hpMul, maxHp: stats.hp * hpMul, damage: stats.damage * dmgMul,
+      type, rank, mesh, bar, stats, hp: stats.hp * hpMul, maxHp: stats.hp * hpMul, damage: stats.damage * dmgMul,
       cooldown: rand(0.2, 0.8), target: null, retarget: 0, flash: 0, radius: stats.radius,
       scale: rig ? { knight: 1.0, elite: 1.1, brute: 1.35, boss: 2.4 }[type] : type === 'boss' ? 1 : 1.15,
     };
@@ -505,6 +537,15 @@ export class Game {
       const j = Math.floor(Math.random() * (i + 1));
       [list[i], list[j]] = [list[j], list[i]];
     }
+    // ranks: the newest rank dominates, older colours keep showing up in smaller numbers
+    const progress = Math.max(w, this.baseLevel + 2);
+    let top = 0;
+    CFG.ranks.forEach((r, i) => { if (r.fromWave <= progress) top = i; });
+    const pTop = Math.min(0.85, 0.35 + 0.1 * (progress - CFG.ranks[top].fromWave));
+    const pickRank = (type) => {
+      if (type === 'boss' || top === 0 || Math.random() < pTop) return top;
+      return Math.random() < 0.7 ? top - 1 : Math.max(0, top - 2);
+    };
     // raiding parties come from 1-3 directions
     const dirs = 1 + Math.min(2, Math.floor(w / 3));
     const angles = [];
@@ -532,7 +573,7 @@ export class Game {
         a += 0.9;
         r += 3;
       }
-      this.spawnQueue.push({ type, x, z, t: i * CFG.waves.stagger });
+      this.spawnQueue.push({ type, x, z, t: i * CFG.waves.stagger, rank: pickRank(type) });
     });
     const boss = list.includes('boss');
     audio.wave(boss);
@@ -631,7 +672,7 @@ export class Game {
     const paidAll = pad.paid + pad.res.reduce((a, r) => a + r.paid, 0);
     drawPad(pad.canvas, pad.tex, {
       icon: pad.def.icon, label: pad.def.label, remaining: pad.def.feed ? null : pad.cost - pad.paid, paid: total ? paidAll / total : 0,
-      currency: pad.def.crew ? 'archers' : 'coins',
+      currency: pad.def.crew ? 'archers' : pad.def.coin || 'bronze',
       res: pad.res.map((r) => ({ type: r.type, remaining: r.need - r.paid })),
       active: !!pad.active,
       sub: pad.def.feed ? `Level ${this.baseLevel} → ${this.baseLevel + 1}` : null,
@@ -640,6 +681,7 @@ export class Game {
   }
 
   makeStructureMesh(kind) {
+    if (kind === 'bank') return makeBank();
     if (kind === 'hut') return makeHut();
     if (kind === 'keep') return makeKeep();
     if (kind === 'tower') return makeTower();
@@ -647,17 +689,44 @@ export class Game {
     return new THREE.Group();
   }
 
-  // where a crew pad sends its archers
+  // where a crew pad sends its archers: gate posts, or the next free spots around a tower top
   crewSpots(def) {
-    if (def.spots) return def.spots;
+    if (def.spots) return def.spots.map((s) => [s[0], s[1], def.posts ? CFG.gatePost.height + 0.08 : s[2] || 0]);
     const t = this.towers[def.tower];
     if (!t) return [];
     const spots = [];
     for (let i = 0; i < def.crew; i++) {
-      const a = (i / def.crew) * Math.PI * 2 + 0.5;
-      spots.push([t.x + Math.cos(a) * 0.6, t.z + Math.sin(a) * 0.6, t.top]);
+      const a = (t.crew + i) * ((Math.PI * 2) / 7) + 0.5;
+      spots.push([t.x + Math.cos(a) * 0.75, t.z + Math.sin(a) * 0.75, t.top]);
     }
     return spots;
+  }
+
+  // A tower's pad cycles: build -> man it -> upgrade -> man the new slots -> upgrade ... (3 levels)
+  queueTowerPad(id, kind) {
+    const t = this.towers[id];
+    const lv = CFG.tower.levels[t.level - 1];
+    if (kind === 'crew') {
+      const add = lv.slots - t.crew;
+      if (add <= 0) return this.queueTowerPad(id, 'up');
+      this.dynamicPads.push({ id: `crew-${id}-${t.level}`, pos: t.pos, crew: add, icon: 'archer', label: 'Man the Tower', tower: id, toast: 'Tower manned!' });
+    } else if (t.level < CFG.tower.levels.length) {
+      const up = CFG.tower.upgrade[t.level - 1];
+      const next = CFG.tower.levels[t.level];
+      this.dynamicPads.push({ id: `up-${id}-${t.level + 1}`, pos: t.pos, cost: up.cost, coin: up.coin, icon: 'tower', label: `Tower Level ${t.level + 1}`, towerUp: id, toast: `Watchtower level ${t.level + 1}: ${next.slots} crew, sharper arrows.` });
+    }
+    this.refreshPads();
+  }
+
+  // The Exchange's trade pads: pay N cheap coins, get one better coin flown to you
+  addExchangePads(def) {
+    const [px, pz] = def.pos;
+    // beside and below the bank pad, not on it, so the first trade takes a deliberate step
+    const spots = [[px + 3.5, pz], [px, pz + 3.5], [px + 3.5, pz + 3.5]];
+    CFG.coins.exchange.forEach((ex, i) => {
+      this.dynamicPads.push({ id: `exchange-${ex.from}`, pos: spots[i], cost: ex.rate, coin: ex.from, icon: ex.to, label: `${ex.rate} ${cap(ex.from)} → 1 ${cap(ex.to)}`, repeatable: true, exchange: ex, minLevel: i === 2 ? 6 : 0 });
+    });
+    this.refreshPads();
   }
 
   completePad(pad) {
@@ -669,7 +738,43 @@ export class Game {
 
     if (def.units) {
       for (let i = 0; i < def.units.count; i++) {
-        this.spawnUnit(def.units.type, def.pos[0] + rand(-0.8, 0.8), def.pos[1] + rand(-0.8, 0.8));
+        this.spawnUnit(def.units.type, def.pos[0] + rand(-0.8, 0.8), def.pos[1] + rand(-0.8, 0.8), !!def.units.veteran);
+      }
+    }
+    if (def.exchange) {
+      this.grantCoin(def.exchange.to, pad.mesh.position);
+      this.spendTimer = Math.max(this.spendTimer, 0.45); // one trade at a time, so you can step off
+    }
+    if (def.effect === 'archerPower') {
+      this.archerPower++;
+      for (const u of this.units) {
+        if (u.type !== 'archer') continue;
+        const st = this.archerStats(u.veteran);
+        u.hp = Math.min(st.hp, u.hp + (st.hp - u.maxHp));
+        u.maxHp = st.hp;
+        u.stats = st;
+      }
+    }
+    if (def.crew && def.tower) {
+      this.towers[def.tower].crew += def.crew;
+      this.queueTowerPad(def.tower, 'up');
+    }
+    if (def.towerUp) {
+      const t = this.towers[def.towerUp];
+      t.level++;
+      this.root.remove(t.mesh);
+      t.mesh = makeTower(t.level);
+      t.mesh.position.set(t.x, 0, t.z);
+      this.popIn(t.mesh);
+      this.root.add(t.mesh);
+      this.queueTowerPad(def.towerUp, 'crew');
+    }
+    if (def.posts) {
+      for (const [x, z] of def.spots) {
+        const m = makeGatePost();
+        m.position.set(x, 0, z);
+        this.popIn(m);
+        this.root.add(m);
       }
     }
     if (def.structure) this.buildStructure(def);
@@ -698,8 +803,8 @@ export class Game {
       if (def.wall.side === 'west') this.world.revealRoad('west');
       if (def.wall.side === 'north') this.world.revealRoad('north');
     }
-    if (!def.crew) this.addScore(pad.cost * CFG.score.buildPerCoin + pad.res.reduce((a, r) => a + r.need, 0) * CFG.score.buildPerMaterial);
-    audio.build();
+    if (!def.crew && !def.exchange) this.addScore(pad.cost * CFG.score.buildPerCoin + pad.res.reduce((a, r) => a + r.need, 0) * CFG.score.buildPerMaterial);
+    if (!def.exchange) audio.build();
     if (def.toast) this.hud.toast(def.toast);
 
     const again = def.repeatable && !(def.maxBuys && this.buyCount[def.id] >= def.maxBuys) && !(def.feed && !this.levelReq());
@@ -722,7 +827,11 @@ export class Game {
     m.position.set(def.buildAt[0], 0, def.buildAt[1]);
     this.popIn(m);
     this.root.add(m);
-    if (kind === 'tower') this.towers[def.id] = { x: def.buildAt[0], z: def.buildAt[1], top: m.userData.top };
+    if (kind === 'tower') {
+      this.towers[def.id] = { id: def.id, x: def.buildAt[0], z: def.buildAt[1], top: m.userData.top, level: 1, mesh: m, crew: 0, pos: def.pos };
+      this.queueTowerPad(def.id, 'crew');
+    }
+    if (kind === 'bank') this.addExchangePads(def);
     if (m.userData.chimney) {
       const c = m.userData.chimney;
       this.world.addSmoker(def.buildAt[0] + c.x, c.y, def.buildAt[1] + c.z);
@@ -869,14 +978,14 @@ export class Game {
     if (this.tier < TIERS.length - 1) this.tier++;
   }
 
-  addTurret(x, z, y) {
-    const rig = makeRigged('archer');
-    const mesh = rig ? this.tintHair(rig.mesh) : makeArcher();
+  addTurret(x, z, y, towerId = null) {
+    const rig = makeRigged('archer', [['hair', HAIR[Math.floor(Math.random() * HAIR.length)]]]);
+    const mesh = rig ? rig.mesh : makeArcher();
     mesh.position.set(x, y, z);
     this.popIn(mesh, 0, rig ? 1.05 : 1.2);
     this.root.add(mesh);
     this.spawnFx(x, z, 0xff9a2e, y);
-    this.turrets.push({ mesh, cooldown: rand(0, 0.7), pos: new V3(x, y + 0.9, z) });
+    this.turrets.push({ mesh, cooldown: rand(0, 0.7), pos: new V3(x, y + 0.9, z), tower: towerId });
   }
 
   popIn(obj, delay = 0, baseScale = 1) {
@@ -1137,21 +1246,35 @@ export class Game {
     this.dying.push({ mesh: e.mesh, t: 0.5 });
     tmp.copy(e.mesh.position).setY(e.type === 'boss' ? 2.5 : 1.0);
     this.burstFx(tmp, '#ffffff', e.type === 'boss' ? 6 : 2.6, 0.38);
-    const n = randInt(e.stats.coins[0], e.stats.coins[1]);
-    for (let i = 0; i < n; i++) this.dropCoin(e.mesh.position);
+    const rk = CFG.ranks[Math.min(e.rank || 0, CFG.ranks.length - 1)];
+    const mult = e.type === 'boss' ? 4 : e.type === 'brute' || e.type === 'elite' ? 2 : 1;
+    for (const [tier, [lo, hi]] of Object.entries(rk.drops)) {
+      const n = randInt(lo, hi) * mult;
+      for (let i = 0; i < n; i++) this.dropCoin(e.mesh.position, tier);
+    }
+    for (const [tier, chance] of Object.entries(rk.bonus)) if (Math.random() < chance * mult) this.dropCoin(e.mesh.position, tier);
     audio.enemyDie();
     this.addScore(CFG.score.kill[e.type] || 10);
     if (e.type === 'boss') this.hud.toast('Boss defeated!', 1800);
   }
 
-  dropCoin(pos) {
-    const c = makeCoin();
+  dropCoin(pos, tier = 'bronze') {
+    const c = makeCoin(tier);
     c.position.copy(pos);
     c.position.y = 0.6;
     this.root.add(c);
     const a = rand(0, Math.PI * 2);
     const s = rand(1.5, 4.5);
-    this.coins.push({ mesh: c, vx: Math.cos(a) * s, vz: Math.sin(a) * s, vy: rand(4, 7), state: 'drop', t: 0 });
+    this.coins.push({ mesh: c, vx: Math.cos(a) * s, vz: Math.sin(a) * s, vy: rand(4, 7), state: 'drop', t: 0, tier });
+  }
+
+  // a coin that flies straight to the King (the Exchange pays out this way)
+  grantCoin(tier, pos) {
+    const c = makeCoin(tier);
+    c.position.copy(pos);
+    c.position.y = 0.6;
+    this.root.add(c);
+    this.coins.push({ mesh: c, vx: 0, vz: 0, vy: 0, state: 'fly', t: 0, tier });
   }
 
   // give each archer its own hair colour (the rig ships one)
@@ -1325,7 +1448,7 @@ export class Game {
       this.hud.showNextWave(between && this.wave > 0 && this.waveTimer > 3 && !this.won);
       this.alarmT -= dt;
       this.hud.showAlarm(this.alarmT > 0 ? this.alarmText : null);
-      this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, CFG.waves.goal, this.res, this.score, this.king.hp / this.king.maxHp, this.queen.hp / this.queen.maxHp, this.baseLevel);
+      this.hud.set(this.purse, Math.max(1, this.wave), army, between ? this.waveTimer : null, CFG.waves.goal, this.res, this.score, this.king.hp / this.king.maxHp, this.queen.hp / this.queen.maxHp, this.baseLevel);
       this.updateIndicators(dt);
     }
     this.world.focus.copy(this.king.mesh.position);
@@ -1623,7 +1746,7 @@ export class Game {
         this.units.splice(this.units.indexOf(u), 1);
         this.root.remove(u.mesh);
         this.disposeEntity(u.mesh);
-        this.addTurret(x, z, y);
+        this.addTurret(x, z, y, u.assignTower);
         continue;
       }
       tmp2.normalize().multiplyScalar(Math.min(u.stats.speed * dt, d));
@@ -1638,12 +1761,13 @@ export class Game {
   updateTurrets(dt) {
     for (const t of this.turrets) {
       t.cooldown -= dt;
-      const target = this.nearestEnemy(t.pos, CFG.tower.range);
+      const lv = t.tower && this.towers[t.tower] ? CFG.tower.levels[this.towers[t.tower].level - 1] : CFG.tower.levels[0];
+      const target = this.nearestEnemy(t.pos, CFG.tower.range * lv.range);
       if (target) {
         this.faceTowards(t.mesh, target.mesh.position, dt, 10);
         if (t.cooldown <= 0) {
           t.cooldown = 1 / (CFG.tower.fireRate * this.fireMul());
-          this.fireArrow(t.pos, target, CFG.tower.damage * this.damageMul);
+          this.fireArrow(t.pos, target, CFG.tower.damage * lv.damage * this.damageMul);
           this.attackAnim(t);
         }
       }
@@ -1836,10 +1960,11 @@ export class Game {
             this.res[c.resType]++;
             this.addScore(CFG.score.material);
           } else {
-            this.coinsCarried++;
+            const tier = c.tier || 'bronze';
+            this.purse[tier]++;
             this.coinsEarned++;
             this.comboTimer = 0.6;
-            this.addScore(CFG.score.coin);
+            this.addScore(CFG.coins.score[tier]);
             audio.coin(this.coinCombo++);
           }
           this.root.remove(c.mesh);
@@ -1899,6 +2024,11 @@ export class Game {
     return pad.paid >= pad.cost && pad.res.every((r) => r.paid >= r.need);
   }
 
+  get coinsCarried() {
+    const p = this.purse;
+    return p.bronze + p.silver + p.gold + p.platinum;
+  }
+
   stackCount() {
     return Math.min(this.coinsCarried, this.stack.length);
   }
@@ -1928,7 +2058,9 @@ export class Game {
         chips.push({ icon: 'person', text: `${nearest.cost - nearest.paid} archers`, state: free > 0 ? 'ok' : 'short' });
       } else {
         const needC = nearest.cost - nearest.paid;
-        if (nearest.cost > 0) chips.push({ icon: 'coin', text: `${needC} coins`, state: needC <= 0 ? 'ok' : this.coinsCarried >= needC ? 'ok' : this.coinsCarried > 0 ? '' : 'short' });
+        const tier = def.coin || 'bronze';
+        const have = this.purse[tier];
+        if (nearest.cost > 0) chips.push({ icon: tier, text: `${needC} ${tier} (have ${have})`, state: needC <= 0 ? 'ok' : have >= needC ? 'ok' : have > 0 ? '' : 'short' });
         for (const r of nearest.res) {
           const need = r.need - r.paid;
           chips.push({ icon: r.type, text: `${need} ${r.type} (have ${this.res[r.type]})`, state: need <= 0 || this.res[r.type] >= need ? 'ok' : this.res[r.type] > 0 ? '' : 'short' });
@@ -1936,7 +2068,7 @@ export class Game {
         if (locked) chips.push({ icon: 'keep', text: `Keep level ${locked} needed`, state: 'short' });
         if (def.units) chips.push({ icon: def.units.type, text: `${this.unitCount(def.units.type)} / ${this.unitCap(def.units.type)} ${def.units.type}s`, state: locked ? 'short' : 'ok' });
       }
-      const note = locked ? 'Feed the Keep to raise the limit' : def.feed ? `Stand here to pour in materials (level ${this.baseLevel} → ${this.baseLevel + 1})` : def.crew ? 'Stand here to send archers' : nd < CFG.spend.padRadius ? 'Paying…' : 'Stand on the pad to pay';
+      const note = locked ? 'Feed the Keep to raise the limit' : def.exchange ? 'Stand here to trade coins up' : def.feed ? `Stand here to pour in materials (level ${this.baseLevel} → ${this.baseLevel + 1})` : def.crew ? 'Stand here to send archers' : nd < CFG.spend.padRadius ? 'Paying…' : 'Stand on the pad to pay';
       this.hud.showPadTip(sx, sy, def.feed ? `Feed the Keep · Lv ${this.baseLevel}` : def.label, chips, note);
     } else this.hud.hidePadTip();
     for (const pad of this.pads) {
@@ -1960,6 +2092,7 @@ export class Game {
             free.sort((a, b) => a.mesh.position.distanceToSquared(kp) - b.mesh.position.distanceToSquared(kp));
             const spots = this.crewSpots(pad.def);
             free[0].assign = spots[pad.paid];
+            free[0].assignTower = pad.def.tower || null;
             const g = pad.ghosts[pad.paid];
             if (g) g.visible = false;
             pad.paid++;
@@ -1988,12 +2121,13 @@ export class Game {
       }
       pad.resTimer = (pad.resTimer || 0) - dt;
       let pending = this.flyCoins.filter((f) => f.pad === pad).length;
-      while (inside && !locked && this.coinsCarried > 0 && pad.paid + pending < pad.cost && this.spendTimer <= 0) {
+      const tier = pad.def.coin || 'bronze';
+      while (inside && !locked && this.purse[tier] > 0 && pad.paid + pending < pad.cost && this.spendTimer <= 0) {
         this.spendTimer += tick;
-        this.coinsCarried--;
+        this.purse[tier]--;
         pending++;
         audio.ching();
-        const c = makeCoin();
+        const c = makeCoin(tier);
         c.position.copy(kp);
         c.position.y = 2.4 + this.stackCount() * 0.11;
         this.root.add(c);
@@ -2008,7 +2142,7 @@ export class Game {
       const s = this.spawnQueue[i];
       s.t -= dt;
       if (s.t <= 0) {
-        this.spawnEnemy(s.type, s.x, s.z);
+        this.spawnEnemy(s.type, s.x, s.z, s.rank || 0);
         this.spawnQueue.splice(i, 1);
       }
     }
@@ -2140,8 +2274,15 @@ export class Game {
     const n = this.stackCount();
     const v = this.king.vel;
     const { outer, inner } = this.stackMesh;
+    // most valuable coins ride on top; if the stack overflows, the cheapest are the ones hidden
+    const tiers = [];
+    for (const tier of [...CFG.coins.tiers].reverse()) for (let k = 0; k < this.purse[tier] && tiers.length < n; k++) tiers.push(tier);
+    tiers.reverse();
     for (let i = 0; i < n; i++) {
       const c = this.stack[i];
+      const col = COIN_TIER_COLORS[tiers[i]] || COIN_TIER_COLORS.gold;
+      outer.setColorAt(i, col[0]);
+      inner.setColorAt(i, col[1]);
       // the stack leans against the direction of travel, more the higher it goes
       const lean = 0.004 * Math.min(i, 30);
       tmp.set(kp.x - v.x * lean, 2.4 + i * 0.11, kp.z - v.z * lean);
@@ -2153,6 +2294,7 @@ export class Game {
     }
     outer.count = inner.count = n;
     outer.instanceMatrix.needsUpdate = inner.instanceMatrix.needsUpdate = true;
+    outer.instanceColor.needsUpdate = inner.instanceColor.needsUpdate = true;
   }
 
   // Mobile blob shadows: one disc per unit / enemy, all in a single instanced draw.

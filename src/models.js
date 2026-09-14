@@ -318,23 +318,41 @@ export function makeKeep() {
 
 // ---- items ----
 const coinGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.09, 14);
-const coinMat = new THREE.MeshStandardMaterial({ color: C.gold, roughness: 0.45, metalness: 0.2, emissive: 0x3a2a00 });
-// The stack of coins carried above the King: two instanced meshes (face + rim) instead of 140 meshes.
+const rimGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.1, 14);
+// coin tiers: [face, rim]
+export const COIN_TIER_COLORS = {
+  bronze: [new THREE.Color(0xb87333), new THREE.Color(0x7a4a1e)],
+  silver: [new THREE.Color(0xd7dee6), new THREE.Color(0x8a949e)],
+  gold: [new THREE.Color(C.gold), new THREE.Color(C.goldDark)],
+  platinum: [new THREE.Color(0xdff6ff), new THREE.Color(0x5aa9c4)],
+};
+const coinMats = {};
+const rimMats = {};
+for (const [tier, [face, rim]] of Object.entries(COIN_TIER_COLORS)) {
+  coinMats[tier] = new THREE.MeshStandardMaterial({ color: face, roughness: 0.45, metalness: 0.2, emissive: face.clone().multiplyScalar(0.12) });
+  rimMats[tier] = mat(rim.getHex());
+}
+// The stack of coins carried above the King: two instanced meshes (face + rim), coloured per coin tier.
 export function makeCoinStack(n) {
-  const outer = new THREE.InstancedMesh(coinGeo, coinMat, n);
-  const inner = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.24, 0.24, 0.1, 14), mat(C.goldDark), n);
+  const outer = new THREE.InstancedMesh(coinGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.45, metalness: 0.2, emissive: 0x1a1408 }), n);
+  const inner = new THREE.InstancedMesh(rimGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.88 }), n);
+  for (let i = 0; i < n; i++) {
+    outer.setColorAt(i, COIN_TIER_COLORS.gold[0]);
+    inner.setColorAt(i, COIN_TIER_COLORS.gold[1]);
+  }
   outer.castShadow = true;
   outer.frustumCulled = inner.frustumCulled = false;
   outer.count = inner.count = 0;
   return { outer, inner };
 }
 
-export function makeCoin() {
+export function makeCoin(tier = 'gold') {
   const g = new THREE.Group();
-  const c = new THREE.Mesh(coinGeo, coinMat);
+  const c = new THREE.Mesh(coinGeo, coinMats[tier] || coinMats.gold);
   c.castShadow = true;
-  const inner = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.1, 14), mat(C.goldDark));
+  const inner = new THREE.Mesh(rimGeo, rimMats[tier] || rimMats.gold);
   g.add(c, inner);
+  g.userData.tier = tier;
   return g;
 }
 
@@ -499,7 +517,42 @@ export function makeHut() {
   return bake(g);
 }
 
-export function makeTower() {
+// The Exchange: a squat stone counting-house with a big coin over the door.
+export function makeBank() {
+  const g = new THREE.Group();
+  g.add(box(3.4, 0.3, 3.0, 0x6b6f75, 0, 0.15, 0));
+  g.add(box(3.0, 2.2, 2.6, 0x9aa0a8, 0, 1.4, 0));
+  for (let y = 0.7; y < 2.3; y += 0.5) g.add(box(3.04, 0.05, 2.64, 0x7d848e, 0, y, 0));
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(2.45, 1.3, 4), matFlat(0x4f6b9a));
+  roof.position.y = 3.1;
+  roof.rotation.y = Math.PI / 4;
+  roof.castShadow = true;
+  g.add(roof);
+  g.add(box(0.9, 1.4, 0.12, 0x3a2a1a, 0, 0.95, 1.31), box(1.2, 0.2, 0.16, 0x6b6f75, 0, 1.75, 1.31));
+  for (const x of [-1.15, 1.15]) g.add(cyl(0.16, 0.18, 2.2, 0xd9dde3, x, 1.35, 1.36, 8));
+  const sign = cyl(0.5, 0.5, 0.12, C.gold, 0, 2.75, 1.42, 16);
+  sign.rotation.x = Math.PI / 2;
+  const signIn = cyl(0.34, 0.34, 0.14, C.goldDark, 0, 2.75, 1.44, 16);
+  signIn.rotation.x = Math.PI / 2;
+  g.add(sign, signIn);
+  return bake(g);
+}
+
+// A short wooden post beside a gate for a gate guard to stand on.
+export function makeGatePost() {
+  const H = 1.55;
+  const g = new THREE.Group();
+  for (const [x, z] of [[-0.55, -0.55], [0.55, -0.55], [-0.55, 0.55], [0.55, 0.55]]) g.add(cyl(0.1, 0.13, H, C.darkWood, x, H / 2, z, 6));
+  g.add(box(1.5, 0.16, 1.5, C.wood, 0, H, 0));
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2;
+    g.add(box(i % 2 ? 0.08 : 1.5, 0.3, i % 2 ? 1.5 : 0.08, C.darkWood, Math.cos(a) * 0.72 * (i % 2), H + 0.25, Math.sin(a) * 0.72 * ((i + 1) % 2)));
+  }
+  g.userData.top = H + 0.08;
+  return bake(g);
+}
+
+export function makeTower(level = 1) {
   const g = new THREE.Group();
   for (const [x, z] of [[-0.9, -0.9], [0.9, -0.9], [-0.9, 0.9], [0.9, 0.9]]) {
     g.add(cyl(0.14, 0.18, 2.6, C.darkWood, x, 1.3, z, 6));
@@ -535,7 +588,19 @@ export function makeTower() {
     g.add(ring);
   }
   const pole = box(0.06, 1.2, 0.06, C.darkWood, 0, 6.1, 0);
-  const flag = box(0.7, 0.4, 0.04, C.blue, 0.38, 6.4, 0);
+  // one pennant per level: blue, then red, then gold. Higher levels also get braziers on the rail.
+  const flagColors = [C.blue, C.red, C.gold];
+  for (let i = 0; i < Math.min(level, 3); i++) g.add(box(0.7, 0.4, 0.04, flagColors[i], 0.38 * (i % 2 ? -1 : 1), 6.4 - i * 0.46, 0));
+  if (level >= 2) {
+    for (const [x, z] of [[-1.15, -1.15], [1.15, -1.15]]) {
+      g.add(cyl(0.16, 0.12, 0.3, C.steelDark, x, 3.0, z, 8));
+      const ember = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshBasicMaterial({ color: level >= 3 ? 0xffd166 : 0xff8a3d }));
+      ember.position.set(x, 3.25, z);
+      g.add(ember);
+    }
+  }
+  if (level >= 3) for (const [x, z] of [[-1.15, 1.15], [1.15, 1.15], [0, -1.25], [0, 1.25]]) g.add(box(0.26, 0.26, 0.26, C.gold, x, 3.2, z));
+  const flag = new THREE.Group();
   // ladder up the front, a barrel and a lantern at the base
   const ladder = new THREE.Group();
   ladder.add(box(0.08, 2.6, 0.08, C.wood, -0.3, 1.3, 0), box(0.08, 2.6, 0.08, C.wood, 0.3, 1.3, 0));
@@ -1021,7 +1086,7 @@ export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 
   ctx.fillStyle = '#ffffff';
   ctx.fillText(label, 128, hasRes ? 108 : 124);
   const priceY = hasRes ? 158 : 190;
-  const priceIcon = iconImage(currency === 'archers' ? 'person' : 'coin');
+  const priceIcon = iconImage(currency === 'archers' ? 'person' : currency === 'coins' ? 'coin' : currency);
   if (priceIcon) ctx.drawImage(priceIcon, 44, priceY - 26, 52, 52);
   const bigNum = (n, x, y, size) => {
     ctx.save();

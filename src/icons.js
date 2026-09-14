@@ -4,6 +4,10 @@ const O = '#3a2a1a';
 const S = `stroke="${O}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"`;
 export const ICONS = {
   coin: `<circle cx="12" cy="12" r="10" fill="#f5b800" ${S}/><circle cx="12" cy="12" r="6.5" fill="#ffd23f" stroke="#c98a00" stroke-width="1.2"/><path d="M8.5 14.5l.6-4.2 2.2 2.2 .7-3 .7 3 2.2-2.2 .6 4.2z" fill="#c98a00"/>`,
+  bronze: `<circle cx="12" cy="12" r="10" fill="#b87333" ${S}/><circle cx="12" cy="12" r="6.5" fill="#d9925a" stroke="#7a4a1e" stroke-width="1.2"/><path d="M8.5 14.5l.6-4.2 2.2 2.2 .7-3 .7 3 2.2-2.2 .6 4.2z" fill="#7a4a1e"/>`,
+  silver: `<circle cx="12" cy="12" r="10" fill="#b9c2cc" ${S}/><circle cx="12" cy="12" r="6.5" fill="#e6ecf2" stroke="#7d8892" stroke-width="1.2"/><path d="M8.5 14.5l.6-4.2 2.2 2.2 .7-3 .7 3 2.2-2.2 .6 4.2z" fill="#7d8892"/>`,
+  gold: `<circle cx="12" cy="12" r="10" fill="#f5b800" ${S}/><circle cx="12" cy="12" r="6.5" fill="#ffd23f" stroke="#c98a00" stroke-width="1.2"/><path d="M8.5 14.5l.6-4.2 2.2 2.2 .7-3 .7 3 2.2-2.2 .6 4.2z" fill="#c98a00"/>`,
+  platinum: `<circle cx="12" cy="12" r="10" fill="#8fd3e8" ${S}/><circle cx="12" cy="12" r="6.5" fill="#e9fbff" stroke="#4d9fb8" stroke-width="1.2"/><path d="M8.5 14.5l.6-4.2 2.2 2.2 .7-3 .7 3 2.2-2.2 .6 4.2z" fill="#4d9fb8"/>`,
   wood: `<rect x="3" y="8" width="16" height="8" rx="4" fill="#8a5a2b" ${S}/><ellipse cx="19" cy="12" rx="3" ry="4" fill="#d9a86c" ${S}/><ellipse cx="19" cy="12" rx="1.2" ry="1.7" fill="none" stroke="#a97a4a" stroke-width="1"/><path d="M6 10.5h8M6 13.5h6" stroke="#6b4a2b" stroke-width="1" stroke-linecap="round"/>`,
   stone: `<path d="M4 15l3-7 6-3 7 4-1 7-5 3-7-1z" fill="#9a9ea3" ${S}/><path d="M7 8l6-3 7 4-5 2-7 1z" fill="#c7cbd0" stroke="none"/>`,
   straw: `<path d="M8 20c1-5 2-9 4-13M12 20c0-5 1-9 2-13M16 20c-1-5-1-9-1-13" fill="none" stroke="#b8922e" stroke-width="2" stroke-linecap="round"/><ellipse cx="11.5" cy="6" rx="2" ry="3" fill="#e9d27a" ${S}/><ellipse cx="14.5" cy="6.5" rx="2" ry="3" fill="#e9d27a" ${S}/><ellipse cx="9" cy="8" rx="2" ry="3" fill="#e9d27a" ${S}/><rect x="8" y="14" width="8" height="3" rx="1.5" fill="#8a5a2b" ${S}/>`,

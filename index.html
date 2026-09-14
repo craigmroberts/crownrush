@@ -36,7 +36,12 @@
         <div id="army-hud" class="stat-row"><span><i data-icon="archer" data-size="20"></i><b id="army-count">0</b></span><span><i data-icon="star" data-size="20"></i><b id="score-num">0</b></span><span title="Keep level"><i data-icon="keep" data-size="20"></i><b id="keep-level">0</b></span></div>
         <div id="res-hud" class="stat-row"><span><i data-icon="wood" data-size="20"></i><b id="res-wood">0</b></span><span><i data-icon="stone" data-size="20"></i><b id="res-stone">0</b></span><span><i data-icon="straw" data-size="20"></i><b id="res-straw">0</b></span></div>
       </div>
-      <div id="coin-hud"><i data-icon="coin" data-size="40"></i><span id="coin-count">0</span></div>
+      <div id="coin-hud">
+        <span class="coin-row"><i data-icon="platinum" data-size="26"></i><b id="coin-platinum">0</b></span>
+        <span class="coin-row"><i data-icon="gold" data-size="26"></i><b id="coin-gold">0</b></span>
+        <span class="coin-row"><i data-icon="silver" data-size="26"></i><b id="coin-silver">0</b></span>
+        <span class="coin-row"><i data-icon="bronze" data-size="26"></i><b id="coin-bronze">0</b></span>
+      </div>
       <button id="mute-btn" title="Toggle sound"></button>
       <button id="pause-btn" title="Pause (P)"><i data-icon="pause" data-size="22"></i></button>
       <button id="next-wave-btn" class="hidden"><i data-icon="next" data-size="22"></i> Send next wave</button>
@@ -51,7 +56,7 @@
     <div id="start-screen" class="overlay">
       <div class="panel">
         <h1>Crown Rush</h1>
-        <p>Defeat the raiders. Grab their coins. Stand on a build pad to spend them and grow your army.</p>
+        <p>Defeat the raiders and grab their coins: bronze, silver, gold and platinum buy bigger things. Feed the Keep wood and stone to level up. The colour a raider wears tells you how dangerous they are.</p>
         <p><strong>Survive 30 waves to secure the kingdom.</strong> Keep the King and the Queen alive: if either falls, it's over. Build her a keep.</p>
         <p class="hint">Drag anywhere to move · or use WASD / arrow keys. Stand by trees, rocks and wheat to gather materials.</p>
         <button id="start-btn">Play</button>

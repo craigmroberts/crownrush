@@ -57,6 +57,22 @@ same Wi-Fi and open the "Network" URL that Vite prints instead.
 - Everything else is automatic: the King and his archers shoot the nearest enemy, coins are picked up by
   walking near them, and standing on a build pad spends coins one at a time.
 
+## Coins, ranks and towers
+
+- **Four coin tiers.** Bronze, silver, gold and platinum (`CFG.coins`). Buildings and walls cost bronze,
+  archers and training cost silver, swordsmen, the barracks and tower upgrades cost gold, veteran archers
+  and the top tower level cost platinum. Every pad shows which coin it takes. The **Exchange** building
+  opens trade pads (5 bronze → 1 silver, 4 silver → 1 gold, 4 gold → 1 platinum from Keep level 6).
+- **Enemy ranks by colour.** Bandits (tan) from wave 1, Raiders (red) from wave 4, Marauders (purple)
+  from wave 9, Warlords (black and gold) from wave 16, or earlier if the Keep is high enough
+  (`CFG.ranks`). Each rank multiplies HP and damage and drops the next coin tier. Enemies also scale
+  with Keep level (`CFG.base.enemyHpPerLevel`), on top of the per-wave growth.
+- **Watchtowers stand in the fort's corners.** A tower's pad cycles through build → man it → upgrade →
+  man the new slots, up to level 3 (3 / 5 / 7 archers, sharper and longer-ranged arrows, `CFG.tower`).
+  Gate Guards stand on small posts flanking each gate.
+- **Train Archers** at the range: +25% damage and +20% health per level for every archer, including
+  ones already recruited (`CFG.archerTraining`).
+
 ## The Keep is the base
 
 Wood, stone and straw you mine are spent on one thing only: **feeding the Keep**. Stand on the pad at
