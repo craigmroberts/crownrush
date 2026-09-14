@@ -1,8 +1,18 @@
 # Scout: an offline pass that proposes improvements and files them
 
-    node tools/scout/scout.mjs --dry-run     # see what it would raise, raise nothing
-    node tools/scout/scout.mjs               # a full run: two rounds, at most 5 issues
-    node tools/scout/scout.mjs --prioritise  # rank the open scout issues now
+From anywhere inside this repository:
+
+    npm run scout -- --dry-run     # see what it would raise, raise nothing
+    npm run scout                  # a full run: two rounds, at most 5 issues
+    npm run scout -- --prioritise  # rank the open scout issues now
+
+Or by path, which works from any directory at all:
+
+    node ~/Projects/crownrush/tools/scout/scout.mjs --dry-run
+
+`node tools/scout/scout.mjs` only works from the repository root, because that is a relative path.
+Everything the tool reads and writes is resolved from the script's own location, so the directory you
+start it from never changes what it does.
 
 The scout studies this game, proposes improvements, files them as GitHub issues labelled `scout`, and
 once the backlog is big enough to need an order, ranks it. It does not touch the game: the only thing
@@ -66,7 +76,10 @@ expired`, open `claude` once interactively and run the scout again.
 
 To have it look at the game every Monday morning, a crontab line is enough:
 
-    0 9 * * 1 cd ~/Projects/crownrush && /usr/local/bin/node tools/scout/scout.mjs >> /tmp/scout.log 2>&1
+    0 9 * * 1 /Users/craigmroberts/.nvm/versions/node/v22.23.2/bin/node ~/Projects/crownrush/tools/scout/scout.mjs >> /tmp/scout.log 2>&1
+
+Use the full path to node: cron does not load your shell profile, so `node` alone is usually not on
+its PATH when nvm is in play. `which node` prints the path to use.
 
 ## Testing it without spending anything
 

@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview --host"
+    "preview": "vite preview --host",
+    "scout": "node tools/scout/scout.mjs"
   },
   "dependencies": {
     "three": "^0.170.0"
