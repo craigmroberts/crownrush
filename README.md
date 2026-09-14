@@ -257,6 +257,8 @@ src/models.js     buildings, walls, scenery, pads, effects (and the baking helpe
 src/characters.js smooth toy-figure characters with painted faces (army, raiders, mounted king)
 src/rig.js        loads rigged GLB characters and plays their animations
 tools/blender/    Blender script that builds and exports rigged characters (public/models/*.glb)
+tools/fit/        fits a character to a reference image, locally, with no AI in the loop
+tools/scout/      offline pass that studies the game and files improvement issues (see its README)
 src/world.js      terrain, paths, cliffs, trees, lighting
 src/input.js      virtual joystick + keyboard
 src/hud.js        DOM overlay
