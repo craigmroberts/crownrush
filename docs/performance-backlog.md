@@ -133,15 +133,54 @@ best evidence available that nothing was lost on the way.
 What stayed in `game.js` is the frame: constructing the renderer, resetting, starting and stopping,
 and the one `update` loop that calls everything else.
 
+## 6. The 966 draw calls were not scenery, and mostly were not real
+
+The five above left the desktop renderer drawing 966 calls on a 183-character scene, from 1,055
+visible objects: 443 boxes, 236 unnamed buffer geometries, 119 circles, 111 rings. That was written up
+as a scenery problem — issue #39 — on the reasonable assumption that a count of boxes meant boxes.
+
+**The count was wrong, and the tool that produced it was at fault.** The probe paced its sample by
+wall-clock. A frame here takes about a second under SwiftShader and the game caps `dt` at 0.05s, so
+ten seconds of waiting advances the simulation by about half a second. Everything short-lived —
+spawn effects, hit sparks, arrows in flight, coins before anyone picks them up — was therefore still
+on the field at the end of every sample, and was counted as though it were permanent. The single
+worst case: 660 draw calls of spawn effect, 55 live effects at twelve meshes each, where the same
+scene given six seconds of real game time has **four**.
+
+The probe now counts game time and prints both clocks, so the gap cannot hide again.
+
+Measured properly — same seed, same scene, six seconds of game time, about a hundred characters —
+the standing cost was:
+
+    176  coins on the ground
+     65  resource nodes
+      7  popups
+      4  spawn and hit effects
+      3  arrows
+    ~200  world scenery, most of it culled before it is drawn
+    ---
+    326  draw calls
+
+Not scenery, and inside the README's 400 budget already. The one thing plainly worth fixing was the
+coins: a coin was a Group of two meshes, face and rim, and the face cast a shadow, so the
+eighty-eight coins a night of raiders leaves behind cost about 260 draws. They are all the same two
+shapes in different places, and the King's carried stack had been drawing itself with instancing all
+along. `CoinField` in `src/models.js` does the same for the ground.
+
+**326 -> 83 draw calls.** The rest of the list is small enough to leave alone; an arrow is still three
+meshes, which is worth remembering if arrows ever become numerous.
+
 ## What is left
 
-The characters are no longer the ceiling. On the same 183-character scene the desktop renderer now
-draws 966 calls, and the scene it draws them from holds 1,055 visible objects: 443 boxes, 236 unnamed
-buffer geometries, 119 circles, 111 rings, 73 cylinders. That is scenery and pads, and it is where the
-next draw call is to be found — the README already claims static scenery is "merged into a few
-meshes", and that is no longer true of all of it.
+Nothing urgent. The draw-call budget has plenty of headroom now, and the remaining items are only
+worth doing if something makes them numerous:
 
-Two smaller things worth a look after that: three's `BatchedMesh` suits exactly that kind of
-static-but-distinct prop, and the WebGPU renderer would cut the per-call cost of whatever is left,
-though the `onBeforeCompile` patching in `rig.js` and `crowd.js` would have to be rewritten in TSL
-first.
+- An arrow is three meshes — shaft, tip and streak. Fine at a dozen in flight, less fine at a hundred.
+- The world's ~200 static meshes are mostly frustum-culled, so merging them would buy less than the
+  count suggests. `BatchedMesh` is the right tool if it ever matters, because it keeps per-object
+  culling that plain merging gives up.
+- The WebGPU renderer would cut the per-call cost of whatever is left, but the `onBeforeCompile`
+  patching in `rig.js` and `crowd.js` would have to be rewritten in TSL first.
+
+The lesson worth keeping is the measurement one: a profiler that does not share the clock of the thing
+it profiles will invent work that is not there.

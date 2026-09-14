@@ -5,7 +5,7 @@ import { setRigShadows, enableCrowd, updateCrowd, clearCrowd, crowdStats } from 
 import { MODS } from './upgrades.js';
 import { buildWorld, setupLights } from './world.js';
 import { Input } from './input.js';
-import { setHealthBar, HealthBars, clearHealthBars, makeRing, makeCoinStack, makeCamp } from './models.js';
+import { setHealthBar, HealthBars, CoinField, clearHealthBars, makeRing, makeCoinStack, makeCamp } from './models.js';
 import { V3, tmp, tmp2, cap, rand } from './game-shared.js';
 import { BuildMethods } from './game-build.js';
 import { EnemiesMethods } from './game-enemies.js';
@@ -55,6 +55,9 @@ export class Game {
     // every health bar in the game is drawn by this one instanced mesh
     this.bars = new HealthBars(600);
     this.scene.add(this.bars.mesh);
+    // every coin on the ground is drawn by these two instanced meshes; see CoinField
+    this.coinField = new CoinField(400);
+    this.coinField.add(this.scene);
     // Phones: characters get one instanced "blob" shadow each instead of rendering into the shadow map
     // (that pass cost a second draw call per character); buildings and trees keep real shadows.
     // The crowd — raiders, archers, swordsmen, elites, brutes, the boss — is drawn as one instanced
@@ -157,6 +160,7 @@ export class Game {
     // The crowd's proxies go with the old root. They are still parented to it, so the renderer cannot
     // tell they are gone by itself and has to be told.
     clearCrowd();
+    if (this.coinField) this.coinField.clear();
     this.root = new THREE.Group();
     this.scene.add(this.root);
 

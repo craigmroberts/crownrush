@@ -20,6 +20,14 @@ Headless Chromium here renders through SwiftShader, on the CPU. **Frames per sec
 this environment.** Frame time is worth reading only as one run against another on the same machine,
 which is why `--compare` exists and why the budget table in the README is not repeated here.
 
+`--seconds` counts **game** time, not wall-clock time, and the report prints both so the gap between
+them stays visible. This is not a detail. A frame here takes about a second, and the game caps `dt` at
+0.05s, so ten seconds of waiting advances the simulation by about half a second. Anything short-lived
+— spawn effects, hit sparks, arrows in flight, coins before they are picked up — then sits on the
+field for the whole sample and is counted as though it were permanent. An earlier version of this tool
+paced by wall-clock and reported 660 draw calls of spawn effect where a real device would have had
+four; a ticket was written against that number before the mistake was found.
+
 What is exact, and what a change should be judged on:
 
 | Number | Why it is trustworthy |
@@ -45,7 +53,7 @@ This is a measuring instrument, not a way to play: it reaches into the game obje
 
 | Flag | Default | What it does |
 | --- | --- | --- |
-| `--seconds N` | 20 | How long to sample, per device. |
+| `--seconds N` | 20 | How much **game** time to sample, per device. Wall-clock will be far longer. |
 | `--crowd N` | off | Hold N raiders on the field for the whole sample. |
 | `--device D` | both | `desktop`, `phone`, or `both`. One device halves the run. |
 | `--query Q` | — | Query string for the page, e.g. `safe=1` or `hq=1`, to measure one of the game's own rendering paths deliberately. |

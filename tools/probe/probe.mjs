@@ -66,6 +66,12 @@ function freePort(preferred) {
 
 async function serve(port) {
   const p = spawn('npx', ['vite', 'preview', '--port', String(port), '--strictPort'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
+  // A run that is interrupted — Ctrl-C, a timeout, a thrown error — must not leave its server behind.
+  // Twenty-three of them accumulated once before this was here.
+  const stop = () => { try { p.kill('SIGKILL'); } catch { /* already gone */ } };
+  process.on('exit', stop);
+  for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => { stop(); process.exit(130); });
+  process.on('uncaughtException', (e) => { stop(); console.error(e); process.exit(1); });
   await new Promise((ok, fail) => {
     const timer = setTimeout(() => fail(new Error('preview server did not start')), 30000);
     p.stdout.on('data', (d) => {
@@ -197,12 +203,21 @@ async function measure(url, { mobile }) {
     window.__probe.raf = requestAnimationFrame(tick);
   });
 
-  // In crowd mode the field is topped back up every second, because the two sides kill each other and
-  // a thinning crowd would quietly flatter whichever build was measured last. Otherwise, push the game
-  // forward by calling each night as it is offered, so the sample is not twenty seconds of night one.
-  const deadline = Date.now() + SECONDS * 1000;
-  while (Date.now() < deadline) {
+  // The sample runs for SECONDS of GAME time, not of wall-clock time.
+  //
+  // This matters more than it sounds. A frame here takes about a second under SwiftShader, and the
+  // game caps dt at 0.05s, so ten seconds of waiting advances the simulation by about half a second.
+  // Anything short-lived — spawn effects, hit sparks, arrows in flight, coins before they are picked
+  // up — then sits on the field for the whole sample and is counted as though it were always there.
+  // Pacing by wall-clock once had this report showing 660 draw calls of spawn effect where a real
+  // device would have had four, and a ticket was written against that number before the error was
+  // found. Both clocks are reported so the gap between them stays visible.
+  const startGameTime = await page.evaluate(() => window.game.time);
+  const wallDeadline = Date.now() + SECONDS * 1000 * 60;   // a backstop, not the measure
+  let gameElapsed = 0;
+  while (gameElapsed < SECONDS && Date.now() < wallDeadline) {
     await page.waitForTimeout(1000);
+    gameElapsed = await page.evaluate((t0) => window.game.time - t0, startGameTime);
     await page.evaluate((n) => {
       const g = window.game;
       if (!g || !g.running || g.over) return;
@@ -224,6 +239,7 @@ async function measure(url, { mobile }) {
       }
     }, CROWD);
   }
+  const wallElapsed = (Date.now() - (wallDeadline - SECONDS * 1000 * 60)) / 1000;
 
   const shot = resolve(ROOT, '.shots', `probe-${mobile ? 'phone' : 'desktop'}.png`);
   mkdirSync(dirname(shot), { recursive: true });
@@ -285,6 +301,8 @@ async function measure(url, { mobile }) {
     programs: s.length ? s[s.length - 1].programs : 0,
     geometries: s.length ? s[s.length - 1].geometries : 0,
     textures: s.length ? s[s.length - 1].textures : 0,
+    gameSeconds: +gameElapsed.toFixed(1),
+    wallSeconds: +wallElapsed.toFixed(1),
     drawables: scene.drawables,
     sceneTop: scene.top,
     crowd: scene.crowd,
@@ -304,6 +322,7 @@ const fmt = (r) => [
   `    gpu objects        ${r.programs} programs · ${r.geometries} geometries · ${r.textures} textures`,
   r.crowd && r.crowd.characters ? `    instanced crowd    ${r.crowd.drawn}/${r.crowd.characters} characters in ${r.crowd.models} draws` : '',
   r.sceneTop ? `    scene              ${r.drawables} visible drawables · ${r.sceneTop.map(([k, n]) => `${k} x${n}`).join(', ')}` : '',
+  `    sampled            ${r.gameSeconds}s of game time over ${r.wallSeconds}s of wall clock`,
   `    reached            night ${r.waveReached}`,
   r.errorScreen ? `    ERROR SCREEN       ${r.errorScreen}` : '',
   r.errors.length ? `    console errors     ${r.errors.join(' | ')}` : '',
