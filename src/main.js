@@ -43,8 +43,12 @@ document.getElementById('pause-restart').addEventListener('click', (e) => {
   e.preventDefault();
   game.start();
 });
+document.getElementById('info-btn').addEventListener('click', () => game.toggleInfo());
+document.getElementById('info-close').addEventListener('click', () => game.hideInfo());
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') game.togglePause();
+  if (e.key === 'i' || e.key === 'I') game.toggleInfo();
+  else if (e.key === 'Escape' && game.infoOpen) game.hideInfo();
+  else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') game.togglePause();
 });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) game.pause();

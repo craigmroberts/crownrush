@@ -109,12 +109,13 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   color: #fff; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 30px; letter-spacing: 1px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.25);
 }
-#mute-btn, #pause-btn {
+#mute-btn, #pause-btn, #info-btn {
   position: absolute; right: 12px; pointer-events: auto; width: 44px; height: 44px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.35); cursor: pointer;
   background: rgba(30, 40, 24, 0.6); display: grid; place-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.25);
 }
 #mute-btn { top: calc(max(12px, env(safe-area-inset-top)) + 64px); }
 #pause-btn { top: calc(max(12px, env(safe-area-inset-top)) + 116px); }
+#info-btn { top: calc(max(12px, env(safe-area-inset-top)) + 168px); }
 #toast {
   position: fixed; left: 50%; top: 18%; transform: translateX(-50%);
   background: linear-gradient(#fffbe8, #f6ecc8); color: #2a3a2f; padding: 8px 20px 8px 14px; border-radius: 14px;
@@ -146,12 +147,32 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   pointer-events: none;
 }
 
-/* four coin tiers, stacked top-right (most valuable on top) */
-#coin-hud { flex-direction: column; align-items: flex-end; gap: 0; padding: 6px 12px 6px 10px; border-radius: 18px; }
-#coin-hud .coin-row { display: flex; align-items: center; gap: 6px; font-size: 20px; line-height: 1.25; }
-#coin-hud .coin-row b { min-width: 2.2ch; text-align: right; }
-#coin-hud .coin-row.empty { opacity: 0.45; }
 
 /* pink arrow to the captive Queen during the opening */
 .indicator.queen .arrow { background: #f07aa8; width: 40px; height: 40px; left: -20px; top: -20px; animation: alarmPulse2 0.9s ease-in-out infinite alternate; }
 .indicator.queen .count { font-size: 20px; top: 14px; }
+
+/* the info screen */
+.panel.info { max-width: 640px; max-height: 88vh; overflow-y: auto; text-align: left; padding: 22px 24px; }
+.panel.info h1 { text-align: center; font-size: 34px; }
+.panel.info h2 { display: flex; align-items: center; gap: 8px; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 21px; color: #2a3a2f; margin: 18px 0 6px; }
+.panel.info p { margin-bottom: 8px; font-size: 15px; }
+.panel.info p.sub { color: #7a7a6a; font-size: 13px; margin-bottom: 6px; }
+.panel.info .info-note { background: #ffe0ec; border: 2px solid #f07aa8; border-radius: 12px; padding: 8px 12px; color: #7a2b4a; font-weight: 700; }
+.panel.info ul { margin: 0 0 8px 20px; color: #4a4a3a; font-size: 15px; line-height: 1.45; }
+.panel.info .ichip { display: inline-flex; align-items: center; gap: 5px; background: #f1ecd8; border-radius: 999px; padding: 3px 10px 3px 6px; font-size: 13px; font-weight: 700; color: #4a4a3a; margin: 2px 0; }
+.panel.info .ichip.ok { background: #d9f5dc; color: #23613a; }
+.panel.info .ichip.short { background: #fde0dc; color: #8a2a20; }
+.panel.info .swatch { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.3); display: inline-block; }
+.panel.info .irow { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 12px; margin-bottom: 6px; background: #f7f2df; border-left: 5px solid #cfc8ae; }
+.panel.info .irow.build { border-left-color: #8a8a7a; }
+.panel.info .irow.recruit, .panel.info .irow.crew { border-left-color: #5aa0ff; }
+.panel.info .irow.upgrade { border-left-color: #b06cf0; }
+.panel.info .irow.feed { border-left-color: #5cc45a; }
+.panel.info .irow.locked { opacity: 0.75; }
+.panel.info .irow.later { background: #f1ecd8; }
+.panel.info .iicon { flex: 0 0 34px; padding-top: 2px; }
+.panel.info .irow b { font-size: 15px; color: #2a3a2f; }
+.panel.info .cost { font-size: 13px; color: #7a5a1a; font-weight: 800; margin-left: 4px; }
+.panel.info .desc { font-size: 13px; color: #5a5a4a; line-height: 1.35; }
+.panel.info button { margin-top: 12px; }

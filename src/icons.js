@@ -29,6 +29,7 @@ export const ICONS = {
   tiara: `<path d="M4 16c2-3 3-8 4-8s1 3 4 3 3-3 4-3 2 5 4 8z" fill="#f5b800" ${S}/><rect x="4" y="15" width="16" height="3" rx="1.5" fill="#c98a00" ${S}/><circle cx="12" cy="10.5" r="1.6" fill="#9ad4ff"/>`,
   hammer: `<path d="M13 9l-8 8 2 2 8-8z" fill="#8a5a2b" ${S}/><path d="M11 4h7l2 2-1 5-4 1-3-3z" fill="#7d848e" ${S}/>`,
   expand: `<path d="M4 21v-8h9v8z" fill="#8d9096" ${S}/><path d="M4 13V10h2v2h2v-2h2v2h3v-2" fill="#7d848e" ${S}/><path d="M15 9l5-5M20 4h-4M20 4v4" fill="none" stroke="#3fd455" stroke-width="2.2" stroke-linecap="round"/>`,
+  info: `<circle cx="12" cy="12" r="10" fill="#5aa0ff" ${S}/><circle cx="12" cy="7.6" r="1.6" fill="#fff"/><path d="M10.2 10.6h3.2v6.4h1.4v1.8H9.4V17h1.4v-4.6h-.6z" fill="#fff"/>`,
   star: `<path d="M12 3l2.7 5.6 6.1.8-4.5 4.3 1.1 6.1L12 17l-5.4 2.8 1.1-6.1L3.2 9.4l6.1-.8z" fill="#ffd23f" ${S}/>`,
   speaker: `<path d="M4 9h4l5-4v14l-5-4H4z" fill="#fff" ${S}/><path d="M16 9c1.5 1.5 1.5 4.5 0 6M19 6.5c3 3 3 8 0 11" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>`,
   speakerOff: `<path d="M4 9h4l5-4v14l-5-4H4z" fill="#fff" ${S}/><path d="M16 9l5 6M21 9l-5 6" stroke="#ff6b6b" stroke-width="2" stroke-linecap="round"/>`,

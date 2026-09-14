@@ -2,8 +2,9 @@ import { iconSvg } from './icons.js';
 
 export class Hud {
   constructor() {
-    this.coinEls = { bronze: document.getElementById('coin-bronze'), silver: document.getElementById('coin-silver'), gold: document.getElementById('coin-gold'), platinum: document.getElementById('coin-platinum') };
-    this.lastPurse = {};
+    this.coinEl = document.getElementById('coin-count');
+    this.coinIcon = document.getElementById('coin-icon');
+    this.coinTier = null;
     this.waveEl = document.getElementById('wave-num');
     this.armyEl = document.getElementById('army-count');
     this.toastEl = document.getElementById('toast');
@@ -53,14 +54,9 @@ export class Hud {
       this.lastNext = n;
     }
     if (goal !== undefined) this.goalEl.textContent = wave > goal ? '· endless' : `/ ${goal}`;
-    if (coins) {
-      for (const tier of ['bronze', 'silver', 'gold', 'platinum']) {
-        if (coins[tier] !== this.lastPurse[tier]) {
-          this.coinEls[tier].textContent = coins[tier];
-          this.coinEls[tier].parentElement.classList.toggle('empty', coins[tier] === 0 && tier !== 'bronze');
-          this.lastPurse[tier] = coins[tier];
-        }
-      }
+    if (coins !== this.lastCoins) {
+      this.coinEl.textContent = coins;
+      this.lastCoins = coins;
     }
     if (wave !== this.lastWave) {
       this.waveEl.textContent = wave;
@@ -126,6 +122,42 @@ export class Hud {
   showNextWave(show) {
     this.nextBtn.classList.toggle('hidden', !show);
   }
+  setCoinTier(tier) {
+    if (tier === this.coinTier) return;
+    this.coinTier = tier;
+    this.coinIcon.innerHTML = iconSvg(tier, 40);
+  }
+
+  showInfo(d) {
+    const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    const chip = (icon, text, state = '') => `<span class="ichip ${state}">${iconSvg(icon, 16)}${esc(text)}</span>`;
+    const h = [];
+    if (d.queenCaptive) h.push('<p class="info-note">The Queen is still captive. Follow the pink arrow, clear her guards and reach her.</p>');
+    h.push(`<h2>${iconSvg('keep', 22)} Keep level ${d.level}${d.level >= d.max ? ' (max)' : ''}</h2>`);
+    if (!d.hasKeep) h.push('<p>Not built yet. Stand on the Royal Keep pad in the village.</p>');
+    else if (d.need.length) {
+      h.push(`<p class="sub">To reach level ${d.level + 1}, feed the Keep:</p><p>${d.need.map((n) => chip(n.type, `${n.need} ${n.type} (you carry ${n.have})`, n.have >= n.need ? 'ok' : n.have > 0 ? '' : 'short')).join(' ')}</p>`);
+    }
+    if (d.unlocks.length) h.push(`<p class="sub">Level ${d.level + 1} gives you:</p><ul>${d.unlocks.map((u) => `<li>${esc(u)}</li>`).join('')}</ul>`);
+    h.push(`<h2>${iconSvg('archer', 22)} Your army</h2><p>${chip('archer', `${d.army.archers} / ${d.army.archerCap} archers`)} ${chip('swordsman', `${d.army.swords} / ${d.army.swordCap} swordsmen`)} ${chip('tower', d.army.towers.length ? `${d.army.towers.length} towers (levels ${d.army.towers.join(', ')})` : 'no towers yet')} ${chip('arrows', `arrows ${d.army.fire.toFixed(1)}x speed, training ${d.army.training}/5`)} ${chip('wall', `${d.army.wall.toLowerCase()} walls`)}${d.army.keepHp ? ' ' + chip('keep', `Keep ${d.army.keepHp}`) : ''}</p>`);
+    h.push(`<h2>${iconSvg(d.coins.tier, 22)} Coins</h2><p>You carry ${d.coins.count} ${d.coins.tier} coins.${d.coins.nextTier ? ` They turn ${d.coins.nextTier} at Keep level ${d.coins.nextAt}.` : ''} Every pad costs coins except crews (archers) and the Keep (materials).</p>`);
+    h.push(`<h2>${iconSvg('hammer', 22)} Pads right now</h2>`);
+    if (!d.padsNow.length) h.push('<p>None yet.</p>');
+    for (const p of d.padsNow) h.push(`<div class="irow ${p.kind}${p.locked ? ' locked' : ''}"><div class="iicon">${iconSvg(p.icon, 30)}</div><div><b>${esc(p.label)}</b> <span class="cost">${esc(p.cost)}</span>${p.locked ? ` <span class="ichip short">needs Keep level ${p.locked}</span>` : ''}<div class="desc">${esc(p.desc)}</div></div></div>`);
+    if (d.later.length) {
+      h.push(`<h2>${iconSvg('expand', 22)} Coming with higher levels</h2>`);
+      for (const p of d.later) h.push(`<div class="irow ${p.kind} later"><div class="iicon">${iconSvg(p.icon, 30)}</div><div><b>${esc(p.label)}</b> <span class="cost">Keep level ${p.at}</span><div class="desc">${esc(p.desc)}</div></div></div>`);
+    }
+    h.push(`<h2>${iconSvg('skull', 22)} Enemy ranks</h2><p class="sub">Their colour says how dangerous they are. New ranks appear when the Keep levels up.</p><p>${d.ranks.map((r) => `<span class="ichip ${r.active ? 'ok' : ''}"><i class="swatch" style="background:${r.color}"></i>${esc(r.name)} · ${r.at === 0 ? 'from the start' : `Keep level ${r.at}`}</span>`).join(' ')}</p>`);
+    h.push('<p class="sub">Shapes: square pads build things, round pads recruit (blue), upgrade (purple) or feed the Keep (green).</p>');
+    document.getElementById('info-body').innerHTML = h.join('');
+    document.getElementById('info-screen').classList.remove('hidden');
+    document.getElementById('info-screen').scrollTop = 0;
+  }
+  hideInfo() {
+    document.getElementById('info-screen').classList.add('hidden');
+  }
+
   showPause() {
     document.getElementById('pause-screen').classList.remove('hidden');
   }

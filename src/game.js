@@ -133,7 +133,7 @@ export class Game {
     this.fogTimer = 0;
     this.lastFogPos = new V3(999, 0, 999);
     this.damageMul = 1;
-    this.purse = { ...CFG.coins.start };
+    this.coinsCarried = CFG.coins.start;
     this.coinsEarned = 0;
     this.archerPower = 0;
     this.rankSeen = {};
@@ -202,7 +202,8 @@ export class Game {
     this.refreshPads();
     this.hud.showNextWave(false);
     this.hud.hidePadTip();
-    this.hud.set(this.purse, 1, 0, null, CFG.waves.goal, this.res, 0, 1, 1, 0);
+    this.hud.set(this.coinsCarried, 1, 0, null, CFG.waves.goal, this.res, 0, 1, 1, 0);
+    this.hud.setCoinTier(this.coinTier());
     this.hud.setIndicators([]);
   }
 
@@ -222,11 +223,11 @@ export class Game {
     this.running = true;
   }
 
-  pause() {
+  pause(silent = false) {
     if (!this.running || this.over || this.won) return;
     this.running = false;
     this.paused = true;
-    this.hud.showPause();
+    if (!silent) this.hud.showPause();
   }
 
   unpause() {
@@ -234,6 +235,74 @@ export class Game {
     this.paused = false;
     this.running = true;
     this.hud.hidePause();
+    this.hud.hideInfo();
+    this.infoOpen = false;
+  }
+
+  // The info screen: pauses the game and explains the next Keep level, the pads on offer and the enemy ranks.
+  showInfo() {
+    if (this.over || this.won || this.infoOpen) return;
+    if (this.paused) this.hud.hidePause();
+    else this.pause(true);
+    this.infoOpen = true;
+    this.hud.showInfo(this.infoData());
+  }
+  hideInfo() {
+    if (!this.infoOpen) return;
+    this.infoOpen = false;
+    this.unpause();
+  }
+  toggleInfo() {
+    if (this.infoOpen) this.hideInfo();
+    else this.showInfo();
+  }
+
+  padDesc(def) {
+    if (def.desc) return def.desc;
+    if (def.feed) return 'Pour in wood, stone and straw to raise the Keep a level.';
+    if (def.tower && def.crew) return 'Archers climb the tower and shoot from it (they leave your army).';
+    if (def.towerUp) return 'More crew slots, sharper and longer-ranged arrows.';
+    if (def.repair) return 'Rebuild this broken wall section.';
+    if (def.repairKeep) return 'Repair the Keep so the Queen can shelter in it again.';
+    return '';
+  }
+
+  infoData() {
+    const L = this.baseLevel;
+    const N = L + 1;
+    const req = this.levelReq();
+    const feed = this.pads.find((p) => p.def.feed);
+    const need = req ? Object.entries(req).map(([type, n]) => {
+      const row = feed && feed.res.find((r) => r.type === type);
+      return { type, need: n - (row ? row.paid : 0), have: this.res[type] };
+    }).filter((n) => n.need > 0) : [];
+    const unlocks = [];
+    if (!this.keep) unlocks.push('Build the Royal Keep first: feeding it levels up everything else.');
+    else if (req) {
+      if (CFG.base.unlocks[N]) unlocks.push(CFG.base.unlocks[N]);
+      unlocks.push(`Army limit: ${CFG.base.archers[N]} archers, ${CFG.base.swordsmen[N]} swordsmen`);
+      unlocks.push(`Arrow speed ${CFG.base.fireRate(N).toFixed(1)}x for archers, towers and the King`);
+      if (CFG.base.wallAt.includes(N)) unlocks.push(`All walls rebuilt in ${CFG.wallLevels[CFG.base.wallAt.indexOf(N)].name.toLowerCase()}`);
+      if (CFG.coins.tierAt.includes(N)) unlocks.push(`Coins turn ${CFG.coins.tiers[CFG.coins.tierAt.indexOf(N)]} (worth more score)`);
+      const rank = CFG.ranks.find((r) => r.fromLevel === N);
+      if (rank) unlocks.push(`${rank.name}s start raiding: tougher, but they drop more coins`);
+      for (const def of PADS) if (def.minLevel === N) unlocks.push(`${def.label} pad appears`);
+      unlocks.push(`Keep health ${CFG.keep.hp + (N - 1) * CFG.keep.hpPerLevel}`);
+    }
+    const costText = (def, pad) => def.crew ? `${def.crew} archers` : def.feed ? 'materials' : `${pad ? pad.cost - pad.paid : this.padCost(def)} coins${def.res ? ' + ' + Object.entries(def.res).map(([t, n]) => `${n} ${t}`).join(', ') : ''}`;
+    const padsNow = this.pads.map((p) => ({ icon: p.def.icon, label: p.def.label, cost: costText(p.def, p), desc: this.padDesc(p.def), locked: this.padLocked(p.def), kind: this.padKind(p.def) }));
+    const later = PADS.filter((def) => def.minLevel && def.minLevel > L && def.tier <= this.tier + 1 && !this.built[def.id])
+      .map((def) => ({ icon: def.icon, label: def.label, at: def.minLevel, desc: this.padDesc(def), kind: this.padKind(def) }));
+    const ranks = CFG.ranks.map((r) => ({ name: r.name, color: `#${r.tunic.toString(16).padStart(6, '0')}`, at: r.fromLevel, active: r.fromLevel <= L }));
+    const towers = Object.values(this.towers).map((t) => t.level);
+    const army = {
+      archers: this.unitCount('archer'), archerCap: this.unitCap('archer'), swords: this.unitCount('swordsman'), swordCap: this.unitCap('swordsman'),
+      towers, fire: this.fireMul(), wall: CFG.wallLevels[this.wallLevel].name, keepHp: this.keep ? `${Math.round(this.keep.hp)} / ${this.keep.maxHp}` : null,
+      training: this.archerPower,
+    };
+    const tierIdx = CFG.coins.tiers.indexOf(this.coinTier());
+    const coins = { tier: this.coinTier(), count: this.coinsCarried, nextTier: CFG.coins.tiers[tierIdx + 1] || null, nextAt: CFG.coins.tierAt[tierIdx + 1] || null };
+    return { level: L, max: CFG.base.maxLevel, hasKeep: !!this.keep, queenCaptive: !!this.queen.captive, need, unlocks, padsNow, later, ranks, army, coins, wave: this.wave, goal: CFG.waves.goal };
   }
 
   togglePause() {
@@ -711,7 +780,7 @@ export class Game {
     const paidAll = pad.paid + pad.res.reduce((a, r) => a + r.paid, 0);
     drawPad(pad.canvas, pad.tex, {
       icon: pad.def.icon, label: pad.def.label, remaining: pad.def.feed ? null : pad.cost - pad.paid, paid: total ? paidAll / total : 0,
-      currency: pad.def.crew ? 'archers' : pad.def.coin || 'bronze',
+      currency: pad.def.crew ? 'archers' : this.coinTier(),
       res: pad.res.map((r) => ({ type: r.type, remaining: r.need - r.paid })),
       active: !!pad.active,
       sub: pad.def.feed ? `Level ${this.baseLevel} → ${this.baseLevel + 1}` : null,
@@ -758,17 +827,6 @@ export class Game {
     this.refreshPads();
   }
 
-  // The Exchange's trade pads: pay N cheap coins, get one better coin flown to you
-  addExchangePads(def) {
-    const [px, pz] = def.pos;
-    // beside and below the bank pad, not on it, so the first trade takes a deliberate step
-    const spots = [[px + 3.5, pz], [px, pz + 3.5], [px + 3.5, pz + 3.5]];
-    CFG.coins.exchange.forEach((ex, i) => {
-      this.dynamicPads.push({ id: `exchange-${ex.from}`, pos: spots[i], cost: ex.rate, coin: ex.from, icon: ex.to, label: `${ex.rate} ${cap(ex.from)} → 1 ${cap(ex.to)}`, repeatable: true, exchange: ex, minLevel: i === 2 ? 6 : 0 });
-    });
-    this.refreshPads();
-  }
-
   completePad(pad) {
     const def = pad.def;
     this.built[def.id] = true;
@@ -780,10 +838,6 @@ export class Game {
       for (let i = 0; i < def.units.count; i++) {
         this.spawnUnit(def.units.type, def.pos[0] + rand(-0.8, 0.8), def.pos[1] + rand(-0.8, 0.8), !!def.units.veteran);
       }
-    }
-    if (def.exchange) {
-      this.grantCoin(def.exchange.to, pad.mesh.position);
-      this.spendTimer = Math.max(this.spendTimer, 0.45); // one trade at a time, so you can step off
     }
     if (def.effect === 'archerPower') {
       this.archerPower++;
@@ -843,8 +897,8 @@ export class Game {
       if (def.wall.side === 'west') this.world.revealRoad('west');
       if (def.wall.side === 'north') this.world.revealRoad('north');
     }
-    if (!def.crew && !def.exchange) this.addScore(pad.cost * CFG.score.buildPerCoin + pad.res.reduce((a, r) => a + r.need, 0) * CFG.score.buildPerMaterial);
-    if (!def.exchange) audio.build();
+    if (!def.crew) this.addScore(pad.cost * CFG.score.buildPerCoin + pad.res.reduce((a, r) => a + r.need, 0) * CFG.score.buildPerMaterial);
+    audio.build();
     if (def.toast) this.hud.toast(def.toast);
 
     const again = def.repeatable && !(def.maxBuys && this.buyCount[def.id] >= def.maxBuys) && !(def.feed && !this.levelReq());
@@ -871,7 +925,6 @@ export class Game {
       this.towers[def.id] = { id: def.id, x: def.buildAt[0], z: def.buildAt[1], top: m.userData.top, level: 1, mesh: m, crew: 0, pos: def.pos };
       this.queueTowerPad(def.id, 'crew');
     }
-    if (kind === 'bank') this.addExchangePads(def);
     if (m.userData.chimney) {
       const c = m.userData.chimney;
       this.world.addSmoker(def.buildAt[0] + c.x, c.y, def.buildAt[1] + c.z);
@@ -917,7 +970,8 @@ export class Game {
       setHealthBar(this.keep.bar, 1);
     }
     const newRank = CFG.ranks.find((r) => r.fromLevel === L);
-    const notes = [CFG.base.unlocks[L], newRank ? `${newRank.name}s now join the raids` : null, `${CFG.base.archers[L]} archers`, `${CFG.base.swordsmen[L]} swordsmen`, `arrows ${this.fireMul().toFixed(1)}x`].filter(Boolean);
+    const coinNote = CFG.coins.tierAt.includes(L) && L > 0 ? `coins are now ${this.coinTier()}` : null;
+    const notes = [CFG.base.unlocks[L], coinNote, newRank ? `${newRank.name}s now join the raids` : null, `${CFG.base.archers[L]} archers`, `${CFG.base.swordsmen[L]} swordsmen`, `arrows ${this.fireMul().toFixed(1)}x`].filter(Boolean);
     this.hud.toast(`Keep level ${L}! ${notes.join(' · ')}`, 3400);
     this.spawnFx(this.keep.x, this.keep.z, 0xffd23d);
     this.addScore(CFG.score.levelUp * L);
@@ -1289,17 +1343,14 @@ export class Game {
     this.burstFx(tmp, '#ffffff', e.type === 'boss' ? 6 : 2.6, 0.38);
     const rk = CFG.ranks[Math.min(e.rank || 0, CFG.ranks.length - 1)];
     const mult = e.type === 'boss' ? 4 : e.type === 'brute' || e.type === 'elite' ? 2 : 1;
-    for (const [tier, [lo, hi]] of Object.entries(rk.drops)) {
-      const n = randInt(lo, hi) * mult;
-      for (let i = 0; i < n; i++) this.dropCoin(e.mesh.position, tier);
-    }
-    for (const [tier, chance] of Object.entries(rk.bonus)) if (Math.random() < chance * mult) this.dropCoin(e.mesh.position, tier);
+    const n = randInt(rk.coins[0], rk.coins[1]) * mult;
+    for (let i = 0; i < n; i++) this.dropCoin(e.mesh.position);
     audio.enemyDie();
     this.addScore(CFG.score.kill[e.type] || 10);
     if (e.type === 'boss') this.hud.toast('Boss defeated!', 1800);
   }
 
-  dropCoin(pos, tier = 'bronze') {
+  dropCoin(pos, tier = this.coinTier()) {
     const c = makeCoin(tier);
     c.position.copy(pos);
     c.position.y = 0.6;
@@ -1309,14 +1360,6 @@ export class Game {
     this.coins.push({ mesh: c, vx: Math.cos(a) * s, vz: Math.sin(a) * s, vy: rand(4, 7), state: 'drop', t: 0, tier });
   }
 
-  // a coin that flies straight to the King (the Exchange pays out this way)
-  grantCoin(tier, pos) {
-    const c = makeCoin(tier);
-    c.position.copy(pos);
-    c.position.y = 0.6;
-    this.root.add(c);
-    this.coins.push({ mesh: c, vx: 0, vz: 0, vy: 0, state: 'fly', t: 0, tier });
-  }
 
   // give each archer its own hair colour (the rig ships one)
   tintHair(mesh) {
@@ -1489,7 +1532,8 @@ export class Game {
       this.hud.showNextWave(between && this.wave > 0 && this.waveTimer > 3 && !this.won);
       this.alarmT -= dt;
       this.hud.showAlarm(this.alarmT > 0 ? this.alarmText : null);
-      this.hud.set(this.purse, Math.max(1, this.wave), army, between ? this.waveTimer : null, CFG.waves.goal, this.res, this.score, this.king.hp / this.king.maxHp, this.queen.hp / this.queen.maxHp, this.baseLevel);
+      this.hud.setCoinTier(this.coinTier());
+      this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, CFG.waves.goal, this.res, this.score, this.king.hp / this.king.maxHp, this.queen.hp / this.queen.maxHp, this.baseLevel);
       this.updateIndicators(dt);
     }
     this.world.focus.copy(this.king.mesh.position);
@@ -2037,11 +2081,10 @@ export class Game {
             this.res[c.resType]++;
             this.addScore(CFG.score.material);
           } else {
-            const tier = c.tier || 'bronze';
-            this.purse[tier]++;
+            this.coinsCarried++;
             this.coinsEarned++;
             this.comboTimer = 0.6;
-            this.addScore(CFG.coins.score[tier]);
+            this.addScore(CFG.coins.score[c.tier || 'bronze']);
             audio.coin(this.coinCombo++);
           }
           this.root.remove(c.mesh);
@@ -2101,9 +2144,11 @@ export class Game {
     return pad.paid >= pad.cost && pad.res.every((r) => r.paid >= r.need);
   }
 
-  get coinsCarried() {
-    const p = this.purse;
-    return p.bronze + p.silver + p.gold + p.platinum;
+  // the coin tier (look and score value) climbs with the Keep
+  coinTier() {
+    let t = 0;
+    CFG.coins.tierAt.forEach((lv, i) => { if (this.baseLevel >= lv) t = i; });
+    return CFG.coins.tiers[t];
   }
 
   stackCount() {
@@ -2135,9 +2180,8 @@ export class Game {
         chips.push({ icon: 'person', text: `${nearest.cost - nearest.paid} archers`, state: free > 0 ? 'ok' : 'short' });
       } else {
         const needC = nearest.cost - nearest.paid;
-        const tier = def.coin || 'bronze';
-        const have = this.purse[tier];
-        if (nearest.cost > 0) chips.push({ icon: tier, text: `${needC} ${tier} (have ${have})`, state: needC <= 0 ? 'ok' : have >= needC ? 'ok' : have > 0 ? '' : 'short' });
+        const have = this.coinsCarried;
+        if (nearest.cost > 0) chips.push({ icon: this.coinTier(), text: `${needC} coins (have ${have})`, state: needC <= 0 ? 'ok' : have >= needC ? 'ok' : have > 0 ? '' : 'short' });
         for (const r of nearest.res) {
           const need = r.need - r.paid;
           chips.push({ icon: r.type, text: `${need} ${r.type} (have ${this.res[r.type]})`, state: need <= 0 || this.res[r.type] >= need ? 'ok' : this.res[r.type] > 0 ? '' : 'short' });
@@ -2146,7 +2190,7 @@ export class Game {
         if (def.units) chips.push({ icon: def.units.type, text: `${this.unitCount(def.units.type)} / ${this.unitCap(def.units.type)} ${def.units.type}s`, state: locked ? 'short' : 'ok' });
       }
       const onPad = nd < CFG.spend.padRadius;
-      const note = locked ? 'Feed the Keep to raise the limit' : onPad && this.king.moving && (nearest.holdT || 0) < CFG.spend.walkHold ? 'Stop here to pay' : def.exchange ? 'Stop here to trade coins up' : def.feed ? `Stop here to pour in materials (level ${this.baseLevel} → ${this.baseLevel + 1})` : def.crew ? 'Stop here to send archers' : onPad ? 'Paying…' : 'Stop on the pad to pay';
+      const note = locked ? 'Feed the Keep to raise the limit' : onPad && this.king.moving && (nearest.holdT || 0) < CFG.spend.walkHold ? 'Stop here to pay' : def.feed ? `Stop here to pour in materials (level ${this.baseLevel} → ${this.baseLevel + 1})` : def.crew ? 'Stop here to send archers' : onPad ? 'Paying…' : 'Stop on the pad to pay';
       this.hud.showPadTip(sx, sy, def.feed ? `Feed the Keep · Lv ${this.baseLevel}` : def.label, chips, note);
     } else this.hud.hidePadTip();
     for (const pad of this.pads) {
@@ -2201,13 +2245,12 @@ export class Game {
       }
       pad.resTimer = (pad.resTimer || 0) - dt;
       let pending = this.flyCoins.filter((f) => f.pad === pad).length;
-      const tier = pad.def.coin || 'bronze';
-      while (paying && !locked && this.purse[tier] > 0 && pad.paid + pending < pad.cost && this.spendTimer <= 0) {
+      while (paying && !locked && this.coinsCarried > 0 && pad.paid + pending < pad.cost && this.spendTimer <= 0) {
         this.spendTimer += tick;
-        this.purse[tier]--;
+        this.coinsCarried--;
         pending++;
         audio.ching();
-        const c = makeCoin(tier);
+        const c = makeCoin(this.coinTier());
         c.position.copy(kp);
         c.position.y = 2.4 + this.stackCount() * 0.11;
         this.root.add(c);
@@ -2368,13 +2411,9 @@ export class Game {
     const n = this.stackCount();
     const v = this.king.vel;
     const { outer, inner } = this.stackMesh;
-    // most valuable coins ride on top; if the stack overflows, the cheapest are the ones hidden
-    const tiers = [];
-    for (const tier of [...CFG.coins.tiers].reverse()) for (let k = 0; k < this.purse[tier] && tiers.length < n; k++) tiers.push(tier);
-    tiers.reverse();
+    const col = COIN_TIER_COLORS[this.coinTier()];
     for (let i = 0; i < n; i++) {
       const c = this.stack[i];
-      const col = COIN_TIER_COLORS[tiers[i]] || COIN_TIER_COLORS.gold;
       outer.setColorAt(i, col[0]);
       inner.setColorAt(i, col[1]);
       // the stack leans against the direction of travel, more the higher it goes

@@ -73,10 +73,13 @@ feeds the Keep. Pads only take payment once the King has stopped on them (or hel
 
 ## Coins, ranks and towers
 
-- **Four coin tiers.** Bronze, silver, gold and platinum (`CFG.coins`). Buildings and walls cost bronze,
-  archers and training cost silver, swordsmen, the barracks and tower upgrades cost gold, veteran archers
-  and the top tower level cost platinum. Every pad shows which coin it takes. The **Exchange** building
-  opens trade pads (5 bronze → 1 silver, 4 silver → 1 gold, 4 gold → 1 platinum from Keep level 6).
+- **One currency that grows with the Keep.** Coins are bronze to start, silver from Keep level 4, gold
+  from 8, platinum from 12 (`CFG.coins`); the look and score value change, the count is one number.
+  Enemies of higher ranks drop more coins. Every pad costs coins except crews (archers) and the Keep
+  itself (materials).
+- **Info screen.** The blue **i** button (or the I key) pauses the game and lists what the next Keep
+  level needs and gives, your army against its caps, every pad on offer with its cost and what it does,
+  what appears at higher levels, and the enemy rank colours.
 - **Enemy ranks by colour, paced by the Keep.** Bandits (tan) from the start, Raiders (red) once the
   Keep reaches level 3, Marauders (purple) at 7, Warlords (black and gold) at 11 (`CFG.ranks`). A wave
   is mostly the current rank with some lower ranks, plus at most two scouts of the next rank from wave
