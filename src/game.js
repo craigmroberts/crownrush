@@ -9,7 +9,7 @@ import {
   makeKing, makeKingFoot, makeQueen, makeKeep, makeLumberTree, makeOreRock, makeIronSeam, makeGemNode, makeResourceCube, RES_MATS, CHIP_GEO, makeTool, makeArcher, makeSwordsman, makeKnight, makeElite, makeBrute, makeBoss, makeCoin, makeArrow,
   makeHut, makeTower, makeBarracks, makeWallSegment, makeGate, makeRubble, makeBridge, makePad, drawPad, ghostify,
   makeHealthBar, setHealthBar, HealthBars, disposeHealthBar, clearHealthBars, makePopup, makeRing, makeSpawnFx, makeBurst, makeCoinStack,
-  makeBank, makeGatePost, makeHeart, COIN_TIER_COLORS,
+  makeBank, makeGatePost, makeHeart, makeCamp, COIN_TIER_COLORS,
 } from './models.js';
 
 const V3 = THREE.Vector3;
@@ -131,6 +131,7 @@ export class Game {
     this.alarmT = 0;
     this.raidWarning = 0;
     this.rescueSpotted = false;
+    this.finaleOpen = false;
     this.recaptures = 0;
     this.hornT = 0; // cooldown remaining
     this.rallyUntil = 0;
@@ -222,6 +223,27 @@ export class Game {
     this.nodeRing = makeRing(3.2);
     this.nodeRing.visible = false;
     this.root.add(this.nodeRing);
+    // #19: the raider camp the raids come from. Its garrison sleeps until the King comes close.
+    {
+      const F = CFG.finale;
+      const camp = makeCamp(F.radius);
+      camp.position.set(F.pos[0], 0, F.pos[1]);
+      this.root.add(camp);
+      const top = this.topRank();
+      for (let i = 0; i < F.garrison; i++) {
+        const a = (i / F.garrison) * Math.PI * 2;
+        const e = this.spawnEnemy(i % 3 === 0 ? 'brute' : 'knight', F.pos[0] + Math.cos(a) * F.radius * 0.75, F.pos[1] + Math.sin(a) * F.radius * 0.75, top);
+        e.camp = true;
+        e.mesh.rotation.y = Math.atan2(Math.cos(a), Math.sin(a));
+      }
+      const chief = this.spawnEnemy('boss', F.pos[0], F.pos[1] - 3.2, CFG.ranks.length - 1);
+      chief.camp = true;
+      chief.chief = true;
+      chief.maxHp = chief.hp = chief.maxHp * F.chiefHp;
+      chief.mesh.scale.setScalar(chief.scale * 1.1);
+      chief.bar.scale.multiplyScalar(1 / 1.1);
+      chief.lastCall = -99;
+    }
     this.resetFog();
     // #20: the starting purse is scattered along the road west, the way the pink arrow points, so the
     // first three seconds teach the pickup rule and the stack builds because of what you did.
@@ -233,7 +255,7 @@ export class Game {
     this.refreshPads();
     this.hud.showNextWave(false);
     this.hud.hidePadTip();
-    this.hud.set(this.coinsCarried, 1, 0, null, CFG.waves.goal, this.res, 0, 1, 1, 0);
+    this.hud.set(this.coinsCarried, 1, 0, null, `0/${CFG.finale.level}`, this.res, 0, 1, 1, 0);
     this.hud.setCoinTier(this.coinTier());
     this.hud.setIndicators([]);
   }
@@ -318,6 +340,7 @@ export class Game {
       const rank = CFG.ranks.find((r) => r.fromLevel === N);
       if (rank) unlocks.push(`${rank.name}s start raiding: tougher, but they drop more coins`);
       for (const def of PADS) if (def.minLevel === N) unlocks.push(`${def.label} pad appears`);
+      if (N === CFG.finale.level) unlocks.push('The march on the raider camp opens: kill the Warlord to end the war');
       unlocks.push(`Keep health ${CFG.keep.hp + (N - 1) * CFG.keep.hpPerLevel}`);
     }
     const costText = (def, pad) => def.crew ? `${def.crew} archers` : def.feed ? 'materials' : `${pad ? pad.cost - pad.paid : this.padCost(def)} coins${def.res ? ' + ' + Object.entries(def.res).map(([t, n]) => `${n} ${t}`).join(', ') : ''}`;
@@ -334,7 +357,7 @@ export class Game {
     const taken = UPGRADES.filter((u) => this.taken[u.id]).map((u) => ({ icon: u.icon, name: u.name, desc: u.desc, n: this.taken[u.id] }));
     const tierIdx = CFG.coins.tiers.indexOf(this.coinTier());
     const coins = { tier: this.coinTier(), count: this.coinsCarried, nextTier: CFG.coins.tiers[tierIdx + 1] || null, nextAt: CFG.coins.tierAt[tierIdx + 1] || null };
-    return { taken, level: L, max: CFG.base.maxLevel, hasKeep: !!this.keep, queenCaptive: !!this.queen.captive, need, unlocks, padsNow, later, ranks, army, coins, wave: this.wave, goal: CFG.waves.goal };
+    return { taken, level: L, max: CFG.base.maxLevel, hasKeep: !!this.keep, queenCaptive: !!this.queen.captive, need, unlocks, padsNow, later, ranks, army, coins, wave: this.wave, finaleOpen: this.finaleOpen, finaleLevel: CFG.finale.level };
   }
 
   togglePause() {
@@ -694,11 +717,12 @@ export class Game {
     };
     // raiding parties come from 1-3 directions
     const dirs = 1 + Math.min(2, Math.floor(w / 3));
-    const angles = [];
-    for (let i = 0; i < dirs; i++) angles.push(rand(0, Math.PI * 2));
     const b = TIERS[this.tier].bounds;
     const cx = (b.x0 + b.x1) / 2;
     const cz = (b.z0 + b.z1) / 2;
+    // the first party always comes from the camp's direction; later ones flank
+    const angles = [Math.atan2(CFG.finale.pos[1] - cz, CFG.finale.pos[0] - cx)];
+    for (let i = 1; i < dirs; i++) angles.push(rand(0, Math.PI * 2));
     const halfDiag = Math.hypot(b.x1 - b.x0, b.z1 - b.z0) / 2;
     const half = CFG.world.size / 2 - 8;
     list.forEach((type, i) => {
@@ -733,7 +757,7 @@ export class Game {
     }
     const boss = list.includes('boss');
     audio.wave(boss);
-    this.hud.toast(boss ? `Blood moon! Night ${w} brings a boss.` : w === CFG.waves.goal ? `Night ${w} — the final stand!` : `Night ${w} falls.`, 2200);
+    this.hud.toast(boss ? `Blood moon! Night ${w} brings a boss.` : `Night ${w} falls.`, 2200);
   }
 
   // ---------- pads ----------
@@ -1592,7 +1616,10 @@ export class Game {
     for (let i = 0; i < n; i++) this.dropCoin(e.mesh.position);
     audio.enemyDie();
     this.addScore(CFG.score.kill[e.type] || 10);
-    if (e.type === 'boss') this.hud.toast('Boss defeated!', 1800);
+    if (e.chief) {
+      this.addScore(CFG.score.finale);
+      this.victory();
+    } else if (e.type === 'boss') this.hud.toast('Boss defeated!', 1800);
   }
 
   dropCoin(pos, tier = this.coinTier()) {
@@ -1797,7 +1824,13 @@ export class Game {
       this.updateFog(dt);
       this.updateChips(dt);
       const army = this.units.filter((u) => u !== this.king && u !== this.queen && !u.assign).length;
-      const between = this.enemies.length === 0 && this.spawnQueue.length === 0 && !this.queen.captive;
+      const between = this.activeEnemies().length === 0 && this.spawnQueue.length === 0 && !this.queen.captive;
+      // #19: the march on the camp opens at a Keep level or a night, whichever comes first
+      if (!this.finaleOpen && (this.baseLevel >= CFG.finale.level || this.wave >= CFG.finale.night)) {
+        this.finaleOpen = true;
+        this.hud.toast('The raiders\' camp lies to the north. March on it and end the war!', 4200);
+        audio.wave(true);
+      }
       this.hud.showNextWave(between && this.wave > 0 && this.waveTimer > 3 && !this.won);
       if (this.raidWarning && this.time >= this.raidWarning) {
         this.raidWarning = 0;
@@ -1809,7 +1842,7 @@ export class Game {
       this.hud.setHorn(!this.queen.captive || this.queen.taken, this.hornT / CFG.horn.cooldown, this.hornT);
       this.hud.setCoinTier(this.coinTier());
       this.hud.setMaterials(Object.keys(CFG.base.materialAt).filter((m) => this.baseLevel >= CFG.base.materialAt[m]).concat('straw'));
-      this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, CFG.waves.goal, this.res, this.score, this.king.hp / this.king.maxHp, this.queen.hp / this.queen.maxHp, this.baseLevel);
+      this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, this.finaleOpen ? 'camp' : `${this.baseLevel}/${CFG.finale.level}`, this.res, this.score, this.king.hp / this.king.maxHp, this.queen.hp / this.queen.maxHp, this.baseLevel);
       this.updateIndicators(dt);
     }
     this.world.focus.copy(this.king.mesh.position);
@@ -2476,6 +2509,39 @@ export class Game {
     }
   }
 
+  // enemies out raiding: not the Queen's guards, not the camp's sleeping garrison
+  activeEnemies() {
+    return this.enemies.filter((e) => !e.captor && !e.camp);
+  }
+
+  // #19: the camp wakes when the King comes for it
+  updateCampSleeper(e, dt) {
+    const F = CFG.finale;
+    const kp = this.king.mesh.position;
+    if (Math.hypot(kp.x - F.pos[0], kp.z - F.pos[1]) < F.wakeRadius) {
+      for (const x of this.enemies) if (x.camp) x.camp = false;
+      this.raiseAlarm('The camp is awake!');
+      this.hud.toast(this.finaleOpen ? 'The Warlord rises. End this.' : 'You are not ready for this camp. Run!', 3000);
+      audio.wave(true);
+      return;
+    }
+    e.moving = false;
+    this.animateWalk(e, 0, dt);
+  }
+
+  // the Warlord calls reinforcements from his tents while he lives
+  chiefCall(e) {
+    const F = CFG.finale;
+    e.lastCall = this.time;
+    const top = this.topRank();
+    for (let i = 0; i < F.callCount; i++) {
+      const a = rand(0, Math.PI * 2);
+      this.spawnEnemy(i === 0 ? 'shield' : 'knight', F.pos[0] + Math.cos(a) * F.radius * 0.8, F.pos[1] + Math.sin(a) * F.radius * 0.8, top);
+    }
+    this.hud.toast('The Warlord calls his men from the tents!', 2200);
+    audio.alarm();
+  }
+
   // A thief runs at the King, grabs coins off his stack and bolts for the edge of the map. It ignores
   // walls and never fights, so the answer is archers and speed, not fortification.
   updateThief(e, dt) {
@@ -2560,6 +2626,11 @@ export class Game {
         this.updateCaptor(e, dt);
         continue;
       }
+      if (e.camp) {
+        this.updateCampSleeper(e, dt);
+        continue;
+      }
+      if (e.chief && this.time - e.lastCall > CFG.finale.callEvery && e.hp < e.maxHp) this.chiefCall(e);
       if (e.escort) {
         this.updateEscort(e, dt);
         continue;
@@ -2955,11 +3026,7 @@ export class Game {
         this.spawnQueue.splice(i, 1);
       }
     }
-    const cleared = this.enemies.length === 0 && this.spawnQueue.length === 0;
-    if (cleared && this.wave === CFG.waves.goal && !this.won) {
-      this.victory();
-      return;
-    }
+    const cleared = this.activeEnemies().length === 0 && this.spawnQueue.length === 0;
     // Nothing attacks the King until he takes the Queen back (#12): the raids ARE the enemy coming
     // for her, so while she is captive the clock stands still and it stays daylight.
     if (this.queen.captive) return;
@@ -3020,7 +3087,7 @@ export class Game {
     const w = window.innerWidth;
     const h = window.innerHeight;
     const bins = new Map();
-    const all = [...this.enemies.map((e) => ({ pos: e.mesh.position, boss: e.type === 'boss', thief: e.type === 'thief' })), ...this.spawnQueue.map((s) => ({ pos: { x: s.x, y: 0, z: s.z }, boss: s.type === 'boss' }))];
+    const all = [...this.activeEnemies().map((e) => ({ pos: e.mesh.position, boss: e.type === 'boss', thief: e.type === 'thief' })), ...this.spawnQueue.map((s) => ({ pos: { x: s.x, y: 0, z: s.z }, boss: s.type === 'boss' }))];
     for (const it of all) {
       tmp.set(it.pos.x, 1, it.pos.z).project(this.camera);
       const sx = tmp.x * w * 0.5;
@@ -3049,6 +3116,19 @@ export class Game {
       const dy = Math.sin(ang);
       const t = Math.min((w * 0.5 - margin) / Math.max(1e-6, Math.abs(dx)), (h * 0.5 - margin) / Math.max(1e-6, Math.abs(dy)));
       list.push({ x: w * 0.5 + dx * t, y: h * 0.5 + dy * t, angle: ang, count: 0, home: true });
+    }
+    if (this.finaleOpen && this.enemies.some((e) => e.chief)) {
+      const F = CFG.finale;
+      tmp.set(F.pos[0], 1, F.pos[1]).project(this.camera);
+      const cxs = tmp.x * w * 0.5;
+      const cys = -tmp.y * h * 0.5;
+      if (Math.abs(cxs) > w * 0.5 - 30 || Math.abs(cys) > h * 0.5 - 30 || tmp.z >= 1) {
+        const ang = Math.atan2(cys, cxs);
+        const dx = Math.cos(ang);
+        const dy = Math.sin(ang);
+        const t = Math.min((w * 0.5 - margin) / Math.max(1e-6, Math.abs(dx)), (h * 0.5 - margin) / Math.max(1e-6, Math.abs(dy)));
+        list.push({ x: w * 0.5 + dx * t, y: h * 0.5 + dy * t, angle: ang, count: 0, camp: true });
+      }
     }
     if (this.queen.captive) {
       const qp = this.queen.mesh.position;

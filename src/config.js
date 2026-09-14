@@ -63,7 +63,7 @@ export const CFG = {
 
   mining: { radius: 2.8, tick: 0.55, regrow: 9 },
 
-  score: { earlyWavePerSecond: 4, kill: { knight: 10, elite: 25, brute: 20, boss: 200, thief: 40, sapper: 15, archer: 20, shield: 30 }, coin: 1, material: 2, buildPerCoin: 2, buildPerMaterial: 3, soldierPerWave: 2, waveClear: 50, levelUp: 60, rescue: 150, recapture: 90 },
+  score: { earlyWavePerSecond: 4, kill: { knight: 10, elite: 25, brute: 20, boss: 200, thief: 40, sapper: 15, archer: 20, shield: 30 }, coin: 1, material: 2, buildPerCoin: 2, buildPerMaterial: 3, soldierPerWave: 2, waveClear: 50, levelUp: 60, rescue: 150, recapture: 90, finale: 1500 },
 
   archer: { hp: 30, range: 9.5, fireRate: 0.9, damage: 10, speed: 9 },
   swordsman: { hp: 70, range: 1.4, fireRate: 1.1, damage: 14, speed: 8.5, aggro: 5 },
@@ -76,6 +76,9 @@ export const CFG = {
     upgrade: [{ cost: 30 }, { cost: 60 }],
   },
   gatePost: { height: 1.55 },
+  // #19: the raider camp. Raids come from it; the war ends when the King marches on it and kills
+  // the Warlord. The march opens at Keep `level` (or night `night`, whichever comes first).
+  finale: { pos: [-4, -74], radius: 9, garrison: 8, wakeRadius: 20, level: 13, night: 30, chiefHp: 3.2, callEvery: 9, callCount: 3 },
   // #18: the King's one ability. The warhorn pulls the army to him and drives them for a few
   // seconds, and the blast shoves nearby raiders back and stuns them: an answer to a breach.
   horn: { cooldown: 22, duration: 6, radius: 7.5, push: 3.4, stun: 1.3, speed: 1.6, damage: 1.5, rallySpeed: 2.2 },
@@ -125,7 +128,6 @@ export const CFG = {
   cycle: { length: 75, nightStart: 0.6, dawn: 0.98, warn: 8 },
 
   waves: {
-    goal: 30, // survive this many nights to secure the kingdom
     hpGrowthPerWave: 0.04, // ranks (CFG.ranks) and Keep level (CFG.base) carry most of the scaling now
     dmgGrowthPerWave: 0.03,
     bossEvery: 5,

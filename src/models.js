@@ -912,6 +912,57 @@ export function makeRock(scale = 1) {
   return bake(g);
 }
 
+// #19: the raider camp. Tents around a fire, a spike ring, and the Warlord's banner.
+export function makeCamp(radius = 9) {
+  const g = new THREE.Group();
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(radius + 1, 28), mat(0x5e5340));
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = 0.02;
+  ground.receiveShadow = true;
+  g.add(ground);
+  // fire pit
+  g.add(cyl(1.3, 1.4, 0.25, 0x4a4a4a, 0, 0.12, 0, 12));
+  for (let i = 0; i < 4; i++) {
+    const l = cyl(0.14, 0.14, 1.4, C.darkWood, 0, 0.36, 0, 6);
+    l.rotation.z = Math.PI / 2;
+    l.rotation.y = (i / 4) * Math.PI;
+    g.add(l);
+  }
+  const flame = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.4, 7), new THREE.MeshBasicMaterial({ color: 0xff8a2e }));
+  flame.position.y = 1.0;
+  const flame2 = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.9, 6), new THREE.MeshBasicMaterial({ color: 0xffd166 }));
+  flame2.position.y = 1.15;
+  g.add(flame, flame2);
+  // tents
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 + 0.4;
+    const x = Math.cos(a) * radius * 0.6;
+    const z = Math.sin(a) * radius * 0.6;
+    const tent = new THREE.Mesh(new THREE.ConeGeometry(1.7, 2.3, 6), matFlat(i % 2 ? 0x6b2a2a : 0x4a3a30));
+    tent.position.set(x, 1.15, z);
+    tent.rotation.y = a;
+    tent.castShadow = tent.receiveShadow = true;
+    g.add(tent, box(0.08, 2.8, 0.08, C.darkWood, x, 1.4, z));
+  }
+  // spike ring, gaps toward the village side
+  const n = 14;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    if (a > Math.PI * 0.35 && a < Math.PI * 0.65) continue;
+    const s = makeSpikes();
+    s.position.set(Math.cos(a) * radius, 0, Math.sin(a) * radius);
+    s.rotation.y = -a + Math.PI / 2;
+    g.add(s);
+  }
+  // the Warlord's banner
+  const pole = box(0.12, 5.2, 0.12, C.darkWood, -2.2, 2.6, -2.2);
+  const flag = box(1.6, 1.0, 0.06, 0x24232b, -1.4, 4.6, -2.2);
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), matFlat(0xe8e2cf));
+  skull.position.set(-1.4, 4.6, -2.14);
+  g.add(pole, flag, skull, box(0.25, 0.25, 0.25, C.gold, -2.2, 5.3, -2.2));
+  return bake(g);
+}
+
 export function makeSpikes() {
   const g = new THREE.Group();
   const beam = box(2.6, 0.16, 0.16, C.darkWood, 0, 0.35, 0);

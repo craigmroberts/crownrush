@@ -261,3 +261,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   .panel.title .heroes img { width: 88px; }
   .panel.title h1 { font-size: 38px; }
 }
+
+/* the raider camp, once the march is open */
+.indicator.camp .arrow { background: #24232b; width: 40px; height: 40px; left: -20px; top: -20px; border: 2px solid #f5b800; }
+.indicator.camp .count { font-size: 20px; top: 14px; }

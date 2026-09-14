@@ -186,6 +186,19 @@ matters: taking an archer reward upgrades the archers you already have, and a wa
 walls already standing. Levels can chain when you arrive with a full stockpile, so offers queue and
 come one at a time. The info screen lists everything you have taken.
 
+## The ending: march on the camp
+
+The raids come from a real place: the raider camp in the far north (`CFG.finale`), a ring of tents and
+spikes around a fire under the Warlord's skull banner. The first raiding party of every night comes
+from its direction. Its garrison sleeps until the King comes within reach, so a curious early visit
+ends in a scramble.
+
+The goal is no longer a night count. Reach Keep level 13 (or night 30, whichever comes first) and the
+march opens: a toast, a swords arrow on the screen edge, and "march on the camp!" in the HUD. Walk in
+and the camp wakes. The Warlord fights as a boss and calls men from the tents every few seconds while
+he lives, so it is a fight against reinforcements, not a health bar. Kill him and the war is over.
+Nights keep coming afterwards for a high score, but the story is done.
+
 ## Materials come in ages
 
 Materials unlock with the Keep and the walls follow them, so a level-up is one moment rather than

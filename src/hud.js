@@ -55,7 +55,10 @@ export class Hud {
       this.nextEl.textContent = nextIn === null ? '' : `nightfall in ${n}s`;
       this.lastNext = n;
     }
-    if (goal !== undefined) this.goalEl.textContent = wave > goal ? '· endless' : `/ ${goal}`;
+    if (goal !== this.lastGoal) {
+      this.lastGoal = goal;
+      this.goalEl.textContent = goal === 'camp' ? '· march on the camp!' : goal ? `· Keep ${goal}` : '';
+    }
     if (coins !== this.lastCoins) {
       this.coinEl.textContent = coins;
       this.lastCoins = coins;
@@ -200,6 +203,7 @@ export class Hud {
     const chip = (icon, text, state = '') => `<span class="ichip ${state}">${iconSvg(icon, 16)}${esc(text)}</span>`;
     const h = [];
     if (d.queenCaptive) h.push('<p class="info-note">The Queen is still captive. Follow the pink arrow, clear her guards and reach her. Nothing can be built, and no raiders will come, until she is free.</p>');
+    h.push(d.finaleOpen ? '<p class="info-note">The march is open: the raiders\' camp lies to the north. Kill the Warlord to end the war.</p>' : `<p class="sub">Goal: reach Keep level ${d.finaleLevel}, then march on the raider camp.</p>`);
     h.push(`<h2>${iconSvg('keep', 22)} Keep level ${d.level}${d.level >= d.max ? ' (max)' : ''}</h2>`);
     if (!d.hasKeep) h.push('<p>Not built yet. Stand on the Royal Keep pad in the village.</p>');
     else if (d.need.length) {
@@ -279,12 +283,13 @@ export class Hud {
       el.style.display = 'block';
       el.style.transform = `translate(${it.x}px, ${it.y}px)`;
       el.firstChild.style.transform = `rotate(${it.angle}rad)`;
-      el.lastChild.innerHTML = it.alarm ? iconSvg('alert', 22) : it.queen ? iconSvg('tiara', 22) : it.home ? iconSvg('home', 22) : it.boss ? iconSvg('skull', 22) : it.thief ? iconSvg('coin', 22) : it.count > 1 ? it.count : '';
+      el.lastChild.innerHTML = it.alarm ? iconSvg('alert', 22) : it.queen ? iconSvg('tiara', 22) : it.home ? iconSvg('home', 22) : it.camp ? iconSvg('swords', 22) : it.boss ? iconSvg('skull', 22) : it.thief ? iconSvg('coin', 22) : it.count > 1 ? it.count : '';
       el.classList.toggle('boss', !!it.boss);
       el.classList.toggle('home', !!it.home);
       el.classList.toggle('alarm', !!it.alarm);
       el.classList.toggle('queen', !!it.queen);
       el.classList.toggle('thief', !!it.thief);
+      el.classList.toggle('camp', !!it.camp);
     });
   }
 }
