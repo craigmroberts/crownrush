@@ -181,11 +181,12 @@ function groundTexture() {
 export function buildWorld(scene) {
   const size = CFG.world.size;
   const rand = rng(1337);
-  const world = { river: null, bridges: [], crossings: [], roads: [], foam: [], time: 0, sway: { value: 0 } };
+  const world = { river: null, bridges: [], crossings: [], roads: [], foam: [], time: 0, sway: { value: 0 }, flowerSpots: [], focus: new THREE.Vector3() };
   setSwayUniform(world.sway);
 
   // ---- ground ----
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshStandardMaterial({ map: groundTexture(), color: 0xffffff, roughness: 1 }));
+  world.groundMat = ground.material;
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
@@ -417,6 +418,7 @@ export function buildWorld(scene) {
       if (fi[k] < 70) {
         m4.makeTranslation(x + 0.4, 0.3, z + 0.2);
         flowers[k].setMatrixAt(fi[k]++, m4);
+        world.flowerSpots.push(new THREE.Vector3(x + 0.4, 0.3, z + 0.2));
       }
     }
   }
@@ -430,9 +432,150 @@ export function buildWorld(scene) {
   scene.add(scenery);
   mergeGroup(cliffs);
 
+  // ---- ambient life ----
+  const life = new THREE.Group();
+  scene.add(life);
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x2b2b30, roughness: 0.9, side: THREE.DoubleSide });
+  function makeBird() {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 5), darkMat);
+    body.scale.set(0.8, 0.6, 1.8);
+    g.add(body);
+    const wings = [];
+    for (const side of [-1, 1]) {
+      const pivot = new THREE.Group();
+      const w = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.22), darkMat);
+      w.position.x = side * 0.3;
+      w.rotation.x = -Math.PI / 2;
+      pivot.add(w);
+      g.add(pivot);
+      wings.push(pivot);
+    }
+    g.userData.wings = wings;
+    return g;
+  }
+  world.flocks = [];
+  world.birdTimer = 6 + rand() * 6;
+  function spawnFlock() {
+    const f = world.focus;
+    const ang = rand() * Math.PI * 2;
+    const dir = new THREE.Vector3(Math.cos(ang), 0, Math.sin(ang));
+    const start = f.clone().addScaledVector(dir, -36);
+    start.y = 9 + rand() * 3;
+    const count = 3 + Math.floor(rand() * 3);
+    const birds = [];
+    for (let i = 0; i < count; i++) {
+      const b = makeBird();
+      const row = Math.ceil(i / 2);
+      const side = i % 2 ? 1 : -1;
+      b.userData.offset = new THREE.Vector3(-dir.z * side * row * 1.1, -row * 0.3, dir.x * side * row * 1.1).addScaledVector(dir, -row * 1.2);
+      b.userData.phase = rand() * Math.PI * 2;
+      b.rotation.y = Math.atan2(dir.x, dir.z);
+      life.add(b);
+      birds.push(b);
+    }
+    world.flocks.push({ birds, pos: start, dir, speed: 5 + rand() * 2, t: 0 });
+  }
+  // butterflies around the flower patches
+  const wingColors = [0xffd54a, 0xffffff, 0xff9a3a, 0x9ad4ff];
+  world.butterflies = [];
+  const spots = [...world.flowerSpots].sort(() => rand() - 0.5).slice(0, 16);
+  for (const sp of spots) {
+    const g = new THREE.Group();
+    const col = wingColors[Math.floor(rand() * wingColors.length)];
+    const wm = new THREE.MeshStandardMaterial({ color: col, roughness: 0.8, side: THREE.DoubleSide });
+    const wings = [];
+    for (const side of [-1, 1]) {
+      const pivot = new THREE.Group();
+      const w = new THREE.Mesh(new THREE.CircleGeometry(0.13, 10), wm);
+      w.scale.set(1.15, 0.85, 1);
+      w.position.x = side * 0.13;
+      w.rotation.x = -Math.PI / 2;
+      pivot.add(w);
+      const w2 = new THREE.Mesh(new THREE.CircleGeometry(0.09, 8), wm);
+      w2.position.set(side * 0.1, 0, 0.12);
+      w2.rotation.x = -Math.PI / 2;
+      pivot.add(w2);
+      g.add(pivot);
+      wings.push(pivot);
+    }
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.03, 5, 4), darkMat);
+    body.scale.set(1, 1, 3);
+    g.add(body);
+    g.position.copy(sp).setY(0.9);
+    life.add(g);
+    world.butterflies.push({ mesh: g, home: sp.clone(), wings, phase: rand() * 10, speed: 0.6 + rand() * 0.5 });
+  }
+  // chimney smoke emitters
+  world.smokers = [];
+  world.addSmoker = (x, y, z) => {
+    const puffs = [];
+    for (let i = 0; i < 7; i++) {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(1, 7, 6), new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 1, transparent: true, opacity: 0 }));
+      m.visible = false;
+      life.add(m);
+      puffs.push({ mesh: m, t: 99, life: 3.6, ox: 0 });
+    }
+    world.smokers.push({ x, y, z, puffs, next: 0 });
+  };
+
   // ---- per-frame animation ----
   world.update = (dt) => {
     world.time += dt;
+    // birds
+    world.birdTimer -= dt;
+    if (world.birdTimer <= 0 && world.flocks.length < 2) {
+      world.birdTimer = 14 + rand() * 12;
+      spawnFlock();
+    }
+    for (let i = world.flocks.length - 1; i >= 0; i--) {
+      const fl = world.flocks[i];
+      fl.t += dt;
+      fl.pos.addScaledVector(fl.dir, fl.speed * dt);
+      fl.birds.forEach((b, k) => {
+        b.position.copy(fl.pos).add(b.userData.offset);
+        b.position.y += Math.sin(world.time * 2 + b.userData.phase) * 0.15;
+        const flap = Math.sin(world.time * 12 + b.userData.phase) * 0.7;
+        b.userData.wings[0].rotation.z = flap;
+        b.userData.wings[1].rotation.z = -flap;
+      });
+      if (fl.t > 16) {
+        for (const b of fl.birds) life.remove(b);
+        world.flocks.splice(i, 1);
+      }
+    }
+    // butterflies
+    for (const bf of world.butterflies) {
+      const t = world.time * bf.speed + bf.phase;
+      bf.mesh.position.set(bf.home.x + Math.sin(t) * 1.2 + Math.sin(t * 2.3) * 0.4, 0.7 + Math.sin(t * 1.7) * 0.25 + 0.2, bf.home.z + Math.cos(t * 0.8) * 1.2);
+      bf.mesh.rotation.y = Math.atan2(Math.cos(t) * 1.2, -Math.sin(t * 0.8) * 0.96) ;
+      const flap = 0.35 + Math.abs(Math.sin(world.time * 14 + bf.phase)) * 0.9;
+      bf.wings[0].rotation.z = flap;
+      bf.wings[1].rotation.z = -flap;
+    }
+    // smoke
+    for (const sm of world.smokers) {
+      sm.next -= dt;
+      if (sm.next <= 0) {
+        sm.next = 0.55;
+        const p = sm.puffs.find((q) => q.t >= q.life);
+        if (p) {
+          p.t = 0;
+          p.ox = rand() * Math.PI * 2;
+          p.mesh.visible = true;
+        }
+      }
+      for (const p of sm.puffs) {
+        if (p.t >= p.life) continue;
+        p.t += dt;
+        const k = p.t / p.life;
+        p.mesh.position.set(sm.x + Math.sin(k * 4 + p.ox) * 0.25 + k * 0.6, sm.y + k * 2.6, sm.z + Math.cos(k * 3 + p.ox) * 0.2);
+        const sc = 0.14 + k * 0.55;
+        p.mesh.scale.setScalar(sc);
+        p.mesh.material.opacity = 0.55 * (1 - k) * Math.min(1, k * 6);
+        if (p.t >= p.life) p.mesh.visible = false;
+      }
+    }
     if (world.waterTex) world.waterTex.offset.y -= dt * 0.08;
     world.sway.value = world.time;
     for (const r of world.roads) {

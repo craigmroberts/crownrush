@@ -32,8 +32,11 @@ export class Game {
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(48, 1, 0.5, 200);
     this.input = new Input(canvas);
-    const { sun } = setupLights(this.scene);
+    const { sun, hemi } = setupLights(this.scene);
     this.sun = sun;
+    this.hemi = hemi;
+    this.dayPhase = 0;
+    this.sunHeight = 34;
     if (this.mobile) sun.shadow.mapSize.set(1024, 1024);
     this.world = buildWorld(this.scene);
     this.buildFog();
@@ -139,6 +142,8 @@ export class Game {
     }
     for (const b of this.world.bridges) this.scene.remove(b.mesh);
     this.world.bridges.length = 0;
+    for (const sm of this.world.smokers || []) for (const p of sm.puffs) p.mesh.visible = false;
+    if (this.world.smokers) this.world.smokers.length = 0;
     this.ring = makeRing(2.4);
     this.ringRadius = 2.4;
     this.root.add(this.ring);
@@ -691,6 +696,10 @@ export class Game {
     this.popIn(m);
     this.root.add(m);
     if (kind === 'tower') this.towers[def.id] = { x: def.buildAt[0], z: def.buildAt[1], top: m.userData.top };
+    if (m.userData.chimney) {
+      const c = m.userData.chimney;
+      this.world.addSmoker(def.buildAt[0] + c.x, c.y, def.buildAt[1] + c.z);
+    }
     if (kind === 'keep') {
       this.keep = { isKeep: true, x: def.buildAt[0], z: def.buildAt[1], mesh: m, state: 'built', hp: 0, maxHp: 0, radius: CFG.keep.radius, level: this.wallLevel };
       this.keep.maxHp = this.keep.hp = this.keepHp();
@@ -1197,7 +1206,9 @@ export class Game {
       this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, CFG.waves.goal, this.res, this.score, this.king.hp / this.king.maxHp, this.queen.hp / this.queen.maxHp);
       this.updateIndicators(dt);
     }
+    this.world.focus.copy(this.king.mesh.position);
     this.world.update(dt);
+    this.updateDaylight(dt);
     for (const ent of [...this.units, ...this.enemies, ...this.turrets]) {
       const rig = ent.mesh.userData.rig;
       if (!rig) continue;
@@ -1681,6 +1692,17 @@ export class Game {
     }
     this.comboTimer -= dt;
     if (this.comboTimer <= 0) this.coinCombo = 0;
+    // a sparkle now and then on coins lying about
+    this.glintT = (this.glintT || 0) - dt;
+    if (this.glintT <= 0) {
+      this.glintT = 0.4;
+      const ground = this.coins.filter((c) => c.state === 'ground');
+      if (ground.length) {
+        const c = ground[Math.floor(Math.random() * ground.length)];
+        tmp.copy(c.mesh.position).setY(0.45);
+        this.burstFx(tmp, '#ffffff', 0.7, 0.35);
+      }
+    }
     // coins flying from the stack into a pad
     for (let i = this.flyCoins.length - 1; i >= 0; i--) {
       const f = this.flyCoins[i];
@@ -1969,6 +1991,41 @@ export class Game {
     }
   }
 
+  // Slow day cycle across waves: morning, noon, golden evening, dusk, then dawn again every 12 waves.
+  updateDaylight(dt) {
+    const keys = [
+      { p: 0.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x6cbd55, exp: 1.22, h: 34, tint: 0xffffff },
+      { p: 0.35, sun: 0xffffff, sunI: 1.42, sky: 0xffffff, ground: 0x9ec97a, fog: 0x74c45c, exp: 1.26, h: 42, tint: 0xffffff },
+      { p: 0.7, sun: 0xffb36a, sunI: 1.25, sky: 0xffd9b0, ground: 0x7a9a5a, fog: 0x6fae4f, exp: 1.15, h: 20, tint: 0xffe4c8 },
+      { p: 0.9, sun: 0xa9b8ff, sunI: 0.95, sky: 0xb9c6ff, ground: 0x4f6f52, fog: 0x4f8f60, exp: 1.06, h: 15, tint: 0xcbd4ff },
+      { p: 1.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x6cbd55, exp: 1.22, h: 34, tint: 0xffffff },
+    ];
+    const target = ((Math.max(1, this.wave) - 1) % 12) / 12;
+    let d = target - this.dayPhase;
+    if (d < -0.5) d += 1;
+    this.dayPhase = (this.dayPhase + Math.sign(d) * Math.min(Math.abs(d), dt * 0.03) + 1) % 1;
+    const ph = this.dayPhase;
+    let a = keys[0];
+    let b = keys[1];
+    for (let i = 0; i < keys.length - 1; i++) if (ph >= keys[i].p && ph <= keys[i + 1].p) {
+      a = keys[i];
+      b = keys[i + 1];
+    }
+    const t = (ph - a.p) / Math.max(1e-6, b.p - a.p);
+    const lerpC = (c1, c2) => this._dc1.setHex(c1).lerp(this._dc2.setHex(c2), t);
+    this._dc1 = this._dc1 || new THREE.Color();
+    this._dc2 = this._dc2 || new THREE.Color();
+    this.sun.color.copy(lerpC(a.sun, b.sun));
+    this.sun.intensity = a.sunI + (b.sunI - a.sunI) * t;
+    this.hemi.color.copy(lerpC(a.sky, b.sky));
+    this.hemi.groundColor.copy(lerpC(a.ground, b.ground));
+    this.scene.fog.color.copy(lerpC(a.fog, b.fog));
+    this.scene.background.copy(this.scene.fog.color);
+    this.renderer.toneMappingExposure = a.exp + (b.exp - a.exp) * t;
+    this.sunHeight = a.h + (b.h - a.h) * t;
+    if (this.world.groundMat) this.world.groundMat.color.copy(lerpC(a.tint, b.tint));
+  }
+
   updateCamera(dt) {
     const kp = this.king.mesh.position;
     const d = this.camDist;
@@ -1981,7 +2038,7 @@ export class Game {
     this.camera.position.lerp(tmp, 1 - Math.exp(-dt * 6));
     tmp2.set(kp.x, 0, kp.z - 2);
     this.camera.lookAt(tmp2);
-    this.sun.position.set(kp.x + 18, 34, kp.z + 12);
+    this.sun.position.set(kp.x + 18 + (34 - this.sunHeight) * 0.6, this.sunHeight, kp.z + 12 + (34 - this.sunHeight) * 0.4);
     this.sun.target.position.set(kp.x, 0, kp.z);
   }
 

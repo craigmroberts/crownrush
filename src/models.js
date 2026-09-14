@@ -460,11 +460,6 @@ export function makeHut() {
   // chimney with a lazy smoke trail
   const chimney = box(0.4, 0.9, 0.4, 0x7d848e, -0.9, 2.6, -0.5, matFlat(0x7d848e));
   g.add(chimney, box(0.5, 0.12, 0.5, 0x6b6f75, -0.9, 3.05, -0.5));
-  for (let i = 0; i < 3; i++) {
-    const puff = new THREE.Mesh(new THREE.SphereGeometry(0.14 + i * 0.07, 7, 6), new THREE.MeshStandardMaterial({ color: 0xeeeeee, transparent: true, opacity: 0.55 - i * 0.12, roughness: 1 }));
-    puff.position.set(-0.9 + i * 0.12, 3.3 + i * 0.3, -0.5 - i * 0.08);
-    g.add(puff);
-  }
   // archery target and lantern
   const target = cyl(0.45, 0.45, 0.1, C.white, 0, 1.2, -D / 2 - 0.35, 12);
   target.rotation.x = Math.PI / 2;
@@ -489,6 +484,7 @@ export function makeHut() {
   sign.position.set(0, 4.0, 0);
   sign.rotation.y = Math.PI / 2;
   g.add(sign, box(0.1, 0.8, 0.1, C.darkWood, 0, 3.5, 0));
+  g.userData.chimney = new THREE.Vector3(-0.9, 3.1, -0.5);
   return bake(g);
 }
 
