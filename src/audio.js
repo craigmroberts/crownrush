@@ -241,6 +241,15 @@ class Audio {
     ['C5', 'E5', 'G5', 'C6'].forEach((n, i) => this.tone({ f: freq(n), t: t + i * 0.07, dur: 0.25, type: 'triangle', gain: 0.18, attack: 0.005, release: 0.18, lp: 3000 }));
     this.noise({ t, dur: 0.18, gain: 0.12, type: 'lowpass', f: 600 });
   }
+  horn() {
+    if (!this.ready()) return;
+    const t = this.now;
+    // two brassy notes with a slow rise, like a real horn call
+    for (const [f, at, dur] of [[220, 0, 0.45], [330, 0.35, 0.7]]) {
+      this.tone({ f: f * 0.94, t: t + at, dur, type: 'sawtooth', gain: 0.09, attack: 0.05, release: 0.25, lp: 1800, slideTo: f });
+      this.tone({ f: f * 2 * 0.97, t: t + at, dur, type: 'square', gain: 0.03, attack: 0.05, release: 0.25, lp: 2400, slideTo: f * 2 });
+    }
+  }
   unlock() {
     if (!this.ready()) return;
     const t = this.now;

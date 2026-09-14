@@ -29,6 +29,7 @@ const INTRO_KEY = 'crownrush-intro-seen';
 const INTRO = [
   { icon: 'tiara', title: 'Find the Queen', text: 'She has been taken. Follow the pink arrow, clear her guards and bring her home. Nothing can be built, and no raid comes, until she is free.' },
   { icon: 'coin', title: 'Fight and collect', text: 'Your archers shoot on their own. Raiders drop coins: walk over them to pick them up. The colour a raider wears tells you how dangerous it is.' },
+  { icon: 'horn', title: 'Sound the horn', text: 'The horn button (or Space) rallies your army to you and drives them for a few seconds, and the blast throws nearby raiders back. It takes a while to recharge, so save it for a breach.' },
   { icon: 'hammer', title: 'Build', text: 'Stop on a floor marker to spend coins. Square markers build; round ones recruit and upgrade. Walking across a marker costs nothing.' },
   { icon: 'keep', title: 'Feed the Keep', text: 'Wood, stone and straw go into the Keep only. Feeding it levels up the whole kingdom: a bigger army, faster arrows, stronger walls. Gather by day. The raid comes at night.' },
 ];
@@ -70,6 +71,11 @@ document.getElementById('offer-cards').addEventListener('click', (e) => {
   const card = e.target.closest('.offer-card');
   if (card) game.takeUpgrade(card.dataset.id);
 });
+document.getElementById('horn-btn').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  game.useHorn();
+});
 document.getElementById('info-btn').addEventListener('click', () => game.toggleInfo());
 document.getElementById('info-close').addEventListener('click', () => game.hideInfo());
 window.addEventListener('keydown', (e) => {
@@ -78,6 +84,7 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (game.offer) return; // an upgrade choice must be made before anything else
+  if (e.key === ' ' || e.key === 'e' || e.key === 'E') return game.useHorn();
   if (e.key === 'i' || e.key === 'I') game.toggleInfo();
   else if (e.key === 'Escape' && game.infoOpen) game.hideInfo();
   else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') game.togglePause();

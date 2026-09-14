@@ -113,6 +113,13 @@ so walking across one costs nothing.
 - **Train Archers** at the range: +25% damage and +20% health per level for every archer, including
   ones already recruited (`CFG.archerTraining`).
 
+## The warhorn
+
+The King's one ability (`CFG.horn`). The horn button bottom-right, or Space on a keyboard, rallies
+the army: every soldier runs to the King and fights faster and harder for a few seconds, and the
+blast shoves nearby raiders back and stuns them. It recharges over about twenty seconds, shown as a
+ring filling around the button, so using it at the right moment matters more than using it often.
+
 ## Losing the Queen is a chase
 
 If the Queen's health hits zero she is not killed: raiders pick her up and march her toward the map

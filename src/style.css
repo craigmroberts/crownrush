@@ -222,3 +222,20 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .panel.intro .intro-row { display: flex; align-items: center; justify-content: space-between; }
 .panel.intro .intro-row a { color: #8a8672; font-weight: 700; font-size: 14px; padding: 8px 6px; }
 .panel.intro .intro-row button { font-size: 22px; padding: 10px 34px; margin: 0; }
+
+/* #18: the warhorn, bottom-right above the pad panel; the ring fills as it cools down */
+#horn-btn {
+  position: fixed; right: 14px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 92px);
+  width: 64px; height: 64px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; pointer-events: auto;
+  background: rgba(30, 40, 24, 0.7); box-shadow: 0 6px 16px rgba(0,0,0,0.35); z-index: 5;
+  display: grid; place-items: center; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+#horn-btn.hidden { display: none; }
+#horn-btn .ring { position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(#f5b800 var(--cd, 0%), rgba(255,255,255,0.18) 0); -webkit-mask: radial-gradient(circle, transparent 25px, #000 26px); mask: radial-gradient(circle, transparent 25px, #000 26px); }
+#horn-btn i { position: relative; opacity: 0.45; transition: opacity 0.15s, transform 0.15s; }
+#horn-btn.ready i { opacity: 1; transform: scale(1.1); }
+#horn-btn.ready { animation: hornReady 1.2s ease-in-out infinite alternate; }
+#horn-btn b { position: absolute; color: #fff; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 20px; text-shadow: 0 2px 0 rgba(0,0,0,0.5); }
+@keyframes hornReady { from { box-shadow: 0 6px 16px rgba(0,0,0,0.35); } to { box-shadow: 0 0 22px rgba(245,184,0,0.75); } }
+#pad-tip { bottom: max(12px, env(safe-area-inset-bottom)); }

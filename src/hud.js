@@ -167,6 +167,28 @@ export class Hud {
     }
   }
 
+  // #18: the warhorn button. `frac` is cooldown remaining 0..1; hidden until the game is running.
+  setHorn(show, frac, secs) {
+    const b = this.hornBtn || (this.hornBtn = document.getElementById('horn-btn'));
+    b.classList.toggle('hidden', !show);
+    if (!show) return;
+    const ready = frac <= 0;
+    if (ready !== this.hornReady) {
+      this.hornReady = ready;
+      b.classList.toggle('ready', ready);
+    }
+    const pct = Math.round((1 - frac) * 100);
+    if (pct !== this.hornPct) {
+      this.hornPct = pct;
+      b.style.setProperty('--cd', `${pct}%`);
+    }
+    const label = ready ? '' : String(Math.ceil(secs));
+    if (label !== this.hornLabel) {
+      this.hornLabel = label;
+      document.getElementById('horn-cd').textContent = label;
+    }
+  }
+
   setCoinTier(tier) {
     if (tier === this.coinTier) return;
     this.coinTier = tier;

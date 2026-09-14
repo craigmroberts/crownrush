@@ -75,6 +75,9 @@ export const CFG = {
     upgrade: [{ cost: 30 }, { cost: 60 }],
   },
   gatePost: { height: 1.55 },
+  // #18: the King's one ability. The warhorn pulls the army to him and drives them for a few
+  // seconds, and the blast shoves nearby raiders back and stuns them: an answer to a breach.
+  horn: { cooldown: 22, duration: 6, radius: 7.5, push: 3.4, stun: 1.3, speed: 1.6, damage: 1.5, rallySpeed: 2.2 },
   // "Train Archers" pad at the range: each level makes every archer hit harder and tougher
   archerTraining: { damage: 0.25, hp: 0.2 },
 

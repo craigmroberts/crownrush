@@ -132,6 +132,8 @@ export class Game {
     this.raidWarning = 0;
     this.rescueSpotted = false;
     this.recaptures = 0;
+    this.hornT = 0; // cooldown remaining
+    this.rallyUntil = 0;
     this.alertT = 0;
     this.queenHop = 0;
     this.heartTimer = 0;
@@ -1136,6 +1138,37 @@ export class Game {
     }
   }
 
+  // #18: the warhorn. Rallies the army to the King and drives them for a few seconds, and the blast
+  // shoves nearby raiders back and stuns them. One button, used well or badly.
+  useHorn() {
+    if (!this.running || this.hornT > 0 || this.queen.captive && !this.queen.taken) return;
+    const H = CFG.horn;
+    this.hornT = H.cooldown;
+    this.rallyUntil = this.time + H.duration;
+    const kp = this.king.mesh.position;
+    audio.horn();
+    this.spawnFx(kp.x, kp.z, 0xffd23d);
+    this.burstFx(tmp.copy(kp).setY(1.4), '#ffe27a', 7, 0.5);
+    for (const e of this.enemies) {
+      if (e.captor) continue;
+      const p = e.mesh.position;
+      tmp2.subVectors(p, kp).setY(0);
+      const d = tmp2.length();
+      if (d > H.radius) continue;
+      const push = H.push * (1 - d / H.radius) * (e.type === 'boss' ? 0.3 : 1);
+      p.addScaledVector(tmp2.normalize(), push);
+      e.cooldown = Math.max(e.cooldown, H.stun);
+      e.retarget = Math.max(e.retarget, H.stun);
+      e.flash = Math.max(e.flash || 0, 0.25);
+    }
+    for (const u of this.units) if (!u.assign && u !== this.king && u !== this.queen) u.rallyT = this.time;
+    this.hud.toast('To me!', 900);
+  }
+
+  rallied() {
+    return this.time < this.rallyUntil;
+  }
+
   // archery speed grows with the Keep (archers, towers and the King's own bow)
   fireMul() {
     return CFG.base.fireRate(this.baseLevel);
@@ -1726,6 +1759,8 @@ export class Game {
       }
       this.alarmT -= dt;
       this.hud.showAlarm(this.alarmT > 0 ? this.alarmText : null);
+      this.hornT = Math.max(0, this.hornT - dt);
+      this.hud.setHorn(!this.queen.captive || this.queen.taken, this.hornT / CFG.horn.cooldown, this.hornT);
       this.hud.setCoinTier(this.coinTier());
       this.hud.setMaterials(Object.keys(CFG.base.materialAt).filter((m) => this.baseLevel >= CFG.base.materialAt[m]).concat('straw'));
       this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, CFG.waves.goal, this.res, this.score, this.king.hp / this.king.maxHp, this.queen.hp / this.queen.maxHp, this.baseLevel);
@@ -2131,7 +2166,8 @@ export class Game {
       const stopDist = target ? target.radius + 0.6 : 0.15;
       let moving = 0;
       if (d > stopDist) {
-        const sp = Math.min(u.stats.speed * (d > 6 ? 1.6 : 1), d / dt);
+        const rally = this.rallied() ? CFG.horn.rallySpeed : 1;
+        const sp = Math.min(u.stats.speed * (d > 6 ? 1.6 : 1) * rally, d / dt);
         tmp2.normalize().multiplyScalar(sp * dt);
         p.add(tmp2);
         moving = Math.min(1, d);
@@ -2154,11 +2190,11 @@ export class Game {
           if (u.melee) {
             tmp.copy(target.mesh.position);
             tmp.y += 0.3;
-            this.damageEnemy(target, u.stats.damage * this.damageMul, tmp);
+            this.damageEnemy(target, u.stats.damage * this.damageMul * (this.rallied() ? CFG.horn.damage : 1), tmp);
             this.attackAnim(u);
           } else {
             tmp.copy(p).y += 0.9;
-            this.fireArrow(tmp, target, u.stats.damage * this.damageMul);
+            this.fireArrow(tmp, target, u.stats.damage * this.damageMul * (this.rallied() ? CFG.horn.damage : 1));
             this.attackAnim(u);
           }
         }
