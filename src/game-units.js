@@ -1,0 +1,423 @@
+// The King and the army he leads: recruiting, moving, fighting, and the small animation helpers
+// the code-built figures need. Everything here is attached to Game.prototype; see game.js.
+import * as THREE from 'three';
+import { CFG } from './config.js';
+import { audio } from './audio.js';
+import { makeRigged } from './rig.js';
+import {
+  makeKing, makeKingFoot, makeQueen, makeArcher, makeSwordsman, makeArrow, makeHealthBar, setHealthBar,
+} from './models.js';
+import { V3, tmp, tmp2, HAIR, rand } from './game-shared.js';
+
+export const UnitsMethods = {
+  mountKing() {
+    if (this.mounted) return;
+    this.mounted = true;
+    const k = this.king;
+    const old = k.mesh;
+    const rig = makeRigged('king_mounted');
+    k.mesh = rig ? rig.mesh : makeKing();
+    k.mesh.position.copy(old.position);
+    k.mesh.rotation.copy(old.rotation);
+    k.mesh.scale.setScalar(k.scale);
+    this.root.remove(old);
+    k.bar = makeHealthBar(1.6, true);
+    k.bar.position.y = 3.2;
+    k.mesh.add(k.bar);
+    this.root.add(k.mesh);
+    this.popIn(k.mesh, 0, k.scale);
+    this.spawnFx(k.mesh.position.x, k.mesh.position.z, 0xffd166);
+  },
+
+  // ---------- spawning ----------
+  spawnUnit(type, x, z, veteran = false) {
+    let mesh;
+    let stats;
+    if (type === 'king') {
+      const rig = makeRigged(this.mounted ? 'king_mounted' : 'king');
+      mesh = rig ? rig.mesh : this.mounted ? makeKing() : makeKingFoot();
+      stats = CFG.king;
+    } else if (type === 'queen' && makeRigged('queen')) {
+      mesh = makeRigged('queen').mesh;
+      stats = CFG.queen;
+    } else if (type === 'archer') {
+      const hair = HAIR[Math.floor(Math.random() * HAIR.length)];
+      const rig = makeRigged('archer', veteran ? [['hair', hair], ['white', 0xf2d16b], ['blue', 0x8d1d22]] : [['hair', hair]]);
+      mesh = rig ? rig.mesh : makeArcher();
+      stats = this.archerStats(veteran);
+    } else if (type === 'queen') {
+      mesh = makeQueen();
+      stats = CFG.queen;
+    } else {
+      const rig = makeRigged('swordsman');
+      mesh = rig ? rig.mesh : makeSwordsman();
+      stats = CFG.swordsman;
+    }
+    mesh.position.set(x, 0, z);
+    const bar = makeHealthBar(type === 'king' || type === 'queen' ? 1.6 : 1.0, true);
+    bar.position.y = type === 'king' ? (this.mounted ? 3.2 : 2.4) : type === 'queen' ? 2.5 : 1.8;
+    mesh.add(bar);
+    this.root.add(mesh);
+    const royal = type === 'king' || type === 'queen';
+    const u = {
+      type, mesh, bar, hp: stats.hp, maxHp: stats.hp, stats, cooldown: rand(0, 0.5), lastHit: -99,
+      melee: type === 'swordsman', vel: new V3(), popT: royal ? 0 : 0.5, assign: null, veteran,
+      scale: royal ? 1.15 : mesh.userData.rig ? 1.05 : 1.2,
+    };
+    mesh.scale.setScalar(u.popT ? 0.01 : u.scale);
+    if (u.popT && this.running) this.spawnFx(x, z);
+    this.units.push(u);
+    return u;
+  },
+
+  // archer stats grow with "Train Archers"; veterans (platinum recruits) are half again as strong
+  archerStats(veteran = false) {
+    const v = veteran ? 1.5 : 1;
+    return {
+      ...CFG.archer,
+      damage: CFG.archer.damage * (1 + this.archerPower * CFG.archerTraining.damage) * v * this.mods.archerDamage,
+      hp: CFG.archer.hp * (1 + this.archerPower * CFG.archerTraining.hp) * v * this.mods.archerHp,
+      range: CFG.archer.range * this.mods.archerRange,
+    };
+  },
+
+  updatePlayer(dt) {
+    const k = this.king;
+    const inp = this.input.read();
+    const speed = (this.mounted ? k.stats.speed : k.stats.footSpeed) * this.mods.kingSpeed;
+    k.vel.set(inp.x * speed, 0, inp.z * speed);
+    if (k.mesh.userData.body && k.mesh.userData.body.rotation.x > 0) k.mesh.userData.body.rotation.x = Math.max(0, k.mesh.userData.body.rotation.x - dt * 3);
+    const p = k.mesh.position;
+    p.x += k.vel.x * dt;
+    p.z += k.vel.z * dt;
+    const half = CFG.world.size / 2 - 3;
+    p.x = THREE.MathUtils.clamp(p.x, -half, half);
+    p.z = THREE.MathUtils.clamp(p.z, -half, half);
+    // keep the king off the cliffs
+    if (p.x < CFG.cliffs.x && p.z < CFG.cliffs.z) {
+      if (CFG.cliffs.x - p.x < CFG.cliffs.z - p.z) p.x = CFG.cliffs.x;
+      else p.z = CFG.cliffs.z;
+    }
+    this.collideWalls(p, 0.55, true);
+    this.collideRiver(p, 0.5);
+    this.collideKeep(p, 0.5);
+    k.moving = inp.mag > 0.05;
+    this.animateWalk(k, inp.mag, dt);
+    // king fires his own bow
+    k.cooldown -= dt;
+    const target = this.nearestEnemy(p, k.stats.range);
+    if (target) {
+      this.faceTowards(k.mesh, target.mesh.position, dt, 14);
+      if (k.cooldown <= 0) {
+        k.cooldown = 1 / (k.stats.fireRate * this.fireMul());
+        tmp.copy(p).y += 1.6;
+        for (let i = 0; i < this.mods.kingArrows; i++) {
+          const t2 = i === 0 ? target : this.nearestEnemy(p, k.stats.range, target) || target;
+          this.fireArrow(tmp, t2, k.stats.damage * this.damageMul);
+        }
+        if (k.mesh.userData.rig) {
+          k.mesh.userData.rig.play('Attack', true);
+          k.rigOnce = this.time + 0.6;
+        }
+      }
+    } else if (inp.mag > 0.05) {
+      k.mesh.rotation.y = this.lerpAngle(k.mesh.rotation.y, Math.atan2(inp.x, inp.z), 1 - Math.exp(-dt * 12));
+    }
+    this.regen(k, dt);
+    k.bar.visible = true;
+    this.updateMining(dt);
+    this.ring.position.set(p.x, 0.04, p.z);
+    const followers = this.units.filter((u) => u !== this.king && u !== this.queen && !u.assign).length;
+    const rr = 2.4 + Math.sqrt(followers) * 0.45;
+    this.ring.scale.setScalar(rr / 2.4);
+    this.ringRadius = rr;
+  },
+
+  updateArmy(dt) {
+    const kp = this.king.mesh.position;
+    this.updateQueen(dt);
+    const followers = this.units.filter((u) => u !== this.king && u !== this.queen && !u.assign);
+    followers.forEach((u, i) => {
+      u.cooldown -= dt;
+      if (u.popT > 0) {
+        u.popT -= dt;
+        const s = 1 - Math.max(0, u.popT / 0.5);
+        u.mesh.scale.setScalar(Math.max(0.01, u.scale * s * (1 + Math.sin(s * Math.PI) * 0.25)));
+        if (u.popT <= 0) u.mesh.scale.setScalar(u.scale);
+      }
+      // formation slot: rings around the king
+      const ring = Math.floor(Math.sqrt(i / 6));
+      const perRing = 6 + ring * 6;
+      const idxInRing = i - ring * ring * 6;
+      const ang = (idxInRing / perRing) * Math.PI * 2 + ring * 0.4 + this.time * 0.15;
+      const rad = 1.7 + ring * 1.3;
+      tmp.set(kp.x + Math.cos(ang) * rad, 0, kp.z + Math.sin(ang) * rad);
+
+      const p = u.mesh.position;
+      let target = null;
+      if (u.melee) {
+        target = this.nearestEnemy(p, u.stats.aggro);
+        if (target && target.mesh.position.distanceTo(kp) < u.stats.aggro + rad + 3) {
+          tmp.copy(target.mesh.position);
+        } else target = null;
+      }
+      tmp2.subVectors(tmp, p);
+      tmp2.y = 0;
+      const d = tmp2.length();
+      const stopDist = target ? target.radius + 0.6 : 0.15;
+      let moving = 0;
+      if (d > stopDist) {
+        const rally = this.rallied() ? CFG.horn.rallySpeed : 1;
+        const sp = Math.min(u.stats.speed * (d > 6 ? 1.6 : 1) * rally, d / dt);
+        tmp2.normalize().multiplyScalar(sp * dt);
+        p.add(tmp2);
+        moving = Math.min(1, d);
+        if (!target) u.mesh.rotation.y = this.lerpAngle(u.mesh.rotation.y, Math.atan2(tmp2.x, tmp2.z), 1 - Math.exp(-dt * 10));
+      }
+      this.collideWalls(p, 0.3, true);
+      this.collideRiver(p, 0.3);
+      this.collideKeep(p, 0.3);
+      if (d > 14) p.set(kp.x + rand(-1, 1), 0, kp.z + rand(-1, 1));
+      u.moving = moving > 0.05;
+      this.animateWalk(u, moving, dt);
+
+      // attack
+      if (!u.melee) target = this.nearestEnemy(p, u.stats.range);
+      if (target) {
+        this.faceTowards(u.mesh, target.mesh.position, dt, 12);
+        const dist = p.distanceTo(target.mesh.position) - target.radius;
+        if (u.cooldown <= 0 && dist <= u.stats.range + 0.3) {
+          u.cooldown = 1 / (u.stats.fireRate * this.fireMul());
+          if (u.melee) {
+            tmp.copy(target.mesh.position);
+            tmp.y += 0.3;
+            this.damageEnemy(target, u.stats.damage * this.damageMul * (this.rallied() ? CFG.horn.damage : 1), tmp, p);
+            this.attackAnim(u);
+          } else {
+            tmp.copy(p).y += 0.9;
+            this.fireArrow(tmp, target, u.stats.damage * this.damageMul * (this.rallied() ? CFG.horn.damage : 1));
+            this.attackAnim(u);
+          }
+        }
+      }
+      if (u.mesh.userData.body && u.mesh.userData.body.rotation.x > 0) u.mesh.userData.body.rotation.x = Math.max(0, u.mesh.userData.body.rotation.x - dt * 4);
+      this.regen(u, dt);
+    });
+
+    // archers walking off to man a tower or a gate
+    for (const u of this.units.filter((u) => u.assign)) {
+      const [x, z, y] = u.assign;
+      const p = u.mesh.position;
+      tmp2.set(x - p.x, 0, z - p.z);
+      const d = tmp2.length();
+      if (d < 0.5) {
+        this.units.splice(this.units.indexOf(u), 1);
+        this.root.remove(u.mesh);
+        this.disposeEntity(u.mesh);
+        this.addTurret(x, z, y, u.assignTower);
+        continue;
+      }
+      tmp2.normalize().multiplyScalar(Math.min(u.stats.speed * dt, d));
+      p.add(tmp2);
+      this.collideWalls(p, 0.3, true);
+      u.mesh.rotation.y = this.lerpAngle(u.mesh.rotation.y, Math.atan2(tmp2.x, tmp2.z), 1 - Math.exp(-dt * 10));
+      u.moving = true;
+      this.animateWalk(u, 1, dt);
+    }
+  },
+
+  updateTurrets(dt) {
+    for (const t of this.turrets) {
+      t.cooldown -= dt;
+      const lv = t.tower && this.towers[t.tower] ? CFG.tower.levels[this.towers[t.tower].level - 1] : CFG.tower.levels[0];
+      const target = this.nearestEnemy(t.pos, CFG.tower.range * lv.range * this.mods.towerRange);
+      if (target) {
+        this.faceTowards(t.mesh, target.mesh.position, dt, 10);
+        if (t.cooldown <= 0) {
+          t.cooldown = 1 / (CFG.tower.fireRate * this.fireMul());
+          this.fireArrow(t.pos, target, CFG.tower.damage * lv.damage * this.damageMul * this.mods.towerDamage);
+          this.attackAnim(t);
+        }
+      }
+    }
+  },
+
+  damageUnit(u, dmg) {
+    if (u.hp <= 0) return;
+    if (u.inKeep || u.captive) return;
+    u.hp -= dmg;
+    u.lastHit = this.time;
+    if (u.type === 'king' || u.type === 'queen') audio.hurt();
+    if (u.type === 'queen') this.raiseAlarm('The Queen is under attack!');
+    setHealthBar(u.bar, Math.max(0, u.hp / u.maxHp));
+    if (u.hp <= 0) {
+      if (u.type === 'queen') return this.captureQueen();
+      if (u.type === 'king') {
+        this.gameOver(u.type);
+        return;
+      }
+      this.units.splice(this.units.indexOf(u), 1);
+      u.bar.visible = false;
+      this.dying.push({ mesh: u.mesh, t: 0.4 });
+    }
+  },
+
+  regen(u, dt) {
+    if (u.hp < u.maxHp && this.time - u.lastHit > CFG.regen.delay) {
+      u.hp = Math.min(u.maxHp, u.hp + CFG.regen.perSecond * this.mods.regen * dt);
+      setHealthBar(u.bar, u.hp / u.maxHp);
+    }
+  },
+
+  // #18: the warhorn. Rallies the army to the King and drives them for a few seconds, and the blast
+  // shoves nearby raiders back and stuns them. One button, used well or badly.
+  useHorn() {
+    if (!this.running || this.hornT > 0 || this.queen.captive && !this.queen.taken) return;
+    const H = CFG.horn;
+    this.hornT = H.cooldown;
+    this.rallyUntil = this.time + H.duration;
+    const kp = this.king.mesh.position;
+    audio.horn();
+    this.spawnFx(kp.x, kp.z, 0xffd23d);
+    this.burstFx(tmp.copy(kp).setY(1.4), '#ffe27a', 7, 0.5);
+    for (const e of this.enemies) {
+      if (e.captor) continue;
+      const p = e.mesh.position;
+      tmp2.subVectors(p, kp).setY(0);
+      const d = tmp2.length();
+      if (d > H.radius) continue;
+      const push = H.push * (1 - d / H.radius) * (e.type === 'boss' ? 0.3 : 1);
+      p.addScaledVector(tmp2.normalize(), push);
+      e.cooldown = Math.max(e.cooldown, H.stun);
+      e.retarget = Math.max(e.retarget, H.stun);
+      e.flash = Math.max(e.flash || 0, 0.25);
+    }
+    for (const u of this.units) if (!u.assign && u !== this.king && u !== this.queen) u.rallyT = this.time;
+    this.hud.toast('To me!', 900);
+  },
+
+  rallied() {
+    return this.time < this.rallyUntil;
+  },
+
+  // archery speed grows with the Keep (archers, towers and the King's own bow)
+  fireMul() {
+    return CFG.base.fireRate(this.baseLevel);
+  },
+
+  // give each archer its own hair colour (the rig ships one)
+  tintHair(mesh) {
+    const colors = [0x5a3416, 0x2a1e16, 0x8a5a2b, 0x1c1c22, 0x6b3f1d];
+    const c = colors[Math.floor(Math.random() * colors.length)];
+    if (mesh.userData.rig && mesh.userData.rig.tint) {
+      mesh.userData.rig.tint('hair', c);
+      return mesh;
+    }
+    mesh.traverse((o) => {
+      if (!o.isMesh) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      mats.forEach((m, i) => {
+        if (m.name === 'hair') {
+          const clone = m.clone();
+          clone.color.setHex(c);
+          if (Array.isArray(o.material)) o.material[i] = clone;
+          else o.material = clone;
+        }
+      });
+    });
+    return mesh;
+  },
+
+  // one-shot attack: swing the rig's Attack clip, or nod the code model's body
+  attackAnim(ent) {
+    const rig = ent.mesh.userData.rig;
+    if (rig) {
+      rig.play('Attack', true);
+      ent.rigOnce = this.time + 0.6;
+    } else if (ent.mesh.userData.body) ent.mesh.userData.body.rotation.x = 0.6;
+  },
+
+  // ---------- small helpers ----------
+  animateWalk(ent, moving, dt) {
+    const legs = ent.mesh.userData.legs;
+    ent.walkT = (ent.walkT || 0) + dt * (moving ? 12 : 0);
+    const amp = moving ? 0.6 * Math.min(1, moving) : 0;
+    if (legs) {
+      legs.forEach((l, i) => {
+        l.rotation.x = Math.sin(ent.walkT + (i % 2) * Math.PI) * amp;
+      });
+    }
+    const arms = ent.mesh.userData.arms;
+    if (arms) arms.forEach((a, i) => (a.rotation.x = -Math.sin(ent.walkT + (i % 2) * Math.PI) * amp * 0.8));
+    const body = ent.mesh.userData.body;
+    if (body) body.position.y = body.userData.baseY ?? (body.userData.baseY = body.position.y);
+    if (body && moving) body.position.y += Math.abs(Math.sin(ent.walkT)) * 0.05;
+  },
+
+  faceTowards(mesh, target, dt, speed) {
+    const a = Math.atan2(target.x - mesh.position.x, target.z - mesh.position.z);
+    mesh.rotation.y = this.lerpAngle(mesh.rotation.y, a, 1 - Math.exp(-dt * speed));
+  },
+
+  lerpAngle(a, b, t) {
+    let d = ((b - a + Math.PI) % (Math.PI * 2)) - Math.PI;
+    if (d < -Math.PI) d += Math.PI * 2;
+    return a + d * t;
+  },
+
+  // ---------- combat helpers ----------
+  fireArrow(from, target, damage, hostile = false) {
+    const mesh = makeArrow();
+    mesh.position.copy(from);
+    this.root.add(mesh);
+    this.arrows.push({ mesh, target, damage, life: CFG.arrow.life, dir: new V3(), from: from.clone(), hostile });
+  },
+
+  damageTurret(t, dmg) {
+    t.hp -= dmg;
+    setHealthBar(t.bar, Math.max(0, t.hp / t.maxHp));
+    if (t.hp > 0) return;
+    this.turrets.splice(this.turrets.indexOf(t), 1);
+    this.dying.push({ mesh: t.mesh, t: 0.4 });
+    if (t.tower && this.towers[t.tower]) {
+      const tw = this.towers[t.tower];
+      tw.crew = Math.max(0, tw.crew - 1);
+      // reopen the crew pad once, so the slot can be refilled
+      const open = [...this.dynamicPads, ...this.pads.map((p) => p.def)].some((d) => d.tower === t.tower && d.crew);
+      if (!open) this.queueTowerPad(t.tower, 'crew');
+    }
+    this.raiseAlarm('A tower crew has fallen!');
+  },
+
+  updateArrows(dt) {
+    for (let i = this.arrows.length - 1; i >= 0; i--) {
+      const a = this.arrows[i];
+      a.life -= dt;
+      const t = a.target;
+      if (t && t.hp > 0) {
+        tmp.copy(t.isTurret ? t.pos : t.mesh.position);
+        tmp.y += t.type === 'boss' ? 2.0 : t.isTurret ? 0 : 0.8;
+        a.dir.subVectors(tmp, a.mesh.position);
+        const d = a.dir.length();
+        if (d < CFG.arrow.speed * dt + (t.radius || 0.5) * 0.5) {
+          if (a.hostile) {
+            if (t.isTurret) this.damageTurret(t, a.damage);
+            else this.damageUnit(t, a.damage);
+          } else this.damageEnemy(t, a.damage, tmp, a.from);
+          this.root.remove(a.mesh);
+          this.arrows.splice(i, 1);
+          continue;
+        }
+        a.dir.normalize();
+      } else if (a.dir.lengthSq() === 0) {
+        a.dir.set(0, 0, 1);
+      }
+      a.mesh.position.addScaledVector(a.dir, CFG.arrow.speed * dt);
+      a.mesh.lookAt(tmp2.copy(a.mesh.position).add(a.dir));
+      if (a.life <= 0 || a.mesh.position.y < 0) {
+        this.root.remove(a.mesh);
+        this.arrows.splice(i, 1);
+      }
+    }
+  },
+};

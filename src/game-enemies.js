@@ -1,0 +1,855 @@
+// The raiders: what a wave is made of, how each kind behaves, and the Queen being taken and
+// got back. Everything here is attached to Game.prototype; see game.js.
+import * as THREE from 'three';
+import { CFG, TIERS } from './config.js';
+import { audio } from './audio.js';
+import { makeRigged } from './rig.js';
+import { makeKnight, makeElite, makeBrute, makeBoss, makeCoin, makeHealthBar, setHealthBar } from './models.js';
+import { tmp, tmp2, rand, randInt } from './game-shared.js';
+
+export const EnemiesMethods = {
+  // which parts of each enemy rig wear the rank colours
+  rankTints(type, rk) {
+    // the thief always wears the same green, whatever rank it came in with: it is a role, not a rank
+    if (type === 'thief') return [['red', 0x2f8f5b], ['darkRed', 0x1c5638], ['hair', 0x23281f], ['boot', 0x1c5638]];
+    if (type === 'sapper') return [['red', 0x3a3a40], ['darkRed', rk.tunic], ['hair', 0x23281f]];
+    if (type === 'archer') return [['white', rk.tunic], ['blue', rk.trim], ['hair', 0x23281f], ['leather', rk.dark]];
+    if (type === 'shield') return [['ink', 0x7d848e], ['darkRed', rk.tunic], ['steelDark', rk.trim]];
+    if (type === 'knight') return [['red', rk.tunic], ['darkRed', rk.trim]];
+    if (type === 'elite') return [['darkRed', rk.tunic], ['ink', rk.dark]];
+    if (type === 'brute') return [['darkRed', rk.tunic], ['leather', rk.trim]];
+    return [['bone', rk.light], ['boneDark', rk.trim]];
+  },
+
+  spawnEnemy(type, x, z, rank = 0) {
+    const stats = CFG.enemy[type];
+    rank = Math.min(rank, CFG.ranks.length - 1);
+    const rk = CFG.ranks[rank];
+    const rigName = { knight: 'raider', thief: 'raider', sapper: 'raider', archer: 'archer', shield: 'elite' }[type] || type;
+    const rig = makeRigged(rigName, this.rankTints(type, rk));
+    const mesh = rig ? rig.mesh : type === 'boss' ? makeBoss() : type === 'brute' ? makeBrute() : type === 'elite' ? makeElite() : makeKnight();
+    mesh.position.set(x, 0, z);
+    const w = Math.max(1, this.wave);
+    const L = Math.max(0, this.baseLevel - 1);
+    // waves, rank and Keep level all scale the enemy
+    const hpMul = (1 + CFG.waves.hpGrowthPerWave * (w - 1)) * rk.hp * (1 + CFG.base.enemyHpPerLevel * L);
+    const dmgMul = (1 + CFG.waves.dmgGrowthPerWave * (w - 1)) * rk.damage * (1 + CFG.base.enemyDmgPerLevel * L);
+    if (!this.rankSeen[rank] && this.running) {
+      this.rankSeen[rank] = true;
+      if (rank > 0) this.hud.toast(`${rk.name}s have arrived! Watch for their colours.`, 2800);
+    }
+    const intro = { sapper: 'Sappers! They ignore your army and go for the walls.', archer: 'Enemy archers! They outrange a new tower and shoot the crews: go out and get them, or build the towers up.', shield: 'Shieldbearers! Arrows bounce off the front. Hit them from behind.' }[type];
+    if (intro && !this.typeSeen[type] && this.running) {
+      this.typeSeen[type] = true;
+      this.hud.toast(intro, 3600);
+    }
+    const bar = makeHealthBar(type === 'boss' ? 3.4 : type === 'brute' ? 1.5 : 1.0);
+    bar.position.y = type === 'boss' ? 5.0 : type === 'brute' ? 2.7 : 1.9;
+    mesh.add(bar);
+    this.root.add(mesh);
+    const e = {
+      type, rank, mesh, bar, stats, hp: stats.hp * hpMul, maxHp: stats.hp * hpMul, damage: stats.damage * dmgMul,
+      cooldown: rand(0.2, 0.8), target: null, retarget: 0, flash: 0, radius: stats.radius,
+      scale: rig ? { knight: 1.0, elite: 1.1, brute: 1.35, boss: 2.4, thief: 0.92, sapper: 0.95, archer: 1.0, shield: 1.15 }[type] : type === 'boss' ? 1 : 1.15,
+    };
+    mesh.scale.setScalar(e.scale);
+    // the bar is a child of the scaled mesh: undo that scale so bar size/height are in world units
+    bar.scale.x /= e.scale;
+    bar.scale.y /= e.scale;
+    bar.position.y /= e.scale;
+    this.enemies.push(e);
+    return e;
+  },
+
+  startWave() {
+    if (this.wave > 0) {
+      const soldiers = this.units.length - 2 + this.turrets.length;
+      this.addScore(CFG.score.waveClear * this.wave + soldiers * CFG.score.soldierPerWave);
+    }
+    this.wave++;
+    const w = this.wave;
+    const list = [];
+    const L = this.baseLevel;
+    const knights = 4 + Math.round(w * 2.2);
+    for (let i = 0; i < knights; i++) list.push('knight');
+    const brutes = L >= CFG.waves.bruteAt.level || w >= CFG.waves.bruteAt.wave;
+    const elites = L >= CFG.waves.eliteAt.level || w >= CFG.waves.eliteAt.wave;
+    if (brutes && w >= 3) for (let i = 0; i < Math.floor((w - 2) * 1.3); i++) list.push('brute');
+    if (elites && w >= 8) for (let i = 0; i < Math.floor((w - 6) * 0.8); i++) list.push('elite');
+    // the rule-breakers, each once the Keep has reached its level
+    if (L >= CFG.enemy.sapper.fromLevel && w >= 3) for (let i = 0; i < Math.min(4, 1 + Math.floor((w - 3) * 0.5)); i++) list.push('sapper');
+    if (L >= CFG.enemy.archer.fromLevel && w >= 4) for (let i = 0; i < Math.min(5, 1 + Math.floor((w - 4) * 0.4)); i++) list.push('archer');
+    if (L >= CFG.enemy.shield.fromLevel && w >= 5) for (let i = 0; i < Math.min(5, 1 + Math.floor((w - 5) * 0.4)); i++) list.push('shield');
+    if (w % CFG.waves.bossEvery === 0) for (let i = 0; i < Math.floor(w / 10) + 1; i++) list.push('boss');
+    for (let i = list.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+    // ranks follow the Keep: mostly the current rank, some lower ranks, and at most a couple of
+    // scouts from the next rank up so the player can see what is coming
+    let top = 0;
+    CFG.ranks.forEach((r, i) => { if (r.fromLevel <= L) top = i; });
+    const scoutSet = new Set();
+    if (top < CFG.ranks.length - 1 && w >= CFG.waves.scouts.from) {
+      const n = randInt(0, CFG.waves.scouts.max);
+      const candidates = list.map((t, i) => i).filter((i) => list[i] !== 'boss');
+      for (let k = 0; k < n && candidates.length; k++) scoutSet.add(candidates.splice(Math.floor(Math.random() * candidates.length), 1)[0]);
+    }
+    const pickRank = (type, i) => {
+      if (scoutSet.has(i)) return top + 1;
+      if (type === 'boss' || top === 0) return top;
+      const roll = Math.random();
+      if (top >= 2 && roll < 0.1) return top - 2;
+      if (roll < 0.4) return top - 1;
+      return top;
+    };
+    // raiding parties come from 1-3 directions
+    const dirs = 1 + Math.min(2, Math.floor(w / 3));
+    const b = TIERS[this.tier].bounds;
+    const cx = (b.x0 + b.x1) / 2;
+    const cz = (b.z0 + b.z1) / 2;
+    // the first party always comes from the camp's direction; later ones flank
+    const angles = [Math.atan2(CFG.finale.pos[1] - cz, CFG.finale.pos[0] - cx)];
+    for (let i = 1; i < dirs; i++) angles.push(rand(0, Math.PI * 2));
+    const halfDiag = Math.hypot(b.x1 - b.x0, b.z1 - b.z0) / 2;
+    const half = CFG.world.size / 2 - 8;
+    list.forEach((type, i) => {
+      let a = angles[i % dirs] + rand(-0.5, 0.5);
+      let r = halfDiag + rand(10, 16);
+      let x = 0;
+      let z = 0;
+      for (let tries = 0; tries < 12; tries++) {
+        x = THREE.MathUtils.clamp(cx + Math.cos(a) * r, -half, half);
+        z = THREE.MathUtils.clamp(cz + Math.sin(a) * r, -half, half);
+        const onCliff = x < CFG.cliffs.x && z < CFG.cliffs.z;
+        const inside = x > b.x0 - 3 && x < b.x1 + 3 && z > b.z0 - 3 && z < b.z1 + 3;
+        const ri = this.world.riverInfo(x, z);
+        const inRiver = ri.dist < this.world.river.halfWidth + 3;
+        // without a bridge, raiders can only come from the village's side of the river
+        const wrongSide = this.world.bridges.length === 0 && ri.side !== this.homeSide;
+        if (!onCliff && !inside && !inRiver && !wrongSide) break;
+        a += 0.9;
+        r += 3;
+      }
+      this.spawnQueue.push({ type, x, z, t: i * CFG.waves.stagger, rank: pickRank(type, i) });
+    });
+    this.thiefTimer = CFG.waves.thieves.every * 0.6;   // #35: first chance shortly into the night
+    const boss = list.includes('boss');
+    audio.wave(boss);
+    this.hud.toast(boss ? `Blood moon! Night ${w} brings a boss.` : `Night ${w} falls.`, 2200);
+  },
+
+  topRank() {
+    let top = 0;
+    CFG.ranks.forEach((r, i) => { if (r.fromLevel <= this.baseLevel) top = i; });
+    return top;
+  },
+
+  // #16: losing the Queen starts a chase, not a lose screen. Raiders pick her up and carry her toward
+  // the edge; cut the escort down before they get there and she is back, wounded, and the Keep pays.
+  // It can happen once per run. The second time is the end.
+  captureQueen() {
+    const q = this.queen;
+    if (this.recaptures >= CFG.rescue.recaptures) return this.gameOver('queen');
+    this.recaptures++;
+    q.captive = true;
+    q.taken = true;
+    q.inKeep = false;
+    q.hp = q.maxHp * 0.25;
+    q.bar.visible = false;
+    const p = q.mesh.position;
+    const exit = this.edgeExit(p);
+    const rank = this.topRank();
+    q.escort = [];
+    for (let i = 0; i < CFG.rescue.escort; i++) {
+      const e = this.spawnEnemy('knight', p.x + rand(-1.3, 1.3), p.z + rand(-1.3, 1.3), rank);
+      e.escort = true;
+      e.exit = exit;
+      e.maxHp = e.hp = e.maxHp * 1.5;
+      q.escort.push(e);
+    }
+    this.raiseAlarm('The Queen has been taken!');
+    this.hud.toast('The Queen has been taken! Cut down her escort before they reach the edge.', 3800);
+    audio.wave(true);
+  },
+
+  // escorts march for the edge with her; the first one alive is the one carrying her
+  updateEscort(e, dt) {
+    const p = e.mesh.position;
+    const R = CFG.rescue;
+    tmp2.set(e.exit.x - p.x, 0, e.exit.z - p.z);
+    const d = tmp2.length();
+    this.faceTowards(e.mesh, tmp.set(e.exit.x, 0, e.exit.z), dt, 8);
+    if (d > 0.1) {
+      tmp2.normalize().multiplyScalar(Math.min(R.escortSpeed * dt, d));
+      p.add(tmp2);
+    }
+    this.collideRiver(p, e.radius);
+    e.moving = true;
+    this.animateWalk(e, 1, dt);
+    const half = CFG.world.size / 2 - 4;
+    if (Math.abs(p.x) > half - 0.5 || Math.abs(p.z) > half - 0.5) this.gameOver('taken');
+  },
+
+  // Enemy archer: closes to just inside its range on the nearest soldier or tower crew, then holds and shoots.
+  updateEnemyArcher(e, dt) {
+    const p = e.mesh.position;
+    e.cooldown -= dt;
+    e.retarget -= dt;
+    if (e.retarget <= 0 || !e.target || e.target.hp <= 0) {
+      e.retarget = 0.6;
+      let best = null;
+      let bd = Infinity;
+      for (const u of [...this.units, ...this.turrets]) {
+        if (u.inKeep || u.captive) continue;
+        const d = p.distanceToSquared(u.isTurret ? u.pos : u.mesh.position);
+        if (d < bd) {
+          bd = d;
+          best = u;
+        }
+      }
+      e.target = best;
+    }
+    const t = e.target;
+    if (!t) return;
+    const tp = t.isTurret ? t.pos : t.mesh.position;
+    tmp2.set(tp.x - p.x, 0, tp.z - p.z);
+    const d = tmp2.length();
+    this.faceTowards(e.mesh, tmp.set(tp.x, 0, tp.z), dt, 8);
+    const hold = e.stats.range - 1.5;
+    let blocked = null;
+    if (d > hold) {
+      tmp2.normalize().multiplyScalar(Math.min(e.stats.speed * dt, d - hold));
+      p.add(tmp2);
+      blocked = this.collideWalls(p, e.radius, false) || this.collideKeep(p, e.radius);
+      this.collideRiver(p, e.radius);
+    }
+    e.moving = d > hold && !blocked;
+    this.animateWalk(e, e.moving ? 1 : 0, dt);
+    if (d <= e.stats.range && e.cooldown <= 0) {
+      e.cooldown = 1 / e.stats.attackRate;
+      this.attackAnim(e);
+      this.fireArrow(tmp.copy(p).setY(1.5), t, e.damage, true);
+    } else if (blocked && e.cooldown <= 0) {
+      e.cooldown = 1 / e.stats.attackRate;
+      this.damageWall(blocked, e.damage, e);
+    }
+  },
+
+  // enemies out raiding: not the Queen's guards, not the camp's sleeping garrison
+  activeEnemies() {
+    return this.enemies.filter((e) => !e.captor && !e.camp);
+  },
+
+  // #19: the camp wakes when the King comes for it
+  updateCampSleeper(e, dt) {
+    const F = CFG.finale;
+    const kp = this.king.mesh.position;
+    if (Math.hypot(kp.x - F.pos[0], kp.z - F.pos[1]) < F.wakeRadius) {
+      for (const x of this.enemies) if (x.camp) {
+        x.camp = false;
+        x.fromCamp = true;                                   // #28: and this is the post it returns to
+        x.post = { x: x.mesh.position.x, z: x.mesh.position.z };
+      }
+      this.raiseAlarm('The camp is awake!');
+      this.hud.toast(this.finaleOpen ? 'The Warlord rises. End this.' : 'You are not ready for this camp. Run!', 3000);
+      audio.wave(true);
+      return;
+    }
+    e.moving = false;
+    this.animateWalk(e, 0, dt);
+  },
+
+  // #28: true while this one is disengaging, so the normal chase is skipped.
+  updateCampReturn(e, dt) {
+    const F = CFG.finale;
+    const kp = this.king.mesh.position;
+    const kingFar = Math.hypot(kp.x - F.pos[0], kp.z - F.pos[1]) > F.leash;
+    if (!kingFar && !e.returning) return false;
+    if (!e.returning) {
+      e.returning = true;
+      if (!this.campCalm) {
+        this.campCalm = true;
+        this.raiseAlarm('');
+        this.hud.toast('The camp breaks off the chase and falls back.', 3200);
+      }
+    }
+    if (!kingFar && e.returning && Math.hypot(kp.x - F.pos[0], kp.z - F.pos[1]) < F.leash * 0.7) {
+      e.returning = false;    // he came back for them
+      this.campCalm = false;
+      return false;
+    }
+    const post = e.post || { x: F.pos[0], z: F.pos[1] };
+    const dx = post.x - e.mesh.position.x;
+    const dz = post.z - e.mesh.position.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 1.2) {                       // home, rested and asleep again
+      e.returning = false;
+      e.camp = true;
+      e.hp = e.maxHp;
+      setHealthBar(e.bar, 1);
+      e.moving = false;
+      this.animateWalk(e, 0, dt);
+      return true;
+    }
+    const sp = (e.speed || 3) * dt;
+    e.mesh.position.x += (dx / d) * sp;
+    e.mesh.position.z += (dz / d) * sp;
+    e.mesh.rotation.y = Math.atan2(dx, dz);
+    e.moving = true;
+    this.animateWalk(e, sp, dt);
+    return true;
+  },
+
+  // the Warlord calls reinforcements from his tents while he lives
+  chiefCall(e) {
+    const F = CFG.finale;
+    e.lastCall = this.time;
+    const top = this.topRank();
+    for (let i = 0; i < F.callCount; i++) {
+      const a = rand(0, Math.PI * 2);
+      this.spawnEnemy(i === 0 ? 'shield' : 'knight', F.pos[0] + Math.cos(a) * F.radius * 0.8, F.pos[1] + Math.sin(a) * F.radius * 0.8, top);
+    }
+    this.hud.toast('The Warlord calls his men from the tents!', 2200);
+    audio.alarm();
+  },
+
+  // #35: send a thief when the King is carrying something worth stealing, asked repeatedly through
+  // the night rather than decided once when the night began. A player who spends coins as he earns
+  // them holds almost nothing at nightfall, which is why thieves were never seen.
+  maybeSendThief(dt) {
+    const th = CFG.waves.thieves;
+    this.thiefTimer = (this.thiefTimer || 0) - dt;
+    if (this.thiefTimer > 0) return;
+    this.thiefTimer = th.every;
+    if (!this.night || this.wave < th.fromWave || this.queen.captive || this.over || this.won) return;
+    if (this.coinsCarried < th.minCoins) return;
+    const out = this.enemies.filter((e) => e.type === 'thief').length + this.spawnQueue.filter((s) => s.type === 'thief').length;
+    if (out >= th.max || Math.random() > th.chance) return;
+    const kp = this.king.mesh.position;
+    const half = CFG.world.size / 2 - 8;
+    const a = rand(0, Math.PI * 2);
+    const rr = 26 + rand(6, 12);
+    this.spawnQueue.push({
+      type: 'thief',
+      x: THREE.MathUtils.clamp(kp.x + Math.cos(a) * rr, -half, half),
+      z: THREE.MathUtils.clamp(kp.z + Math.sin(a) * rr, -half, half),
+      t: th.warn, rank: 0, warn: true,
+    });
+  },
+
+  // A thief runs at the King, grabs coins off his stack and bolts for the edge of the map. It ignores
+  // walls and never fights, so the answer is archers and speed, not fortification.
+  updateThief(e, dt) {
+    const p = e.mesh.position;
+    const half = CFG.world.size / 2 - 4;
+    if (e.state === 'flee') {
+      // head for whichever edge is nearest, carrying the loot in plain sight
+      if (!e.exit) e.exit = this.edgeExit(p);
+      tmp2.set(e.exit.x - p.x, 0, e.exit.z - p.z);
+      const d = tmp2.length();
+      this.faceTowards(e.mesh, tmp.set(e.exit.x, 0, e.exit.z), dt, 10);
+      if (d > 0.1) {
+        tmp2.normalize().multiplyScalar(Math.min(e.stats.fleeSpeed * dt, d));
+        p.add(tmp2);
+      }
+      this.collideRiver(p, e.radius);
+      e.moving = true;
+      this.animateWalk(e, 1, dt);
+      if (Math.abs(p.x) > half - 0.5 || Math.abs(p.z) > half - 0.5) this.thiefEscapes(e);
+      return;
+    }
+    // hunting: straight for the King and his coin stack
+    const kp = this.king.mesh.position;
+    this.faceTowards(e.mesh, kp, dt, 10);
+    tmp2.subVectors(kp, p);
+    tmp2.y = 0;
+    const d = tmp2.length();
+    if (d > 1.1) {
+      tmp2.normalize().multiplyScalar(Math.min(e.stats.speed * dt, d - 1.0));
+      p.add(tmp2);
+      this.collideRiver(p, e.radius);
+    } else if (this.coinsCarried > 0) {
+      const take = Math.max(1, Math.min(this.coinsCarried, Math.round(this.coinsCarried * e.stats.steal)));
+      this.coinsCarried -= take;
+      e.carrying = take;
+      e.state = 'flee';
+      this.attachLoot(e);
+      this.raiseAlarm(`A thief took ${take} coins!`);
+      this.hud.toast(`A thief has your coins! Cut them down before they reach the edge.`, 3000);
+      this.popup(`-${take}`, p, '#ff9a9a', 1.8);
+      audio.hurt();
+    }
+    e.moving = d > 1.1;
+    this.animateWalk(e, e.moving ? 1 : 0, dt);
+  },
+
+  // the loot rides on the thief's back so the stakes are visible at a glance
+  attachLoot(e) {
+    const g = new THREE.Group();
+    const n = Math.min(8, Math.max(2, Math.round(e.carrying / 3)));
+    for (let i = 0; i < n; i++) {
+      const c = makeCoin(this.coinTier());
+      c.position.set(rand(-0.12, 0.12), 1.35 + i * 0.11, -0.28);
+      c.scale.setScalar(0.8);
+      g.add(c);
+    }
+    e.mesh.add(g);
+    e.loot = g;
+  },
+
+  thiefEscapes(e) {
+    this.enemies.splice(this.enemies.indexOf(e), 1);
+    this.root.remove(e.mesh);
+    this.disposeEntity(e.mesh);
+    this.hud.toast(`The thief escaped with ${e.carrying} coins.`, 2600);
+    audio.wallHit();
+  },
+
+  updateEnemies(dt) {
+    // bucket enemies into cells so separation only checks neighbours (was O(n^2));
+    // the cell must be at least two boss radii so a boss pair is never missed
+    const cell = 4.5;
+    const grid = new Map();
+    for (const o of this.enemies) {
+      const k = Math.floor(o.mesh.position.x / cell) * 4096 + Math.floor(o.mesh.position.z / cell);
+      let arr = grid.get(k);
+      if (!arr) grid.set(k, (arr = []));
+      arr.push(o);
+    }
+    for (const e of this.enemies) {
+      if (e.captor) {
+        this.updateCaptor(e, dt);
+        continue;
+      }
+      if (e.camp) {
+        this.updateCampSleeper(e, dt);
+        continue;
+      }
+      // #28: the camp defends the camp. Get far enough away and it breaks off, walks back to its
+      // posts and sleeps again, rather than chasing the King home and ending the run.
+      if (e.fromCamp && this.updateCampReturn(e, dt)) continue;
+      if (e.chief && this.time - e.lastCall > CFG.finale.callEvery && e.hp < e.maxHp) this.chiefCall(e);
+      if (e.escort) {
+        this.updateEscort(e, dt);
+        continue;
+      }
+      if (e.type === 'thief') {
+        this.updateThief(e, dt);
+        continue;
+      }
+      if (e.type === 'sapper') {
+        this.updateSapper(e, dt);
+        continue;
+      }
+      if (e.type === 'archer') {
+        this.updateEnemyArcher(e, dt);
+        continue;
+      }
+      e.cooldown -= dt;
+      e.retarget -= dt;
+      if (e.retarget <= 0 || !e.target || e.target.hp <= 0 || (e.target.isKeep && (e.target.state !== 'built' || !this.queen.inKeep))) {
+        e.retarget = 0.4;
+        let best = null;
+        let bd = Infinity;
+        for (const u of this.units) {
+          if (u.inKeep || u.captive) continue;
+          let d = e.mesh.position.distanceToSquared(u.mesh.position);
+          if (u.type === 'queen') d *= CFG.queen.targetWeight;
+          if (d < bd) {
+            bd = d;
+            best = u;
+          }
+        }
+        if (this.keep && this.keep.state === 'built' && this.queen.inKeep) {
+          const d = e.mesh.position.distanceToSquared(this.keep.mesh.position) * 0.7;
+          if (d < bd) best = this.keep;
+        }
+        e.target = best;
+      }
+      const t = e.target;
+      if (!t) continue;
+      const p = e.mesh.position;
+      tmp2.subVectors(t.mesh.position, p);
+      tmp2.y = 0;
+      const d = tmp2.length();
+      const reach = e.radius + 0.7 + (t.isKeep ? CFG.keep.half : 0);
+      // if the target is across the river, walk to the nearest bridge first
+      // (recomputed 5x a second, not every frame: it searches the whole river polyline)
+      if (e.wpTarget !== t || this.time >= e.wpT) {
+        e.wp = this.bridgeWaypoint(e, t.mesh.position);
+        e.wpT = this.time + 0.2;
+        e.wpTarget = t;
+      }
+      const wp = e.wp;
+      let blocked = null;
+      if (wp) {
+        tmp2.set(wp.x - p.x, 0, wp.z - p.z);
+        const wd = tmp2.length();
+        this.faceTowards(e.mesh, tmp.set(wp.x, 0, wp.z), dt, 8);
+        if (wd > 0.05) {
+          tmp2.normalize().multiplyScalar(Math.min(e.stats.speed * dt, wd));
+          p.add(tmp2);
+        }
+        blocked = this.collideWalls(p, e.radius, false) || this.collideKeep(p, e.radius);
+        this.animateWalk(e, 1, dt);
+      } else {
+        this.faceTowards(e.mesh, t.mesh.position, dt, 8);
+        if (d > reach) {
+          tmp2.normalize().multiplyScalar(Math.min(e.stats.speed * dt, d - reach + 0.01));
+          p.add(tmp2);
+          blocked = this.collideWalls(p, e.radius, false) || this.collideKeep(p, e.radius);
+          this.animateWalk(e, blocked ? 0.4 : 1, dt);
+        }
+      }
+      e.moving = !!wp || (d > reach && !blocked);
+      if (blocked) {
+        if (e.cooldown <= 0) {
+          e.cooldown = 1 / e.stats.attackRate;
+          this.attackAnim(e);
+          this.damageWall(blocked, e.damage * (e.stats.aoe ? 2 : 1), e);
+          if (e.stats.aoe) this.shake = 0.2;
+        }
+      } else if (!wp && d <= reach) {
+        this.animateWalk(e, 0, dt);
+        if (e.cooldown <= 0) {
+          e.cooldown = 1 / e.stats.attackRate;
+          this.attackAnim(e);
+          if (e.stats.aoe) {
+            for (const u of this.units) {
+              if (u.mesh.position.distanceTo(p) < e.stats.aoe + 1) this.damageUnit(u, e.damage);
+            }
+            if (this.keep && this.keep.state === 'built' && this.keep.mesh.position.distanceTo(p) < e.stats.aoe + 2.5) this.damageWall(this.keep, e.damage * 2);
+            this.shake = 0.25;
+          } else if (t.isKeep) this.damageWall(t, e.damage);
+          else this.damageUnit(t, e.damage);
+        }
+      }
+      if (e.mesh.userData.body && e.mesh.userData.body.rotation.x > 0) e.mesh.userData.body.rotation.x = Math.max(0, e.mesh.userData.body.rotation.x - dt * 3);
+      // simple separation so enemies don't stack into one blob
+      const cx = Math.floor(p.x / cell);
+      const cz = Math.floor(p.z / cell);
+      for (let gx = cx - 1; gx <= cx + 1; gx++) {
+        for (let gz = cz - 1; gz <= cz + 1; gz++) {
+          const arr = grid.get(gx * 4096 + gz);
+          if (!arr) continue;
+          for (const o of arr) {
+            if (o === e) continue;
+            const dd = p.distanceTo(o.mesh.position);
+            const min = e.radius + o.radius;
+            if (dd < min && dd > 0.001) {
+              tmp2.subVectors(p, o.mesh.position).multiplyScalar(((min - dd) / dd) * 0.5);
+              p.add(tmp2);
+            }
+          }
+        }
+      }
+      this.collideWalls(p, e.radius, false);
+      this.collideRiver(p, e.radius);
+      this.collideKeep(p, e.radius);
+      // hit flash squash
+      if (e.flash > 0) {
+        e.flash -= dt;
+        e.mesh.scale.set(e.scale * 1.12, e.scale * 0.88, e.scale * 1.12);
+        if (e.flash <= 0) e.mesh.scale.setScalar(e.scale);
+      }
+    }
+  },
+
+  updateWaves(dt) {
+    this.maybeSendThief(dt);
+    for (let i = this.spawnQueue.length - 1; i >= 0; i--) {
+      const s = this.spawnQueue[i];
+      s.t -= dt;
+      if (s.warn && s.t <= 2.5) {
+        s.warn = false;
+        this.raiseAlarm('Thieves are coming for your coins!');
+      }
+      if (s.t <= 0) {
+        const sp = this.spawnEnemy(s.type, s.x, s.z, s.rank || 0);
+        if (s.type === 'thief') sp.state = 'hunt';
+        this.spawnQueue.splice(i, 1);
+      }
+    }
+    const cleared = this.activeEnemies().length === 0 && this.spawnQueue.length === 0;
+    // Nothing attacks the King until he takes the Queen back (#12): the raids ARE the enemy coming
+    // for her, so while she is captive the clock stands still and it stays daylight.
+    if (this.queen.captive) return;
+
+    // #15: the sun is the timer. Raids come at nightfall and the wave number is the night number.
+    const cy = CFG.cycle;
+    const prev = this.dayPhase;
+    this.dayPhase = (this.dayPhase + dt / cy.length) % 1;
+    const crossed = (from, to, mark) => (from < mark && to >= mark) || (to < from && (from < mark || to >= mark));
+
+    if (!this.night && this.dayPhase >= cy.nightStart - cy.warn / cy.length && this.dayPhase < cy.nightStart && !this.duskWarned) {
+      this.duskWarned = true;
+      this.hud.toast('The sun is going down. Get behind your walls.', 2600);
+    }
+    if (!this.night && crossed(prev, this.dayPhase, cy.nightStart)) {
+      this.night = true;
+      this.duskWarned = false;
+      this.startWave();
+      // #32: the music turns cold, and a wolf says so. Every night at first, then now and then, and
+      // always under a blood moon: a sound that arrives on schedule forever stops being ominous.
+      audio.setNight(true);
+      const n = this.wave;
+      if (n <= 3 || n % 3 === 0 || (n > 0 && n % CFG.waves.bossEvery === 0)) audio.howl();
+    }
+    if (this.night && crossed(prev, this.dayPhase, cy.dawn)) {
+      this.night = false;
+      audio.setNight(false);
+      this.dawnBreaks(cleared);
+    }
+    // seconds until the sun goes down, for the HUD
+    const toNight = (cy.nightStart - this.dayPhase + 1) % 1;
+    this.waveTimer = this.night ? 0 : toNight * cy.length;
+  },
+
+  // The reward beat: you held the night, here is the day to rebuild in.
+  dawnBreaks(cleared) {
+    if (this.wave <= 0) return;
+    if (cleared) {
+      this.addScore(CFG.score.waveClear * this.wave);
+      this.hud.toast(`Dawn. You held night ${this.wave}.`, 3000);
+      audio.unlock();
+    } else {
+      this.hud.toast('Dawn, but raiders are still inside the walls.', 2800);
+    }
+  },
+
+  // "Bring on the night": skip the rest of the daylight for points
+  callWave() {
+    if (!this.running || this.night || this.waveTimer <= 0 || this.queen.captive) return;
+    const bonus = Math.floor(this.waveTimer) * CFG.score.earlyWavePerSecond;
+    if (bonus > 0) {
+      this.addScore(bonus);
+      this.hud.toast(`Night called early: +${bonus} points`, 1400);
+    }
+    this.dayPhase = CFG.cycle.nightStart - 1e-4;
+    this.duskWarned = false;
+  },
+
+  // Nearest map edge reachable WITHOUT crossing the river (a runner that had to cross would pin
+  // itself against the bank and never leave).
+  edgeExit(p) {
+    const half = CFG.world.size / 2 - 4;
+    const mySide = this.world.riverInfo(p.x, p.z).side;
+    const cands = [{ x: half, z: p.z }, { x: -half, z: p.z }, { x: p.x, z: half }, { x: p.x, z: -half }];
+    cands.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z));
+    return cands.find((c) => this.world.riverInfo(c.x, c.z).side === mySide) || cands[0];
+  },
+
+  // The Queen trails the King until she has a keep to shelter in.
+  // Captive Queen: stands still under guard. Captors wake when the King gets close; once they are
+  // gone and he reaches her, she is free and follows him from then on.
+  // #11: she is held, not parked. She edges away from whichever guard is nearest and they close
+  // back in, which reads as a capture from a distance without needing the toast to explain it.
+  updateCaptive(dt) {
+    const q = this.queen;
+    if (q.taken) return this.updateTaken(dt);
+    const R = CFG.rescue;
+    const p = q.mesh.position;
+    const kp = this.king.mesh.position;
+    const d = kp.distanceTo(p);
+    const captors = this.enemies.filter((e) => e.captor);
+
+    // spotted: the guards turn on him after a beat, and she calls out
+    if (d < R.noticeRadius && !this.rescueSpotted) {
+      this.rescueSpotted = true;
+      this.alertT = R.alert;
+      this.queenHop = 1;
+      tmp.copy(p).setY(2.5);
+      this.heartFx(tmp, 1, 0.05);
+      audio.alarm();
+    }
+    if (this.rescueSpotted && this.alertT > 0) {
+      this.alertT -= dt;
+      if (this.alertT <= 0) for (const e of captors) e.captor = false;
+    }
+
+    // she backs away from the nearest guard, but her pen pulls her back, so she paces
+    let near = null;
+    let nd = Infinity;
+    for (const e of captors) {
+      const dd = e.mesh.position.distanceToSquared(p);
+      if (dd < nd) {
+        nd = dd;
+        near = e;
+      }
+    }
+    let moving = 0;
+    if (near) {
+      tmp2.subVectors(p, near.mesh.position);
+      tmp2.y = 0;
+      const back = p.distanceTo(this._pen) / R.penRadius;
+      tmp2.normalize().addScaledVector(this._penDir.subVectors(this._pen, p).setY(0).normalize(), back * 1.6);
+      if (tmp2.lengthSq() > 1e-4) {
+        tmp2.normalize().multiplyScalar(R.queenSpeed * dt);
+        p.add(tmp2);
+        moving = 0.7;
+      }
+    }
+    this.collideRiver(p, 0.3);
+    if (this.queenHop > 0) this.queenHop = Math.max(0, this.queenHop - dt * 1.6);
+    p.y = this.queenHop > 0 ? Math.sin((1 - this.queenHop) * Math.PI) * 0.45 : 0;
+    const look = d < R.noticeRadius ? kp : near ? near.mesh.position : this._pen;
+    q.mesh.rotation.y = this.lerpAngle(q.mesh.rotation.y, Math.atan2(look.x - p.x, look.z - p.z), 1 - Math.exp(-dt * 6));
+    q.moving = moving > 0;
+    this.animateWalk(q, moving, dt);
+    q.bar.visible = false;
+
+    if (d < R.freeRadius && captors.length === 0) this.freeQueen();
+  },
+
+  // Guards circle their prisoner and close in when she drifts, rather than standing in a triangle.
+  updateCaptor(e, dt) {
+    const R = CFG.rescue;
+    const q = this.queen.mesh.position;
+    const p = e.mesh.position;
+    if (this.rescueSpotted && this.alertT > 0) {
+      // spotted him: turn and square up before the charge
+      this.faceTowards(e.mesh, this.king.mesh.position, dt, 6);
+      e.moving = false;
+      this.animateWalk(e, 0, dt);
+      return;
+    }
+    if (e.orbit === undefined) e.orbit = Math.atan2(p.z - q.z, p.x - q.x);
+    e.orbit += dt * 0.32 * (e.orbitDir || 1);
+    const ring = 2.3;
+    tmp2.set(q.x + Math.cos(e.orbit) * ring - p.x, 0, q.z + Math.sin(e.orbit) * ring - p.z);
+    const d = tmp2.length();
+    let moving = 0;
+    if (d > 0.12) {
+      tmp2.normalize().multiplyScalar(Math.min(R.guardSpeed * dt, d));
+      p.add(tmp2);
+      moving = Math.min(1, d);
+    }
+    this.collideRiver(p, e.radius);
+    this.faceTowards(e.mesh, q, dt, 5);
+    e.moving = moving > 0.05;
+    this.animateWalk(e, moving, dt);
+  },
+
+  freeQueen() {
+    const q = this.queen;
+    q.captive = false;
+    q.hp = q.maxHp;
+    setHealthBar(q.bar, 1);
+    tmp.copy(q.mesh.position).setY(1.0);
+    this.heartFx(tmp, 14, 1.2);
+    this.heartTimer = 9;
+    audio.unlock();
+    this.addScore(CFG.score.rescue);
+    // taking her back is what brings the raiders: wind the sun to just before dusk
+    this.dayPhase = (CFG.cycle.nightStart - CFG.rescue.firstRaid / CFG.cycle.length + 1) % 1;
+    this.duskWarned = false;
+    this.hud.toast('The Queen is safe! Get her home before they come for her.', 3400);
+    this.raidWarning = this.time + 3.6;
+    this.refreshPads();
+  },
+
+  updateQueen(dt) {
+    const q = this.queen;
+    if (!q || q.inKeep) return;
+    if (q.captive) return this.updateCaptive(dt);
+    const k = this.king.mesh;
+    const fx = Math.sin(k.rotation.y);
+    const fz = Math.cos(k.rotation.y);
+    tmp.set(k.position.x - fx * CFG.queen.follow, 0, k.position.z - fz * CFG.queen.follow);
+    const p = q.mesh.position;
+    tmp2.subVectors(tmp, p);
+    tmp2.y = 0;
+    const d = tmp2.length();
+    let moving = 0;
+    if (d > 0.25) {
+      const sp = Math.min(q.stats.speed * (d > 5 ? 1.5 : 1), d / dt);
+      tmp2.normalize().multiplyScalar(sp * dt);
+      p.add(tmp2);
+      moving = Math.min(1, d);
+      q.mesh.rotation.y = this.lerpAngle(q.mesh.rotation.y, Math.atan2(tmp2.x, tmp2.z), 1 - Math.exp(-dt * 10));
+    }
+    p.y = 0;
+    this.collideWalls(p, 0.3, true);
+    this.collideRiver(p, 0.3);
+    this.collideKeep(p, 0.3);
+    if (d > 16) p.set(k.position.x + rand(-1, 1), 0, k.position.z + rand(-1, 1));
+    // a heart now and then while she is close and safe, rarely enough to stay charming
+    this.heartTimer -= dt;
+    if (this.heartTimer <= 0) {
+      this.heartTimer = rand(16, 26);
+      if (d < 4 && this.enemies.length === 0 && !this.night) {
+        tmp.copy(p).setY(2.3).lerp(tmp2.copy(k.position).setY(2.3), 0.5);
+        this.heartFx(tmp, 1, 0.25);
+      }
+    }
+    // passing an intact Keep, she steps inside
+    if (this.keep && this.keep.state === 'built' && Math.hypot(p.x - this.keep.x, p.z - this.keep.z) < 3.6) return this.queenEnterKeep();
+    q.moving = moving > 0.05;
+    this.animateWalk(q, moving, dt);
+    this.regen(q, dt);
+    q.bar.visible = true;
+  },
+
+  damageEnemy(e, dmg, hitPos, from = null) {
+    if (e.hp <= 0) return;
+    if (e.type === 'shield' && from) {
+      // facing is rotation.y; a hit from within 60 degrees of it is taken on the shield
+      const fx = Math.sin(e.mesh.rotation.y);
+      const fz = Math.cos(e.mesh.rotation.y);
+      const dx = from.x - e.mesh.position.x;
+      const dz = from.z - e.mesh.position.z;
+      const len = Math.hypot(dx, dz) || 1;
+      if ((dx * fx + dz * fz) / len > 0.5) {
+        dmg *= e.stats.front;
+        this.popup('blocked', hitPos, '#b9c2cc', 1.1, e, 0);
+      }
+    }
+    e.hp -= dmg;
+    e.flash = 0.12;
+    audio.hit();
+    this.burstFx(hitPos, '#dff4ff', 0.9, 0.18);
+    setHealthBar(e.bar, Math.max(0, e.hp / e.maxHp));
+    this.popup(`-${Math.round(dmg)}`, hitPos, e.type === 'boss' ? '#ffffff' : '#ffe27a', e.type === 'boss' ? 2.6 : 1.4, e, dmg);
+    if (e.hp <= 0) this.killEnemy(e);
+  },
+
+  killEnemy(e) {
+    this.enemies.splice(this.enemies.indexOf(e), 1);
+    if (e.escort && this.queen.taken && !this.enemies.some((x) => x.escort)) this.rescueTaken();
+    e.bar.visible = false;
+    this.dying.push({ mesh: e.mesh, t: 0.5 });
+    tmp.copy(e.mesh.position).setY(e.type === 'boss' ? 2.5 : 1.0);
+    this.burstFx(tmp, '#ffffff', e.type === 'boss' ? 6 : 2.6, 0.38);
+    if (e.carrying) {
+      // everything it stole spills back out
+      for (let i = 0; i < e.carrying; i++) this.dropCoin(e.mesh.position);
+      this.hud.toast(`Thief cut down! ${e.carrying} coins recovered.`, 2400);
+    }
+    const rk = CFG.ranks[Math.min(e.rank || 0, CFG.ranks.length - 1)];
+    const mult = e.type === 'boss' ? 4 : e.type === 'brute' || e.type === 'elite' || e.type === 'shield' ? 2 : 1;
+    const n = randInt(rk.coins[0], rk.coins[1]) * mult + this.mods.coinBonus;
+    for (let i = 0; i < n; i++) this.dropCoin(e.mesh.position);
+    audio.enemyDie();
+    this.addScore(CFG.score.kill[e.type] || 10);
+    if (e.chief) {
+      this.addScore(CFG.score.finale);
+      this.victory();
+    } else if (e.type === 'boss') this.hud.toast('Boss defeated!', 1800);
+  },
+
+  nearestEnemy(pos, range, skip = null) {
+    let best = null;
+    let bd = range * range;
+    for (const e of this.enemies) {
+      if (e === skip || e.captor) continue;
+      const d = pos.distanceToSquared(e.mesh.position);
+      const r = d - e.radius * e.radius * 2;
+      if (r < bd) {
+        bd = r;
+        best = e;
+      }
+    }
+    return best;
+  },
+};
