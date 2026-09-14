@@ -1042,7 +1042,7 @@ export function makePadTexture() {
 
 // Pad shapes say what a pad does: SQUARE = builds something (structure, wall, bridge, expansion),
 // CIRCLE = everything else (recruit, crew, upgrade, trade, feed), with a coloured rim per kind.
-export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 'coins', res = [], active = false, sub = null, locked = null, shape = 'square', rim = '#ffffff', tag = null }) {
+export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 'coins', res = [], active = false, sub = null, locked = null, lockIcon = 'keep', shape = 'square', rim = '#ffffff', tag = null }) {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 256, 256);
   const r = 26;
@@ -1116,7 +1116,9 @@ export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 
     ctx.fillText(String(n), 0, 0);
     ctx.restore();
   };
-  if (remaining !== null && remaining !== undefined) bigNum(remaining, 158, priceY, hasRes ? 64 : 78);
+  if (locked) {
+    // no price on a pad that cannot be paid; the lock badge takes that space instead
+  } else if (remaining !== null && remaining !== undefined) bigNum(remaining, 158, priceY, hasRes ? 64 : 78);
   else if (sub) {
     ctx.font = '800 30px "Baloo 2", "Trebuchet MS", system-ui, sans-serif';
     ctx.lineWidth = 6;
@@ -1126,13 +1128,13 @@ export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 
     ctx.fillText(sub, 128, priceY);
   }
   const cols = res.length;
-  res.forEach((row, i) => {
+  if (!locked) res.forEach((row, i) => {
     const x = 128 + (i - (cols - 1) / 2) * 96;
     const ri = iconImage(row.type);
     if (ri) ctx.drawImage(ri, x - 46, 192, 36, 36);
     bigNum(row.remaining, x + 20, 212, 40);
   });
-  if (tag && !hasRes) {
+  if (tag && !hasRes && !locked) {
     ctx.font = '800 17px "Baloo 2", "Trebuchet MS", system-ui, sans-serif';
     ctx.lineWidth = 4;
     ctx.strokeStyle = 'rgba(0,0,0,0.55)';
@@ -1142,16 +1144,16 @@ export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 
   }
   if (locked) {
     outline();
-    ctx.fillStyle = 'rgba(20, 16, 30, 0.55)';
+    ctx.fillStyle = 'rgba(20, 16, 30, 0.45)';
     ctx.fill();
-    const li = iconImage('keep');
-    if (li) ctx.drawImage(li, 128 - 28, 96, 56, 56);
-    ctx.font = '800 30px "Baloo 2", "Trebuchet MS", system-ui, sans-serif';
+    const li = iconImage(lockIcon);
+    if (li) ctx.drawImage(li, 128 - 27, 140, 54, 54);
+    ctx.font = `800 ${locked.length > 13 ? 23 : 28}px "Baloo 2", "Trebuchet MS", system-ui, sans-serif`;
     ctx.lineWidth = 7;
-    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-    ctx.strokeText(locked, 128, 178);
+    ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+    ctx.strokeText(locked, 128, 212);
     ctx.fillStyle = '#ffd23d';
-    ctx.fillText(locked, 128, 178);
+    ctx.fillText(locked, 128, 212);
   }
   tex.needsUpdate = true;
 }

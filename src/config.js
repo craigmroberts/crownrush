@@ -7,8 +7,9 @@ export const CFG = {
   king: { speed: 7.5, footSpeed: 5.6, hp: 140, range: 8.5, fireRate: 1.2, damage: 10, pickupRadius: 3.0 },
   queen: { hp: 90, speed: 7.2, follow: 1.9, targetWeight: 0.55 },
   // Opening: the Queen has been carried off. Find her, clear her captors, and she follows you home.
-  // Waves hold until she is free (or `holdWaves` seconds pass).
-  rescue: { pos: [-30, 9], captors: 3, freeRadius: 3.2, aggroRadius: 9, holdWaves: 50 },
+  // Nobody attacks the King until he takes the Queen back: the raids are the enemy coming to get
+  // her, so nothing spawns while she is captive and `firstRaid` is the grace period after the rescue.
+  rescue: { pos: [-30, 9], captors: 3, freeRadius: 3.2, aggroRadius: 9, firstRaid: 22 },
   keep: { hp: 420, hpPerLevel: 130, radius: 2.1, half: 1.7 },
 
   // The Keep is the base. Materials you mine go ONLY into the Keep; each level unlocks more.

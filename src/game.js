@@ -125,6 +125,7 @@ export class Game {
     this.chips = [];
     this.fx = [];
     this.alarmT = 0;
+    this.raidWarning = 0;
     this.lastAlarm = -99;
     this.swing = 0;
     this.activePad = null;
@@ -784,7 +785,8 @@ export class Game {
       res: pad.res.map((r) => ({ type: r.type, remaining: r.need - r.paid })),
       active: !!pad.active,
       sub: pad.def.feed ? `Level ${this.baseLevel} → ${this.baseLevel + 1}` : null,
-      locked: pad.locked ? `Keep Lv ${pad.locked}` : null,
+      locked: pad.locked === 'rescue' ? 'Free the Queen' : pad.locked ? `Keep Lv ${pad.locked}` : null,
+      lockIcon: pad.locked === 'rescue' ? 'tiara' : 'keep',
       shape: style.shape, rim: style.rim, tag: style.tag,
     });
   }
@@ -1530,6 +1532,10 @@ export class Game {
       const army = this.units.filter((u) => u !== this.king && u !== this.queen && !u.assign).length;
       const between = this.enemies.length === 0 && this.spawnQueue.length === 0 && !this.queen.captive;
       this.hud.showNextWave(between && this.wave > 0 && this.waveTimer > 3 && !this.won);
+      if (this.raidWarning && this.time >= this.raidWarning) {
+        this.raidWarning = 0;
+        this.hud.toast('They want her back. Raiders are coming!', 3000);
+      }
       this.alarmT -= dt;
       this.hud.showAlarm(this.alarmT > 0 ? this.alarmText : null);
       this.hud.setCoinTier(this.coinTier());
@@ -1742,10 +1748,13 @@ export class Game {
     q.hp = q.maxHp;
     setHealthBar(q.bar, 1);
     this.spawnFx(q.mesh.position.x, q.mesh.position.z, 0xf7a1c4);
-    this.hud.toast('The Queen is safe! Keep her close and bring her home.', 3200);
     audio.unlock();
     this.addScore(CFG.score.rescue);
-    this.waveTimer = CFG.waves.firstDelay + 10;
+    // taking her back is what brings the raiders: the first raid is now on its way
+    this.waveTimer = CFG.rescue.firstRaid;
+    this.hud.toast('The Queen is safe! Get her home before they come for her.', 3400);
+    this.raidWarning = this.time + 3.6;
+    this.refreshPads();
   }
 
   updateQueen(dt) {
@@ -2175,6 +2184,7 @@ export class Game {
       const chips = [];
       const def = nearest.def;
       const locked = this.padLocked(def);
+      if (this.queen.captive) chips.push({ icon: 'tiara', text: 'Free the Queen first', state: 'short' });
       if (def.crew) {
         const free = this.units.filter((u) => u.type === 'archer' && !u.assign).length;
         chips.push({ icon: 'person', text: `${nearest.cost - nearest.paid} archers`, state: free > 0 ? 'ok' : 'short' });
@@ -2190,7 +2200,7 @@ export class Game {
         if (def.units) chips.push({ icon: def.units.type, text: `${this.unitCount(def.units.type)} / ${this.unitCap(def.units.type)} ${def.units.type}s`, state: locked ? 'short' : 'ok' });
       }
       const onPad = nd < CFG.spend.padRadius;
-      const note = locked ? 'Feed the Keep to raise the limit' : onPad && this.king.moving && (nearest.holdT || 0) < CFG.spend.walkHold ? 'Stop here to pay' : def.feed ? `Stop here to pour in materials (level ${this.baseLevel} → ${this.baseLevel + 1})` : def.crew ? 'Stop here to send archers' : onPad ? 'Paying…' : 'Stop on the pad to pay';
+      const note = this.queen.captive ? 'Rescue the Queen before you build' : locked ? 'Feed the Keep to raise the limit' : onPad && this.king.moving && (nearest.holdT || 0) < CFG.spend.walkHold ? 'Stop here to pay' : def.feed ? `Stop here to pour in materials (level ${this.baseLevel} → ${this.baseLevel + 1})` : def.crew ? 'Stop here to send archers' : onPad ? 'Paying…' : 'Stop on the pad to pay';
       this.hud.showPadTip(sx, sy, def.feed ? `Feed the Keep · Lv ${this.baseLevel}` : def.label, chips, note);
     } else this.hud.hidePadTip();
     for (const pad of this.pads) {
@@ -2199,7 +2209,9 @@ export class Game {
       if (s < 1) pad.mesh.scale.setScalar(Math.min(1, s + dt * 4));
       else if (s > 1) pad.mesh.scale.setScalar(Math.max(1, s - dt * 0.8));
       const inside = kp.distanceTo(pad.mesh.position) < CFG.spend.padRadius;
-      const locked = this.padLocked(pad.def);
+      // #9: no pad can be paid until the Queen is free. They stay visible so the player can see what
+      // the village will offer, but they are plainly shut.
+      const locked = this.queen.captive ? 'rescue' : this.padLocked(pad.def);
       if (inside !== !!pad.active || locked !== (pad.locked || null)) {
         pad.active = inside;
         pad.locked = locked;
@@ -2211,7 +2223,7 @@ export class Game {
       const paying = inside && pad.holdT > CFG.spend.arm && (!this.king.moving || pad.holdT > CFG.spend.walkHold);
       if (pad.def.crew) {
         // crew pads take archers from the army instead of coins
-        if (paying && pad.paid < pad.cost && this.spendTimer <= 0) {
+        if (paying && !locked && pad.paid < pad.cost && this.spendTimer <= 0) {
           const free = this.units.filter((u) => u.type === 'archer' && !u.assign);
           if (free.length) {
             this.spendTimer = CFG.spend.crewTick;
@@ -2233,7 +2245,7 @@ export class Game {
       // materials pour in alongside the coins
       for (const row of pad.res) {
         const pendingRes = this.flyRes.filter((f) => f.pad === pad && f.row === row).length;
-        if (paying && this.res[row.type] > 0 && row.paid + pendingRes < row.need && (pad.resTimer || 0) <= 0) {
+        if (paying && !locked && this.res[row.type] > 0 && row.paid + pendingRes < row.need && (pad.resTimer || 0) <= 0) {
           pad.resTimer = tick * 1.6;
           this.res[row.type]--;
           audio.ching();
@@ -2274,8 +2286,10 @@ export class Game {
       this.victory();
       return;
     }
-    // the raids hold off while the Queen is still captive (up to a point)
-    if (!(this.queen.captive && this.time < CFG.rescue.holdWaves)) this.waveTimer -= dt;
+    // Nothing attacks the King until he takes the Queen back (#12): the raids ARE the enemy coming
+    // for her, so while she is captive the world stays quiet however long the player takes.
+    if (this.queen.captive) return;
+    this.waveTimer -= dt;
     if (cleared && this.wave > 0 && this.waveTimer > CFG.waves.graceAfterClear) {
       this.waveTimer = CFG.waves.graceAfterClear;
     }

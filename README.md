@@ -60,9 +60,13 @@ same Wi-Fi and open the "Network" URL that Vite prints instead.
 ## The opening: rescue the Queen
 
 The Queen starts captive in the wilds (`CFG.rescue`), guarded by three Bandits who stand still until
-the King comes close. A pink arrow points to her and the raids hold off until she is free (or 50
-seconds pass). Clear the guards, reach her, and she follows the King from then on; passing an intact
-Keep she steps inside.
+the King comes close. A pink arrow points to her.
+
+**Nothing happens until you go and get her.** No raiders spawn while she is captive, however long you
+take, and no build pad will accept payment: pads stay visible but shut, marked "Free the Queen". The
+raids are the enemy coming to take her back, so the rescue is what starts the war. Clear her guards,
+reach her, and the first raid is on its way (`CFG.rescue.firstRaid`). She follows the King from then
+on; passing an intact Keep she steps inside.
 
 ## Reading the pads
 
