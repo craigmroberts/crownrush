@@ -25,6 +25,25 @@ const CHORDS = [
 ];
 const BASS = [['C2', 'G2'], ['G2', 'D3'], ['A2', 'E3'], ['F2', 'C3'], ['C2', 'G2'], ['G2', 'D3'], ['F2', 'C3'], ['G2', 'D3']];
 
+// #32: the same eight bars after dark. Same rhythm token for token, so the two loops line up bar for
+// bar and can be cross-faded instead of swapped; what changes is that it is in A minor, sits an
+// octave lower, and ends bars on E major rather than G, which is what makes it sound wrong-footed.
+const NIGHT_LEAD = [
+  'A4 C5 E5 C5 A4 G4 F4 -',
+  'E4 G4 B4 . G4 E4 . -',
+  'F4 A4 C5 B4 A4 F4 . -',
+  'D4 F4 A4 F4 E4 F4 . -',
+  'A4 C5 E5 C5 A4 G4 F4 .',
+  'E4 G4 B4 C5 D5 . . .',
+  'C5 B4 A4 G4 F4 G4 A4 .',
+  'E4 . . . - A3 B3 C4',
+];
+const NIGHT_CHORDS = [
+  ['A3', 'C4', 'E4'], ['E3', 'G3', 'B3'], ['F3', 'A3', 'C4'], ['D3', 'F3', 'A3'],
+  ['A3', 'C4', 'E4'], ['E3', 'G3', 'B3'], ['F3', 'A3', 'C4'], ['E3', 'G#3', 'B3'],
+];
+const NIGHT_BASS = [['A2', 'E3'], ['E2', 'B2'], ['F2', 'C3'], ['D2', 'A2'], ['A2', 'E3'], ['E2', 'B2'], ['F2', 'C3'], ['E2', 'B2']];
+
 class Audio {
   constructor() {
     this.ctx = null;
@@ -33,6 +52,7 @@ class Audio {
     this.lastChing = 0;
     this.lastHurt = 0;
     this.events = [];
+    this.nightOn = false;
     this.loopLen = LEAD.length * 4 * BEAT;
   }
 
@@ -51,6 +71,14 @@ class Audio {
     this.music = this.ctx.createGain();
     this.music.gain.value = 0.55;
     this.music.connect(this.master);
+    // #32: day and night play on the same clock into their own buses, and nightfall is a cross-fade
+    // between the two rather than a swap, so no bar is ever cut short or restarted.
+    this.dayBus = this.ctx.createGain();
+    this.dayBus.gain.value = this.nightOn ? 0 : 1;
+    this.dayBus.connect(this.music);
+    this.nightBus = this.ctx.createGain();
+    this.nightBus.gain.value = this.nightOn ? 1 : 0;
+    this.nightBus.connect(this.music);
     this.sfx = this.ctx.createGain();
     this.sfx.gain.value = 0.9;
     this.sfx.connect(this.master);
@@ -149,7 +177,50 @@ class Audio {
         ev.push({ kind: 'arp', f: freq(n) * 2, t: b * 4 * BEAT + i * BEAT * 0.5 + 0.005, dur: BEAT * 0.45 });
       }
     });
+    for (const e of ev) e.set = 'day';
+
+    // the night arrangement: same bars, thinner. The bright arpeggio halves in speed and drops an
+    // octave, and a drone sits under every other bar, which is most of where the dread comes from.
+    NIGHT_LEAD.forEach((bar, b) => {
+      const toks = bar.split(' ');
+      let cur = null;
+      toks.forEach((tok, i) => {
+        const t = b * 4 * BEAT + i * BEAT * 0.5;
+        if (tok === '.') {
+          if (cur) cur.dur += BEAT * 0.5;
+        } else if (tok === '-') {
+          cur = null;
+        } else {
+          cur = { kind: 'lead', set: 'night', f: freq(tok), t, dur: BEAT * 0.5 };
+          ev.push(cur);
+        }
+      });
+      const chord = NIGHT_CHORDS[b];
+      chord.forEach((n) => ev.push({ kind: 'pad', set: 'night', f: freq(n), t: b * 4 * BEAT, dur: 4 * BEAT }));
+      const [root, fifth] = NIGHT_BASS[b];
+      ev.push({ kind: 'bass', set: 'night', f: freq(root), t: b * 4 * BEAT, dur: BEAT * 1.6 });
+      ev.push({ kind: 'bass', set: 'night', f: freq(fifth), t: b * 4 * BEAT + 2 * BEAT, dur: BEAT * 1.1 });
+      for (let i = 0; i < 4; i++) {
+        const n = chord[[0, 1, 2, 1][i % 4]];
+        ev.push({ kind: 'arp', set: 'night', f: freq(n), t: b * 4 * BEAT + i * BEAT + 0.005, dur: BEAT * 0.9 });
+      }
+      if (b % 2 === 0) ev.push({ kind: 'drone', set: 'night', f: freq(NIGHT_BASS[b][0]) / 2, t: b * 4 * BEAT, dur: 8 * BEAT });
+    });
     this.events = ev.sort((a, b) => a.t - b.t);
+  }
+
+  // #32: cross-fade to the other arrangement, starting on the next bar line so the pulse holds.
+  setNight(on) {
+    this.nightOn = !!on;
+    if (!this.ctx || !this.dayBus) return;
+    const bar = 4 * BEAT;
+    const now = this.ctx.currentTime;
+    const start = Math.max(now, this.loopStart + Math.ceil(Math.max(0, now - this.loopStart) / bar) * bar);
+    for (const [bus, to] of [[this.dayBus, on ? 0 : 1], [this.nightBus, on ? 1 : 0]]) {
+      bus.gain.cancelScheduledValues(now);
+      bus.gain.setValueAtTime(bus.gain.value, start);
+      bus.gain.linearRampToValueAtTime(to, start + bar * 1.5);
+    }
   }
 
   startMusic() {
@@ -177,11 +248,63 @@ class Audio {
   }
 
   playEvent(e, t) {
-    const bus = this.music;
+    const night = e.set === 'night';
+    const bus = night ? this.nightBus : this.dayBus;
+    if (!bus) return;
+    // a silent bus still costs oscillators, so skip whichever arrangement is faded out and staying that way
+    if (night !== this.nightOn && bus.gain.value < 0.001) return;
+    if (night) {
+      // darker voicing: softer attacks, longer tails, the low-pass pulled well down
+      if (e.kind === 'lead') this.tone({ f: e.f, t, dur: e.dur, type: 'triangle', gain: 0.15, attack: 0.04, release: 0.32, lp: 1300, bus });
+      else if (e.kind === 'pad') this.tone({ f: e.f, t, dur: e.dur, type: 'sine', gain: 0.05, attack: 0.9, release: 1.1, lp: 900, bus });
+      else if (e.kind === 'bass') this.tone({ f: e.f, t, dur: e.dur, type: 'triangle', gain: 0.19, attack: 0.03, release: 0.4, lp: 320, bus });
+      else if (e.kind === 'arp') this.tone({ f: e.f, t, dur: e.dur, type: 'sine', gain: 0.03, attack: 0.02, release: 0.5, lp: 1100, bus });
+      else if (e.kind === 'drone') this.tone({ f: e.f, t, dur: e.dur, type: 'sine', gain: 0.075, attack: 1.6, release: 2.2, lp: 200, bus });
+      return;
+    }
     if (e.kind === 'lead') this.tone({ f: e.f, t, dur: e.dur, type: 'triangle', gain: 0.16, attack: 0.015, release: 0.12, lp: 2600, bus });
     else if (e.kind === 'pad') this.tone({ f: e.f, t, dur: e.dur, type: 'sine', gain: 0.035, attack: 0.5, release: 0.6, bus });
     else if (e.kind === 'bass') this.tone({ f: e.f, t, dur: e.dur, type: 'triangle', gain: 0.17, attack: 0.02, release: 0.15, lp: 500, bus });
     else if (e.kind === 'arp') this.tone({ f: e.f, t, dur: e.dur, type: 'sine', gain: 0.045, attack: 0.005, release: 0.2, bus });
+  }
+
+  // #32: the wolf. A sawtooth swept up and held before it falls away, with a slow vibrato, the
+  // filter opening as it climbs, and a breath of noise beneath: nightfall you can hear coming.
+  howl() {
+    if (!this.ready()) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime + 0.03;
+    const dur = 2.2;
+    const o = ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(280, t);
+    o.frequency.exponentialRampToValueAtTime(610, t + 0.6);
+    o.frequency.setValueAtTime(610, t + 1.25);
+    o.frequency.exponentialRampToValueAtTime(215, t + dur);
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 5.4;
+    const lfoDepth = ctx.createGain();
+    lfoDepth.gain.value = 10;
+    lfo.connect(lfoDepth);
+    lfoDepth.connect(o.frequency);
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(760, t);
+    lp.frequency.linearRampToValueAtTime(1600, t + 0.7);
+    lp.frequency.linearRampToValueAtTime(620, t + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.2, t + 0.4);
+    g.gain.setValueAtTime(0.2, t + 1.3);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.45);
+    o.connect(lp);
+    lp.connect(g);
+    g.connect(this.sfx);
+    o.start(t);
+    o.stop(t + dur + 0.5);
+    lfo.start(t);
+    lfo.stop(t + dur + 0.5);
+    this.noise({ t: t + 0.15, dur: 1.5, gain: 0.045, type: 'bandpass', f: 500, q: 0.7 });
   }
 
   // ---- sound effects ----

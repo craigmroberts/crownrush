@@ -189,3 +189,4 @@ requestAnimationFrame(frame);
 
 // expose for poking around in the console
 window.game = game;
+window.audio = audio;

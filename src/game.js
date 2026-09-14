@@ -3252,9 +3252,15 @@ export class Game {
       this.night = true;
       this.duskWarned = false;
       this.startWave();
+      // #32: the music turns cold, and a wolf says so. Every night at first, then now and then, and
+      // always under a blood moon: a sound that arrives on schedule forever stops being ominous.
+      audio.setNight(true);
+      const n = this.wave;
+      if (n <= 3 || n % 3 === 0 || (n > 0 && n % CFG.waves.bossEvery === 0)) audio.howl();
     }
     if (this.night && crossed(prev, this.dayPhase, cy.dawn)) {
       this.night = false;
+      audio.setNight(false);
       this.dawnBreaks(cleared);
     }
     // seconds until the sun goes down, for the HUD
