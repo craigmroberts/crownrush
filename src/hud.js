@@ -1,3 +1,5 @@
+import { iconSvg } from './icons.js';
+
 export class Hud {
   constructor() {
     this.coinEl = document.getElementById('coin-count');
@@ -59,7 +61,7 @@ export class Hud {
     }
   }
   toast(text, ms = 2200) {
-    this.toastEl.textContent = text;
+    (document.getElementById('toast-text') || this.toastEl).textContent = text;
     this.toastEl.classList.add('show');
     clearTimeout(this.toastTimer);
     this.toastTimer = setTimeout(() => this.toastEl.classList.remove('show'), ms);
@@ -89,7 +91,7 @@ export class Hud {
     if (this.tipKey !== name + chips.map((c) => c.text + c.state).join('|') + note) {
       this.tipKey = name + chips.map((c) => c.text + c.state).join('|') + note;
       this.tip.querySelector('.tip-name').textContent = name;
-      this.tip.querySelector('.tip-costs').innerHTML = chips.map((c) => `<span class="chip ${c.state}">${c.text}</span>`).join('');
+      this.tip.querySelector('.tip-costs').innerHTML = chips.map((c) => `<span class="chip ${c.state}">${iconSvg(c.icon, 18)}${c.text}</span>`).join('');
       let n = this.tip.querySelector('.tip-note');
       if (!n) {
         n = document.createElement('div');
@@ -147,7 +149,7 @@ export class Hud {
       el.style.display = 'block';
       el.style.transform = `translate(${it.x}px, ${it.y}px)`;
       el.firstChild.style.transform = `rotate(${it.angle}rad)`;
-      el.lastChild.textContent = it.alarm ? '⚠️' : it.home ? '🏰' : it.boss ? '💀' : it.count > 1 ? it.count : '';
+      el.lastChild.innerHTML = it.alarm ? iconSvg('alert', 22) : it.home ? iconSvg('home', 22) : it.boss ? iconSvg('skull', 22) : it.count > 1 ? it.count : '';
       el.classList.toggle('boss', !!it.boss);
       el.classList.toggle('home', !!it.home);
       el.classList.toggle('alarm', !!it.alarm);

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { iconImage } from './icons.js';
 
 // ---- shared materials: cel-shaded for the soft cartoon look ----
 const gradCanvas = document.createElement('canvas');
@@ -964,14 +965,13 @@ export function makePadTexture() {
   return { canvas, tex };
 }
 
-const RES_ICON = { wood: '🪵', stone: '🪨', straw: '🌾' };
 export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 'coins', res = [], active = false }) {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 256, 256);
   const r = 26;
   ctx.beginPath();
   ctx.roundRect(14, 14, 228, 228, r);
-  ctx.fillStyle = active ? 'rgba(255, 230, 120, 0.42)' : 'rgba(70, 60, 45, 0.55)';
+  ctx.fillStyle = active ? 'rgba(255, 230, 120, 0.45)' : 'rgba(58, 42, 26, 0.5)';
   ctx.fill();
   if (paid > 0) {
     ctx.save();
@@ -993,44 +993,31 @@ export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 
     ctx.stroke();
   }
   const hasRes = res.length > 0;
-  ctx.font = (hasRes ? '50px' : '62px') + ' system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+  // icon on a soft disc
+  const img = iconImage(icon);
+  const iy = hasRes ? 58 : 70;
+  const isz = hasRes ? 66 : 80;
+  ctx.beginPath();
+  ctx.arc(128, iy, isz * 0.62, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,251,232,0.85)';
+  ctx.fill();
+  if (img) ctx.drawImage(img, 128 - isz / 2, iy - isz / 2, isz, isz);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(icon, 128, hasRes ? 54 : 64);
-  ctx.font = 'bold 24px "Trebuchet MS", system-ui, sans-serif';
+  ctx.font = '800 25px "Baloo 2", "Trebuchet MS", system-ui, sans-serif';
   ctx.lineWidth = 6;
-  ctx.strokeStyle = 'rgba(0,0,0,0.45)';
-  ctx.strokeText(label, 128, hasRes ? 96 : 112);
+  ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+  ctx.strokeText(label, 128, hasRes ? 108 : 124);
   ctx.fillStyle = '#ffffff';
-  ctx.fillText(label, 128, hasRes ? 96 : 112);
-  const priceY = hasRes ? 150 : 186;
-  if (currency === 'archers') {
-    ctx.beginPath();
-    ctx.arc(70, priceY, 24, 0, Math.PI * 2);
-    ctx.fillStyle = '#2f6fd6';
-    ctx.fill();
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = '#1d4a99';
-    ctx.stroke();
-    ctx.font = '26px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
-    ctx.fillText('🧍', 70, priceY + 2);
-  } else {
-    ctx.beginPath();
-    ctx.arc(70, priceY, 24, 0, Math.PI * 2);
-    ctx.fillStyle = '#f5b800';
-    ctx.fill();
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = '#b07a00';
-    ctx.stroke();
-    ctx.font = 'bold 22px system-ui';
-    ctx.fillStyle = '#b07a00';
-    ctx.fillText('♛', 70, priceY + 2);
-  }
+  ctx.fillText(label, 128, hasRes ? 108 : 124);
+  const priceY = hasRes ? 158 : 190;
+  const priceIcon = iconImage(currency === 'archers' ? 'person' : 'coin');
+  if (priceIcon) ctx.drawImage(priceIcon, 44, priceY - 26, 52, 52);
   const bigNum = (n, x, y, size) => {
     ctx.save();
     ctx.translate(x, y);
-    ctx.transform(1, 0, -0.18, 1, 0, 0);
-    ctx.font = `italic 900 ${size}px "Trebuchet MS", "Arial Black", system-ui, sans-serif`;
+    ctx.transform(1, 0, -0.16, 1, 0, 0);
+    ctx.font = `800 ${size}px "Baloo 2", "Trebuchet MS", "Arial Black", system-ui, sans-serif`;
     ctx.lineWidth = size * 0.13;
     ctx.strokeStyle = '#1b1b24';
     ctx.strokeText(String(n), 0, 0);
@@ -1038,15 +1025,13 @@ export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 
     ctx.fillText(String(n), 0, 0);
     ctx.restore();
   };
-  bigNum(remaining, 160, priceY, hasRes ? 64 : 78);
-  // material rows
+  bigNum(remaining, 158, priceY, hasRes ? 64 : 78);
   const cols = res.length;
   res.forEach((row, i) => {
     const x = 128 + (i - (cols - 1) / 2) * 96;
-    ctx.font = '30px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
-    ctx.fillStyle = '#fff';
-    ctx.fillText(RES_ICON[row.type], x - 26, 208);
-    bigNum(row.remaining, x + 26, 208, 40);
+    const ri = iconImage(row.type);
+    if (ri) ctx.drawImage(ri, x - 46, 192, 36, 36);
+    bigNum(row.remaining, x + 20, 212, 40);
   });
   tex.needsUpdate = true;
 }

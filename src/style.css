@@ -1,37 +1,9 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; font-family: "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
 #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 
 #hud { position: fixed; inset: 0; pointer-events: none; padding: max(14px, env(safe-area-inset-top)) 16px; }
-#coin-hud {
-  position: absolute; top: max(14px, env(safe-area-inset-top)); right: 16px;
-  display: flex; align-items: center; gap: 10px;
-  background: rgba(20, 40, 30, 0.75); border-radius: 999px; padding: 6px 20px 6px 6px;
-  color: #fff; font-weight: 800; font-size: 30px; letter-spacing: 2px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-}
-.coin-icon {
-  width: 44px; height: 44px; border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #ffe680, #f5b800 55%, #c98a00);
-  border: 3px solid #b07a00; position: relative;
-}
-.coin-icon::after { content: "♛"; position: absolute; inset: 0; display: grid; place-items: center; color: #b07a00; font-size: 22px; }
-#wave-hud, #army-hud {
-  position: absolute; left: 16px; color: #fff; font-weight: 800;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.5); font-size: 20px;
-}
-#wave-hud { top: max(14px, env(safe-area-inset-top)); font-size: 24px; }
-#wave-hud .goal { font-size: 15px; opacity: 0.8; }
-#next-wave { font-size: 13px; font-weight: 600; opacity: 0.85; margin-top: -2px; }
-#army-hud { top: calc(max(14px, env(safe-area-inset-top)) + 94px); font-size: 18px; }
-#army-hud .sep { opacity: 0.6; }
 
-#toast {
-  position: fixed; left: 50%; top: 18%; transform: translateX(-50%);
-  background: rgba(255,255,255,0.92); color: #2a3a2f; padding: 10px 18px; border-radius: 12px;
-  font-weight: 800; font-size: 18px; opacity: 0; transition: opacity 0.25s; pointer-events: none;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.25);
-}
 #toast.show { opacity: 1; }
 
 .overlay { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(10, 30, 20, 0.6); backdrop-filter: blur(4px); z-index: 10; }
@@ -48,11 +20,6 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 }
 .panel button:active { transform: translateY(3px); border-bottom-width: 2px; }
 
-#mute-btn, #pause-btn {
-  position: absolute; right: 16px; top: calc(max(14px, env(safe-area-inset-top)) + 64px);
-  pointer-events: auto; width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: pointer;
-  background: rgba(20, 40, 30, 0.75); color: #fff; font-size: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-}
 
 #indicators { position: fixed; inset: 0; pointer-events: none; z-index: 3; }
 .indicator { position: absolute; left: 0; top: 0; width: 0; height: 0; }
@@ -68,18 +35,9 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .indicator.boss .arrow { background: #ffffff; width: 40px; height: 40px; left: -20px; top: -20px; }
 .panel a { color: #c9432b; font-weight: 700; }
 
-#pause-btn { top: calc(max(14px, env(safe-area-inset-top)) + 116px); font-size: 18px; }
 
-#king-hp { position: absolute; left: 16px; top: calc(max(14px, env(safe-area-inset-top)) + 46px); display: flex; align-items: center; gap: 6px; }
-#king-hp .crown { color: #f5b800; font-size: 18px; text-shadow: 0 2px 3px rgba(0,0,0,0.5); }
-#king-hp .track { width: 150px; height: 14px; border-radius: 8px; background: rgba(20,40,30,0.7); border: 2px solid rgba(255,255,255,0.7); overflow: hidden; }
 #king-hp-fill { height: 100%; width: 100%; background: linear-gradient(#7de88f, #3fd455); transition: width 0.15s; }
-#queen-hp { position: absolute; left: 16px; top: calc(max(14px, env(safe-area-inset-top)) + 68px); display: flex; align-items: center; gap: 6px; }
-#queen-hp .crown { color: #f07aa8; font-size: 18px; text-shadow: 0 2px 3px rgba(0,0,0,0.5); }
-#queen-hp .track { width: 150px; height: 14px; border-radius: 8px; background: rgba(20,40,30,0.7); border: 2px solid rgba(255,255,255,0.7); overflow: hidden; }
 #queen-hp-fill { height: 100%; width: 100%; background: linear-gradient(#ffb3cf, #f07aa8); transition: width 0.15s; }
-#res-hud { position: absolute; left: 16px; top: calc(max(14px, env(safe-area-inset-top)) + 124px); display: flex; gap: 12px; color: #fff; font-weight: 800; font-size: 16px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
-#res-hud span { background: rgba(20,40,30,0.55); padding: 3px 9px; border-radius: 999px; }
 .panel .score { font-size: 20px; color: #2a3a2f; }
 .indicator.home .arrow { background: #2f6fd6; }
 .indicator.home .count { font-size: 18px; }
@@ -126,3 +84,50 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .indicator.alarm .arrow { background: #ff2d2d; width: 40px; height: 40px; left: -20px; top: -20px; animation: alarmPulse2 0.5s ease-in-out infinite alternate; }
 .indicator.alarm .count { font-size: 20px; top: 14px; }
 @keyframes alarmPulse2 { from { opacity: 0.6; } to { opacity: 1; } }
+
+/* ---- HUD ---- */
+.icon { vertical-align: middle; display: inline-block; }
+#stats {
+  position: absolute; left: 12px; top: max(12px, env(safe-area-inset-top));
+  background: rgba(30, 40, 24, 0.55); border: 2px solid rgba(255,255,255,0.35); border-radius: 16px;
+  padding: 8px 12px 10px; color: #fff; display: flex; flex-direction: column; gap: 5px; min-width: 190px;
+  backdrop-filter: blur(3px); box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+}
+#wave-hud { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 24px; font-weight: 800; line-height: 1.05; text-shadow: 0 2px 3px rgba(0,0,0,0.45); }
+#wave-hud .goal { font-size: 14px; opacity: 0.8; }
+#next-wave { font-family: "Nunito", system-ui, sans-serif; font-size: 12px; font-weight: 700; opacity: 0.85; }
+.bar-row { display: flex; align-items: center; gap: 6px; }
+.bar-row .track { flex: 1; height: 12px; border-radius: 7px; background: rgba(0,0,0,0.45); border: 2px solid rgba(255,255,255,0.6); overflow: hidden; }
+#king-hp-fill { height: 100%; width: 100%; background: linear-gradient(#7de88f, #3fd455); transition: width 0.15s; }
+#queen-hp-fill { height: 100%; width: 100%; background: linear-gradient(#ffb3cf, #f07aa8); transition: width 0.15s; }
+.stat-row { display: flex; gap: 10px; font-weight: 800; font-size: 15px; }
+.stat-row span { display: inline-flex; align-items: center; gap: 4px; }
+#coin-hud {
+  position: absolute; top: max(12px, env(safe-area-inset-top)); right: 12px;
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(30, 40, 24, 0.6); border: 2px solid rgba(255,255,255,0.35); border-radius: 999px; padding: 4px 18px 4px 6px;
+  color: #fff; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 30px; letter-spacing: 1px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+#mute-btn, #pause-btn {
+  position: absolute; right: 12px; pointer-events: auto; width: 44px; height: 44px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.35); cursor: pointer;
+  background: rgba(30, 40, 24, 0.6); display: grid; place-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+#mute-btn { top: calc(max(12px, env(safe-area-inset-top)) + 64px); }
+#pause-btn { top: calc(max(12px, env(safe-area-inset-top)) + 116px); }
+#toast {
+  position: fixed; left: 50%; top: 18%; transform: translateX(-50%);
+  background: linear-gradient(#fffbe8, #f6ecc8); color: #2a3a2f; padding: 8px 20px 8px 14px; border-radius: 14px;
+  border: 3px solid #f5b800; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 19px;
+  opacity: 0; transition: opacity 0.25s; pointer-events: none; display: flex; align-items: center; gap: 8px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+}
+#toast.show { opacity: 1; }
+#next-wave-btn { display: inline-flex; align-items: center; gap: 8px; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; }
+#next-wave-btn.hidden { display: none; }
+#pad-tip .tip-name { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; }
+#pad-tip .chip { display: inline-flex; align-items: center; gap: 5px; }
+.indicator .count { display: grid; place-items: center; }
+.panel { font-family: "Nunito", "Trebuchet MS", system-ui, sans-serif; }
+.panel h1 { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; }
+.panel button { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; }

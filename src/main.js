@@ -2,6 +2,7 @@ import { Game } from './game.js';
 import { Hud } from './hud.js';
 import { audio } from './audio.js';
 import { preloadRigs } from './rig.js';
+import { preloadIcons, mountIcons, iconSvg } from './icons.js';
 
 const canvas = document.getElementById('game');
 const hud = new Hud();
@@ -17,7 +18,9 @@ hud.showStart(game.best);
 const startBtn = document.getElementById('start-btn');
 startBtn.disabled = true;
 startBtn.textContent = 'Loading…';
-preloadRigs(['king', 'queen', 'king_mounted', 'archer', 'swordsman', 'raider', 'elite', 'brute', 'boss']).then(() => {
+mountIcons();
+Promise.all([preloadIcons(), document.fonts ? document.fonts.ready : Promise.resolve(), preloadRigs(['king', 'queen', 'king_mounted', 'archer', 'swordsman', 'raider', 'elite', 'brute', 'boss'])]).then(() => {
+  game.pads.forEach((p) => game.drawPad(p));
   startBtn.disabled = false;
   startBtn.textContent = 'Play';
 });
@@ -48,7 +51,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 const muteBtn = document.getElementById('mute-btn');
-const syncMute = () => (muteBtn.textContent = audio.muted ? '🔇' : '🔊');
+const syncMute = () => (muteBtn.innerHTML = iconSvg(audio.muted ? 'speakerOff' : 'speaker', 22));
 syncMute();
 muteBtn.addEventListener('click', () => {
   audio.init();

@@ -744,7 +744,7 @@ export class Game {
     this.root.add(k.mesh);
     this.hud.toast('The keep has fallen! Protect the Queen!', 2200);
     audio.wave(true);
-    this.dynamicPads.push({ id: `repair-keep-${this.time.toFixed(0)}`, pos: [k.x - 3.2, k.z + 3.2], cost: 20, res: { stone: 10 }, icon: '🔨', label: 'Repair Keep', repairKeep: true });
+    this.dynamicPads.push({ id: `repair-keep-${this.time.toFixed(0)}`, pos: [k.x - 3.2, k.z + 3.2], cost: 20, res: { stone: 10 }, icon: 'hammer', label: 'Repair Keep', repairKeep: true });
     this.refreshPads();
   }
 
@@ -1014,7 +1014,7 @@ export class Game {
     const inward = w.alongX ? Math.sign(c[1] - w.fixed) : Math.sign(c[0] - w.fixed);
     const pos = w.alongX ? [mid, w.fixed + inward * 2.6] : [w.fixed + inward * 2.6, mid];
     this.dynamicPads.push({
-      id: `repair-${w.id}-${this.time.toFixed(0)}`, pos, cost: CFG.wallLevels[this.wallLevel].repair, icon: '🔨',
+      id: `repair-${w.id}-${this.time.toFixed(0)}`, pos, cost: CFG.wallLevels[this.wallLevel].repair, icon: 'hammer',
       label: w.gate ? 'Repair Gate' : 'Repair Wall', repair: w,
     });
     this.refreshPads();
@@ -1767,14 +1767,13 @@ export class Game {
       const def = nearest.def;
       if (def.crew) {
         const free = this.units.filter((u) => u.type === 'archer' && !u.assign).length;
-        chips.push({ text: `🧍 ${nearest.cost - nearest.paid} archers`, state: free > 0 ? 'ok' : 'short' });
+        chips.push({ icon: 'person', text: `${nearest.cost - nearest.paid} archers`, state: free > 0 ? 'ok' : 'short' });
       } else {
         const needC = nearest.cost - nearest.paid;
-        chips.push({ text: `♛ ${needC} coins`, state: needC <= 0 ? 'ok' : this.coinsCarried >= needC ? 'ok' : this.coinsCarried > 0 ? '' : 'short' });
+        chips.push({ icon: 'coin', text: `${needC} coins`, state: needC <= 0 ? 'ok' : this.coinsCarried >= needC ? 'ok' : this.coinsCarried > 0 ? '' : 'short' });
         for (const r of nearest.res) {
           const need = r.need - r.paid;
-          const icon = r.type === 'wood' ? '🪵' : r.type === 'stone' ? '🪨' : '🌾';
-          chips.push({ text: `${icon} ${need} ${r.type} (have ${this.res[r.type]})`, state: need <= 0 || this.res[r.type] >= need ? 'ok' : this.res[r.type] > 0 ? '' : 'short' });
+          chips.push({ icon: r.type, text: `${need} ${r.type} (have ${this.res[r.type]})`, state: need <= 0 || this.res[r.type] >= need ? 'ok' : this.res[r.type] > 0 ? '' : 'short' });
         }
       }
       const note = def.crew ? 'Stand here to send archers' : nd < CFG.spend.padRadius ? 'Paying…' : 'Stand on the pad to pay';

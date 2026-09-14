@@ -83,6 +83,7 @@ tools/blender/    Blender script that builds and exports rigged characters (publ
 src/world.js      terrain, paths, cliffs, trees, lighting
 src/input.js      virtual joystick + keyboard
 src/hud.js        DOM overlay
+src/icons.js      hand-drawn SVG icon set used by the HUD and rasterised for the build pads
 src/audio.js      Web Audio synth: music loop and sound effects
 src/config.js     balance and build tree
 ```
