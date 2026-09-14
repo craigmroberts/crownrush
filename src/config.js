@@ -23,7 +23,8 @@ export const CFG = {
     // at `escortSpeed`; catch them and she is back, wounded, and the Keep pays. `recaptures` times.
     escort: 2,
     escortSpeed: 4.0,
-    recaptures: 1,
+    // #33: losing the Keep with her inside now spends one of these, so a run gets two chances
+    recaptures: 2,
     keepCost: 0.4,
   },
   keep: { hp: 420, hpPerLevel: 90, radius: 2.1, half: 1.7, materialBonus: 420 },

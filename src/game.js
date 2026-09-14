@@ -1227,7 +1227,9 @@ export class Game {
   }
 
   addFeedPad() {
-    if (!this.keep || !this.levelReq() || this.feedDef) return;
+    // #34: rubble takes no materials. Without this the repair was optional: you could keep levelling
+    // a Keep that was not standing, and losing it cost nothing.
+    if (!this.keep || this.keep.state !== 'built' || !this.levelReq() || this.feedDef) return;
     // the feed pad sits at the Keep's front door
     this.feedDef = { id: 'feed', pos: [this.keep.x, this.keep.z + 3.7], cost: 0, icon: 'keep', label: 'Feed the Keep', repeatable: true, feed: true };
     this.dynamicPads.push(this.feedDef);
@@ -1412,15 +1414,34 @@ export class Game {
 
   breakKeep() {
     const k = this.keep;
+    const sheltering = this.queen.inKeep && !this.queen.captive;
     k.state = 'broken';
     this.queenLeaveKeep();
     this.root.remove(k.mesh);
     k.mesh = makeRubble(3.4, 2);
     k.mesh.position.set(k.x, 0, k.z);
     this.root.add(k.mesh);
-    this.hud.toast('The keep has fallen! Protect the Queen!', 2200);
     audio.wave(true);
+    // #33: the walls coming down around her is how she is taken. Standing her outside the rubble as
+    // an ordinary unit made the worst moment in the game a non-event; the raiders carry her off
+    // instead, and the chase that already existed starts from here.
+    if (sheltering) {
+      this.hud.toast('The keep has fallen and the Queen is taken! Cut off the escort!', 3600);
+      this.captureQueen();
+    } else {
+      this.hud.toast('The keep has fallen! Protect the Queen!', 2600);
+    }
+    this.dropFeedPad();
     this.dynamicPads.push({ id: `repair-keep-${this.time.toFixed(0)}`, pos: [k.x - 3.2, k.z + 3.2], cost: 20, res: { stone: 10 }, icon: 'hammer', label: 'Repair Keep', repairKeep: true });
+    this.refreshPads();
+  }
+
+  // #34: the feed pad goes with the Keep and comes back with it
+  dropFeedPad() {
+    if (!this.feedDef) return;
+    const i = this.dynamicPads.indexOf(this.feedDef);
+    if (i >= 0) this.dynamicPads.splice(i, 1);
+    this.feedDef = null;
     this.refreshPads();
   }
 
@@ -1439,6 +1460,8 @@ export class Game {
     this.popIn(k.mesh);
     this.root.add(k.mesh);
     this.queenEnterKeep();
+    this.addFeedPad();          // #34: standing again, so it can be fed again
+    this.hud.toast('The Keep stands again. You can raise its level once more.', 3200);
   }
 
   // Solid keep footprint: pushes a position out of the box. Returns the keep when it blocked.
@@ -3138,7 +3161,8 @@ export class Game {
         if (locked) chips.push({ icon: 'keep', text: `Keep level ${locked} needed`, state: 'short' });
         if (def.units) chips.push({ icon: def.units.type, text: `${this.unitCount(def.units.type)} / ${this.unitCap(def.units.type)} ${def.units.type}s`, state: locked ? 'short' : 'ok' });
       }
-      const note = this.queen.captive ? 'Rescue the Queen first' : locked ? 'Feed the Keep to raise the limit' : this.king.moving && (nearest.holdT || 0) < CFG.spend.walkHold ? 'Stop moving to pay' : def.feed ? `Pouring in materials…` : def.crew ? 'Sending archers…' : 'Paying…';
+      const note = this.keep && this.keep.state !== 'built' && def.repairKeep ? 'The Keep must stand before it can be fed again'
+        : this.queen.captive ? (this.queen.taken ? 'Cut off the escort and bring her back' : 'Rescue the Queen first') : locked ? 'Feed the Keep to raise the limit' : this.king.moving && (nearest.holdT || 0) < CFG.spend.walkHold ? 'Stop moving to pay' : def.feed ? `Pouring in materials…` : def.crew ? 'Sending archers…' : 'Paying…';
       const total = nearest.cost + nearest.res.reduce((a, r) => a + r.need, 0);
       const paidAll = nearest.paid + nearest.res.reduce((a, r) => a + r.paid, 0);
       this.hud.showPadTip({
