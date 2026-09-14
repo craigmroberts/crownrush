@@ -139,26 +139,28 @@ BOUNDS = {
     # added when the King's overlay showed shapes no earlier control could reach
     "body_h": (0.8, 1.8), "leg_h": (0.6, 1.8), "head_w": (0.8, 1.45), "arm_ang": (0.0, 40.0), "shoulder_s": (0.7, 1.7),
     "crown_s": (0.8, 2.0), "crown_h": (0.7, 2.0), "crown_z": (-0.35, 0.1), "beard_s": (0.8, 1.5), "beard_h": (0.6, 1.3), "hair_w": (0.7, 1.5),
-    "hair_fringe": (0.05, 1.3),
+    "hair_fringe": (0.05, 1.3), "hair_flap": (0.8, 1.8),
     "sleeve_len": (0.08, 0.9), "gown_waist": (0.6, 1.25), "foot_h": (0.0, 0.22), "hair_len": (0.3, 1.3), "gown_bell": (0.35, 1.0), "arm_fwd": (0.05, 0.3), "arm_x": (0.24, 0.55),
     # discrete: stepped whole, never nudged
     "crown_points": (3, 6),
 }
 DISCRETE = {"crown_points"}
-_NEW = dict(body_h=1.0, leg_h=1.0, head_w=1.0, arm_ang=0.0, shoulder_s=1.0, hair_w=1.0, hair_fringe=1.0)
+_NEW = dict(body_h=1.0, leg_h=1.0, head_w=1.0, arm_ang=0.0, shoulder_s=1.0, hair_w=1.0, hair_fringe=1.0, hair_flap=1.0)
 DEFAULTS = {
     "king": dict(torso_x=0.34, torso_y=0.29, torso_z=0.33, arm_r=0.09, arm_len=0.32, hand_r=0.085, leg_r=0.105, head_s=1.0, leg_x=0.14, boot_s=1.0, crown_s=1.0, crown_h=1.0, crown_z=0.0, beard_s=1.0, beard_h=1.0, crown_points=5, **_NEW),
     "queen": dict(torso_x=0.34, torso_y=0.29, torso_z=0.33, arm_r=0.075, arm_len=0.34, hand_r=0.075, leg_r=0.105, head_s=1.0, gown_s=1.0, gown_h=1.0, gown_waist=1.0, sleeve_len=0.3, foot_h=0.1, hair_len=1.0, gown_bell=0.5, arm_fwd=0.16, arm_x=0.34, **_NEW),
+    "archer": dict(torso_x=0.34, torso_y=0.29, torso_z=0.33, arm_r=0.09, arm_len=0.32, hand_r=0.085, leg_r=0.105, head_s=1.0, leg_x=0.14, boot_s=1.0, **_NEW),
     "brute": dict(torso_x=0.42, torso_y=0.36, torso_z=0.36, arm_r=0.12, arm_len=0.36, hand_r=0.11, leg_r=0.13, head_s=1.0, leg_x=0.14, boot_s=1.0, **_NEW),
     "boss": dict(torso_x=0.44, torso_y=0.38, torso_z=0.4, arm_r=0.13, arm_len=0.46, hand_r=0.14, leg_r=0.15, head_s=0.92, leg_x=0.14, boot_s=1.0, **_NEW),
 }
 # what a front view can tell us about each character. torso_y is depth: invisible from the front, so never searched.
-_COMMON = ["torso_x", "torso_z", "arm_r", "arm_len", "hand_r", "head_s", "head_w", "body_h", "arm_ang", "shoulder_s", "hair_w", "hair_fringe"]
+_COMMON = ["torso_x", "torso_z", "arm_r", "arm_len", "hand_r", "head_s", "head_w", "body_h", "arm_ang", "shoulder_s", "hair_w", "hair_fringe", "hair_flap"]
 # searched in sections, in the order the frame is anchored: the hands set the width and the boots the
 # floor, so body first, then stance, then head, then everything together
 _BODY = ["torso_x", "torso_z", "body_h", "shoulder_s", "arm_r", "arm_len", "arm_ang", "hand_r", "gown_s", "gown_h", "gown_waist", "gown_bell", "sleeve_len", "foot_h", "arm_fwd", "arm_x"]
-_HEAD = ["head_s", "head_w", "hair_w", "hair_fringe", "hair_len", "beard_s", "beard_h", "crown_s", "crown_h", "crown_z", "crown_points"]
+_HEAD = ["head_s", "head_w", "hair_w", "hair_fringe", "hair_flap", "hair_len", "beard_s", "beard_h", "crown_s", "crown_h", "crown_z", "crown_points"]
 _LEGS = ["leg_r", "leg_x", "boot_s", "leg_h"]
+DEFAULTS["swordsman"] = dict(DEFAULTS["archer"])   # same body, different hand
 KEYS = {"king": _COMMON + _LEGS + ["crown_s", "crown_h", "crown_z", "beard_s", "beard_h", "crown_points"],
         "queen": _COMMON + ["gown_s", "gown_h", "gown_waist", "gown_bell", "sleeve_len", "foot_h", "hair_len", "arm_fwd", "arm_x"]}
 # every palette name the builder knows; each gets a unique flat ID colour for the role render
@@ -223,13 +225,43 @@ def save_rgb(path, rgb):
     img.save()
     bpy.data.images.remove(img)
 
+def fill_holes(mask):
+    """Background unreachable from the edge of the picture is not background: it is a pale highlight on
+    the subject that happened to match the page behind it. A cream tunic on white leaves exactly those,
+    and they become holes the model can never fill, so close them."""
+    h, w = mask.shape
+    bg = ~mask
+    seen = np.zeros_like(bg)
+    stack = []
+    for y, x in [(0, x) for x in range(w)] + [(h - 1, x) for x in range(w)] + [(y, 0) for y in range(h)] + [(y, w - 1) for y in range(h)]:
+        if bg[y, x] and not seen[y, x]:
+            seen[y, x] = True
+            stack.append((y, x))
+    while stack:                      # scanline flood fill: each background pixel is visited once
+        y, x = stack.pop()
+        x0 = x
+        while x0 > 0 and bg[y, x0 - 1] and not seen[y, x0 - 1]:
+            x0 -= 1
+            seen[y, x0] = True
+        x1 = x
+        while x1 < w - 1 and bg[y, x1 + 1] and not seen[y, x1 + 1]:
+            x1 += 1
+            seen[y, x1] = True
+        for ny in (y - 1, y + 1):
+            if 0 <= ny < h:
+                for i in np.where(np.logical_and(bg[ny, x0:x1 + 1], ~seen[ny, x0:x1 + 1]))[0]:
+                    nx = x0 + int(i)
+                    seen[ny, nx] = True
+                    stack.append((ny, nx))
+    return ~seen
+
 def foreground(px):
     """Mask of the subject. Alpha if the image has any; otherwise anything unlike the corner colour."""
     a = px[..., 3]
     if a.min() < 0.5:
-        return a > 0.5
+        return fill_holes(a > 0.5)
     corner = np.median(np.concatenate([px[:4, :4, :3].reshape(-1, 3), px[-4:, -4:, :3].reshape(-1, 3), px[:4, -4:, :3].reshape(-1, 3), px[-4:, :4, :3].reshape(-1, 3)]), axis=0)
-    return np.linalg.norm(px[..., :3] - corner, axis=2) > 0.12
+    return fill_holes(np.linalg.norm(px[..., :3] - corner, axis=2) > 0.12)
 
 def symmetrise(mask, rgb, choose):
     """These characters are bilaterally symmetric and the art is lit from one side, so one half sits in
@@ -308,8 +340,11 @@ def feat(rgb):
     # brightness gets a quarter weight: a face in the crown's shadow must still read as skin, not gold
     return np.concatenate([rgb / s, 0.25 * rgb.mean(-1, keepdims=True)], -1)
 
-def make_classes(role_rgb, merge=0.12):
-    """Cluster the parts' colours into classes (all the browns become one) -> (centres, role -> class)."""
+def make_classes(role_rgb, merge=0.03):
+    """Group the parts' colours into classes -> (centres, role -> class). Only near-identical colours
+    are merged: a beard painted the same brown as the hair is one class, but a tunic and the skin next
+    to it stay separate even when they are close. Merging distinct roles is what costs the search its
+    signal; on the archer's muted palette a loose threshold collapsed skin, hair and tunic into one."""
     names = list(role_rgb)
     F = feat(np.array([role_rgb[n] for n in names]))
     centres, of = [], {}
@@ -486,12 +521,17 @@ if os.path.exists(existing) and not FRESH:
         pr = prev["props"]
         p.update(torso_x=pr["torso"][0], torso_y=pr["torso"][1], torso_z=pr["torso"][2], **{k: v for k, v in pr.items() if k in BOUNDS})
         print("starting from the previous fit")
-keys = [k for k in KEYS.get(WHO, _COMMON + _LEGS) if k in p]
+keys = [k for k in KEYS.get(WHO, _COMMON + _LEGS) if k in p and k in BOUNDS]
+_missing = [k for k in KEYS.get(WHO, _COMMON + _LEGS) if k in p and k not in BOUNDS]
+if _missing:
+    print("not searched, no bounds set for:", ", ".join(_missing))
 
 renders = 0
 def render_fit(p, cols, ids=False, aa=True, half=None):
     global renders
-    px = render({"props": to_props(p), "colors": cols, "front_res": RES, "front_aa": aa},
+    # gear off: the reference holds nothing, and a bow the model cannot put down would be charged as a
+    # shape error all run. It is never written to the params file, so exports keep their weapons.
+    px = render({"props": dict(to_props(p), gear=0), "colors": cols, "front_res": RES, "front_aa": aa},
                 ids=ids, half=HALF if half is None else half)
     renders += 1
     return fit_frame(foreground(px), px[..., :3], RES, FRAME_H)
@@ -581,8 +621,14 @@ colors, _ = guess_colours(p)
 if pins:
     print("pinned from", os.path.relpath(pins_path, ROOT) + ":", pins)
 print("colours:", colors)
-role_rgb = {name: np.array(hex_to_rgb(colors[name]) if name in colors else DEFAULT_COL[name], np.float32) for name in PALETTE}
+# Only the roles this character actually wears. Classing against the whole game palette let colours
+# nobody here uses claim reference pixels: the archer's cream tunic came back as "horse" and his sash
+# as "blueEye", and the search was then chasing parts that do not exist on him.
+render_fit(p, {}, ids=True, half=False)
+USED = sorted({role for _, role in json.load(open(WORK_IDS)) if role in DEFAULT_COL})
+role_rgb = {name: np.array(hex_to_rgb(colors[name]) if name in colors else DEFAULT_COL[name], np.float32) for name in USED}
 centres, class_of = make_classes(role_rgb)
+print(f"{WHO} wears {len(USED)} of the {len(PALETTE)} palette roles: {', '.join(USED)}")
 ref_lab = label(ref_m, ref_c, centres)
 print(f"layout classes: {len(centres)}; {int((ref_lab[ref_m] == -1).mean() * 100)}% of the reference matches no part colour")
 class_rgb = {}
@@ -604,9 +650,14 @@ def evaluate(p):
 if HALF:
     # The half build is a proxy for the real character. Prove it matches before trusting it: fitting a
     # model we do not ship is exactly the sort of quiet mismatch that wasted a run earlier.
-    hm, _ = render_fit(p, colors, half=True)
-    wm, _ = render_fit(p, colors, half=False)
-    agree = iou_of(hm, wm)
+    hm, hc = render_fit(p, colors, half=True)
+    wm, wc = render_fit(p, colors, half=False)
+    # Compare what each pixel SHOWS, not just the outline. A part that crosses the centre line is not
+    # half of a mirrored pair, and dropping it leaves the silhouette identical while the model loses a
+    # feature: a sash that should cross the chest twice came back as a single stroke that way.
+    both = np.logical_and(hm, wm)
+    same = np.logical_and(both, label(hm, hc, centres) == label(wm, wc, centres))
+    agree = min(iou_of(hm, wm), same.sum() / max(1, np.logical_or(hm, wm).sum()))
     if agree < 0.99:
         HALF = False
         print(f"half builds disabled: they differ from the real character (overlap {agree:.3f}); building whole")

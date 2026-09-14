@@ -39,14 +39,19 @@ PREVIEW = args[2] if len(args) > 2 else None
 FAST = bool(FRONT) and OUT == "-" and not PREVIEW
 IDLE_ARM_SWING = 0.12  # radians the Idle pose turns the arms about the bone's z (its arm.L/arm.R keys); that is inward
 # A fitted look (tools/fit) is picked up automatically when building the game's models.
+# who borrows whose fit: the mounted king is the king, and the swordsman is the archer with a sword
+SHARES = {"king_mounted": "king", "swordsman": "archer"}
 if PARAMS_PATH is None:
-    for cand in (WHO, WHO.split("_")[0]):  # king_mounted wears the king's fit
+    for cand in (WHO, SHARES.get(WHO, WHO.split("_")[0])):
         auto = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "fit", "params", f"{cand}.json")
         if os.path.exists(auto):
             PARAMS_PATH = auto
             break
 PARAMS = json.load(open(PARAMS_PATH)) if PARAMS_PATH else {}
 PROPS = PARAMS.get("props", {})
+# props.gear = 0 leaves off weapons, shields and helmets. The fitter sets it so it scores the body
+# against a reference holding nothing; the game always builds with the gear on.
+GEAR = bool(PROPS.get("gear", 1))
 
 # ---------- scene reset ----------
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -201,7 +206,7 @@ def band(name, loc, r, h, color, bone, rot=(0, 0, 0), dy=None):
         return part("box", name, loc, scale=(r, dy or r, h / 2), rot=rot, color=color, bone=bone, bevel=0.12)
     return part("cyl", name, loc, scale=(r, r, h), color=color, bone=bone, sub=0, rot=rot)
 
-def arm_chain(side, px, pz, length, r, hand_r, color, trim, ang, cuff_r=None, sleeve=0.0, sleeve_r=None, py=0.0):
+def arm_chain(side, px, pz, length, r, hand_r, color, trim, ang, cuff_r=None, sleeve=0.0, sleeve_r=None, py=0.0, cuff=True):
     """Upper arm, cuff and hand hanging from the shoulder point (px, pz), swung `ang` radians out
     from the body. The fitter uses the angle: reference art rarely has the arms straight down.
     `sleeve` is the fraction of the arm covered by a wider cuff of `color`, the rest bare skin: that
@@ -217,7 +222,8 @@ def arm_chain(side, px, pz, length, r, hand_r, color, trim, ang, cuff_r=None, sl
         limb(f"arm.{side}", at((sl + length) / 2), r, length - sl, "skin", f"arm.{side}", rot=rot)
     else:
         limb(f"arm.{side}", at(length / 2), r, length, color, f"arm.{side}", rot=rot)
-        band(f"cuff.{side}", at(length - 0.03), cuff_r or r * 1.12, 0.06, trim, f"arm.{side}", rot=rot)
+        if cuff:
+            band(f"cuff.{side}", at(length - 0.03), cuff_r or r * 1.12, 0.06, trim, f"arm.{side}", rot=rot)
     ell(f"hand.{side}", at(length + hand_r * 0.7), (hand_r, hand_r, hand_r), "skin", f"arm.{side}")
 
 def bow_arc(name, loc, color, bone, half=0.4, belly=0.17):
@@ -294,8 +300,11 @@ def build_hair(style):
     ell("lock", (-0.22, -0.3, 1.56), (0.13 * fr, 0.1 * fr, 0.09 * fr), hair, "head", rot=(0, math.radians(30), 0))
     ell("lock2", (0.26, -0.27, 1.58), (0.1 * fr, 0.09 * fr, 0.08 * fr), hair, "head", rot=(0, math.radians(-25), 0))
     hw = PROPS.get("hair_w", 1.0)  # hair down the sides of the face: outer edge stays, it thickens inward over the cheeks
+    fl = PROPS.get("hair_flap", 1.0)  # ... unless flap pushes it out past the head and hangs it lower
     for side, sx in (("L", 1), ("R", -1)):
-        ell(f"side.{side}", (sx * (0.455 - 0.075 * hw), -0.02, 1.4), (0.075 * hw, 0.14, 0.17 * (1 + 0.5 * (hw - 1))), hair, "head")
+        rx = 0.075 * hw
+        ell(f"side.{side}", (sx * (0.455 - rx) * fl, -0.02, 1.4 - 0.1 * (fl - 1)),
+            (rx, 0.14, 0.17 * (1 + 0.5 * (hw - 1)) * fl), hair, "head")
     if style == "queen":
         # long hair down the back and over the shoulders. hair_len shortens it from the bottom (the top
         # stays against the head), so the fitter can lift it off the shoulders and let the arms show.
@@ -307,7 +316,8 @@ def build_hair(style):
             ell(f"curl.{side}", (x * 1.05, -0.08, 1.4 - 0.64 * hl + 0.08), (0.1 * hw, 0.11, 0.1 * hl), hair, "head")
 
 def build_figure(style, tunic, trim, boots="boot", pants="leather", dress=False, hair=True, bare_arms=False,
-                 torso=(0.34, 0.29, 0.33), arm_r=0.09, arm_len=0.32, hand_r=0.085, leg_r=0.105, head_s=1.0, seam=True):
+                 torso=(0.34, 0.29, 0.33), arm_r=0.09, arm_len=0.32, hand_r=0.085, leg_r=0.105, head_s=1.0,
+                 seam=True, hem=True, buckle=True, collar=True, belt="leather", belt_h=0.08, cuffs=True):
     torso = tuple(PROPS.get("torso", torso))
     arm_r = PROPS.get("arm_r", arm_r)
     arm_len = PROPS.get("arm_len", arm_len)
@@ -376,17 +386,20 @@ def build_figure(style, tunic, trim, boots="boot", pants="leather", dress=False,
         # the skirt hangs off the torso, so its width follows the torso rather than flaring into a plate
         sk1, sk2 = (torso[0] * 1.06, torso[0] * 0.88) if BOXY else (0.37 * tw, 0.3 * tw)
         part("frustum", "skirt", (0, 0, 0.47), color=tunic, bone="spine", sub=0, r1=sk1, r2=sk2, depth=0.22, sides=4 if BOXY else None)
-        band("skirthem", (0, 0, 0.375), sk1 * 1.02, 0.06, trim, "spine", dy=sk1 * 1.02)
-        band("belt", (0, 0, 0.58), bx, 0.08, "leather", "spine", dy=by)
-        part("cube", "buckle", (0, -(by + 0.02), 0.58), scale=(0.13, 0.05, 0.11), color=trim, bone="spine", sub=0)
+        if hem:
+            band("skirthem", (0, 0, 0.375), sk1 * 1.02, 0.06, trim, "spine", dy=sk1 * 1.02)
+        band("belt", (0, 0, 0.58), bx, belt_h, belt, "spine", dy=by)
+        if buckle:
+            part("cube", "buckle", (0, -(by + 0.02), 0.58), scale=(0.13, 0.05, 0.11), color=trim, bone="spine", sub=0)
         if seam:
             part("cube", "seam", (0, -(torso[1] + 0.015), 0.78), scale=(0.05, 0.03, 0.34), color=trim, bone="spine", sub=0)
-        band("collar", (0, 0, 1.0), 0.16, 0.06, trim, "spine", dy=min(0.16, torso[1] * 0.8) if BOXY else None)
+        if collar:
+            band("collar", (0, 0, 1.0), 0.16, 0.06, trim, "spine", dy=min(0.16, torso[1] * 0.8) if BOXY else None)
         part("cyl", "neck", (0, 0, 1.02), scale=(0.11, 0.11, 0.14), color="skin", bone="spine", sub=1)
         for side, x in (("L", SHOULDER_X), ("R", -SHOULDER_X)):
             ell(f"shoulder.{side}", (x * 0.9, 0, 0.94), (arm_r * 1.45 * shoulder_s, arm_r * 1.3 * shoulder_s, arm_r * 1.2 * shoulder_s),
                 "skin" if bare_arms else tunic, f"arm.{side}")
-            arm_chain(side, x, 0.9, arm_len, arm_r, hand_r, "skin" if bare_arms else tunic, trim, arm_ang)
+            arm_chain(side, x, 0.9, arm_len, arm_r, hand_r, "skin" if bare_arms else tunic, trim, arm_ang, cuff=cuffs)
     build_head(style)
     if hair:
         build_hair(style)
@@ -485,16 +498,30 @@ def bow_and_quiver(color="blue"):
     for i in range(3):
         part("cone", f"fletch{i}", (-0.22 + i * 0.04, 0.34, 1.25 + (i % 2) * 0.03), scale=(0.04, 0.04, 0.1), color="white", bone="spine", sub=0)
 
+def build_soldier():
+    """The archer and the swordsman are the same person: cream tunic, bare arms, two blue sashes
+    crossing the chest over a blue waist band, brown boots, no helmet. Only what is in the hand
+    differs, so both are built from here and the callers add the weapon."""
+    build_figure("archer", "white", "blue", pants="white", bare_arms=True,
+                 seam=False, hem=False, buckle=False, collar=False, belt="blue", belt_h=0.16, cuffs=False)
+    t = tuple(PROPS.get("torso", (0.34, 0.29, 0.33)))
+    dy = t[1] + 0.02
+    # Named sash1/sash2, not .L/.R: each one crosses the whole chest, so it is not half of a mirrored
+    # pair and a half build must keep both or the X becomes a single stroke.
+    for n, ang in ((1, 34), (2, -34)):
+        part("cube", f"sash{n}", (0, -dy, 0.84), scale=(0.1, 0.05, 0.82),
+             rot=(0, math.radians(ang), 0), color="blue", bone="spine", sub=0)
+
 def build_archer():
-    build_figure("archer", "white", "blue")
-    part("cube", "strap", (0, -0.3, 0.76), scale=(0.1, 0.05, 0.62), rot=(0, math.radians(-38), 0), color="blue", bone="spine", sub=0)
-    bow_and_quiver("blue")
+    build_soldier()
+    if GEAR:
+        bow_and_quiver("blue")
 
 def build_swordsman():
-    build_figure("archer", "navy", "steel")
-    helmet_cap("steel", "steelDark")
-    sword(0.8)
-    round_shield("blue", "gold")
+    build_soldier()
+    if GEAR:
+        sword(0.8)
+        round_shield("blue", "gold")
 
 def build_raider():
     build_figure("raider", "red", "darkRed", pants="darkRed")
