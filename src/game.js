@@ -152,6 +152,7 @@ export class Game {
     this.taken = {};
     this.offerQueue = 0;
     this.offer = null;
+    this.offerPaused = false;
     this.coinsCarried = 0; // the starting coins lie on the ground (#20): picking them up is the first thing you do
     this.coinsEarned = 0;
     this.archerPower = 0;
@@ -284,7 +285,17 @@ export class Game {
   }
 
   unpause() {
-    if (!this.paused || this.offer) return;
+    if (!this.paused) return;
+    // #25: an upgrade choice is still owed. Resuming without it would skip the reward, so put the
+    // panel back instead. Before this, the pause and info screens could hide a pending offer and
+    // nothing could resume the game again: the King stopped dead while the buttons still answered.
+    if (this.offer) {
+      this.hud.hidePause();
+      this.hud.hideInfo();
+      this.infoOpen = false;
+      this.hud.showOffer(this.offer, this.baseLevel, this.offerQueue);
+      return;
+    }
     this.paused = false;
     this.running = true;
     this.hud.hidePause();
@@ -294,7 +305,7 @@ export class Game {
 
   // The info screen: pauses the game and explains the next Keep level, the pads on offer and the enemy ranks.
   showInfo() {
-    if (this.over || this.won || this.infoOpen) return;
+    if (this.over || this.won || this.infoOpen || this.offer) return;  // #25: never cover a pending choice
     if (this.paused) this.hud.hidePause();
     else this.pause(true);
     this.infoOpen = true;
@@ -1121,13 +1132,18 @@ export class Game {
 
   // Present one upgrade choice. Pauses the game; `takeUpgrade` resumes it or shows the next in the queue.
   showOffer() {
-    if (this.over || this.won || this.offerQueue <= 0) return;
-    const list = pickOffer(this.taken);
+    const list = this.over || this.won || this.offerQueue <= 0 ? [] : pickOffer(this.taken);
+    // #25: nothing left to offer, which is where a long game ends up once every upgrade is maxed.
+    // This used to return with the game still paused and no panel on screen: a permanent freeze.
     if (!list.length) {
       this.offerQueue = 0;
+      this.offer = null;
+      this.hud.hideOffer();
+      this.endOfferPause();
       return;
     }
     this.offer = list;
+    this.offerPaused = true;
     this.pause(true);
     this.hud.hideInfo();
     this.infoOpen = false;
@@ -1146,10 +1162,16 @@ export class Game {
     audio.build();
     this.hud.toast(`${u.name}: ${u.desc}`, 3000);
     if (this.offerQueue > 0) this.showOffer();
-    else {
-      this.paused = false;
-      this.running = true;
-    }
+    else this.endOfferPause();
+  }
+
+  // Give back the pause an offer took, and only that one: a pause the player asked for stays.
+  endOfferPause() {
+    if (!this.offerPaused || this.over || this.won) return;
+    this.offerPaused = false;
+    this.paused = false;
+    this.running = true;
+    this.hud.hidePause();
   }
 
   // Push modifier changes into things that were already built or recruited.
