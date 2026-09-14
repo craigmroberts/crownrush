@@ -6,7 +6,7 @@ import { CFG, PADS, TIERS } from './config.js';
 import { audio } from './audio.js';
 import { UPGRADES } from './upgrades.js';
 import {
-  makeLumberTree, makeOreRock, makeIronSeam, makeGemNode, makeResourceCube, RES_MATS, CHIP_GEO, makeTool, makeCoin, drawPad, disposeHealthBar, makePopup, makeSpawnFx, makeBurst, makeHeart, COIN_TIER_COLORS,
+  makeLumberTree, makeOreRock, makeIronSeam, makeGemNode, makeResourceCube, RES_MATS, CHIP_GEO, makeTool, drawPad, disposeHealthBar, makePopup, makeSpawnFx, makeBurst, makeHeart, COIN_TIER_COLORS,
 } from './models.js';
 import { tmp, tmp2, tmpM, cap, rand } from './game-shared.js';
 
@@ -348,7 +348,9 @@ export const ViewMethods = {
   },
 
   dropCoin(pos, tier = this.coinTier()) {
-    const c = makeCoin(tier);
+    // An empty Object3D, not a coin: CoinField draws every coin on the field in two instanced calls
+    // and reads this for where to put each one. Everything below moves it exactly as it moved a mesh.
+    const c = new THREE.Object3D();
     c.position.copy(pos);
     c.position.y = 0.6;
     this.root.add(c);
@@ -419,6 +421,7 @@ export const ViewMethods = {
         }
       }
     }
+    this.coinField.update(this.coins);
     this.comboTimer -= dt;
     if (this.comboTimer <= 0) this.coinCombo = 0;
     // a sparkle now and then on coins lying about

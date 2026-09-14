@@ -335,6 +335,9 @@ What keeps it fast:
 - Dead characters release their health-bar and skeleton textures.
 - The characters are meshopt-compressed rather than Draco'd: smaller on the wire, and a 7 kB decoder
   bundled with the game instead of 245 kB of decoder fetched at run time.
+- Coins on the ground are two instanced draws however many are lying about (`CoinField` in
+  `src/models.js`). A night's worth of uncollected coins used to be a mesh each, face and rim, and
+  cast shadows besides.
 
 ## Fitting a character to a reference image
 

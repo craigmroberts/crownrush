@@ -377,6 +377,83 @@ export function makeCoin(tier = 'gold') {
   return g;
 }
 
+// Every coin lying on the ground, in two draw calls.
+//
+// A coin used to be a Group of two meshes, face and rim, so a field of eighty-eight coins — which is
+// what a night of raiders leaves behind if the King does not sweep up — cost a hundred and
+// seventy-six draws. They are all the same two shapes at different places, which is what instancing
+// is for; the per-coin tier colour rides along as an instance colour, the same way the King's carried
+// stack has always done it.
+//
+// The game still moves an ordinary Object3D per coin, so the bouncing, spinning and flying code is
+// untouched. This reads those every frame and fills the two meshes from them.
+export class CoinField {
+  constructor(max = 400) {
+    this.faceMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.45, metalness: 0.2, emissive: 0x1a1408 });
+    this.rimMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.88 });
+    this.m = new THREE.Matrix4();
+    this.scene = null;
+    this.build(max);
+  }
+
+  build(max) {
+    const old = this.face ? [this.face, this.rim] : null;
+    this.face = new THREE.InstancedMesh(coinGeo, this.faceMat, max);
+    this.rim = new THREE.InstancedMesh(rimGeo, this.rimMat, max);
+    this.face.castShadow = true;              // as the single coin's face did
+    this.face.frustumCulled = this.rim.frustumCulled = false;
+    this.face.count = this.rim.count = 0;
+    this.max = max;
+    if (old && this.scene) {
+      this.scene.remove(old[0], old[1]);
+      old[0].dispose();
+      old[1].dispose();
+      this.scene.add(this.face, this.rim);
+    }
+  }
+
+  add(scene) {
+    this.scene = scene;
+    scene.add(this.face, this.rim);
+  }
+
+  // On a restart the coin list is emptied and the old root thrown away, but these two meshes are not:
+  // without this they would keep drawing the last frame's coins until the next update.
+  clear() {
+    this.face.count = this.rim.count = 0;
+  }
+
+  // `coins` is the game's own list; anything without a `tier` (the resource cubes that share it) is
+  // left alone, because it is not a coin and still carries a mesh of its own.
+  update(coins) {
+    // Grow rather than silently stop drawing. A coin past the end of the buffer would still be picked
+    // up — the game tracks it by position, not by what is on screen — so the player would be walking
+    // over money they cannot see, which is worse than a slightly larger buffer.
+    let wanted = 0;
+    for (const c of coins) if (c.tier) wanted++;
+    if (wanted > this.max) this.build(Math.max(wanted, this.max * 2));
+
+    let n = 0;
+    for (const c of coins) {
+      if (!c.tier) continue;
+      const o = c.mesh;
+      o.updateMatrixWorld();
+      this.m.copy(o.matrixWorld);
+      this.face.setMatrixAt(n, this.m);
+      this.rim.setMatrixAt(n, this.m);
+      const [faceColour, rimColour] = COIN_TIER_COLORS[c.tier] || COIN_TIER_COLORS.gold;
+      this.face.setColorAt(n, faceColour);
+      this.rim.setColorAt(n, rimColour);
+      n++;
+    }
+    this.face.count = this.rim.count = n;
+    this.face.instanceMatrix.needsUpdate = true;
+    this.rim.instanceMatrix.needsUpdate = true;
+    if (this.face.instanceColor) this.face.instanceColor.needsUpdate = true;
+    if (this.rim.instanceColor) this.rim.instanceColor.needsUpdate = true;
+  }
+}
+
 const arrowGeo = new THREE.BoxGeometry(0.06, 0.06, 0.7);
 const arrowMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2b });
 const streakMat = new THREE.MeshBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
