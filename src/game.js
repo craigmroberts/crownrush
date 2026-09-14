@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CFG, PADS, TIERS, NODES, MAP } from './config.js';
 import { audio } from './audio.js';
-import { makeRigged, setRigShadows } from './rig.js';
+import { makeRigged, setRigShadows, enableCrowd, updateCrowd, clearCrowd, crowdStats } from './rig.js';
 import { MODS, UPGRADES, pickOffer } from './upgrades.js';
 import { buildWorld, setupLights } from './world.js';
 import { Input } from './input.js';
@@ -76,6 +76,13 @@ export class Game {
     this.scene.add(this.bars.mesh);
     // Phones: characters get one instanced "blob" shadow each instead of rendering into the shadow map
     // (that pass cost a second draw call per character); buildings and trees keep real shadows.
+    // The crowd — raiders, archers, swordsmen, elites, brutes, the boss — is drawn as one instanced
+    // mesh per model and animated on the GPU (src/crowd.js). ?crowd=0 puts every character back on
+    // the skinned path this used to take, for comparing the two or for a device the instanced one
+    // upsets. Safe mode takes the old path too: it exists to be the plainest thing that can work.
+    this.noCrowd = this.safe || /[?&]crowd=0/.test(location.search);
+    // kept on the game so it can be poked at from the console, and so a test can pin its clock
+    this.crowd = this.noCrowd ? null : enableCrowd(this.scene);
     setRigShadows(!this.mobile);
     if (this.mobile) {
       const geo = new THREE.CircleGeometry(1, 18);
@@ -149,6 +156,9 @@ export class Game {
   reset() {
     if (this.root) this.scene.remove(this.root);
     clearHealthBars();
+    // The crowd's proxies go with the old root. They are still parented to it, so the renderer cannot
+    // tell they are gone by itself and has to be told.
+    clearCrowd();
     this.root = new THREE.Group();
     this.scene.add(this.root);
 
@@ -350,6 +360,11 @@ export class Game {
       }
       if (window.__showError) window.__showError(this.glReport());
     }, 2500);
+  }
+
+  // How much of the crowd is on the instanced path, for ?perf=1.
+  crowdStats() {
+    return crowdStats();
   }
 
   // What the graphics stack actually is, in one line, for a screenshot from a device I cannot hold.
@@ -2062,6 +2077,9 @@ export class Game {
       } else rig.mixer.update(dt);
       if (!ent.rigOnce || ent.rigOnce <= this.time) rig.play(ent.moving ? 'Walk' : 'Idle');
     }
+    // Instanced characters have a mixer that does nothing, so the loop above costs them a call and
+    // leaves. Their poses come from here instead: one matrix and four floats each, no skeletons.
+    updateCrowd(dt, this.camera);
     this.updateFx(dt);
     this.updateEffects(dt);
     this.updateStack(dt);

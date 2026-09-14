@@ -175,7 +175,9 @@ function frame(now) {
       const info = game.renderer.info.render;
       const ms = perfMs / perfFrames;
       const c = game.canvas;
+      const crowd = game.crowdStats();
       perf.textContent = `${(perfFrames / perfT).toFixed(0)} fps · ${ms.toFixed(1)} ms cpu · ${info.calls} draws · ${(info.triangles / 1000).toFixed(0)}k tris · ${game.units.length + game.enemies.length} chars`
+        + (crowd.characters ? ` (${crowd.drawn}/${crowd.characters} instanced in ${crowd.models} draws)` : '')
         + ` · ${c.width}x${c.height} buf @${game.renderer.getPixelRatio()}${game.contextLost ? ' · GL CONTEXT LOST' : ''}`;
       perf.style.color = ms > 33 ? '#ff7a7a' : ms > 16 ? '#ffd27a' : '#b8ffb0';
       perfT = 0;

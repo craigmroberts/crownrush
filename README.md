@@ -256,6 +256,7 @@ src/game.js       the whole simulation: player, army, enemies, waves, coins, pad
 src/models.js     buildings, walls, scenery, pads, effects (and the baking helpers)
 src/characters.js smooth toy-figure characters with painted faces (army, raiders, mounted king)
 src/rig.js        loads rigged GLB characters and plays their animations
+src/crowd.js      draws the crowd as one instanced mesh per model, skinned on the GPU
 tools/blender/    Blender script that builds and exports rigged characters (public/models/*.glb)
 tools/fit/        fits a character to a reference image, locally, with no AI in the loop
 tools/models/     re-compresses the exported characters with meshopt (see Making characters)
@@ -307,9 +308,13 @@ rather than argued about — see [tools/probe/README.md](tools/probe/README.md).
 | Load | < 3 MB total | first play on mobile data |
 
 What keeps it fast:
-- Every character is ONE skinned mesh with vertex colours and a per-vertex roughness/metalness
-  attribute (`src/rig.js`), so a character costs one draw call instead of the 8-11 primitives Blender
-  exports.
+- The crowd — raiders, archers, swordsmen, elites, brutes, the boss — is ONE instanced draw per model,
+  animated on the GPU from a baked bone-matrix texture (`src/crowd.js`). 181 characters cost 6 draw
+  calls and no bone textures where they used to cost about 360 and one texture each. The King and the
+  Queen stay on the skinned path. `?crowd=0` puts everything back on it.
+- Every character on the skinned path is ONE skinned mesh with vertex colours and a per-vertex
+  roughness/metalness attribute (`src/rig.js`), so a character costs one draw call instead of the
+  8-11 primitives Blender exports.
 - `tools/blender/make_character.py` bakes each part's modifiers before joining (join keeps only the
   first part's subdivision, which used to smooth the whole body to 17-62k triangles) and lowers
   sphere/cylinder resolution for small parts.

@@ -9,6 +9,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { Crowd } from './crowd.js';
 
 // The characters are meshopt-compressed (tools/models/compress.mjs). Draco was here before and cost
 // more on both halves of the sum: brotli'd, Draco was 341 kB of models behind a 57 kB decoder, and
@@ -18,10 +19,40 @@ const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
 const cache = new Map();
 
+// The models there are hundreds of. These go through crowd.js, which draws all of one model in a
+// single instanced call and animates them on the GPU. The King, the Queen and the mounted King stay
+// on the skinned path below: there are one or two of them and they need real bones.
+const CROWD_RIGS = new Set(['raider', 'archer', 'elite', 'brute', 'boss', 'swordsman']);
+let crowd = null;
+
+// Turns the instanced path on for this run. Off leaves every character a SkinnedMesh, which is the
+// path that was here before and the one to fall back to if the instanced one misbehaves on a device.
+export function enableCrowd(scene) {
+  crowd = new Crowd(scene);
+  return crowd;
+}
+
+export function crowdActive() {
+  return !!crowd;
+}
+
+export function updateCrowd(dt, camera) {
+  if (crowd) crowd.update(dt, camera);
+}
+
+export function clearCrowd() {
+  if (crowd) crowd.clear();
+}
+
+export function crowdStats() {
+  return crowd ? crowd.stats() : { models: 0, characters: 0 };
+}
+
 let rigShadows = true;
 // Mobile swaps real character shadows for cheap blob shadows (see Game.updateBlobs).
 export function setRigShadows(on) {
   rigShadows = on;
+  if (crowd) crowd.setShadows(on);
 }
 
 // One MeshStandardMaterial for every character: roughness / metalness / glow ride along as a
@@ -127,6 +158,9 @@ export async function preloadRigs(names, onProgress = null) {
     try {
       const gltf = await loadRig(n);
       cache.set(n, Object.assign(Promise.resolve(gltf), { loaded: gltf }));
+      // Bake the crowd models now rather than on the first spawn: it is a few milliseconds of
+      // sampling per model, and the loading bar is the right place to spend it.
+      if (crowd && CROWD_RIGS.has(n)) crowd.add(n, gltf);
     } catch (e) {
       console.warn('rig failed to load', n, e);
     }
@@ -218,6 +252,13 @@ export function makeRigged(name, tints = null) {
   const entry = cache.get(name);
   const gltf = entry && entry.loaded;
   if (!gltf) return null;
+  // One of the models there are hundreds of, and the instanced path is up: hand back an instance.
+  // It returns null if the model ran out of palette rows, and then this falls through to a real
+  // skinned character, so the ceiling is a slower character rather than a missing one.
+  if (crowd && crowd.has(name)) {
+    const instanced = crowd.make(name, tints);
+    if (instanced) return instanced;
+  }
   const mesh = cloneSkeleton(tints && tints.length ? variantScene(gltf, name, tints) : gltf.scene);
   mesh.traverse((o) => { if (o.isSkinnedMesh) o.castShadow = rigShadows; });
   const mixer = new THREE.AnimationMixer(mesh);
