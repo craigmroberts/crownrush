@@ -95,6 +95,19 @@ feeds the Keep. Pads only take payment once the King has stopped on them (or hel
 - **Train Archers** at the range: +25% damage and +20% health per level for every archer, including
   ones already recruited (`CFG.archerTraining`).
 
+## Day and night
+
+The sun is the clock. Daylight is for gathering, building, recruiting and repairing; the raid arrives
+at nightfall and the wave counter is the night counter (`CFG.cycle`). One cycle runs about 75 seconds,
+roughly 45 of day and 30 of night, which is long enough for a round trip to the far mining nodes.
+
+You get a warning as the sun starts going down, and dawn is the reward beat: hold the night and the
+game says so. Every fifth night is a blood moon, which brings a boss and turns the whole sky red. If
+you would rather not wait out the daylight, "Bring on the night" skips the rest of it for points.
+
+While the Queen is still captive the clock does not run at all, so the opening stays in permanent
+daylight until you go and get her.
+
 ## Thieves
 
 Once you are carrying enough to be worth robbing, raids bring thieves (`CFG.waves.thieves`). A thief

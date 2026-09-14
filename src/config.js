@@ -92,12 +92,14 @@ export const CFG = {
     thief: { hp: 26, speed: 6.6, damage: 0, attackRate: 1, coins: [0, 0], radius: 0.45, steal: 0.45, minSteal: 6, fleeSpeed: 8.2 },
   },
 
+  // The day / night cycle is the game's metronome: daylight is for gathering and building, the raid
+  // comes at nightfall. `length` is one full cycle in seconds and `nightStart` is the point in it the
+  // sun goes down, so a day is about 45 seconds and a night about 30: long enough for a round trip to
+  // the far mining nodes and back.
+  cycle: { length: 75, nightStart: 0.6, dawn: 0.98, warn: 8 },
+
   waves: {
-    goal: 30, // clear this many waves to secure the kingdom
-    firstDelay: 6,
-    interval: 26,
-    minInterval: 14,
-    graceAfterClear: 25,
+    goal: 30, // survive this many nights to secure the kingdom
     hpGrowthPerWave: 0.04, // ranks (CFG.ranks) and Keep level (CFG.base) carry most of the scaling now
     dmgGrowthPerWave: 0.03,
     bossEvery: 5,

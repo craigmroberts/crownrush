@@ -50,7 +50,7 @@ export class Hud {
     if (kingFrac !== undefined) this.kingHpEl.style.width = `${Math.max(0, Math.min(1, kingFrac)) * 100}%`;
     const n = Math.max(0, Math.ceil(nextIn));
     if (n !== this.lastNext) {
-      this.nextEl.textContent = nextIn === null ? '' : `next wave in ${n}s`;
+      this.nextEl.textContent = nextIn === null ? '' : `nightfall in ${n}s`;
       this.lastNext = n;
     }
     if (goal !== undefined) this.goalEl.textContent = wave > goal ? '· endless' : `/ ${goal}`;

@@ -49,7 +49,8 @@ export class Game {
     const { sun, hemi } = setupLights(this.scene);
     this.sun = sun;
     this.hemi = hemi;
-    this.dayPhase = 0;
+    this.dayPhase = 0.05; // the run opens in early morning
+    this.night = false;
     this.sunHeight = 34;
     if (this.mobile) sun.shadow.mapSize.set(1024, 1024);
     this.world = buildWorld(this.scene);
@@ -146,7 +147,8 @@ export class Game {
     this.coinCombo = 0;
     this.comboTimer = 0;
     this.wave = 0;
-    this.waveTimer = CFG.waves.firstDelay;
+    this.waveTimer = 0; // seconds until nightfall, recomputed from the cycle each frame
+    this.duskWarned = false;
     this.spendTimer = 0;
     this.indicatorTimer = 0;
     this.time = 0;
@@ -695,8 +697,7 @@ export class Game {
     }
     const boss = list.includes('boss');
     audio.wave(boss);
-    this.hud.toast(boss ? `Wave ${w} — BOSS!` : w === CFG.waves.goal ? `Wave ${w} — the final stand!` : `Wave ${w}`, 1800);
-    this.waveTimer = Math.max(CFG.waves.minInterval, CFG.waves.interval - w * 0.4) + list.length * CFG.waves.stagger;
+    this.hud.toast(boss ? `Blood moon! Night ${w} brings a boss.` : w === CFG.waves.goal ? `Night ${w} — the final stand!` : `Night ${w} falls.`, 2200);
   }
 
   // ---------- pads ----------
@@ -1841,8 +1842,9 @@ export class Game {
     this.spawnFx(q.mesh.position.x, q.mesh.position.z, 0xf7a1c4);
     audio.unlock();
     this.addScore(CFG.score.rescue);
-    // taking her back is what brings the raiders: the first raid is now on its way
-    this.waveTimer = CFG.rescue.firstRaid;
+    // taking her back is what brings the raiders: wind the sun to just before dusk
+    this.dayPhase = (CFG.cycle.nightStart - CFG.rescue.firstRaid / CFG.cycle.length + 1) % 1;
+    this.duskWarned = false;
     this.hud.toast('The Queen is safe! Get her home before they come for her.', 3400);
     this.raidWarning = this.time + 3.6;
     this.refreshPads();
@@ -2461,23 +2463,55 @@ export class Game {
       return;
     }
     // Nothing attacks the King until he takes the Queen back (#12): the raids ARE the enemy coming
-    // for her, so while she is captive the world stays quiet however long the player takes.
+    // for her, so while she is captive the clock stands still and it stays daylight.
     if (this.queen.captive) return;
-    this.waveTimer -= dt;
-    if (cleared && this.wave > 0 && this.waveTimer > CFG.waves.graceAfterClear) {
-      this.waveTimer = CFG.waves.graceAfterClear;
+
+    // #15: the sun is the timer. Raids come at nightfall and the wave number is the night number.
+    const cy = CFG.cycle;
+    const prev = this.dayPhase;
+    this.dayPhase = (this.dayPhase + dt / cy.length) % 1;
+    const crossed = (from, to, mark) => (from < mark && to >= mark) || (to < from && (from < mark || to >= mark));
+
+    if (!this.night && this.dayPhase >= cy.nightStart - cy.warn / cy.length && this.dayPhase < cy.nightStart && !this.duskWarned) {
+      this.duskWarned = true;
+      this.hud.toast('The sun is going down. Get behind your walls.', 2600);
     }
-    if (this.waveTimer <= 0) this.startWave();
+    if (!this.night && crossed(prev, this.dayPhase, cy.nightStart)) {
+      this.night = true;
+      this.duskWarned = false;
+      this.startWave();
+    }
+    if (this.night && crossed(prev, this.dayPhase, cy.dawn)) {
+      this.night = false;
+      this.dawnBreaks(cleared);
+    }
+    // seconds until the sun goes down, for the HUD
+    const toNight = (cy.nightStart - this.dayPhase + 1) % 1;
+    this.waveTimer = this.night ? 0 : toNight * cy.length;
   }
 
+  // The reward beat: you held the night, here is the day to rebuild in.
+  dawnBreaks(cleared) {
+    if (this.wave <= 0) return;
+    if (cleared) {
+      this.addScore(CFG.score.waveClear * this.wave);
+      this.hud.toast(`Dawn. You held night ${this.wave}.`, 3000);
+      audio.unlock();
+    } else {
+      this.hud.toast('Dawn, but raiders are still inside the walls.', 2800);
+    }
+  }
+
+  // "Bring on the night": skip the rest of the daylight for points
   callWave() {
-    if (!this.running || this.waveTimer <= 0) return;
+    if (!this.running || this.night || this.waveTimer <= 0 || this.queen.captive) return;
     const bonus = Math.floor(this.waveTimer) * CFG.score.earlyWavePerSecond;
     if (bonus > 0) {
       this.addScore(bonus);
-      this.hud.toast(`Early call: +${bonus} points`, 1400);
+      this.hud.toast(`Night called early: +${bonus} points`, 1400);
     }
-    this.waveTimer = 0;
+    this.dayPhase = CFG.cycle.nightStart - 1e-4;
+    this.duskWarned = false;
   }
 
   // Red arrows at the screen edge pointing at off-screen enemies, grouped by direction.
@@ -2638,17 +2672,27 @@ export class Game {
 
   // Slow day cycle across waves: morning, noon, golden evening, dusk, then dawn again every 12 waves.
   updateDaylight(dt) {
-    const keys = [
+    // One cycle: dawn, morning, noon, golden evening, then nightfall at CFG.cycle.nightStart (0.6).
+    // Night stays cool and moonlit rather than truly dark: the game has to remain playable.
+    const blood = this.night && this.wave > 0 && this.wave % CFG.waves.bossEvery === 0;
+    const keys = blood ? [
       { p: 0.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x6cbd55, exp: 1.22, h: 34, tint: 0xffffff },
-      { p: 0.35, sun: 0xffffff, sunI: 1.42, sky: 0xffffff, ground: 0x9ec97a, fog: 0x74c45c, exp: 1.26, h: 42, tint: 0xffffff },
-      { p: 0.7, sun: 0xffb36a, sunI: 1.25, sky: 0xffd9b0, ground: 0x7a9a5a, fog: 0x6fae4f, exp: 1.15, h: 20, tint: 0xffe4c8 },
-      { p: 0.9, sun: 0xa9b8ff, sunI: 0.95, sky: 0xb9c6ff, ground: 0x4f6f52, fog: 0x4f8f60, exp: 1.06, h: 15, tint: 0xcbd4ff },
+      { p: 0.3, sun: 0xffffff, sunI: 1.42, sky: 0xffffff, ground: 0x9ec97a, fog: 0x74c45c, exp: 1.26, h: 42, tint: 0xffffff },
+      { p: 0.52, sun: 0xffb36a, sunI: 1.25, sky: 0xffd9b0, ground: 0x7a9a5a, fog: 0x6fae4f, exp: 1.15, h: 20, tint: 0xffe4c8 },
+      { p: 0.62, sun: 0xff7a5a, sunI: 1.0, sky: 0xffb0a0, ground: 0x7a4a42, fog: 0x8a4038, exp: 1.06, h: 14, tint: 0xffc8be },
+      { p: 0.74, sun: 0xff6a5a, sunI: 0.8, sky: 0xd08078, ground: 0x5a2a2a, fog: 0x6b2622, exp: 0.98, h: 9, tint: 0xf0a89e },
+      { p: 0.94, sun: 0xff6a5a, sunI: 0.8, sky: 0xd08078, ground: 0x5a2a2a, fog: 0x6b2622, exp: 0.98, h: 9, tint: 0xf0a89e },
+      { p: 1.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x6cbd55, exp: 1.22, h: 34, tint: 0xffffff },
+    ] : [
+      { p: 0.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x6cbd55, exp: 1.22, h: 34, tint: 0xffffff },
+      { p: 0.3, sun: 0xffffff, sunI: 1.42, sky: 0xffffff, ground: 0x9ec97a, fog: 0x74c45c, exp: 1.26, h: 42, tint: 0xffffff },
+      { p: 0.52, sun: 0xffb36a, sunI: 1.25, sky: 0xffd9b0, ground: 0x7a9a5a, fog: 0x6fae4f, exp: 1.15, h: 20, tint: 0xffe4c8 },
+      { p: 0.62, sun: 0xb9a2ff, sunI: 0.92, sky: 0xb2bdf5, ground: 0x4a6270, fog: 0x3f6f74, exp: 1.0, h: 14, tint: 0xc6cdf2 },
+      { p: 0.74, sun: 0x8aa0f5, sunI: 0.62, sky: 0x7f92d8, ground: 0x2b3f57, fog: 0x24405e, exp: 0.9, h: 9, tint: 0x93a3cc },
+      { p: 0.94, sun: 0x8aa0f5, sunI: 0.62, sky: 0x7f92d8, ground: 0x2b3f57, fog: 0x24405e, exp: 0.9, h: 9, tint: 0x93a3cc },
       { p: 1.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x6cbd55, exp: 1.22, h: 34, tint: 0xffffff },
     ];
-    const target = ((Math.max(1, this.wave) - 1) % 12) / 12;
-    let d = target - this.dayPhase;
-    if (d < -0.5) d += 1;
-    this.dayPhase = (this.dayPhase + Math.sign(d) * Math.min(Math.abs(d), dt * 0.03) + 1) % 1;
+    // dayPhase is advanced by updateWaves, which owns the clock; this only paints it
     const ph = this.dayPhase;
     let a = keys[0];
     let b = keys[1];
