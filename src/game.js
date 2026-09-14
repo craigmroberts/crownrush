@@ -18,6 +18,7 @@ const tmp2 = new V3();
 const tmpM = new THREE.Matrix4();
 const HAIR = [0x5a3416, 0x2a1e16, 0x8a5a2b, 0x1c1c22, 0x6b3f1d];
 const cap = (t) => t[0].toUpperCase() + t.slice(1);
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 // pad look by what it does (see drawPad in models.js)
 const PAD_STYLE = {
   build: { shape: 'square', rim: '#ffffff', tag: 'BUILD' },
@@ -803,19 +804,33 @@ export class Game {
     return 'upgrade';
   }
 
+  // the level a marker shows, where the thing it points at has one
+  padSub(def) {
+    if (def.feed) return `Level ${this.baseLevel}`;
+    if (def.towerUp && this.towers[def.towerUp]) return `Level ${this.towers[def.towerUp].level}`;
+    if (def.tower && this.towers[def.tower]) return `Level ${this.towers[def.tower].level}`;
+    if (def.maxBuys) return `${this.buyCount[def.id] || 0} of ${def.maxBuys}`;
+    return null;
+  }
+
+  // the short name on the floor: the full label is often too long to read at a glance
+  padName(def) {
+    if (def.feed) return 'Royal Keep';
+    if (def.towerUp) return 'Watchtower';
+    return def.label;
+  }
+
   drawPad(pad) {
     const style = PAD_STYLE[this.padKind(pad.def)];
     const total = pad.cost + pad.res.reduce((a, r) => a + r.need, 0);
     const paidAll = pad.paid + pad.res.reduce((a, r) => a + r.paid, 0);
     drawPad(pad.canvas, pad.tex, {
-      icon: pad.def.icon, label: pad.def.label, remaining: pad.def.feed ? null : pad.cost - pad.paid, paid: total ? paidAll / total : 0,
-      currency: pad.def.crew ? 'archers' : this.coinTier(),
-      res: pad.res.map((r) => ({ type: r.type, remaining: r.need - r.paid })),
+      icon: pad.def.icon, label: this.padName(pad.def), paid: total ? paidAll / total : 0,
       active: !!pad.active,
-      sub: pad.def.feed ? `Level ${this.baseLevel} → ${this.baseLevel + 1}` : null,
+      sub: this.padSub(pad.def),
       locked: pad.locked === 'rescue' ? 'Free the Queen' : pad.locked ? `Keep Lv ${pad.locked}` : null,
       lockIcon: pad.locked === 'rescue' ? 'tiara' : 'keep',
-      shape: style.shape, rim: style.rim, tag: style.tag,
+      shape: style.shape, rim: style.rim,
     });
   }
 
@@ -2451,9 +2466,10 @@ export class Game {
   updatePads(dt) {
     const kp = this.king.mesh.position;
     this.spendTimer = Math.max(this.spendTimer - dt, -0.1);
-    // nearest pad gets a readable requirements card; the one you stand on lights up
+    // #8: the costs panel belongs to the pad you are STANDING ON. The marker on the floor carries the
+    // name; you only need the numbers once you have stopped, and stopping is what pays anyway.
     let nearest = null;
-    let nd = 7;
+    let nd = CFG.spend.padRadius;
     for (const pad of this.pads) {
       const d = kp.distanceTo(pad.mesh.position);
       if (d < nd) {
@@ -2462,20 +2478,17 @@ export class Game {
       }
     }
     if (nearest) {
-      tmp.copy(nearest.mesh.position).setY(0.2).project(this.camera);
-      const sx = (tmp.x * 0.5 + 0.5) * window.innerWidth;
-      const sy = (-tmp.y * 0.5 + 0.5) * window.innerHeight - 30;
       const chips = [];
       const def = nearest.def;
       const locked = this.padLocked(def);
       if (this.queen.captive) chips.push({ icon: 'tiara', text: 'Free the Queen first', state: 'short' });
       if (def.crew) {
         const free = this.units.filter((u) => u.type === 'archer' && !u.assign).length;
-        chips.push({ icon: 'person', text: `${nearest.cost - nearest.paid} archers`, state: free > 0 ? 'ok' : 'short' });
+        chips.push({ icon: 'person', text: plural(nearest.cost - nearest.paid, 'archer'), state: free > 0 ? 'ok' : 'short' });
       } else {
         const needC = nearest.cost - nearest.paid;
         const have = this.coinsCarried;
-        if (nearest.cost > 0) chips.push({ icon: this.coinTier(), text: `${needC} coins (have ${have})`, state: needC <= 0 ? 'ok' : have >= needC ? 'ok' : have > 0 ? '' : 'short' });
+        if (nearest.cost > 0) chips.push({ icon: this.coinTier(), text: `${plural(needC, 'coin')} (have ${have})`, state: needC <= 0 ? 'ok' : have >= needC ? 'ok' : have > 0 ? '' : 'short' });
         for (const r of nearest.res) {
           const need = r.need - r.paid;
           chips.push({ icon: r.type, text: `${need} ${r.type} (have ${this.res[r.type]})`, state: need <= 0 || this.res[r.type] >= need ? 'ok' : this.res[r.type] > 0 ? '' : 'short' });
@@ -2483,9 +2496,17 @@ export class Game {
         if (locked) chips.push({ icon: 'keep', text: `Keep level ${locked} needed`, state: 'short' });
         if (def.units) chips.push({ icon: def.units.type, text: `${this.unitCount(def.units.type)} / ${this.unitCap(def.units.type)} ${def.units.type}s`, state: locked ? 'short' : 'ok' });
       }
-      const onPad = nd < CFG.spend.padRadius;
-      const note = this.queen.captive ? 'Rescue the Queen before you build' : locked ? 'Feed the Keep to raise the limit' : onPad && this.king.moving && (nearest.holdT || 0) < CFG.spend.walkHold ? 'Stop here to pay' : def.feed ? `Stop here to pour in materials (level ${this.baseLevel} → ${this.baseLevel + 1})` : def.crew ? 'Stop here to send archers' : onPad ? 'Paying…' : 'Stop on the pad to pay';
-      this.hud.showPadTip(sx, sy, def.feed ? `Feed the Keep · Lv ${this.baseLevel}` : def.label, chips, note);
+      const note = this.queen.captive ? 'Rescue the Queen first' : locked ? 'Feed the Keep to raise the limit' : this.king.moving && (nearest.holdT || 0) < CFG.spend.walkHold ? 'Stop moving to pay' : def.feed ? `Pouring in materials…` : def.crew ? 'Sending archers…' : 'Paying…';
+      const total = nearest.cost + nearest.res.reduce((a, r) => a + r.need, 0);
+      const paidAll = nearest.paid + nearest.res.reduce((a, r) => a + r.paid, 0);
+      this.hud.showPadTip({
+        name: def.feed ? `Feed the Keep` : def.label,
+        sub: this.padSub(def),
+        desc: this.padDesc(def),
+        chips,
+        note,
+        progress: total ? paidAll / total : 0,
+      });
     } else this.hud.hidePadTip();
     for (const pad of this.pads) {
       // pop-in / settle animation

@@ -74,9 +74,14 @@ on; passing an intact Keep she steps inside.
 ## Reading the pads
 
 Square pads BUILD something (structures, walls, bridges, expansions). Round pads do everything else,
-with a coloured rim: blue recruits units or sends a crew, purple upgrades, gold trades coins, green
-feeds the Keep. Pads only take payment once the King has stopped on them (or held for a moment,
-`CFG.spend`), so walking across a pad costs nothing.
+with a coloured rim: blue recruits units or sends a crew, purple upgrades, green feeds the Keep.
+
+The marker on the ground carries identity only: a big icon, a short name, and a level where the thing
+it points at has one ("Royal Keep · Level 4", "Watchtower · Level 2"). Nobody can read a price off the
+floor at a sharp angle while running past, so costs live in a small panel that appears bottom-right
+when you stop on a pad, showing what it does, what it costs against what you carry, and how far the
+payment has got. Pads only take payment once the King has stopped (or held for a moment, `CFG.spend`),
+so walking across one costs nothing.
 
 ## Coins, ranks and towers
 

@@ -92,21 +92,17 @@ export class Hud {
     this.overScreen.classList.add('hidden');
   }
   // readable requirements card floating above the pad the King is near
-  showPadTip(x, y, name, chips, note) {
+  showPadTip({ name, sub, desc, chips, note, progress }) {
     this.tip.classList.remove('hidden');
-    this.tip.style.transform = `translate(calc(${Math.round(x)}px - 50%), calc(${Math.round(y)}px - 100%))`;
-    if (this.tipKey !== name + chips.map((c) => c.text + c.state).join('|') + note) {
-      this.tipKey = name + chips.map((c) => c.text + c.state).join('|') + note;
-      this.tip.querySelector('.tip-name').textContent = name;
+    const key = name + sub + chips.map((c) => c.text + c.state).join('|') + note;
+    if (this.tipKey !== key) {
+      this.tipKey = key;
+      this.tip.querySelector('.tip-name').textContent = sub ? `${name} · ${sub}` : name;
+      this.tip.querySelector('.tip-desc').textContent = desc || '';
       this.tip.querySelector('.tip-costs').innerHTML = chips.map((c) => `<span class="chip ${c.state}">${iconSvg(c.icon, 18)}${c.text}</span>`).join('');
-      let n = this.tip.querySelector('.tip-note');
-      if (!n) {
-        n = document.createElement('div');
-        n.className = 'tip-note';
-        this.tip.appendChild(n);
-      }
-      n.textContent = note;
+      this.tip.querySelector('.tip-note').textContent = note;
     }
+    this.tip.querySelector('.tip-bar i').style.width = `${Math.round(Math.min(1, progress) * 100)}%`;
   }
   hidePadTip() {
     this.tip.classList.add('hidden');

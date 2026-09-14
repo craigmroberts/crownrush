@@ -1081,14 +1081,17 @@ export function makePadTexture() {
 
 // Pad shapes say what a pad does: SQUARE = builds something (structure, wall, bridge, expansion),
 // CIRCLE = everything else (recruit, crew, upgrade, trade, feed), with a coloured rim per kind.
-export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 'coins', res = [], active = false, sub = null, locked = null, lockIcon = 'keep', shape = 'square', rim = '#ffffff', tag = null }) {
+//
+// #8: the marker carries IDENTITY ONLY - icon, name, and a level where one applies. Costs used to be
+// painted here too, but nobody can read a price off the floor at a sharp angle while running past;
+// they live in the panel that appears when you stop on the pad.
+export function drawPad(canvas, tex, { icon, label, paid, active = false, sub = null, locked = null, lockIcon = 'keep', shape = 'square', rim = '#ffffff' }) {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 256, 256);
-  const r = 26;
   const outline = () => {
     ctx.beginPath();
     if (shape === 'circle') ctx.arc(128, 128, 114, 0, Math.PI * 2);
-    else ctx.roundRect(14, 14, 228, 228, r);
+    else ctx.roundRect(14, 14, 228, 228, 26);
   };
   outline();
   ctx.fillStyle = active ? 'rgba(255, 230, 120, 0.45)' : 'rgba(58, 42, 26, 0.5)';
@@ -1106,7 +1109,6 @@ export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 
   ctx.lineWidth = active ? 14 : 11;
   ctx.lineCap = 'round';
   if (shape === 'circle') {
-    // a ring with four short gaps, so it still reads as a marker rather than a coin
     for (let i = 0; i < 4; i++) {
       ctx.beginPath();
       ctx.arc(128, 128, 112, i * (Math.PI / 2) + 0.16, (i + 1) * (Math.PI / 2) - 0.16);
@@ -1122,77 +1124,33 @@ export function drawPad(canvas, tex, { icon, remaining, label, paid, currency = 
       ctx.stroke();
     }
   }
-  const hasRes = res.length > 0;
-  // icon on a soft disc
-  const img = iconImage(icon);
-  const iy = hasRes ? 58 : 70;
-  const isz = hasRes ? 66 : 80;
-  ctx.beginPath();
-  ctx.arc(128, iy, isz * 0.62, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(255,251,232,0.85)';
-  ctx.fill();
-  if (img) ctx.drawImage(img, 128 - isz / 2, iy - isz / 2, isz, isz);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = '800 25px "Baloo 2", "Trebuchet MS", system-ui, sans-serif';
-  ctx.lineWidth = 6;
-  ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-  ctx.strokeText(label, 128, hasRes ? 108 : 124);
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(label, 128, hasRes ? 108 : 124);
-  const priceY = hasRes ? 158 : 190;
-  const priceIcon = iconImage(currency === 'archers' ? 'person' : currency === 'coins' ? 'coin' : currency);
-  if (priceIcon) ctx.drawImage(priceIcon, 44, priceY - 26, 52, 52);
-  const bigNum = (n, x, y, size) => {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.transform(1, 0, -0.16, 1, 0, 0);
-    ctx.font = `800 ${size}px "Baloo 2", "Trebuchet MS", "Arial Black", system-ui, sans-serif`;
-    ctx.lineWidth = size * 0.13;
-    ctx.strokeStyle = '#1b1b24';
-    ctx.strokeText(String(n), 0, 0);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(String(n), 0, 0);
-    ctx.restore();
-  };
-  if (locked) {
-    // no price on a pad that cannot be paid; the lock badge takes that space instead
-  } else if (remaining !== null && remaining !== undefined) bigNum(remaining, 158, priceY, hasRes ? 64 : 78);
-  else if (sub) {
-    ctx.font = '800 30px "Baloo 2", "Trebuchet MS", system-ui, sans-serif';
-    ctx.lineWidth = 6;
-    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-    ctx.strokeText(sub, 128, priceY);
-    ctx.fillStyle = '#ffe98a';
-    ctx.fillText(sub, 128, priceY);
-  }
-  const cols = res.length;
-  if (!locked) res.forEach((row, i) => {
-    const x = 128 + (i - (cols - 1) / 2) * 96;
-    const ri = iconImage(row.type);
-    if (ri) ctx.drawImage(ri, x - 46, 192, 36, 36);
-    bigNum(row.remaining, x + 20, 212, 40);
-  });
-  if (tag && !hasRes && !locked) {
-    ctx.font = '800 17px "Baloo 2", "Trebuchet MS", system-ui, sans-serif';
-    ctx.lineWidth = 4;
+  // one big icon on a soft disc: this is what has to read at a glance
+  const img = iconImage(icon);
+  const isz = 104;
+  ctx.beginPath();
+  ctx.arc(128, 100, isz * 0.62, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,251,232,0.9)';
+  ctx.fill();
+  if (img) ctx.drawImage(img, 128 - isz / 2, 100 - isz / 2, isz, isz);
+  const text = (str, y, size, fill) => {
+    ctx.font = `800 ${size}px "Baloo 2", "Trebuchet MS", system-ui, sans-serif`;
+    ctx.lineWidth = size * 0.28;
     ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-    ctx.strokeText(tag, 128, 230);
-    ctx.fillStyle = rim;
-    ctx.fillText(tag, 128, 230);
-  }
+    ctx.strokeText(str, 128, y);
+    ctx.fillStyle = fill;
+    ctx.fillText(str, 128, y);
+  };
+  text(label, sub ? 186 : 196, label.length > 15 ? 26 : 31, '#ffffff');
+  if (sub) text(sub, 220, 25, '#ffe98a');
   if (locked) {
     outline();
-    ctx.fillStyle = 'rgba(20, 16, 30, 0.45)';
+    ctx.fillStyle = 'rgba(20, 16, 30, 0.5)';
     ctx.fill();
     const li = iconImage(lockIcon);
-    if (li) ctx.drawImage(li, 128 - 27, 140, 54, 54);
-    ctx.font = `800 ${locked.length > 13 ? 23 : 28}px "Baloo 2", "Trebuchet MS", system-ui, sans-serif`;
-    ctx.lineWidth = 7;
-    ctx.strokeStyle = 'rgba(0,0,0,0.65)';
-    ctx.strokeText(locked, 128, 212);
-    ctx.fillStyle = '#ffd23d';
-    ctx.fillText(locked, 128, 212);
+    if (li) ctx.drawImage(li, 128 - 29, 78, 58, 58);
+    text(locked, 168, locked.length > 13 ? 24 : 29, '#ffd23d');
   }
   tex.needsUpdate = true;
 }
