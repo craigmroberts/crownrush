@@ -59,6 +59,9 @@ same Wi-Fi and open the "Network" URL that Vite prints instead.
 
 ## The opening: rescue the Queen
 
+The run opens with an empty coin stack and the starting coins scattered along the road west, so
+picking them up is the first thing you do and it teaches the pickup rule without a word.
+
 The Queen starts captive in the wilds (`CFG.rescue`). Three Bandits circle her and she edges away from
 whichever is nearest, so the scene reads as a capture from a distance rather than as four figures
 standing in a field. A pink arrow points to her. Come within sight and she calls out with a heart while

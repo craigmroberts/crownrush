@@ -147,7 +147,7 @@ export class Game {
     this.taken = {};
     this.offerQueue = 0;
     this.offer = null;
-    this.coinsCarried = CFG.coins.start;
+    this.coinsCarried = 0; // the starting coins lie on the ground (#20): picking them up is the first thing you do
     this.coinsEarned = 0;
     this.archerPower = 0;
     this.rankSeen = {};
@@ -218,6 +218,13 @@ export class Game {
     this.nodeRing.visible = false;
     this.root.add(this.nodeRing);
     this.resetFog();
+    // #20: the starting purse is scattered along the road west, the way the pink arrow points, so the
+    // first three seconds teach the pickup rule and the stack builds because of what you did.
+    for (let i = 0; i < CFG.coins.start; i++) {
+      const t = i / Math.max(1, CFG.coins.start - 1);
+      tmp.set(-5 - t * 12 + rand(-1.2, 1.2), 0.6, 2 + t * 4 + rand(-1.6, 1.6));
+      this.dropCoin(tmp, 'bronze');
+    }
     this.refreshPads();
     this.hud.showNextWave(false);
     this.hud.hidePadTip();
