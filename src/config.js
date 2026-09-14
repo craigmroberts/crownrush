@@ -69,12 +69,13 @@ export const CFG = {
   },
 
   // Enemy ranks: the colour they wear says how dangerous they are. Each rank multiplies the type's
-  // stats and decides which coins drop. Ranks unlock by wave (or by Keep level, whichever is further).
+  // stats and decides which coins drop. A rank joins the raids when the Keep reaches `fromLevel`;
+  // waves themselves only add numbers (plus up to `waves.scouts.max` scouts of the next rank).
   ranks: [
-    { name: 'Bandit', fromWave: 1, hp: 1, damage: 1, tunic: 0x9a8663, trim: 0x5b4a33, dark: 0x3d3226, light: 0xe3d7b8, drops: { bronze: [1, 2] }, bonus: { silver: 0.3 } },
-    { name: 'Raider', fromWave: 4, hp: 1.5, damage: 1.35, tunic: 0xd8262c, trim: 0x8d1d22, dark: 0x2a2a30, light: 0xf0cfc4, drops: { silver: [1, 2], bronze: [1, 2] }, bonus: { gold: 0.15 } },
-    { name: 'Marauder', fromWave: 9, hp: 2.3, damage: 1.8, tunic: 0x7a3fd1, trim: 0x3a2263, dark: 0x201533, light: 0xd9c8f5, drops: { gold: [1, 2], silver: [1, 2] }, bonus: { platinum: 0.12 } },
-    { name: 'Warlord', fromWave: 16, hp: 3.6, damage: 2.5, tunic: 0x24232b, trim: 0xf5b800, dark: 0x101014, light: 0x4a4a55, drops: { platinum: [1, 2], gold: [1, 2] }, bonus: {} },
+    { name: 'Bandit', fromLevel: 0, hp: 1, damage: 1, tunic: 0x9a8663, trim: 0x5b4a33, dark: 0x3d3226, light: 0xe3d7b8, drops: { bronze: [1, 2] }, bonus: { silver: 0.3 } },
+    { name: 'Raider', fromLevel: 3, hp: 1.5, damage: 1.35, tunic: 0xd8262c, trim: 0x8d1d22, dark: 0x2a2a30, light: 0xf0cfc4, drops: { silver: [1, 2], bronze: [1, 2] }, bonus: { gold: 0.15 } },
+    { name: 'Marauder', fromLevel: 7, hp: 2.3, damage: 1.8, tunic: 0x7a3fd1, trim: 0x3a2263, dark: 0x201533, light: 0xd9c8f5, drops: { gold: [1, 2], silver: [1, 2] }, bonus: { platinum: 0.12 } },
+    { name: 'Warlord', fromLevel: 11, hp: 3.6, damage: 2.5, tunic: 0x24232b, trim: 0xf5b800, dark: 0x101014, light: 0x4a4a55, drops: { platinum: [1, 2], gold: [1, 2] }, bonus: {} },
   ],
 
   enemy: {
@@ -94,6 +95,12 @@ export const CFG = {
     dmgGrowthPerWave: 0.03,
     bossEvery: 5,
     stagger: 0.35,
+    // a wave is mostly the current rank plus some lower ranks; from wave `from` on, 0-`max` scouts of
+    // the NEXT rank sneak in as a taste of what levelling the Keep brings
+    scouts: { from: 5, max: 2 },
+    // enemy types also wait for the Keep (with a late wave fallback so a stalled game still varies)
+    bruteAt: { level: 2, wave: 10 },
+    eliteAt: { level: 5, wave: 18 },
   },
 
   regen: { delay: 4, perSecond: 3 },

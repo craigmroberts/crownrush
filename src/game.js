@@ -528,23 +528,35 @@ export class Game {
     this.wave++;
     const w = this.wave;
     const list = [];
+    const L = this.baseLevel;
     const knights = 4 + Math.round(w * 2.2);
     for (let i = 0; i < knights; i++) list.push('knight');
-    if (w >= 3) for (let i = 0; i < Math.floor((w - 2) * 1.3); i++) list.push('brute');
-    if (w >= 8) for (let i = 0; i < Math.floor((w - 6) * 0.8); i++) list.push('elite');
+    const brutes = L >= CFG.waves.bruteAt.level || w >= CFG.waves.bruteAt.wave;
+    const elites = L >= CFG.waves.eliteAt.level || w >= CFG.waves.eliteAt.wave;
+    if (brutes && w >= 3) for (let i = 0; i < Math.floor((w - 2) * 1.3); i++) list.push('brute');
+    if (elites && w >= 8) for (let i = 0; i < Math.floor((w - 6) * 0.8); i++) list.push('elite');
     if (w % CFG.waves.bossEvery === 0) for (let i = 0; i < Math.floor(w / 10) + 1; i++) list.push('boss');
     for (let i = list.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [list[i], list[j]] = [list[j], list[i]];
     }
-    // ranks: the newest rank dominates, older colours keep showing up in smaller numbers
-    const progress = Math.max(w, this.baseLevel + 2);
+    // ranks follow the Keep: mostly the current rank, some lower ranks, and at most a couple of
+    // scouts from the next rank up so the player can see what is coming
     let top = 0;
-    CFG.ranks.forEach((r, i) => { if (r.fromWave <= progress) top = i; });
-    const pTop = Math.min(0.85, 0.35 + 0.1 * (progress - CFG.ranks[top].fromWave));
-    const pickRank = (type) => {
-      if (type === 'boss' || top === 0 || Math.random() < pTop) return top;
-      return Math.random() < 0.7 ? top - 1 : Math.max(0, top - 2);
+    CFG.ranks.forEach((r, i) => { if (r.fromLevel <= L) top = i; });
+    const scoutSet = new Set();
+    if (top < CFG.ranks.length - 1 && w >= CFG.waves.scouts.from) {
+      const n = randInt(0, CFG.waves.scouts.max);
+      const candidates = list.map((t, i) => i).filter((i) => list[i] !== 'boss');
+      for (let k = 0; k < n && candidates.length; k++) scoutSet.add(candidates.splice(Math.floor(Math.random() * candidates.length), 1)[0]);
+    }
+    const pickRank = (type, i) => {
+      if (scoutSet.has(i)) return top + 1;
+      if (type === 'boss' || top === 0) return top;
+      const roll = Math.random();
+      if (top >= 2 && roll < 0.1) return top - 2;
+      if (roll < 0.4) return top - 1;
+      return top;
     };
     // raiding parties come from 1-3 directions
     const dirs = 1 + Math.min(2, Math.floor(w / 3));
@@ -573,7 +585,7 @@ export class Game {
         a += 0.9;
         r += 3;
       }
-      this.spawnQueue.push({ type, x, z, t: i * CFG.waves.stagger, rank: pickRank(type) });
+      this.spawnQueue.push({ type, x, z, t: i * CFG.waves.stagger, rank: pickRank(type, i) });
     });
     const boss = list.includes('boss');
     audio.wave(boss);
@@ -876,7 +888,8 @@ export class Game {
       this.keep.hp = this.keep.maxHp;
       setHealthBar(this.keep.bar, 1);
     }
-    const notes = [CFG.base.unlocks[L], `${CFG.base.archers[L]} archers`, `${CFG.base.swordsmen[L]} swordsmen`, `arrows ${this.fireMul().toFixed(1)}x`].filter(Boolean);
+    const newRank = CFG.ranks.find((r) => r.fromLevel === L);
+    const notes = [CFG.base.unlocks[L], newRank ? `${newRank.name}s now join the raids` : null, `${CFG.base.archers[L]} archers`, `${CFG.base.swordsmen[L]} swordsmen`, `arrows ${this.fireMul().toFixed(1)}x`].filter(Boolean);
     this.hud.toast(`Keep level ${L}! ${notes.join(' · ')}`, 3400);
     this.spawnFx(this.keep.x, this.keep.z, 0xffd23d);
     this.addScore(CFG.score.levelUp * L);

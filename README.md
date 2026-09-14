@@ -63,10 +63,11 @@ same Wi-Fi and open the "Network" URL that Vite prints instead.
   archers and training cost silver, swordsmen, the barracks and tower upgrades cost gold, veteran archers
   and the top tower level cost platinum. Every pad shows which coin it takes. The **Exchange** building
   opens trade pads (5 bronze → 1 silver, 4 silver → 1 gold, 4 gold → 1 platinum from Keep level 6).
-- **Enemy ranks by colour.** Bandits (tan) from wave 1, Raiders (red) from wave 4, Marauders (purple)
-  from wave 9, Warlords (black and gold) from wave 16, or earlier if the Keep is high enough
-  (`CFG.ranks`). Each rank multiplies HP and damage and drops the next coin tier. Enemies also scale
-  with Keep level (`CFG.base.enemyHpPerLevel`), on top of the per-wave growth.
+- **Enemy ranks by colour, paced by the Keep.** Bandits (tan) from the start, Raiders (red) once the
+  Keep reaches level 3, Marauders (purple) at 7, Warlords (black and gold) at 11 (`CFG.ranks`). A wave
+  is mostly the current rank with some lower ranks, plus at most two scouts of the next rank from wave
+  5 (`CFG.waves.scouts`). Brutes and elites also wait for Keep levels 2 and 5. Each rank multiplies HP
+  and damage and drops the next coin tier; waves add numbers and a small per-wave growth.
 - **Watchtowers stand in the fort's corners.** A tower's pad cycles through build → man it → upgrade →
   man the new slots, up to level 3 (3 / 5 / 7 archers, sharper and longer-ranged arrows, `CFG.tower`).
   Gate Guards stand on small posts flanking each gate.
