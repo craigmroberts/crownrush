@@ -95,6 +95,17 @@ feeds the Keep. Pads only take payment once the King has stopped on them (or hel
 - **Train Archers** at the range: +25% damage and +20% health per level for every archer, including
   ones already recruited (`CFG.archerTraining`).
 
+## Thieves
+
+Once you are carrying enough to be worth robbing, raids bring thieves (`CFG.waves.thieves`). A thief
+does not fight: it sprints straight at the King, takes a share of the coins off his stack and runs for
+the nearest map edge carrying them in plain sight. Walls do not stop it, so archers and speed are the
+only answer. Cut it down and everything it took spills back onto the ground; let it reach the edge and
+those coins are gone for good.
+
+They are announced before they arrive, they never show up before you have coins worth taking, and the
+chase window is roughly ten seconds.
+
 ## Rewards: pick one of three
 
 Every Keep level pauses the game and offers three rewards; you keep one. The pool is in

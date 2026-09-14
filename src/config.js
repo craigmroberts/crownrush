@@ -48,7 +48,7 @@ export const CFG = {
 
   mining: { radius: 2.8, tick: 0.55, regrow: 9 },
 
-  score: { earlyWavePerSecond: 4, kill: { knight: 10, elite: 25, brute: 20, boss: 200 }, coin: 1, material: 2, buildPerCoin: 2, buildPerMaterial: 3, soldierPerWave: 2, waveClear: 50, levelUp: 60, rescue: 150 },
+  score: { earlyWavePerSecond: 4, kill: { knight: 10, elite: 25, brute: 20, boss: 200, thief: 40 }, coin: 1, material: 2, buildPerCoin: 2, buildPerMaterial: 3, soldierPerWave: 2, waveClear: 50, levelUp: 60, rescue: 150 },
 
   archer: { hp: 30, range: 9.5, fireRate: 0.9, damage: 10, speed: 9 },
   swordsman: { hp: 70, range: 1.4, fireRate: 1.1, damage: 14, speed: 8.5, aggro: 5 },
@@ -87,6 +87,9 @@ export const CFG = {
     elite: { hp: 60, speed: 3.6, damage: 12, attackRate: 1.0, coins: [3, 4], radius: 0.55 },
     brute: { hp: 70, speed: 2.9, damage: 14, attackRate: 1.5, coins: [3, 5], radius: 0.8 },
     boss: { hp: 420, speed: 2.3, damage: 20, attackRate: 2.0, coins: [15, 22], radius: 2.2, aoe: 3.4 },
+    // Fast, fragile, and not interested in fighting: it runs at the King, grabs coins off his stack
+    // and bolts for the edge of the map. Walls do not stop it; archers do.
+    thief: { hp: 26, speed: 6.6, damage: 0, attackRate: 1, coins: [0, 0], radius: 0.45, steal: 0.45, minSteal: 6, fleeSpeed: 8.2 },
   },
 
   waves: {
@@ -102,6 +105,8 @@ export const CFG = {
     // a wave is mostly the current rank plus some lower ranks; from wave `from` on, 0-`max` scouts of
     // the NEXT rank sneak in as a taste of what levelling the Keep brings
     scouts: { from: 5, max: 2 },
+    // thieves join raids once the King is carrying enough to be worth robbing
+    thieves: { fromWave: 3, minCoins: 25, chance: 0.55, max: 2, warn: 4 },
     // enemy types also wait for the Keep (with a late wave fallback so a stalled game still varies)
     bruteAt: { level: 2, wave: 10 },
     eliteAt: { level: 5, wave: 18 },

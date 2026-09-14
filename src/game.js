@@ -574,6 +574,8 @@ export class Game {
 
   // which parts of each enemy rig wear the rank colours
   rankTints(type, rk) {
+    // the thief always wears the same green, whatever rank it came in with: it is a role, not a rank
+    if (type === 'thief') return [['red', 0x2f8f5b], ['darkRed', 0x1c5638], ['hair', 0x23281f], ['boot', 0x1c5638]];
     if (type === 'knight') return [['red', rk.tunic], ['darkRed', rk.trim]];
     if (type === 'elite') return [['darkRed', rk.tunic], ['ink', rk.dark]];
     if (type === 'brute') return [['darkRed', rk.tunic], ['leather', rk.trim]];
@@ -584,7 +586,7 @@ export class Game {
     const stats = CFG.enemy[type];
     rank = Math.min(rank, CFG.ranks.length - 1);
     const rk = CFG.ranks[rank];
-    const rig = makeRigged(type === 'knight' ? 'raider' : type, this.rankTints(type, rk));
+    const rig = makeRigged(type === 'knight' || type === 'thief' ? 'raider' : type, this.rankTints(type, rk));
     const mesh = rig ? rig.mesh : type === 'boss' ? makeBoss() : type === 'brute' ? makeBrute() : type === 'elite' ? makeElite() : makeKnight();
     mesh.position.set(x, 0, z);
     const w = Math.max(1, this.wave);
@@ -603,7 +605,7 @@ export class Game {
     const e = {
       type, rank, mesh, bar, stats, hp: stats.hp * hpMul, maxHp: stats.hp * hpMul, damage: stats.damage * dmgMul,
       cooldown: rand(0.2, 0.8), target: null, retarget: 0, flash: 0, radius: stats.radius,
-      scale: rig ? { knight: 1.0, elite: 1.1, brute: 1.35, boss: 2.4 }[type] : type === 'boss' ? 1 : 1.15,
+      scale: rig ? { knight: 1.0, elite: 1.1, brute: 1.35, boss: 2.4, thief: 0.92 }[type] : type === 'boss' ? 1 : 1.15,
     };
     mesh.scale.setScalar(e.scale);
     // the bar is a child of the scaled mesh: undo that scale so bar size/height are in world units
@@ -681,6 +683,16 @@ export class Game {
       }
       this.spawnQueue.push({ type, x, z, t: i * CFG.waves.stagger, rank: pickRank(type, i) });
     });
+    // a thief joins once the King is worth robbing; they arrive after the fighting has started
+    const th = CFG.waves.thieves;
+    if (w >= th.fromWave && this.coinsCarried >= th.minCoins && Math.random() < th.chance) {
+      const n = 1 + (Math.random() < 0.25 ? 1 : 0);
+      for (let i = 0; i < Math.min(n, th.max); i++) {
+        const a = rand(0, Math.PI * 2);
+        const rr = halfDiag + rand(12, 18);
+        this.spawnQueue.push({ type: 'thief', x: THREE.MathUtils.clamp(cx + Math.cos(a) * rr, -half, half), z: THREE.MathUtils.clamp(cz + Math.sin(a) * rr, -half, half), t: list.length * CFG.waves.stagger + th.warn + i * 2.5, rank: 0, warn: true });
+      }
+    }
     const boss = list.includes('boss');
     audio.wave(boss);
     this.hud.toast(boss ? `Wave ${w} — BOSS!` : w === CFG.waves.goal ? `Wave ${w} — the final stand!` : `Wave ${w}`, 1800);
@@ -1413,6 +1425,11 @@ export class Game {
     this.dying.push({ mesh: e.mesh, t: 0.5 });
     tmp.copy(e.mesh.position).setY(e.type === 'boss' ? 2.5 : 1.0);
     this.burstFx(tmp, '#ffffff', e.type === 'boss' ? 6 : 2.6, 0.38);
+    if (e.carrying) {
+      // everything it stole spills back out
+      for (let i = 0; i < e.carrying; i++) this.dropCoin(e.mesh.position);
+      this.hud.toast(`Thief cut down! ${e.carrying} coins recovered.`, 2400);
+    }
     const rk = CFG.ranks[Math.min(e.rank || 0, CFG.ranks.length - 1)];
     const mult = e.type === 'boss' ? 4 : e.type === 'brute' || e.type === 'elite' ? 2 : 1;
     const n = randInt(rk.coins[0], rk.coins[1]) * mult + this.mods.coinBonus;
@@ -1972,6 +1989,80 @@ export class Game {
     }
   }
 
+  // A thief runs at the King, grabs coins off his stack and bolts for the edge of the map. It ignores
+  // walls and never fights, so the answer is archers and speed, not fortification.
+  updateThief(e, dt) {
+    const p = e.mesh.position;
+    const half = CFG.world.size / 2 - 4;
+    if (e.state === 'flee') {
+      // head for whichever edge is nearest, carrying the loot in plain sight
+      if (!e.exit) {
+        // nearest edge it can reach WITHOUT crossing the river, or it would pin itself on the bank
+        const mySide = this.world.riverInfo(p.x, p.z).side;
+        const cands = [{ x: half, z: p.z }, { x: -half, z: p.z }, { x: p.x, z: half }, { x: p.x, z: -half }];
+        cands.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z));
+        e.exit = cands.find((c) => this.world.riverInfo(c.x, c.z).side === mySide) || cands[0];
+      }
+      tmp2.set(e.exit.x - p.x, 0, e.exit.z - p.z);
+      const d = tmp2.length();
+      this.faceTowards(e.mesh, tmp.set(e.exit.x, 0, e.exit.z), dt, 10);
+      if (d > 0.1) {
+        tmp2.normalize().multiplyScalar(Math.min(e.stats.fleeSpeed * dt, d));
+        p.add(tmp2);
+      }
+      this.collideRiver(p, e.radius);
+      e.moving = true;
+      this.animateWalk(e, 1, dt);
+      if (Math.abs(p.x) > half - 0.5 || Math.abs(p.z) > half - 0.5) this.thiefEscapes(e);
+      return;
+    }
+    // hunting: straight for the King and his coin stack
+    const kp = this.king.mesh.position;
+    this.faceTowards(e.mesh, kp, dt, 10);
+    tmp2.subVectors(kp, p);
+    tmp2.y = 0;
+    const d = tmp2.length();
+    if (d > 1.1) {
+      tmp2.normalize().multiplyScalar(Math.min(e.stats.speed * dt, d - 1.0));
+      p.add(tmp2);
+      this.collideRiver(p, e.radius);
+    } else if (this.coinsCarried > 0) {
+      const take = Math.max(1, Math.min(this.coinsCarried, Math.round(this.coinsCarried * e.stats.steal)));
+      this.coinsCarried -= take;
+      e.carrying = take;
+      e.state = 'flee';
+      this.attachLoot(e);
+      this.raiseAlarm(`A thief took ${take} coins!`);
+      this.hud.toast(`A thief has your coins! Cut them down before they reach the edge.`, 3000);
+      this.popup(`-${take}`, p, '#ff9a9a', 1.8);
+      audio.hurt();
+    }
+    e.moving = d > 1.1;
+    this.animateWalk(e, e.moving ? 1 : 0, dt);
+  }
+
+  // the loot rides on the thief's back so the stakes are visible at a glance
+  attachLoot(e) {
+    const g = new THREE.Group();
+    const n = Math.min(8, Math.max(2, Math.round(e.carrying / 3)));
+    for (let i = 0; i < n; i++) {
+      const c = makeCoin(this.coinTier());
+      c.position.set(rand(-0.12, 0.12), 1.35 + i * 0.11, -0.28);
+      c.scale.setScalar(0.8);
+      g.add(c);
+    }
+    e.mesh.add(g);
+    e.loot = g;
+  }
+
+  thiefEscapes(e) {
+    this.enemies.splice(this.enemies.indexOf(e), 1);
+    this.root.remove(e.mesh);
+    this.disposeEntity(e.mesh);
+    this.hud.toast(`The thief escaped with ${e.carrying} coins.`, 2600);
+    audio.wallHit();
+  }
+
   updateEnemies(dt) {
     // bucket enemies into cells so separation only checks neighbours (was O(n^2));
     // the cell must be at least two boss radii so a boss pair is never missed
@@ -1988,6 +2079,10 @@ export class Game {
         // guarding the Queen: stand still until the King comes close
         e.moving = false;
         this.animateWalk(e, 0, dt);
+        continue;
+      }
+      if (e.type === 'thief') {
+        this.updateThief(e, dt);
         continue;
       }
       e.cooldown -= dt;
@@ -2350,8 +2445,13 @@ export class Game {
     for (let i = this.spawnQueue.length - 1; i >= 0; i--) {
       const s = this.spawnQueue[i];
       s.t -= dt;
+      if (s.warn && s.t <= 2.5) {
+        s.warn = false;
+        this.raiseAlarm('Thieves are coming for your coins!');
+      }
       if (s.t <= 0) {
-        this.spawnEnemy(s.type, s.x, s.z, s.rank || 0);
+        const sp = this.spawnEnemy(s.type, s.x, s.z, s.rank || 0);
+        if (s.type === 'thief') sp.state = 'hunt';
         this.spawnQueue.splice(i, 1);
       }
     }
@@ -2388,7 +2488,7 @@ export class Game {
     const w = window.innerWidth;
     const h = window.innerHeight;
     const bins = new Map();
-    const all = [...this.enemies.map((e) => ({ pos: e.mesh.position, boss: e.type === 'boss' })), ...this.spawnQueue.map((s) => ({ pos: { x: s.x, y: 0, z: s.z }, boss: s.type === 'boss' }))];
+    const all = [...this.enemies.map((e) => ({ pos: e.mesh.position, boss: e.type === 'boss', thief: e.type === 'thief' })), ...this.spawnQueue.map((s) => ({ pos: { x: s.x, y: 0, z: s.z }, boss: s.type === 'boss' }))];
     for (const it of all) {
       tmp.set(it.pos.x, 1, it.pos.z).project(this.camera);
       const sx = tmp.x * w * 0.5;
@@ -2396,11 +2496,12 @@ export class Game {
       if (Math.abs(sx) < w * 0.5 - 30 && Math.abs(sy) < h * 0.5 - 30 && tmp.z < 1) continue;
       const ang = Math.atan2(sy, sx);
       const bin = Math.round((ang / (Math.PI * 2)) * 16);
-      const b = bins.get(bin) || { ax: 0, ay: 0, n: 0, boss: false };
+      const b = bins.get(bin) || { ax: 0, ay: 0, n: 0, boss: false, thief: false };
       b.ax += Math.cos(ang);
       b.ay += Math.sin(ang);
       b.n++;
       b.boss = b.boss || it.boss;
+      b.thief = b.thief || it.thief;
       bins.set(bin, b);
     }
     const list = [];
@@ -2448,7 +2549,7 @@ export class Game {
       const dx = Math.cos(ang);
       const dy = Math.sin(ang);
       const t = Math.min((w * 0.5 - margin) / Math.max(1e-6, Math.abs(dx)), (h * 0.5 - margin) / Math.max(1e-6, Math.abs(dy)));
-      list.push({ x: w * 0.5 + dx * t, y: h * 0.5 + dy * t, angle: ang, count: b.n, boss: b.boss });
+      list.push({ x: w * 0.5 + dx * t, y: h * 0.5 + dy * t, angle: ang, count: b.n, boss: b.boss, thief: b.thief });
     }
     this.hud.setIndicators(list);
   }
