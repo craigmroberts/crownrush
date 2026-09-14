@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CFG, MAP, TIERS, NODES } from './config.js';
 import {
-  mat, matFlat, makeTree, makeBush, makeRock, makeSpikes, makeCliff, makePeak, makeBridge, makeHayBale, makeWheatField, mergeGroup,
+  mat, matFlat, swayMaterial, setSwayUniform, makeTree, makeBush, makeRock, makeSpikes, makeCliff, makePeak, makeBridge, makeHayBale, makeWheatField, mergeGroup,
 } from './models.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
@@ -27,8 +27,11 @@ function ribbon(samples, width, color, y, opts = {}) {
   const n = samples.length;
   const pos = new Float32Array(n * 2 * 3);
   const uv = new Float32Array(n * 2 * 2);
+  const col = new Float32Array(n * 2 * 3);
   const idx = [];
   const half = width / 2;
+  const base = new THREE.Color(color);
+  const edge = base.clone().multiplyScalar(opts.edgeShade ?? 1);
   for (let i = 0; i < n; i++) {
     const p = samples[i];
     const q = samples[Math.min(n - 1, i + 1)];
@@ -38,15 +41,29 @@ function ribbon(samples, width, color, y, opts = {}) {
     const l = Math.hypot(tx, tz) || 1;
     tx /= l;
     tz /= l;
-    const w = opts.taper ? half * Math.min(1, Math.min(i, n - 1 - i) / 12 + 0.15) : half;
+    let w = opts.taper ? half * Math.min(1, Math.min(i, n - 1 - i) / 12 + 0.15) : half;
+    // slightly irregular edges so roads and banks don't look ruled
+    const wob = opts.wobble ? 1 + opts.wobble * (Math.sin(i * 0.31) * 0.7 + Math.sin(i * 0.77 + 1.7) * 0.3) : 1;
+    const wl = w * wob;
+    const wr = w * (opts.wobble ? 2 - wob : 1);
     // normal = (-tz, tx)
-    pos.set([p.x - tz * w, y, p.z + tx * w, p.x + tz * w, y, p.z - tx * w], i * 6);
+    pos.set([p.x - tz * wl, y, p.z + tx * wl, p.x + tz * wr, y, p.z - tx * wr], i * 6);
     uv.set([0, i / 6, 1, i / 6], i * 4);
+    col.set([edge.r, edge.g, edge.b, edge.r, edge.g, edge.b], i * 6);
     if (i < n - 1) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  if (opts.centerShade) {
+    // a third strip down the middle would need more verts; instead tint edges darker via colour attribute
+    for (let i = 0; i < n; i++) {
+      const l = i * 6;
+      col.set([edge.r, edge.g, edge.b], l);
+      col.set([edge.r, edge.g, edge.b], l + 3);
+    }
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   geo.setIndex(idx);
   geo.computeVertexNormals();
   // make sure the strip faces up whichever way the curve runs
@@ -164,7 +181,8 @@ function groundTexture() {
 export function buildWorld(scene) {
   const size = CFG.world.size;
   const rand = rng(1337);
-  const world = { river: null, bridges: [], crossings: [], roads: [], foam: [], time: 0 };
+  const world = { river: null, bridges: [], crossings: [], roads: [], foam: [], time: 0, sway: { value: 0 } };
+  setSwayUniform(world.sway);
 
   // ---- ground ----
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshStandardMaterial({ map: groundTexture(), color: 0xffffff, roughness: 1 }));
@@ -175,7 +193,7 @@ export function buildWorld(scene) {
   // ---- river ----
   const riverSamples = spline(MAP.river.points, 160);
   world.river = { samples: riverSamples, halfWidth: MAP.river.halfWidth };
-  scene.add(ribbon(riverSamples, MAP.river.halfWidth * 2 + 2.6, 0xd8cc9d, 0.012));
+  scene.add(ribbon(riverSamples, MAP.river.halfWidth * 2 + 2.6, 0xd8cc9d, 0.012, { wobble: 0.1 }));
   const waterTex = waterTexture();
   const waterMat = new THREE.MeshStandardMaterial({ map: waterTex, color: 0xffffff, roughness: 0.35, metalness: 0.05, side: THREE.DoubleSide });
   scene.add(ribbon(riverSamples, MAP.river.halfWidth * 2, 0x3d9bd4, 0.02, { material: waterMat }));
@@ -214,8 +232,28 @@ export function buildWorld(scene) {
   for (const road of MAP.roads) {
     const samples = spline(road.points, 90);
     const entry = { id: road.id, samples, meshes: [], revealed: false, progress: 0 };
-    entry.meshes.push(ribbon(samples, MAP.roadWidth + 1.2, 0xd2ae74, 0.014, { taper: true }));
-    entry.meshes.push(ribbon(samples, MAP.roadWidth, 0xe4c894, 0.018, { taper: true }));
+    entry.meshes.push(ribbon(samples, MAP.roadWidth + 1.4, 0xcaa46c, 0.014, { taper: true, wobble: 0.12 }));
+    entry.meshes.push(ribbon(samples, MAP.roadWidth, 0xdfc08a, 0.018, { taper: true, wobble: 0.06 }));
+    entry.meshes.push(ribbon(samples, MAP.roadWidth * 0.55, 0xe8cd9c, 0.02, { taper: true, wobble: 0.08 }));
+    // stones scattered along the verge, revealed with the road
+    const stoneGeo = new THREE.DodecahedronGeometry(0.16, 0);
+    const stones = new THREE.InstancedMesh(stoneGeo, matFlat(0xa8a49c), 40);
+    const sm = new THREE.Matrix4();
+    for (let k = 0; k < 40; k++) {
+      const i = 4 + Math.floor(rand() * (samples.length - 8));
+      const p = samples[i];
+      const q = samples[i + 1];
+      const tx = q.x - p.x;
+      const tz = q.z - p.z;
+      const l = Math.hypot(tx, tz) || 1;
+      const off = (MAP.roadWidth / 2 + 0.4 + rand() * 0.6) * (k % 2 ? 1 : -1);
+      sm.makeRotationY(rand() * Math.PI);
+      sm.scale(new THREE.Vector3(0.7 + rand() * 0.8, 0.5, 0.7 + rand() * 0.8));
+      sm.setPosition(p.x - (tz / l) * off, 0.05, p.z + (tx / l) * off);
+      stones.setMatrixAt(k, sm);
+    }
+    stones.userData.noDrawRange = true;
+    entry.meshes.push(stones);
     for (const off of [-0.9, 0.9]) {
       const shifted = samples.map((p, i) => {
         const q = samples[Math.min(samples.length - 1, i + 1)];
@@ -229,7 +267,7 @@ export function buildWorld(scene) {
     }
     for (const m of entry.meshes) {
       m.visible = false;
-      m.geometry.setDrawRange(0, 0);
+      if (!m.userData.noDrawRange) m.geometry.setDrawRange(0, 0);
       scene.add(m);
     }
     world.roads.push(entry);
@@ -359,7 +397,7 @@ export function buildWorld(scene) {
     blades.push(b);
   }
   const tuftGeo = mergeGeometries(blades, false);
-  const tufts = new THREE.InstancedMesh(tuftGeo, matFlat(0x5fbd5a), 700);
+  const tufts = new THREE.InstancedMesh(tuftGeo, swayMaterial(0x5fbd5a), 700);
   const flowerGeo = new THREE.SphereGeometry(0.14, 6, 5);
   const flowerColors = [0xffffff, 0xffd54a, 0xff8aa8];
   const flowers = flowerColors.map((c) => new THREE.InstancedMesh(flowerGeo, mat(c), 70));
@@ -396,11 +434,12 @@ export function buildWorld(scene) {
   world.update = (dt) => {
     world.time += dt;
     if (world.waterTex) world.waterTex.offset.y -= dt * 0.08;
+    world.sway.value = world.time;
     for (const r of world.roads) {
       if (!r.revealed || r.progress >= 1) continue;
       r.progress = Math.min(1, r.progress + dt / 2.2);
       const count = Math.floor(r.progress * (r.samples.length - 1)) * 6;
-      for (const m of r.meshes) m.geometry.setDrawRange(0, count);
+      for (const m of r.meshes) if (!m.userData.noDrawRange) m.geometry.setDrawRange(0, count);
     }
     const s = riverSamples;
     world.foam.forEach((f, i) => {

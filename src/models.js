@@ -24,6 +24,29 @@ export function mat(color, opts = {}) {
   if (!matCache.has(key)) matCache.set(key, new THREE.MeshStandardMaterial({ color, roughness: 0.88, metalness: 0, ...opts }));
   return matCache.get(key);
 }
+// vertex-shader sway for grass and crops: bends with height, phase from the instance position
+let swayUniform = { value: 0 };
+export function setSwayUniform(u) {
+  swayUniform = u;
+}
+export function swayMaterial(color) {
+  const m = new THREE.MeshStandardMaterial({ color, roughness: 0.9, flatShading: true });
+  m.onBeforeCompile = (shader) => {
+    shader.uniforms.uSway = swayUniform;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nuniform float uSway;')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        #ifdef USE_INSTANCING
+          float ph = instanceMatrix[3].x * 0.7 + instanceMatrix[3].z * 0.9;
+        #else
+          float ph = 0.0;
+        #endif
+        float bend = max(transformed.y, 0.0);
+        transformed.x += sin(uSway * 1.7 + ph) * 0.14 * bend;
+        transformed.z += cos(uSway * 1.3 + ph * 1.3) * 0.06 * bend;`);
+  };
+  return m;
+}
 // faceted low-poly look for rocks, canopies and cliffs
 export function matFlat(color, opts = {}) {
   return mat(color, { flatShading: true, ...opts });
@@ -490,18 +513,40 @@ export function makeTower() {
     const r = box(i % 2 ? 0.1 : 2.5, 0.4, i % 2 ? 2.5 : 0.1, C.darkWood, Math.cos(a) * 1.2 * (i % 2), 2.9, Math.sin(a) * 1.2 * ((i + 1) % 2));
     g.add(r);
   }
-  // peaked roof on four posts with a pennant
+  // peaked shingle roof on four posts with a pennant
   for (const [x, z] of [[-1.1, -1.1], [1.1, -1.1], [-1.1, 1.1], [1.1, 1.1]]) g.add(box(0.12, 1.6, 0.12, C.darkWood, x, 3.5, z));
-  const roof = cone(2.0, 1.2, C.roof, 0, 4.9, 0, 4);
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(2.1, 1.3, 4), matFlat(C.roof));
+  roof.position.y = 4.95;
   roof.rotation.y = Math.PI / 4;
-  const pole = box(0.06, 1.2, 0.06, C.darkWood, 0, 5.9, 0);
-  const flag = box(0.7, 0.4, 0.04, C.blue, 0.38, 6.2, 0);
+  roof.castShadow = true;
+  g.add(roof);
+  for (let i = 0; i < 3; i++) {
+    const t = (i + 0.5) / 3;
+    const ring = new THREE.Mesh(new THREE.ConeGeometry(2.1 * (1 - t) + 0.06, 0.09, 4, 1, true), matFlat(0x5e3c22));
+    ring.position.y = 4.3 + 1.3 * t;
+    ring.rotation.y = Math.PI / 4;
+    g.add(ring);
+  }
+  const pole = box(0.06, 1.2, 0.06, C.darkWood, 0, 6.1, 0);
+  const flag = box(0.7, 0.4, 0.04, C.blue, 0.38, 6.4, 0);
+  // ladder up the front, a barrel and a lantern at the base
+  const ladder = new THREE.Group();
+  ladder.add(box(0.08, 2.6, 0.08, C.wood, -0.3, 1.3, 0), box(0.08, 2.6, 0.08, C.wood, 0.3, 1.3, 0));
+  for (let y = 0.3; y < 2.5; y += 0.45) ladder.add(box(0.6, 0.06, 0.06, C.darkWood, 0, y, 0));
+  ladder.position.set(0, 0, 1.35);
+  ladder.rotation.x = -0.12;
+  g.add(ladder);
+  const barrel = cyl(0.32, 0.32, 0.7, C.wood, 1.45, 0.35, 0.9, 10);
+  barrel.add(new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.03, 6, 14), mat(C.steelDark)).rotateX(Math.PI / 2).translateZ(0.2), new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.03, 6, 14), mat(C.steelDark)).rotateX(Math.PI / 2).translateZ(-0.2));
+  const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.26, 0.22), new THREE.MeshBasicMaterial({ color: 0xffd166 }));
+  lamp.position.set(-1.1, 2.95, 1.25);
+  g.add(barrel, lamp);
   // gold arrow sign
   const arrow = box(0.08, 0.08, 1.4, C.gold, 0, 6.7, 0);
   const tip = cone(0.16, 0.34, C.gold, 0, 6.7, 0.85, 4);
   tip.rotation.x = Math.PI / 2;
   const fletch = box(0.3, 0.2, 0.3, 0xfff2c0, 0, 6.7, -0.6);
-  g.add(roof, pole, flag, arrow, tip, fletch);
+  g.add(pole, flag, arrow, tip, fletch);
   g.userData.top = 2.72;
   return bake(g);
 }
@@ -621,21 +666,33 @@ export function makeGate(level = 0) {
   const g = new THREE.Group();
   const postL = box(0.5, 3.2, 0.5, postCol, -1.85, 1.6, 0);
   const postR = box(0.5, 3.2, 0.5, postCol, 1.85, 1.6, 0);
+  for (const x of [-1.85, 1.85]) for (const y of [0.6, 1.7, 2.8]) g.add(box(0.58, 0.14, 0.58, C.steelDark, x, y, 0));
   const top = box(4.4, 0.45, 0.6, beamCol, 0, 3.4, 0);
   const cap = box(4.8, 0.2, 0.8, postCol, 0, 3.7, 0);
-  const banner = box(0.9, 1.1, 0.08, C.blue, 0, 2.6, 0.3);
-  const crest = cyl(0.22, 0.22, 0.1, C.gold, 0, 2.65, 0.36, 6);
-  crest.rotation.x = Math.PI / 2;
+  const banner = box(0.9, 1.2, 0.08, C.blue, 0, 2.55, 0.3);
+  banner.add(box(0.95, 0.1, 0.1, C.gold, 0, 0.6, 0), box(0.4, 0.2, 0.1, C.gold, 0, 0.05, 0.02), cone(0.06, 0.2, C.gold, -0.12, 0.25, 0.02, 4), cone(0.06, 0.2, C.gold, 0, 0.28, 0.02, 4), cone(0.06, 0.2, C.gold, 0.12, 0.25, 0.02, 4));
+  const crest = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.26, 0.22), new THREE.MeshBasicMaterial({ color: 0xffd166 }));
+  crest.position.set(-1.85, 2.2, 0.45);
   // doors standing open, swung inward
+  const brace = (panel, w) => {
+    const b1 = box(0.1, w * 1.3, 0.06, C.steelDark, 0, 1.2, 0.14);
+    b1.rotation.z = 0.7;
+    const b2 = box(0.1, w * 1.3, 0.06, C.steelDark, 0, 1.2, 0.14);
+    b2.rotation.z = -0.7;
+    panel.add(b1, b2);
+    for (const [x, y] of [[-0.55, 0.4], [0.55, 0.4], [-0.55, 2.0], [0.55, 2.0]]) panel.add(new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 5), mat(C.steel)).translateX(x).translateY(y).translateZ(0.16));
+  };
   const doorL = new THREE.Group();
   const panelL = st.pickets ? makeFence(1.5) : box(1.5, 2.4, 0.2, beamCol, 0, 1.2, 0);
   panelL.position.x = 0.75;
+  brace(panelL, 1.5);
   doorL.add(panelL);
   doorL.position.set(-1.6, 0, 0.1);
   doorL.rotation.y = -1.15;
   const doorR = new THREE.Group();
   const panelR = st.pickets ? makeFence(1.5) : box(1.5, 2.4, 0.2, beamCol, 0, 1.2, 0);
   panelR.position.x = -0.75;
+  brace(panelR, 1.5);
   doorR.add(panelR);
   doorR.position.set(1.6, 0, 0.1);
   doorR.rotation.y = 1.15;
@@ -827,26 +884,39 @@ export function makeWheatField(w, d) {
   const g = new THREE.Group();
   const soil = box(w, 0.1, d, 0xb8922e, 0, 0.05, 0);
   g.add(soil);
-  const rows = Math.floor(w / 0.9);
-  const stalkGeo = new THREE.BoxGeometry(0.16, 0.9, 0.16);
-  const stalks = new THREE.InstancedMesh(stalkGeo, mat(0xd6b24a), rows * Math.floor(d / 0.6));
-  const headGeo = new THREE.SphereGeometry(0.13, 5, 4);
-  const heads = new THREE.InstancedMesh(headGeo, mat(0xe8d17a), stalks.count);
+  const rows = Math.floor(w / 0.7);
+  const per = Math.floor(d / 0.5);
+  const stalkGeo = new THREE.CylinderGeometry(0.035, 0.05, 1.1, 5);
+  stalkGeo.translate(0, 0.55, 0);
+  const stalks = new THREE.InstancedMesh(stalkGeo, swayMaterial(0xcdb04a), rows * per);
+  const headGeo = new THREE.CapsuleGeometry(0.09, 0.22, 3, 6);
+  headGeo.translate(0, 1.2, 0);
+  const heads = new THREE.InstancedMesh(headGeo, swayMaterial(0xe9d27a), rows * per);
+  const leafGeo = new THREE.ConeGeometry(0.06, 0.5, 3);
+  leafGeo.translate(0, 0.6, 0);
+  leafGeo.rotateX(0.5);
+  const leaves = new THREE.InstancedMesh(leafGeo, swayMaterial(0xb9a83c), rows * per);
   const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const sc = new THREE.Vector3();
   let i = 0;
   for (let r = 0; r < rows; r++) {
-    for (let z = -d / 2 + 0.4; z < d / 2 - 0.2; z += 0.6) {
-      const x = -w / 2 + 0.6 + r * 0.9;
-      m.makeTranslation(x, 0.55, z);
+    for (let k = 0; k < per; k++) {
+      const x = -w / 2 + 0.5 + r * 0.7 + (Math.random() - 0.5) * 0.2;
+      const z = -d / 2 + 0.4 + k * 0.5 + (Math.random() - 0.5) * 0.2;
+      const h = 0.85 + Math.random() * 0.3;
+      q.setFromEuler(new THREE.Euler(0, Math.random() * Math.PI, (Math.random() - 0.5) * 0.15));
+      sc.set(1, h, 1);
+      m.compose(new THREE.Vector3(x, 0, z), q, sc);
       stalks.setMatrixAt(i, m);
-      m.makeTranslation(x, 1.05, z);
       heads.setMatrixAt(i, m);
+      leaves.setMatrixAt(i, m);
       i++;
     }
   }
-  stalks.count = heads.count = i;
+  stalks.count = heads.count = leaves.count = i;
   stalks.castShadow = true;
-  g.add(stalks, heads);
+  g.add(stalks, heads, leaves);
   // low fence
   for (const [x, z, len, ry] of [[0, -d / 2 - 0.3, w + 0.6, 0], [0, d / 2 + 0.3, w + 0.6, 0], [-w / 2 - 0.3, 0, d + 0.6, Math.PI / 2], [w / 2 + 0.3, 0, d + 0.6, Math.PI / 2]]) {
     const rail = box(len, 0.08, 0.08, C.darkWood, x, 0.5, z);
