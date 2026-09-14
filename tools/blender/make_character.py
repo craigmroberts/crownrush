@@ -707,8 +707,10 @@ if BLEND:
     print("blend", BLEND)
 if OUT != "-":
     bpy.ops.object.select_all(action="SELECT")
-    bpy.ops.export_scene.gltf(filepath=OUT, export_format="GLB", export_apply=True, export_animations=True, export_yup=True, use_selection=True, export_draco_mesh_compression_enable=True, export_draco_mesh_compression_level=6)
-    print("exported", OUT)
+    # Uncompressed on purpose. Blender cannot write EXT_meshopt_compression, which is what the game
+    # loads, so compression is a separate pass: run `node tools/models/compress.mjs` after this.
+    bpy.ops.export_scene.gltf(filepath=OUT, export_format="GLB", export_apply=True, export_animations=True, export_yup=True, use_selection=True, export_draco_mesh_compression_enable=False)
+    print("exported", OUT, "- now run: node tools/models/compress.mjs")
 
 # ---------- flat front render for the fitter ----------
 if FRONT:

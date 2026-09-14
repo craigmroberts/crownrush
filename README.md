@@ -258,6 +258,8 @@ src/characters.js smooth toy-figure characters with painted faces (army, raiders
 src/rig.js        loads rigged GLB characters and plays their animations
 tools/blender/    Blender script that builds and exports rigged characters (public/models/*.glb)
 tools/fit/        fits a character to a reference image, locally, with no AI in the loop
+tools/models/     re-compresses the exported characters with meshopt (see Making characters)
+tools/probe/      drives the built game headless and reports what the renderer did (see its README)
 tools/scout/      offline pass that studies the game and files improvement issues (see its README)
 src/world.js      terrain, paths, cliffs, trees, lighting
 src/input.js      virtual joystick + keyboard
@@ -276,16 +278,25 @@ Attack clips, exports a GLB and renders a preview:
 
 ```bash
 blender -b -P tools/blender/make_character.py -- king public/models/king.glb .shots/king.png
+npm run models    # then re-compress; Blender cannot write the format the game loads
 ```
 
 Every character (King on foot and mounted, Queen, archer, swordsman, raider, elite, brute, giant) comes from these
-Draco-compressed GLBs; the game falls back to the code-built figures if a model fails to load. Add a
+GLBs; the game falls back to the code-built figures if a model fails to load. Add a
 `build_<name>()` function to the script to make a new character.
+
+Blender writes them uncompressed and `tools/models/compress.mjs` re-encodes them with
+`EXT_meshopt_compression`, because Blender cannot export that format itself. Measured across the nine
+characters, brotli'd as a static host serves them: Draco was 341 kB of models behind a 57 kB decoder,
+meshopt is 308 kB behind a 7 kB one, and no compression at all was 439 kB. Meshopt wins on both halves
+of the sum and decodes faster, so the Draco decoder that used to sit in `public/draco` is gone.
 
 ## Performance
 
 Open the game with `?perf=1` on the end of the URL (works on the live site and on a phone) to see a
-live readout: fps, CPU ms per frame, draw calls, triangles and character count. Budgets:
+live readout: fps, CPU ms per frame, draw calls, triangles and character count. `npm run probe --
+--crowd 120` collects the same numbers without you, on a fixed scene, so a change can be measured
+rather than argued about — see [tools/probe/README.md](tools/probe/README.md). Budgets:
 
 | Metric | Aim for | Why |
 | --- | --- | --- |
@@ -308,6 +319,8 @@ What keeps it fast:
   into the shadow map, a 1024 shadow map and pixel ratio 1.5.
 - Enemy separation uses a spatial grid; the river/bridge search is cached per enemy.
 - Dead characters release their health-bar and skeleton textures.
+- The characters are meshopt-compressed rather than Draco'd: smaller on the wire, and a 7 kB decoder
+  bundled with the game instead of 245 kB of decoder fetched at run time.
 
 ## Fitting a character to a reference image
 
