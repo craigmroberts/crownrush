@@ -153,6 +153,8 @@ export class Game {
     this.offerQueue = 0;
     this.offer = null;
     this.offerPaused = false;
+    this.settingsOpen = false;
+    this.settingsPaused = false;
     this.coinsCarried = 0; // the starting coins lie on the ground (#20): picking them up is the first thing you do
     this.coinsEarned = 0;
     this.archerPower = 0;
@@ -315,6 +317,28 @@ export class Game {
     if (!this.infoOpen) return;
     this.infoOpen = false;
     this.unpause();
+  }
+
+  // #23: the settings sheet. It holds what the sound, pause and info buttons used to do, and it
+  // pauses while it is open, the same way the info screen does.
+  showSettings() {
+    if (this.over || this.won || this.settingsOpen || this.offer) return;
+    this.settingsOpen = true;
+    this.settingsPaused = this.running;
+    if (this.settingsPaused) this.pause(true);
+    this.hud.showSettings();
+  }
+  hideSettings(keepPaused = false) {
+    if (!this.settingsOpen) return;
+    this.settingsOpen = false;
+    this.hud.hideSettings();
+    const wasPaused = this.settingsPaused;
+    this.settingsPaused = false;
+    if (wasPaused && !keepPaused) this.unpause();
+  }
+  toggleSettings() {
+    if (this.settingsOpen) this.hideSettings();
+    else this.showSettings();
   }
   toggleInfo() {
     if (this.infoOpen) this.hideInfo();

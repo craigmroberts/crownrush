@@ -75,7 +75,6 @@ document.getElementById('victory-restart').addEventListener('click', (e) => {
   game.start();
 });
 
-document.getElementById('pause-btn').addEventListener('click', () => game.togglePause());
 document.getElementById('next-wave-btn').addEventListener('click', () => game.callWave());
 document.getElementById('minimap').addEventListener('click', (e) => {
   e.target.classList.toggle('big');
@@ -95,8 +94,35 @@ document.getElementById('horn-btn').addEventListener('pointerdown', (e) => {
   e.stopPropagation();
   game.useHorn();
 });
-document.getElementById('info-btn').addEventListener('click', () => game.toggleInfo());
 document.getElementById('info-close').addEventListener('click', () => game.hideInfo());
+
+// #23: one gear instead of three buttons on the field. The sheet holds sound, pause and how to play.
+const settingsScreen = document.getElementById('settings-screen');
+const soundState = document.getElementById('set-sound-state');
+const syncSound = () => {
+  soundState.textContent = audio.muted ? 'Off' : 'On';
+  document.querySelector('#set-sound .icon, #set-sound svg')?.replaceWith(
+    Object.assign(document.createElement('span'), { innerHTML: iconSvg(audio.muted ? 'speakerOff' : 'speaker', 24) }).firstChild,
+  );
+};
+document.getElementById('settings-btn').addEventListener('click', () => game.toggleSettings());
+document.getElementById('set-close').addEventListener('click', () => game.hideSettings());
+settingsScreen.addEventListener('click', (e) => {
+  if (e.target === settingsScreen) game.hideSettings();  // tapping outside the sheet closes it
+});
+document.getElementById('set-sound').addEventListener('click', () => {
+  audio.init();
+  audio.setMuted(!audio.muted);
+  syncSound();
+});
+document.getElementById('set-pause').addEventListener('click', () => {
+  game.hideSettings(true);
+  game.pause();
+});
+document.getElementById('set-info').addEventListener('click', () => {
+  game.hideSettings(true);
+  game.showInfo();
+});
 window.addEventListener('keydown', (e) => {
   if (hud.introOpen()) {
     if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') hud.introNext();
@@ -105,6 +131,7 @@ window.addEventListener('keydown', (e) => {
   if (game.offer) return; // an upgrade choice must be made before anything else
   if (e.key === ' ' || e.key === 'e' || e.key === 'E') return game.useHorn();
   if (e.key === 'i' || e.key === 'I') game.toggleInfo();
+  else if (e.key === 'Escape' && game.settingsOpen) game.hideSettings();
   else if (e.key === 'Escape' && game.infoOpen) game.hideInfo();
   else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') game.togglePause();
 });
@@ -112,14 +139,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) game.pause();
 });
 
-const muteBtn = document.getElementById('mute-btn');
-const syncMute = () => (muteBtn.innerHTML = iconSvg(audio.muted ? 'speakerOff' : 'speaker', 22));
-syncMute();
-muteBtn.addEventListener('click', () => {
-  audio.init();
-  audio.setMuted(!audio.muted);
-  syncMute();
-});
+syncSound();
 // browsers only allow sound after a user gesture; catch the first one anywhere
 window.addEventListener('pointerdown', () => audio.init(), { once: true });
 

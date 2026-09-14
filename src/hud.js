@@ -233,6 +233,12 @@ export class Hud {
     document.getElementById('info-screen').classList.add('hidden');
   }
 
+  showSettings() {
+    document.getElementById('settings-screen').classList.remove('hidden');
+  }
+  hideSettings() {
+    document.getElementById('settings-screen').classList.add('hidden');
+  }
   showOffer(list, level, queued) {
     const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     document.getElementById('offer-level').textContent = level;
