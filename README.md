@@ -156,6 +156,12 @@ three (`CFG.base.materialAt` and `wallAt`):
 | 8 | Iron | iron |
 | 12 | Diamond | diamond |
 
+The buildings follow too: the hut, watchtowers, barracks and the Keep are rebuilt in the new
+material when the Keep crosses a boundary (`MATERIALS` in [src/models.js](src/models.js)), so a
+level-12 village of pale diamond walls and crystal roofs looks nothing like the timber plot you
+started with. Towers keep their level and crew, the Keep keeps its health bar and the Queen on the
+balcony, and build-pad ghosts preview the material you would build in right now.
+
 A material's nodes do not exist on the map until the Keep can use it, so each age opens new ground:
 stone quarries, then the iron seams at the foot of the north-west mesas, then diamond in the deep rock
 across the river. Each band of Keep levels asks mainly for its newest material, so levelling always

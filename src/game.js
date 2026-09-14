@@ -111,6 +111,7 @@ export class Game {
     this.spawnQueue = [];
     this.walls = [];
     this.towers = {};
+    this.structures = []; // standing buildings, so they can be rebuilt in a new material (#3)
     this.dynamicPads = [];
     this.built = {};
     this.buyCount = {};
@@ -843,13 +844,45 @@ export class Game {
     });
   }
 
-  makeStructureMesh(kind) {
+  // the material the village is built in right now: follows the walls
+  materialName() {
+    return CFG.wallLevels[this.wallLevel].name.toLowerCase();
+  }
+
+  makeStructureMesh(kind, level = 1) {
+    const m = this.materialName();
     if (kind === 'bank') return makeBank();
-    if (kind === 'hut') return makeHut();
-    if (kind === 'keep') return makeKeep();
-    if (kind === 'tower') return makeTower();
-    if (kind === 'barracks') return makeBarracks();
+    if (kind === 'hut') return makeHut(m);
+    if (kind === 'keep') return makeKeep(m);
+    if (kind === 'tower') return makeTower(level, m);
+    if (kind === 'barracks') return makeBarracks(m);
     return new THREE.Group();
+  }
+
+  // #3: the Keep crossed a material boundary, so every standing building is rebuilt in the new one.
+  // Towers keep their level and crew, the Keep keeps its health bar and the Queen on the balcony.
+  rebuildStructures() {
+    this.structures.forEach((s, i) => {
+      const t = s.kind === 'tower' ? this.towers[s.id] : null;
+      const m = this.makeStructureMesh(s.kind, t ? t.level : 1);
+      m.position.copy(s.mesh.position);
+      m.rotation.copy(s.mesh.rotation);
+      if (s.kind === 'keep' && this.keep) {
+        this.keep.mesh.remove(this.keep.bar);
+        m.add(this.keep.bar);
+        this.keep.mesh = m;
+        if (this.queen.inKeep) {
+          const b = m.userData.balcony;
+          this.queen.mesh.position.set(this.keep.x + b.x, b.y, this.keep.z + b.z);
+        }
+      }
+      if (t) t.mesh = m;
+      this.root.remove(s.mesh);
+      this.root.add(m);
+      this.popIn(m, i * 0.08);
+      s.mesh = m;
+    });
+    if (this.structures.length) this.hud.toast(`The village is rebuilt in ${this.materialName()}.`, 2600);
   }
 
   // where a crew pad sends its archers: gate posts, or the next free spots around a tower top
@@ -912,8 +945,10 @@ export class Game {
       const t = this.towers[def.towerUp];
       t.level++;
       this.root.remove(t.mesh);
-      t.mesh = makeTower(t.level);
+      t.mesh = makeTower(t.level, this.materialName());
       t.mesh.position.set(t.x, 0, t.z);
+      const rec = this.structures.find((s) => s.id === def.towerUp);
+      if (rec) rec.mesh = t.mesh;
       this.popIn(t.mesh);
       this.root.add(t.mesh);
       this.queueTowerPad(def.towerUp, 'crew');
@@ -976,6 +1011,7 @@ export class Game {
     m.position.set(def.buildAt[0], 0, def.buildAt[1]);
     this.popIn(m);
     this.root.add(m);
+    if (kind !== 'bank') this.structures.push({ kind, id: def.id, mesh: m });
     if (kind === 'tower') {
       this.towers[def.id] = { id: def.id, x: def.buildAt[0], z: def.buildAt[1], top: m.userData.top, level: 1, mesh: m, crew: 0, pos: def.pos };
       this.queueTowerPad(def.id, 'crew');
@@ -1301,6 +1337,7 @@ export class Game {
     this.wallLevel = Math.min(CFG.wallLevels.length - 1, this.wallLevel + 1);
     for (const def of [...this.dynamicPads]) if (def.repair) this.removePadDef(def);
     this.walls.forEach((w, i) => this.rebuildWall(w, this.wallLevel, i * 0.035));
+    this.rebuildStructures();
     if (this.keep && this.keep.state === 'built') {
       this.keep.level = this.wallLevel;
       this.keep.maxHp = this.keep.hp = this.keepHp();

@@ -273,27 +273,49 @@ function face(w, h, x, y, z, style) {
 export { makeArcher, makeSwordsman, makeKnight, makeElite, makeBrute, makeBoss, makeKing, makeKingFoot, makeQueen } from './characters.js';
 
 // The Royal Keep: a small stone castle with a balcony the Queen stands on.
-export function makeKeep() {
+// #3: one palette per material age. Buildings are rebuilt in the current material when the Keep
+// crosses a boundary (see Game.rebuildStructures), so a level-12 village looks nothing like a level-1 one.
+export const MATERIALS = {
+  wood: { wall: 0x9a6b3f, wallDark: 0x5e3c22, post: 0x5e3c22, plank: 0x9a6b3f, roof: 0x8a4a2b, roofDark: 0x5e3c22, keepWall: 0x9a6b3f, keepDark: 0x5e3c22, keepRoof: 0x2f6fd6, accent: 0xf5b800 },
+  stone: { wall: 0x9aa0a8, wallDark: 0x6b6f75, post: 0x6b6f75, plank: 0x9aa0a8, roof: 0x4f6b9a, roofDark: 0x35496b, keepWall: 0x8d9096, keepDark: 0x6b6f75, keepRoof: 0x2f6fd6, accent: 0xf5b800 },
+  iron: { wall: 0x5b626c, wallDark: 0x2f343b, post: 0x3a3f47, plank: 0x5b626c, roof: 0x2f3540, roofDark: 0x1f232b, keepWall: 0x555c66, keepDark: 0x2f343b, keepRoof: 0x8a2a2a, accent: 0xb0713a },
+  diamond: { wall: 0xdfe8f0, wallDark: 0x9fb8c8, post: 0x9fb8c8, plank: 0xdfe8f0, roof: 0x5fd6ee, roofDark: 0x3aa9c4, keepWall: 0xe6eef5, keepDark: 0x9fb8c8, keepRoof: 0x5fd6ee, accent: 0x8fe8ff },
+};
+const GEM_MAT = new THREE.MeshStandardMaterial({ color: 0x8fe8ff, roughness: 0.12, metalness: 0.2, emissive: 0x2f7f9a, emissiveIntensity: 0.9 });
+// a small material flourish: rust rivets on iron, a glowing crystal on diamond
+function materialFlourish(g, material, x, y, z) {
+  if (material === 'iron') {
+    for (const dx of [-0.35, 0.35]) g.add(box(0.12, 0.12, 0.12, 0xb0713a, x + dx, y, z, matFlat(0xb0713a)));
+  } else if (material === 'diamond') {
+    const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), GEM_MAT);
+    c.scale.set(0.8, 1.6, 0.8);
+    c.position.set(x, y + 0.25, z);
+    g.add(c);
+  }
+}
+
+export function makeKeep(material = 'stone') {
+  const P = MATERIALS[material] || MATERIALS.stone;
   const g = new THREE.Group();
-  const base = new THREE.Mesh(new RoundedBoxGeometry(3.4, 2.6, 3.4, 2, 0.18), mat(0x8d9096));
+  const base = new THREE.Mesh(new RoundedBoxGeometry(3.4, 2.6, 3.4, 2, 0.18), mat(P.keepWall));
   base.position.y = 1.3;
   base.castShadow = base.receiveShadow = true;
   g.add(base);
   for (let y = 0.45; y < 2.6; y += 0.5) {
-    g.add(box(3.44, 0.05, 3.44, 0x6b6f75, 0, y, 0));
-    for (let x = -1.2 + ((y * 7) % 2) * 0.5; x < 1.6; x += 1.0) g.add(box(0.05, 0.45, 3.45, 0x6b6f75, x, y + 0.27, 0));
+    g.add(box(3.44, 0.05, 3.44, P.keepDark, 0, y, 0));
+    for (let x = -1.2 + ((y * 7) % 2) * 0.5; x < 1.6; x += 1.0) g.add(box(0.05, 0.45, 3.45, P.keepDark, x, y + 0.27, 0));
   }
   // crenellated parapet
   for (let i = 0; i < 4; i++) {
     for (let t = -1.2; t <= 1.2; t += 0.8) {
       const x = i < 2 ? t : (i === 2 ? 1.6 : -1.6);
       const z = i < 2 ? (i === 0 ? 1.6 : -1.6) : t;
-      g.add(box(0.4, 0.4, 0.4, 0x7d848e, x, 2.8, z, matFlat(0x7d848e)));
+      g.add(box(0.4, 0.4, 0.4, P.keepDark, x, 2.8, z, matFlat(P.keepDark)));
     }
   }
-  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) g.add(cyl(0.5, 0.55, 3.4, 0x7d848e, sx * 1.6, 1.7, sz * 1.6, 8));
-  const tower = cyl(1.1, 1.2, 2.2, 0x8d9096, 0, 3.6, 0, 10);
-  const roof = cone(1.4, 1.6, 0x2f6fd6, 0, 5.5, 0, 10);
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) g.add(cyl(0.5, 0.55, 3.4, P.keepWall, sx * 1.6, 1.7, sz * 1.6, 8));
+  const tower = cyl(1.1, 1.2, 2.2, P.keepWall, 0, 3.6, 0, 10);
+  const roof = cone(1.4, 1.6, P.keepRoof, 0, 5.5, 0, 10);
   const pole = box(0.06, 1.0, 0.06, C.darkWood, 0, 6.5, 0);
   const flag = cyl(0.42, 0.36, 0.3, C.gold, 0, 7.15, 0, 8);
   for (let i = 0; i < 5; i++) {
@@ -302,9 +324,9 @@ export function makeKeep() {
   }
   g.add(box(0.16, 0.16, 0.12, C.red, 0, 7.2, 0.42));
   const door = box(0.9, 1.4, 0.12, 0x3a2a1a, 0, 0.7, 1.72);
-  const arch = box(1.2, 0.2, 0.14, 0x6b6f75, 0, 1.5, 1.72);
-  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) g.add(cone(0.6, 0.8, 0x2f6fd6, sx * 1.6, 3.8, sz * 1.6, 8));
-  const balcony = box(2.0, 0.2, 1.0, 0x6b6f75, 0, 2.7, 1.9);
+  const arch = box(1.2, 0.2, 0.14, P.keepDark, 0, 1.5, 1.72);
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) g.add(cone(0.6, 0.8, P.keepRoof, sx * 1.6, 3.8, sz * 1.6, 8));
+  const balcony = box(2.0, 0.2, 1.0, P.keepDark, 0, 2.7, 1.9);
   const rail = box(2.0, 0.5, 0.1, C.darkWood, 0, 3.05, 2.35);
   const railL = box(0.1, 0.5, 1.0, C.darkWood, -0.95, 3.05, 1.9);
   const railR = box(0.1, 0.5, 1.0, C.darkWood, 0.95, 3.05, 1.9);
@@ -312,6 +334,7 @@ export function makeKeep() {
   const banner = box(0.6, 1.0, 0.06, 0xf07aa8, -1.75, 1.6, 0.6);
   banner.rotation.y = Math.PI / 2;
   g.add(tower, roof, pole, flag, door, arch, balcony, rail, railL, railR, window, banner);
+  materialFlourish(g, material, 0, 2.95, 1.75);
   g.userData.balcony = new THREE.Vector3(0, 2.8, 1.85);
   return bake(g);
 }
@@ -496,12 +519,24 @@ function roof(width, depth, height, color, y, shingle) {
   return g;
 }
 
-export function makeHut() {
+export function makeHut(material = 'wood') {
+  const P = MATERIALS[material] || MATERIALS.wood;
   const g = new THREE.Group();
   // log walls
   const W = 3.4;
   const D = 2.6;
-  for (let i = 0; i < 5; i++) {
+  if (material !== 'wood') {
+    // dressed blocks with course lines instead of logs
+    const base = new THREE.Mesh(new RoundedBoxGeometry(W + 0.3, 1.75, D + 0.3, 2, 0.12), mat(P.wall));
+    base.position.y = 0.87;
+    base.castShadow = base.receiveShadow = true;
+    g.add(base);
+    for (let y = 0.35; y < 1.7; y += 0.42) {
+      g.add(box(W + 0.34, 0.05, D + 0.34, P.wallDark, 0, y, 0));
+      for (let x = -1.2 + ((y * 7) % 2) * 0.45; x < 1.6; x += 0.9) g.add(box(0.05, 0.37, D + 0.35, P.wallDark, x, y + 0.22, 0));
+    }
+  }
+  for (let i = 0; i < (material === 'wood' ? 5 : 0); i++) {
     const y = 0.2 + i * 0.32;
     const long = i % 2 === 0;
     const lx = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, W + (long ? 0.4 : 0), 8), mat(C.wood));
@@ -517,14 +552,15 @@ export function makeHut() {
     for (const l of [lx, lx2, lz, lz2]) l.castShadow = l.receiveShadow = true;
     g.add(lx, lx2, lz, lz2);
   }
-  g.add(box(W - 0.2, 1.7, D - 0.2, C.wood, 0, 0.85, 0));
+  if (material === 'wood') g.add(box(W - 0.2, 1.7, D - 0.2, C.wood, 0, 0.85, 0));
   const door = box(0.7, 1.1, 0.12, 0x3a2a1a, 0.6, 0.55, D / 2 + 0.1);
   door.add(box(0.8, 0.08, 0.14, C.darkWood, 0, 0.58, 0), new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 5), mat(C.gold)).translateX(0.25).translateZ(0.08));
   const window = box(0.5, 0.5, 0.12, 0x9ad4ff, -0.7, 1.0, D / 2 + 0.1);
   window.add(box(0.6, 0.6, 0.06, C.darkWood, 0, 0, -0.04), box(0.06, 0.5, 0.14, C.darkWood, 0, 0, 0.01), box(0.5, 0.06, 0.14, C.darkWood, 0, 0, 0.01));
   g.add(door, window);
-  g.add(roof(W + 0.9, D + 0.8, 1.35, C.roof, 1.72, 0x5e3c22));
-  g.add(box(0.36, 0.34, D + 0.9, C.darkWood, 0, 3.1, 0));
+  g.add(roof(W + 0.9, D + 0.8, 1.35, P.roof, 1.72, P.roofDark));
+  g.add(box(0.36, 0.34, D + 0.9, P.roofDark, 0, 3.1, 0));
+  materialFlourish(g, material, -1.2, 1.3, D / 2 + 0.16);
   // chimney with a lazy smoke trail
   const chimney = box(0.4, 0.9, 0.4, 0x7d848e, -0.9, 2.6, -0.5, matFlat(0x7d848e));
   g.add(chimney, box(0.5, 0.12, 0.5, 0x6b6f75, -0.9, 3.05, -0.5));
@@ -591,37 +627,38 @@ export function makeGatePost() {
   return bake(g);
 }
 
-export function makeTower(level = 1) {
+export function makeTower(level = 1, material = 'wood') {
+  const P = MATERIALS[material] || MATERIALS.wood;
   const g = new THREE.Group();
   for (const [x, z] of [[-0.9, -0.9], [0.9, -0.9], [-0.9, 0.9], [0.9, 0.9]]) {
-    g.add(cyl(0.14, 0.18, 2.6, C.darkWood, x, 1.3, z, 6));
+    g.add(cyl(0.14, 0.18, 2.6, P.post, x, 1.3, z, 6));
   }
   for (const [x, z, ry] of [[0, 0.95, 0], [0, -0.95, 0], [0.95, 0, Math.PI / 2], [-0.95, 0, Math.PI / 2]]) {
-    const a = box(2.3, 0.12, 0.12, C.wood, x, 1.3, z);
+    const a = box(2.3, 0.12, 0.12, P.plank, x, 1.3, z);
     a.rotation.y = ry;
     a.rotation.z = 0.7;
-    const b = box(2.3, 0.12, 0.12, C.wood, x, 1.3, z);
+    const b = box(2.3, 0.12, 0.12, P.plank, x, 1.3, z);
     b.rotation.y = ry;
     b.rotation.z = -0.7;
     g.add(a, b);
   }
-  const platform = box(2.5, 0.22, 2.5, C.wood, 0, 2.6, 0);
+  const platform = box(2.5, 0.22, 2.5, P.plank, 0, 2.6, 0);
   g.add(platform);
   for (let i = 0; i < 4; i++) {
     const a = (i / 4) * Math.PI * 2;
-    const r = box(i % 2 ? 0.1 : 2.5, 0.4, i % 2 ? 2.5 : 0.1, C.darkWood, Math.cos(a) * 1.2 * (i % 2), 2.9, Math.sin(a) * 1.2 * ((i + 1) % 2));
+    const r = box(i % 2 ? 0.1 : 2.5, 0.4, i % 2 ? 2.5 : 0.1, P.post, Math.cos(a) * 1.2 * (i % 2), 2.9, Math.sin(a) * 1.2 * ((i + 1) % 2));
     g.add(r);
   }
   // peaked shingle roof on four posts with a pennant
-  for (const [x, z] of [[-1.1, -1.1], [1.1, -1.1], [-1.1, 1.1], [1.1, 1.1]]) g.add(box(0.12, 1.6, 0.12, C.darkWood, x, 3.5, z));
-  const roof = new THREE.Mesh(new THREE.ConeGeometry(2.1, 1.3, 4), matFlat(C.roof));
+  for (const [x, z] of [[-1.1, -1.1], [1.1, -1.1], [-1.1, 1.1], [1.1, 1.1]]) g.add(box(0.12, 1.6, 0.12, P.post, x, 3.5, z));
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(2.1, 1.3, 4), matFlat(P.roof));
   roof.position.y = 4.95;
   roof.rotation.y = Math.PI / 4;
   roof.castShadow = true;
   g.add(roof);
   for (let i = 0; i < 3; i++) {
     const t = (i + 0.5) / 3;
-    const ring = new THREE.Mesh(new THREE.ConeGeometry(2.1 * (1 - t) + 0.06, 0.09, 4, 1, true), matFlat(0x5e3c22));
+    const ring = new THREE.Mesh(new THREE.ConeGeometry(2.1 * (1 - t) + 0.06, 0.09, 4, 1, true), matFlat(P.roofDark));
     ring.position.y = 4.3 + 1.3 * t;
     ring.rotation.y = Math.PI / 4;
     g.add(ring);
@@ -658,25 +695,28 @@ export function makeTower(level = 1) {
   tip.rotation.x = Math.PI / 2;
   const fletch = box(0.3, 0.2, 0.3, 0xfff2c0, 0, 6.7, -0.6);
   g.add(pole, flag, arrow, tip, fletch);
+  materialFlourish(g, material, 0, 2.95, 1.28);
   g.userData.top = 2.72;
   return bake(g);
 }
 
-export function makeBarracks() {
+export function makeBarracks(material = 'stone') {
+  const P = MATERIALS[material] || MATERIALS.stone;
   const g = new THREE.Group();
-  const base = new THREE.Mesh(new RoundedBoxGeometry(4.2, 2.0, 3.0, 2, 0.16), mat(0x8d9096));
+  const base = new THREE.Mesh(new RoundedBoxGeometry(4.2, 2.0, 3.0, 2, 0.16), mat(P.wall));
   base.position.y = 1.0;
   base.castShadow = base.receiveShadow = true;
   g.add(base);
   // stone block courses
   for (let y = 0.3; y < 2.0; y += 0.45) {
-    g.add(box(4.24, 0.05, 3.04, 0x6b6f75, 0, y, 0));
-    for (let x = -1.6 + ((y * 7) % 2) * 0.45; x < 2.0; x += 0.9) g.add(box(0.05, 0.4, 3.05, 0x6b6f75, x, y + 0.24, 0));
+    g.add(box(4.24, 0.05, 3.04, P.wallDark, 0, y, 0));
+    for (let x = -1.6 + ((y * 7) % 2) * 0.45; x < 2.0; x += 0.9) g.add(box(0.05, 0.4, 3.05, P.wallDark, x, y + 0.24, 0));
   }
-  g.add(roof(4.9, 3.7, 1.3, 0x555a66, 1.98, 0x3f4450));
-  g.add(box(0.3, 0.3, 3.8, 0x3f4450, 0, 3.28, 0));
+  g.add(roof(4.9, 3.7, 1.3, P.roof, 1.98, P.roofDark));
+  g.add(box(0.3, 0.3, 3.8, P.roofDark, 0, 3.28, 0));
+  materialFlourish(g, material, -1.4, 1.4, 1.6);
   const door = box(1.0, 1.4, 0.1, 0x3a2a1a, 0, 0.7, 1.53);
-  const arch = box(1.2, 0.2, 0.12, 0x6b6f75, 0, 1.5, 1.52);
+  const arch = box(1.2, 0.2, 0.12, P.wallDark, 0, 1.5, 1.52);
   const flagPole = cyl(0.05, 0.05, 2.6, C.darkWood, 1.6, 3.8, 0, 5);
   const flag = box(1.0, 0.55, 0.05, C.blue, 2.1, 4.8, 0);
   const shield = rbox(0.9, 1.1, 0.1, C.red, 0, 2.1, 1.86, 0.12);
