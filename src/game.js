@@ -886,16 +886,7 @@ export class Game {
       }
       this.spawnQueue.push({ type, x, z, t: i * CFG.waves.stagger, rank: pickRank(type, i) });
     });
-    // a thief joins once the King is worth robbing; they arrive after the fighting has started
-    const th = CFG.waves.thieves;
-    if (w >= th.fromWave && this.coinsCarried >= th.minCoins && Math.random() < th.chance) {
-      const n = 1 + (Math.random() < 0.25 ? 1 : 0);
-      for (let i = 0; i < Math.min(n, th.max); i++) {
-        const a = rand(0, Math.PI * 2);
-        const rr = halfDiag + rand(12, 18);
-        this.spawnQueue.push({ type: 'thief', x: THREE.MathUtils.clamp(cx + Math.cos(a) * rr, -half, half), z: THREE.MathUtils.clamp(cz + Math.sin(a) * rr, -half, half), t: list.length * CFG.waves.stagger + th.warn + i * 2.5, rank: 0, warn: true });
-      }
-    }
+    this.thiefTimer = CFG.waves.thieves.every * 0.6;   // #35: first chance shortly into the night
     const boss = list.includes('boss');
     audio.wave(boss);
     this.hud.toast(boss ? `Blood moon! Night ${w} brings a boss.` : `Night ${w} falls.`, 2200);
@@ -2769,6 +2760,30 @@ export class Game {
     audio.alarm();
   }
 
+  // #35: send a thief when the King is carrying something worth stealing, asked repeatedly through
+  // the night rather than decided once when the night began. A player who spends coins as he earns
+  // them holds almost nothing at nightfall, which is why thieves were never seen.
+  maybeSendThief(dt) {
+    const th = CFG.waves.thieves;
+    this.thiefTimer = (this.thiefTimer || 0) - dt;
+    if (this.thiefTimer > 0) return;
+    this.thiefTimer = th.every;
+    if (!this.night || this.wave < th.fromWave || this.queen.captive || this.over || this.won) return;
+    if (this.coinsCarried < th.minCoins) return;
+    const out = this.enemies.filter((e) => e.type === 'thief').length + this.spawnQueue.filter((s) => s.type === 'thief').length;
+    if (out >= th.max || Math.random() > th.chance) return;
+    const kp = this.king.mesh.position;
+    const half = CFG.world.size / 2 - 8;
+    const a = rand(0, Math.PI * 2);
+    const rr = 26 + rand(6, 12);
+    this.spawnQueue.push({
+      type: 'thief',
+      x: THREE.MathUtils.clamp(kp.x + Math.cos(a) * rr, -half, half),
+      z: THREE.MathUtils.clamp(kp.z + Math.sin(a) * rr, -half, half),
+      t: th.warn, rank: 0, warn: true,
+    });
+  }
+
   // A thief runs at the King, grabs coins off his stack and bolts for the edge of the map. It ignores
   // walls and never fights, so the answer is archers and speed, not fortification.
   updateThief(e, dt) {
@@ -3244,6 +3259,7 @@ export class Game {
   }
 
   updateWaves(dt) {
+    this.maybeSendThief(dt);
     for (let i = this.spawnQueue.length - 1; i >= 0; i--) {
       const s = this.spawnQueue[i];
       s.t -= dt;

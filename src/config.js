@@ -141,8 +141,11 @@ export const CFG = {
     // a wave is mostly the current rank plus some lower ranks; from wave `from` on, 0-`max` scouts of
     // the NEXT rank sneak in as a taste of what levelling the Keep brings
     scouts: { from: 5, max: 2 },
-    // thieves join raids once the King is carrying enough to be worth robbing
-    thieves: { fromWave: 3, minCoins: 25, chance: 0.55, max: 2, warn: 4 },
+    // #35: thieves come for the King while he is actually carrying something worth taking. This used
+    // to be judged once, as the night's wave was built, against coins in hand at that instant, and a
+    // player who spends what he picks up is holding almost nothing then: thieves never came at all.
+    // `every` is how often, in seconds, the game asks whether one should set out.
+    thieves: { fromWave: 2, minCoins: 12, chance: 0.5, max: 2, warn: 4, every: 16 },
     // enemy types also wait for the Keep (with a late wave fallback so a stalled game still varies)
     bruteAt: { level: 2, wave: 10 },
     eliteAt: { level: 5, wave: 18 },
