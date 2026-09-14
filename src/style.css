@@ -208,3 +208,5 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 #pad-tip .tip-desc { font-size: 12.5px; color: #6b675c; line-height: 1.3; margin-bottom: 6px; }
 #pad-tip .tip-bar { height: 7px; border-radius: 4px; background: rgba(0,0,0,0.16); margin-top: 7px; overflow: hidden; }
 #pad-tip .tip-bar i { display: block; height: 100%; width: 0; background: #3fd455; border-radius: 4px; transition: width 0.1s linear; }
+
+.stat-row span.hidden { display: none; }

@@ -17,7 +17,7 @@ export const CFG = {
     queenSpeed: 2.2,
     guardSpeed: 2.6,
   },
-  keep: { hp: 420, hpPerLevel: 130, radius: 2.1, half: 1.7 },
+  keep: { hp: 420, hpPerLevel: 90, radius: 2.1, half: 1.7, materialBonus: 420 },
 
   // The Keep is the base. Materials you mine go ONLY into the Keep; each level unlocks more.
   base: {
@@ -25,32 +25,34 @@ export const CFG = {
     // materials needed to reach the NEXT level, indexed by the current level (level 0 = no keep yet)
     levels: [
       null,
-      { wood: 10 },
-      { wood: 12, stone: 6 },
-      { wood: 14, stone: 10 },
-      { wood: 16, stone: 12, straw: 6 },
-      { wood: 18, stone: 14, straw: 8 },
-      { wood: 20, stone: 16, straw: 10 },
-      { wood: 22, stone: 20, straw: 12 },
-      { wood: 24, stone: 22, straw: 14 },
-      { wood: 26, stone: 26, straw: 16 },
-      { wood: 30, stone: 30, straw: 18 },
-      { wood: 34, stone: 34, straw: 20 },
-      { wood: 38, stone: 38, straw: 24 },
-      { wood: 42, stone: 42, straw: 28 },
-      { wood: 46, stone: 46, straw: 32 },
+      { wood: 10 }, // 1 -> 2   timber age
+      { wood: 14, straw: 4 },
+      { wood: 18, straw: 6 }, // 3 -> 4  unlocks stone
+      { stone: 10, wood: 8 }, // 4 -> 5   stone age
+      { stone: 14, wood: 10, straw: 6 },
+      { stone: 18, wood: 12, straw: 8 },
+      { stone: 24, wood: 14, straw: 10 }, // 7 -> 8  unlocks iron
+      { iron: 10, stone: 12 }, // 8 -> 9   iron age
+      { iron: 14, stone: 16, straw: 10 },
+      { iron: 18, stone: 20, straw: 12 },
+      { iron: 24, stone: 24, straw: 14 }, // 11 -> 12  unlocks diamond
+      { diamond: 8, iron: 14 }, // 12 -> 13  diamond age
+      { diamond: 12, iron: 18, stone: 20 },
+      { diamond: 16, iron: 24, stone: 26 },
     ],
     // how many archers / swordsmen the Keep supports at each level (tower crews count as archers)
     archers: [4, 6, 9, 12, 15, 18, 22, 26, 30, 34, 38, 42, 46, 50, 54, 60],
     swordsmen: [0, 0, 0, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 30],
     // archery speed multiplier: 1x at level 1, 2x at level 8, 3x at level 15 (archers, towers, the King)
     fireRate: (level) => 1 + (2 * Math.max(0, level - 1)) / 14,
-    // Keep level at which every wall becomes wood / brick / stone / iron (automatic, no wall pads)
+    // Keep level at which every wall becomes wood / stone / iron / diamond, and at which each of
+     // those materials becomes mineable. One boundary, so a level-up lands as one big moment.
     wallAt: [1, 4, 8, 12],
+    materialAt: { wood: 0, stone: 4, iron: 8, diamond: 12 },
     // enemies grow with the Keep too, so a strong base always has a fight on its hands
     enemyHpPerLevel: 0.05,
     enemyDmgPerLevel: 0.04,
-    unlocks: { 2: 'Expand Village unlocked', 3: 'Barracks unlocked', 4: 'Walls rebuilt in brick', 6: 'Second expansion unlocked', 8: 'Walls rebuilt in stone', 12: 'Walls rebuilt in iron', 15: 'Max level!' },
+    unlocks: { 2: 'Expand Village unlocked', 3: 'Barracks unlocked', 4: 'Stone quarries open', 6: 'Second expansion unlocked', 8: 'Iron seams open', 12: 'Diamond found in the deep rock', 15: 'Max level!' },
   },
 
   mining: { radius: 2.8, tick: 0.55, regrow: 9 },
@@ -128,12 +130,13 @@ export const CFG = {
 
   arrow: { speed: 30, life: 2.0 },
 
-  // wall materials, in upgrade order
+  // Wall materials, in upgrade order. Named for what you actually mine, so "stone walls" means the
+  // walls are made of the stone you carried to the Keep.
   wallLevels: [
     { name: 'Wood', hp: 140, gateHp: 220, repair: 6 },
-    { name: 'Brick', hp: 340, gateHp: 500, repair: 12 },
-    { name: 'Stone', hp: 750, gateHp: 1050, repair: 20 },
-    { name: 'Iron', hp: 1600, gateHp: 2200, repair: 35 },
+    { name: 'Stone', hp: 360, gateHp: 520, repair: 12 },
+    { name: 'Iron', hp: 820, gateHp: 1150, repair: 22 },
+    { name: 'Diamond', hp: 1800, gateHp: 2500, repair: 38 },
   ],
 };
 
@@ -216,12 +219,23 @@ export const PADS = [
   { id: 'recruit-vet', tier: 2, pos: [-28, -10], cost: 30, growth: 10, icon: 'archer', label: '+3 Veteran Archers', requires: ['expand2'], repeatable: true, units: { type: 'archer', count: 3, veteran: true }, desc: 'Three veteran archers in gold: one and a half times a normal archer.' },
 ];
 
-// Resource nodes the King mines by standing next to them. `stock` regrows over time.
+// Resource nodes the King mines by standing next to them. `stock` regrows over time. A node only
+// appears once the Keep can use its material (CFG.base.materialAt), so each level-up opens new ground.
 export const NODES = [
+  // wood: close to home, available immediately
   { type: 'wood', pos: [-14, 12], stock: 8 }, { type: 'wood', pos: [-16.5, 14.5], stock: 8 }, { type: 'wood', pos: [-12.5, 15.5], stock: 8 }, { type: 'wood', pos: [-15, 17.5], stock: 8 },
   { type: 'wood', pos: [15, -15], stock: 8 }, { type: 'wood', pos: [18, -17], stock: 8 }, { type: 'wood', pos: [14.5, -18.5], stock: 8 },
   { type: 'wood', pos: [-44, 28], stock: 10 }, { type: 'wood', pos: [-47, 31], stock: 10 }, { type: 'wood', pos: [-42, 32], stock: 10 },
+  // straw: the light binder, needed in small amounts all the way up
+  { type: 'straw', pos: [35, 19], stock: 16 }, { type: 'straw', pos: [-20, 25], stock: 14 }, { type: 'straw', pos: [10, 62], stock: 20 },
+  // stone: a walk out to the quarries
   { type: 'stone', pos: [-6, -15], stock: 14 }, { type: 'stone', pos: [-26, -29], stock: 16 }, { type: 'stone', pos: [-40, -20], stock: 16 },
   { type: 'stone', pos: [66, 12], stock: 24 }, { type: 'stone', pos: [24, 66], stock: 24 },
-  { type: 'straw', pos: [35, 19], stock: 16 }, { type: 'straw', pos: [-20, 25], stock: 14 }, { type: 'straw', pos: [10, 62], stock: 20 },
+  // iron: a seam along the foot of the north-west mesas. Keep these OUTSIDE the cliff box
+  // (x < CFG.cliffs.x AND z < CFG.cliffs.z), which the King is pushed out of and cannot mine in.
+  { type: 'iron', pos: [-20, -30], stock: 14 }, { type: 'iron', pos: [-28, -29], stock: 14 }, { type: 'iron', pos: [-36, -28], stock: 16 },
+  { type: 'iron', pos: [-46, -27], stock: 18 }, { type: 'iron', pos: [-10, -42], stock: 18 },
+  // diamond: the deep rock, far out and across the river
+  { type: 'diamond', pos: [72, 30], stock: 14 }, { type: 'diamond', pos: [78, 20], stock: 14 },
+  { type: 'diamond', pos: [40, 64], stock: 16 }, { type: 'diamond', pos: [30, 74], stock: 16 },
 ];

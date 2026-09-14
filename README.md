@@ -141,6 +141,25 @@ matters: taking an archer reward upgrades the archers you already have, and a wa
 walls already standing. Levels can chain when you arrive with a full stockpile, so offers queue and
 come one at a time. The info screen lists everything you have taken.
 
+## Materials come in ages
+
+Materials unlock with the Keep and the walls follow them, so a level-up is one moment rather than
+three (`CFG.base.materialAt` and `wallAt`):
+
+| Keep level | Material | Walls become |
+| --- | --- | --- |
+| 1 | Wood | wood |
+| 4 | Stone | stone |
+| 8 | Iron | iron |
+| 12 | Diamond | diamond |
+
+A material's nodes do not exist on the map until the Keep can use it, so each age opens new ground:
+stone quarries, then the iron seams at the foot of the north-west mesas, then diamond in the deep rock
+across the river. Each band of Keep levels asks mainly for its newest material, so levelling always
+sends you somewhere new instead of back to the same trees. Straw sits outside the chain as a light
+binder needed in small amounts all the way up. The Keep also hardens in a real step at each boundary
+rather than drifting up level by level.
+
 ## The Keep is the base
 
 Wood, stone and straw you mine are spent on one thing only: **feeding the Keep**. Stand on the pad at

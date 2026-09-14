@@ -4,6 +4,8 @@ const O = '#3a2a1a';
 const S = `stroke="${O}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"`;
 export const ICONS = {
   coin: `<circle cx="12" cy="12" r="10" fill="#f5b800" ${S}/><circle cx="12" cy="12" r="6.5" fill="#ffd23f" stroke="#c98a00" stroke-width="1.2"/><path d="M8.5 14.5l.6-4.2 2.2 2.2 .7-3 .7 3 2.2-2.2 .6 4.2z" fill="#c98a00"/>`,
+  iron: `<path d="M4 15l3-8h10l3 8-8 5z" fill="#9aa6b4" ${S}/><path d="M7 7h10l-1.6 4H8.6z" fill="#c3ccd8"/><path d="M8 16.5l4 2.2 4-2.2" fill="none" stroke="#5d6773" stroke-width="1.4"/>`,
+  diamond: `<path d="M12 3l6 5.5-6 12.5-6-12.5z" fill="#8fe8ff" ${S}/><path d="M12 3l6 5.5H6z" fill="#d8f7ff"/><path d="M6 8.5h12l-6 12.5z" fill="#5fc8e8" opacity="0.65"/>`,
   bronze: `<circle cx="12" cy="12" r="10" fill="#b87333" ${S}/><circle cx="12" cy="12" r="6.5" fill="#d9925a" stroke="#7a4a1e" stroke-width="1.2"/><path d="M8.5 14.5l.6-4.2 2.2 2.2 .7-3 .7 3 2.2-2.2 .6 4.2z" fill="#7a4a1e"/>`,
   silver: `<circle cx="12" cy="12" r="10" fill="#b9c2cc" ${S}/><circle cx="12" cy="12" r="6.5" fill="#e6ecf2" stroke="#7d8892" stroke-width="1.2"/><path d="M8.5 14.5l.6-4.2 2.2 2.2 .7-3 .7 3 2.2-2.2 .6 4.2z" fill="#7d8892"/>`,
   gold: `<circle cx="12" cy="12" r="10" fill="#f5b800" ${S}/><circle cx="12" cy="12" r="6.5" fill="#ffd23f" stroke="#c98a00" stroke-width="1.2"/><path d="M8.5 14.5l.6-4.2 2.2 2.2 .7-3 .7 3 2.2-2.2 .6 4.2z" fill="#c98a00"/>`,

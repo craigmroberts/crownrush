@@ -6,7 +6,7 @@ import { MODS, UPGRADES, pickOffer } from './upgrades.js';
 import { buildWorld, setupLights } from './world.js';
 import { Input } from './input.js';
 import {
-  makeKing, makeKingFoot, makeQueen, makeKeep, makeLumberTree, makeOreRock, makeResourceCube, RES_MATS, CHIP_GEO, makeTool, makeArcher, makeSwordsman, makeKnight, makeElite, makeBrute, makeBoss, makeCoin, makeArrow,
+  makeKing, makeKingFoot, makeQueen, makeKeep, makeLumberTree, makeOreRock, makeIronSeam, makeGemNode, makeResourceCube, RES_MATS, CHIP_GEO, makeTool, makeArcher, makeSwordsman, makeKnight, makeElite, makeBrute, makeBoss, makeCoin, makeArrow,
   makeHut, makeTower, makeBarracks, makeWallSegment, makeGate, makeRubble, makeBridge, makePad, drawPad, ghostify,
   makeHealthBar, setHealthBar, HealthBars, disposeHealthBar, clearHealthBars, makePopup, makeRing, makeSpawnFx, makeBurst, makeCoinStack,
   makeBank, makeGatePost, makeHeart, COIN_TIER_COLORS,
@@ -119,7 +119,7 @@ export class Game {
     this.baseLevel = 0; // Keep level: 0 until the Keep is built, then 1..CFG.base.maxLevel
     this.feedDef = null;
     this.mounted = false;
-    this.res = { wood: 0, stone: 0, straw: 0 };
+    this.res = { wood: 0, stone: 0, straw: 0, iron: 0, diamond: 0 };
     this.flyRes = [];
     this.score = 0;
     this.bestScore = Number(localStorage.getItem('crownrush-best-score') || 0);
@@ -182,12 +182,14 @@ export class Game {
     const hc = TIERS[0].bounds;
     this.homeSide = this.world.riverInfo((hc.x0 + hc.x1) / 2, (hc.z0 + hc.z1) / 2).side;
 
-    // resource nodes
+    // resource nodes: hidden until the Keep can actually use the material they hold
     for (const def of NODES) {
-      const mesh = def.type === 'wood' ? makeLumberTree() : def.type === 'stone' ? makeOreRock() : new THREE.Group();
+      const mesh = this.makeNodeMesh(def.type);
       mesh.position.set(def.pos[0], 0, def.pos[1]);
-      if (def.type !== 'straw') this.root.add(mesh);
-      this.nodes.push({ type: def.type, mesh, stock: def.stock, max: def.stock, regrow: 0, pos: new V3(def.pos[0], 0, def.pos[1]) });
+      const from = CFG.base.materialAt[def.type] || 0;
+      const open = this.baseLevel >= from;
+      if (def.type !== 'straw' && open) this.root.add(mesh);
+      this.nodes.push({ type: def.type, mesh, stock: def.stock, max: def.stock, regrow: 0, from, open, pos: new V3(def.pos[0], 0, def.pos[1]) });
     }
     // world roads/bridges are scene-level: reset them
     for (const r of this.world.roads) {
@@ -988,7 +990,9 @@ export class Game {
   }
 
   keepHp() {
-    return CFG.keep.hp + Math.max(0, this.baseLevel - 1) * CFG.keep.hpPerLevel;
+    // a flat climb per level, plus a real step each time the walls change material
+    const tiers = CFG.base.wallAt.filter((lv) => lv <= this.baseLevel).length - 1;
+    return CFG.keep.hp + Math.max(0, this.baseLevel - 1) * CFG.keep.hpPerLevel + Math.max(0, tiers) * CFG.keep.materialBonus;
   }
 
   // ---------- the Keep as the base: feed it materials to level up ----------
@@ -1015,6 +1019,7 @@ export class Game {
       this.keep.hp = this.keep.maxHp;
       setHealthBar(this.keep.bar, 1);
     }
+    this.revealNodes();
     const newRank = CFG.ranks.find((r) => r.fromLevel === L);
     const coinNote = CFG.coins.tierAt.includes(L) && L > 0 ? `coins are now ${this.coinTier()}` : null;
     const notes = [CFG.base.unlocks[L], coinNote, newRank ? `${newRank.name}s now join the raids` : null, `${CFG.base.archers[L]} archers`, `${CFG.base.swordsmen[L]} swordsmen`, `arrows ${this.fireMul().toFixed(1)}x`].filter(Boolean);
@@ -1673,6 +1678,7 @@ export class Game {
       this.alarmT -= dt;
       this.hud.showAlarm(this.alarmT > 0 ? this.alarmText : null);
       this.hud.setCoinTier(this.coinTier());
+      this.hud.setMaterials(Object.keys(CFG.base.materialAt).filter((m) => this.baseLevel >= CFG.base.materialAt[m]).concat('straw'));
       this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, CFG.waves.goal, this.res, this.score, this.king.hp / this.king.maxHp, this.queen.hp / this.queen.maxHp, this.baseLevel);
       this.updateIndicators(dt);
     }
@@ -1773,6 +1779,7 @@ export class Game {
     let best = null;
     let bd = CFG.mining.radius + 1.5;
     for (const n of this.nodes) {
+      if (!n.open) continue;
       const d = kp.distanceTo(n.pos) - (n.type === 'straw' ? 4 : 0);
       if (d < bd && n.stock > 0) {
         bd = d;
@@ -1826,12 +1833,39 @@ export class Game {
       this.chips.push({ mesh: ch, vx: rand(-3, 3), vz: rand(-3, 3), vy: rand(3, 6), t: 0.7, color: chipColor });
     }
     tmp.copy(best.type === 'straw' ? kp : best.pos).setY(1.2);
-    this.popup(best.type === 'wood' ? '+1 🪵' : best.type === 'stone' ? '+1 🪨' : '+1 🌾', tmp, '#ffffff', 1.6);
+    this.popup(`+1 ${{ wood: '🪵', stone: '🪨', straw: '🌾', iron: '⛏️', diamond: '💎' }[best.type] || ''}`, tmp, '#ffffff', 1.6);
     const c = makeResourceCube(best.type);
     c.position.copy(best.pos).setY(1.0);
     if (best.type === 'straw') c.position.set(kp.x + rand(-2, 2), 0.6, kp.z + rand(-2, 2));
     this.root.add(c);
     this.coins.push({ mesh: c, state: 'fly', resType: best.type, t: 0, vx: 0, vz: 0, vy: 0 });
+  }
+
+  makeNodeMesh(type) {
+    if (type === 'wood') return makeLumberTree();
+    if (type === 'stone') return makeOreRock();
+    if (type === 'iron') return makeIronSeam();
+    if (type === 'diamond') return makeGemNode();
+    return new THREE.Group();
+  }
+
+  // A new material becomes mineable: its nodes appear across the map with a toast saying where.
+  revealNodes() {
+    const opened = new Set();
+    for (const n of this.nodes) {
+      if (n.open || this.baseLevel < n.from) continue;
+      n.open = true;
+      opened.add(n.type);
+      if (n.type !== 'straw') {
+        this.root.add(n.mesh);
+        this.popIn(n.mesh, Math.random() * 0.4);
+      }
+    }
+    for (const type of opened) {
+      const where = { stone: 'Stone quarries', iron: 'Iron seams', diamond: 'Diamond in the deep rock' }[type] || cap(type);
+      this.hud.toast(`${where} are open. Look for them on the map.`, 3200);
+    }
+    return opened.size > 0;
   }
 
   setNodeLook(n) {

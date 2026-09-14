@@ -20,7 +20,9 @@ export class Hud {
     this.nextBtn = document.getElementById('next-wave-btn');
     this.alarmEl = document.getElementById('alarm');
     this.minimap = document.getElementById('minimap');
-    this.resEls = { wood: document.getElementById('res-wood'), stone: document.getElementById('res-stone'), straw: document.getElementById('res-straw') };
+    this.resEls = {};
+    for (const k of ['wood', 'straw', 'stone', 'iron', 'diamond']) this.resEls[k] = document.getElementById(`res-${k}`);
+    this.matKey = '';
     this.scoreEl = document.getElementById('score-num');
     this.levelEl = document.getElementById('keep-level');
     this.kingHpEl = document.getElementById('king-hp-fill');
@@ -38,7 +40,7 @@ export class Hud {
     }
     if (queenFrac !== undefined) this.queenHpEl.style.width = `${Math.max(0, Math.min(1, queenFrac)) * 100}%`;
     if (res) {
-      for (const k of ['wood', 'stone', 'straw']) {
+      for (const k of Object.keys(this.resEls)) {
         const el = this.resEls[k];
         if (el && el.textContent !== String(res[k])) el.textContent = res[k];
       }
@@ -118,6 +120,17 @@ export class Hud {
   showNextWave(show) {
     this.nextBtn.classList.toggle('hidden', !show);
   }
+  // only show materials the Keep can actually use yet
+  setMaterials(list) {
+    const key = list.join(',');
+    if (key === this.matKey) return;
+    this.matKey = key;
+    for (const k of Object.keys(this.resEls)) {
+      const el = this.resEls[k];
+      if (el) el.parentElement.classList.toggle('hidden', !list.includes(k));
+    }
+  }
+
   setCoinTier(tier) {
     if (tier === this.coinTier) return;
     this.coinTier = tier;

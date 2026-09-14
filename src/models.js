@@ -926,6 +926,50 @@ export function makeLumberTree() {
   return bake(g);
 }
 
+// Iron: dark rock shot through with rusty metal bands.
+export function makeIronSeam() {
+  const g = new THREE.Group();
+  for (const [x, z, sc] of [[0, 0, 1.5], [1.2, 0.5, 1.0], [-1.0, 0.6, 0.85]]) {
+    const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.6, 0), mat(0x4a4f57));
+    r.scale.set(sc * 1.2, sc * 0.9, sc);
+    r.position.set(x, 0.36 * sc, z);
+    r.rotation.y = x * 2 + z;
+    r.castShadow = true;
+    g.add(r);
+  }
+  for (const [x, y, z, ry] of [[0.1, 0.85, 0.35, 0.3], [-0.45, 0.6, -0.25, 1.1], [0.95, 0.78, 0.5, -0.6], [-0.9, 0.72, 0.7, 0.8]]) {
+    const band = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.13, 0.2), new THREE.MeshStandardMaterial({ color: 0xb0713a, roughness: 0.5, metalness: 0.55 }));
+    band.position.set(x, y, z);
+    band.rotation.set(0.2, ry, 0.35);
+    band.castShadow = true;
+    g.add(band);
+  }
+  return bake(g);
+}
+
+// Diamond: pale rock with glowing crystals growing out of it.
+export function makeGemNode() {
+  const g = new THREE.Group();
+  for (const [x, z, sc] of [[0, 0, 1.35], [1.0, 0.5, 0.8], [-0.95, 0.5, 0.75]]) {
+    const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.6, 0), mat(0x9fa8b8));
+    r.scale.set(sc * 1.2, sc * 0.8, sc);
+    r.position.set(x, 0.34 * sc, z);
+    r.rotation.y = x + z * 2;
+    r.castShadow = true;
+    g.add(r);
+  }
+  const gem = new THREE.MeshStandardMaterial({ color: 0x8fe8ff, roughness: 0.12, metalness: 0.2, emissive: 0x2f7f9a, emissiveIntensity: 0.9 });
+  for (const [x, y, z, s, tilt] of [[0.05, 1.05, 0.1, 1.2, 0.1], [0.6, 0.9, 0.5, 0.85, -0.4], [-0.5, 0.85, 0.35, 0.75, 0.5], [0.2, 0.8, -0.6, 0.6, 0.25]]) {
+    const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.26, 0), gem);
+    c.scale.set(s * 0.8, s * 1.6, s * 0.8);
+    c.position.set(x, y, z);
+    c.rotation.set(tilt, x * 3, tilt * 0.6);
+    c.castShadow = true;
+    g.add(c);
+  }
+  return bake(g);
+}
+
 export function makeOreRock() {
   const g = new THREE.Group();
   for (const [x, z, sc] of [[0, 0, 1.4], [1.1, 0.4, 0.9], [-0.9, 0.7, 0.8], [0.3, -1.0, 0.7]]) {
@@ -950,8 +994,8 @@ export function makeOreRock() {
 }
 
 const cubeGeo = new THREE.BoxGeometry(0.42, 0.42, 0.42);
-const RES_COLORS = { wood: 0x8a5a2b, stone: 0x8d9096, straw: 0xe0c25a };
-export const RES_MATS = { wood: mat(0x8a5a2b), stone: mat(0x8d9096), straw: mat(0xe0c25a) };
+const RES_COLORS = { wood: 0x8a5a2b, stone: 0x8d9096, straw: 0xe0c25a, iron: 0x9aa6b4, diamond: 0x8fe8ff };
+export const RES_MATS = { wood: mat(0x8a5a2b), stone: mat(0x8d9096), straw: mat(0xe0c25a), iron: mat(0x9aa6b4), diamond: mat(0x8fe8ff) };
 export const CHIP_GEO = new THREE.BoxGeometry(0.16, 0.16, 0.16);
 export function makeResourceCube(type) {
   const m = new THREE.Mesh(cubeGeo, mat(RES_COLORS[type] || 0xffffff));
@@ -969,6 +1013,9 @@ export function makeTool(type) {
   } else if (type === 'stone') {
     const head = box(0.6, 0.1, 0.08, C.steel, 0, 0.78, 0);
     g.add(head, cone(0.05, 0.16, C.steel, 0.36, 0.78, 0, 4).rotateZ(-Math.PI / 2), cone(0.05, 0.16, C.steel, -0.36, 0.78, 0, 4).rotateZ(Math.PI / 2));
+  } else if (type === 'iron' || type === 'diamond') {
+    const head = box(0.5, 0.14, 0.12, type === 'diamond' ? 0xdfe8f2 : C.steelDark, 0, 0.78, 0);
+    g.add(head, cone(0.07, 0.22, C.steel, 0.3, 0.78, 0, 4).rotateZ(-Math.PI / 2));
   } else {
     const blade = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.035, 5, 10, Math.PI * 1.2), mat(C.steel));
     blade.position.set(0.12, 0.8, 0);
