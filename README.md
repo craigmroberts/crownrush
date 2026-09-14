@@ -113,6 +113,19 @@ so walking across one costs nothing.
 - **Train Archers** at the range: +25% damage and +20% health per level for every archer, including
   ones already recruited (`CFG.archerTraining`).
 
+## Enemies that break a rule
+
+Beyond the ranks, three enemies each demand a different answer, and each arrives once the Keep reaches
+its level (`CFG.enemy.*.fromLevel`) so you meet one idea at a time:
+
+- **Sappers** (Keep 3) ignore your army entirely, run at the nearest wall and blow themselves up
+  against it. An army that has drifted out of position gets punished, and wall repair matters.
+- **Enemy archers** (Keep 5) hold at a range beyond a level-one watchtower and shoot your soldiers and
+  tower crews. Crews have health now and a dead one reopens the tower's crew pad. Go out and get
+  them, or build the towers up: a level-two tower out-ranges them.
+- **Shieldbearers** (Keep 7) take a quarter damage from the front. Hits show "blocked". Flank them,
+  or let the horn scatter the fight.
+
 ## The warhorn
 
 The King's one ability (`CFG.horn`). The horn button bottom-right, or Space on a keyboard, rallies

@@ -63,12 +63,13 @@ export const CFG = {
 
   mining: { radius: 2.8, tick: 0.55, regrow: 9 },
 
-  score: { earlyWavePerSecond: 4, kill: { knight: 10, elite: 25, brute: 20, boss: 200, thief: 40 }, coin: 1, material: 2, buildPerCoin: 2, buildPerMaterial: 3, soldierPerWave: 2, waveClear: 50, levelUp: 60, rescue: 150, recapture: 90 },
+  score: { earlyWavePerSecond: 4, kill: { knight: 10, elite: 25, brute: 20, boss: 200, thief: 40, sapper: 15, archer: 20, shield: 30 }, coin: 1, material: 2, buildPerCoin: 2, buildPerMaterial: 3, soldierPerWave: 2, waveClear: 50, levelUp: 60, rescue: 150, recapture: 90 },
 
   archer: { hp: 30, range: 9.5, fireRate: 0.9, damage: 10, speed: 9 },
   swordsman: { hp: 70, range: 1.4, fireRate: 1.1, damage: 14, speed: 8.5, aggro: 5 },
 
   // watchtowers: level 1 -> 3. Each level adds crew slots and sharpens the tower's arrows.
+  turret: { hp: 40 },
   tower: {
     range: 14, fireRate: 0.7, damage: 12,
     levels: [{ slots: 3, damage: 1, range: 1 }, { slots: 5, damage: 1.35, range: 1.15 }, { slots: 7, damage: 1.8, range: 1.3 }],
@@ -108,6 +109,13 @@ export const CFG = {
     // Fast, fragile, and not interested in fighting: it runs at the King, grabs coins off his stack
     // and bolts for the edge of the map. Walls do not stop it; archers do.
     thief: { hp: 26, speed: 6.6, damage: 0, attackRate: 1, coins: [0, 0], radius: 0.45, steal: 0.45, minSteal: 6, fleeSpeed: 8.2 },
+    // #17: enemies that break a rule, each unlocked by Keep level (`fromLevel`) so they arrive one idea at a time.
+    // Sapper: ignores your army, runs at the nearest wall and blows itself up against it.
+    sapper: { hp: 18, speed: 5.2, damage: 10, attackRate: 1, coins: [0, 0], radius: 0.45, blast: 9, fromLevel: 3 },
+    // Archer: holds at a range beyond a level-1 watchtower and shoots your soldiers and tower crews.
+    archer: { hp: 24, speed: 3.8, damage: 7, attackRate: 0.8, coins: [0, 0], radius: 0.45, range: 15.5, fromLevel: 5 },
+    // Shieldbearer: takes a quarter damage from the front. Flank it.
+    shield: { hp: 95, speed: 3.0, damage: 12, attackRate: 0.9, coins: [0, 0], radius: 0.6, front: 0.25, fromLevel: 7 },
   },
 
   // The day / night cycle is the game's metronome: daylight is for gathering and building, the raid

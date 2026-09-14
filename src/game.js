@@ -155,6 +155,7 @@ export class Game {
     this.coinsEarned = 0;
     this.archerPower = 0;
     this.rankSeen = {};
+    this.typeSeen = {};
     this.coinCombo = 0;
     this.comboTimer = 0;
     this.wave = 0;
@@ -600,6 +601,9 @@ export class Game {
   rankTints(type, rk) {
     // the thief always wears the same green, whatever rank it came in with: it is a role, not a rank
     if (type === 'thief') return [['red', 0x2f8f5b], ['darkRed', 0x1c5638], ['hair', 0x23281f], ['boot', 0x1c5638]];
+    if (type === 'sapper') return [['red', 0x3a3a40], ['darkRed', rk.tunic], ['hair', 0x23281f]];
+    if (type === 'archer') return [['white', rk.tunic], ['blue', rk.trim], ['hair', 0x23281f], ['leather', rk.dark]];
+    if (type === 'shield') return [['ink', 0x7d848e], ['darkRed', rk.tunic], ['steelDark', rk.trim]];
     if (type === 'knight') return [['red', rk.tunic], ['darkRed', rk.trim]];
     if (type === 'elite') return [['darkRed', rk.tunic], ['ink', rk.dark]];
     if (type === 'brute') return [['darkRed', rk.tunic], ['leather', rk.trim]];
@@ -610,7 +614,8 @@ export class Game {
     const stats = CFG.enemy[type];
     rank = Math.min(rank, CFG.ranks.length - 1);
     const rk = CFG.ranks[rank];
-    const rig = makeRigged(type === 'knight' || type === 'thief' ? 'raider' : type, this.rankTints(type, rk));
+    const rigName = { knight: 'raider', thief: 'raider', sapper: 'raider', archer: 'archer', shield: 'elite' }[type] || type;
+    const rig = makeRigged(rigName, this.rankTints(type, rk));
     const mesh = rig ? rig.mesh : type === 'boss' ? makeBoss() : type === 'brute' ? makeBrute() : type === 'elite' ? makeElite() : makeKnight();
     mesh.position.set(x, 0, z);
     const w = Math.max(1, this.wave);
@@ -622,6 +627,11 @@ export class Game {
       this.rankSeen[rank] = true;
       if (rank > 0) this.hud.toast(`${rk.name}s have arrived! Watch for their colours.`, 2800);
     }
+    const intro = { sapper: 'Sappers! They ignore your army and go for the walls.', archer: 'Enemy archers! They outrange a new tower and shoot the crews: go out and get them, or build the towers up.', shield: 'Shieldbearers! Arrows bounce off the front. Hit them from behind.' }[type];
+    if (intro && !this.typeSeen[type] && this.running) {
+      this.typeSeen[type] = true;
+      this.hud.toast(intro, 3600);
+    }
     const bar = makeHealthBar(type === 'boss' ? 3.4 : type === 'brute' ? 1.5 : 1.0);
     bar.position.y = type === 'boss' ? 5.0 : type === 'brute' ? 2.7 : 1.9;
     mesh.add(bar);
@@ -629,7 +639,7 @@ export class Game {
     const e = {
       type, rank, mesh, bar, stats, hp: stats.hp * hpMul, maxHp: stats.hp * hpMul, damage: stats.damage * dmgMul,
       cooldown: rand(0.2, 0.8), target: null, retarget: 0, flash: 0, radius: stats.radius,
-      scale: rig ? { knight: 1.0, elite: 1.1, brute: 1.35, boss: 2.4, thief: 0.92 }[type] : type === 'boss' ? 1 : 1.15,
+      scale: rig ? { knight: 1.0, elite: 1.1, brute: 1.35, boss: 2.4, thief: 0.92, sapper: 0.95, archer: 1.0, shield: 1.15 }[type] : type === 'boss' ? 1 : 1.15,
     };
     mesh.scale.setScalar(e.scale);
     // the bar is a child of the scaled mesh: undo that scale so bar size/height are in world units
@@ -655,6 +665,10 @@ export class Game {
     const elites = L >= CFG.waves.eliteAt.level || w >= CFG.waves.eliteAt.wave;
     if (brutes && w >= 3) for (let i = 0; i < Math.floor((w - 2) * 1.3); i++) list.push('brute');
     if (elites && w >= 8) for (let i = 0; i < Math.floor((w - 6) * 0.8); i++) list.push('elite');
+    // the rule-breakers, each once the Keep has reached its level
+    if (L >= CFG.enemy.sapper.fromLevel && w >= 3) for (let i = 0; i < Math.min(4, 1 + Math.floor((w - 3) * 0.5)); i++) list.push('sapper');
+    if (L >= CFG.enemy.archer.fromLevel && w >= 4) for (let i = 0; i < Math.min(5, 1 + Math.floor((w - 4) * 0.4)); i++) list.push('archer');
+    if (L >= CFG.enemy.shield.fromLevel && w >= 5) for (let i = 0; i < Math.min(5, 1 + Math.floor((w - 5) * 0.4)); i++) list.push('shield');
     if (w % CFG.waves.bossEvery === 0) for (let i = 0; i < Math.floor(w / 10) + 1; i++) list.push('boss');
     for (let i = list.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -1271,7 +1285,11 @@ export class Game {
     this.popIn(mesh, 0, rig ? 1.05 : 1.2);
     this.root.add(mesh);
     this.spawnFx(x, z, 0xff9a2e, y);
-    this.turrets.push({ mesh, cooldown: rand(0, 0.7), pos: new V3(x, y + 0.9, z), tower: towerId });
+    const bar = makeHealthBar(1.0);
+    bar.position.y = 1.8 / (rig ? 1.05 : 1.2);
+    bar.scale.multiplyScalar(1 / (rig ? 1.05 : 1.2));
+    mesh.add(bar);
+    this.turrets.push({ isTurret: true, mesh, bar, hp: CFG.turret.hp, maxHp: CFG.turret.hp, cooldown: rand(0, 0.7), pos: new V3(x, y + 0.9, z), tower: towerId, radius: 0.5 });
   }
 
   popIn(obj, delay = 0, baseScale = 1) {
@@ -1510,15 +1528,43 @@ export class Game {
   }
 
   // ---------- combat helpers ----------
-  fireArrow(from, target, damage) {
+  fireArrow(from, target, damage, hostile = false) {
     const mesh = makeArrow();
     mesh.position.copy(from);
     this.root.add(mesh);
-    this.arrows.push({ mesh, target, damage, life: CFG.arrow.life, dir: new V3() });
+    this.arrows.push({ mesh, target, damage, life: CFG.arrow.life, dir: new V3(), from: from.clone(), hostile });
   }
 
-  damageEnemy(e, dmg, hitPos) {
+  damageTurret(t, dmg) {
+    t.hp -= dmg;
+    setHealthBar(t.bar, Math.max(0, t.hp / t.maxHp));
+    if (t.hp > 0) return;
+    this.turrets.splice(this.turrets.indexOf(t), 1);
+    this.dying.push({ mesh: t.mesh, t: 0.4 });
+    if (t.tower && this.towers[t.tower]) {
+      const tw = this.towers[t.tower];
+      tw.crew = Math.max(0, tw.crew - 1);
+      // reopen the crew pad once, so the slot can be refilled
+      const open = [...this.dynamicPads, ...this.pads.map((p) => p.def)].some((d) => d.tower === t.tower && d.crew);
+      if (!open) this.queueTowerPad(t.tower, 'crew');
+    }
+    this.raiseAlarm('A tower crew has fallen!');
+  }
+
+  damageEnemy(e, dmg, hitPos, from = null) {
     if (e.hp <= 0) return;
+    if (e.type === 'shield' && from) {
+      // facing is rotation.y; a hit from within 60 degrees of it is taken on the shield
+      const fx = Math.sin(e.mesh.rotation.y);
+      const fz = Math.cos(e.mesh.rotation.y);
+      const dx = from.x - e.mesh.position.x;
+      const dz = from.z - e.mesh.position.z;
+      const len = Math.hypot(dx, dz) || 1;
+      if ((dx * fx + dz * fz) / len > 0.5) {
+        dmg *= e.stats.front;
+        this.popup('blocked', hitPos, '#b9c2cc', 1.1, e, 0);
+      }
+    }
     e.hp -= dmg;
     e.flash = 0.12;
     audio.hit();
@@ -1541,7 +1587,7 @@ export class Game {
       this.hud.toast(`Thief cut down! ${e.carrying} coins recovered.`, 2400);
     }
     const rk = CFG.ranks[Math.min(e.rank || 0, CFG.ranks.length - 1)];
-    const mult = e.type === 'boss' ? 4 : e.type === 'brute' || e.type === 'elite' ? 2 : 1;
+    const mult = e.type === 'boss' ? 4 : e.type === 'brute' || e.type === 'elite' || e.type === 'shield' ? 2 : 1;
     const n = randInt(rk.coins[0], rk.coins[1]) * mult + this.mods.coinBonus;
     for (let i = 0; i < n; i++) this.dropCoin(e.mesh.position);
     audio.enemyDie();
@@ -2190,7 +2236,7 @@ export class Game {
           if (u.melee) {
             tmp.copy(target.mesh.position);
             tmp.y += 0.3;
-            this.damageEnemy(target, u.stats.damage * this.damageMul * (this.rallied() ? CFG.horn.damage : 1), tmp);
+            this.damageEnemy(target, u.stats.damage * this.damageMul * (this.rallied() ? CFG.horn.damage : 1), tmp, p);
             this.attackAnim(u);
           } else {
             tmp.copy(p).y += 0.9;
@@ -2336,6 +2382,100 @@ export class Game {
     audio.unlock();
   }
 
+  // Sapper: straight for the nearest standing wall (or the Keep), and it goes off on contact.
+  updateSapper(e, dt) {
+    const p = e.mesh.position;
+    if (!e.target || e.target.state !== 'built' || e.retarget <= 0) {
+      e.retarget = 1.5;
+      let best = null;
+      let bd = Infinity;
+      for (const w of this.walls) {
+        if (w.state !== 'built') continue;
+        const mx = w.alongX ? (w.a0 + w.a1) / 2 : w.fixed;
+        const mz = w.alongX ? w.fixed : (w.a0 + w.a1) / 2;
+        const d = (mx - p.x) ** 2 + (mz - p.z) ** 2;
+        if (d < bd) {
+          bd = d;
+          best = w;
+        }
+      }
+      e.target = best || (this.keep && this.keep.state === 'built' ? this.keep : this.king);
+    }
+    e.retarget -= dt;
+    const t = e.target;
+    const tx = t.isKeep ? t.x : t.alongX !== undefined ? (t.alongX ? (t.a0 + t.a1) / 2 : t.fixed) : t.mesh.position.x;
+    const tz = t.isKeep ? t.z : t.alongX !== undefined ? (t.alongX ? t.fixed : (t.a0 + t.a1) / 2) : t.mesh.position.z;
+    tmp2.set(tx - p.x, 0, tz - p.z);
+    const d = tmp2.length();
+    this.faceTowards(e.mesh, tmp.set(tx, 0, tz), dt, 10);
+    if (d > 0.05) {
+      tmp2.normalize().multiplyScalar(Math.min(e.stats.speed * dt, d));
+      p.add(tmp2);
+    }
+    const hit = this.collideWalls(p, e.radius, false) || this.collideKeep(p, e.radius);
+    this.collideRiver(p, e.radius);
+    e.moving = true;
+    this.animateWalk(e, 1, dt);
+    const reachedKeep = t.isKeep && d < CFG.keep.half + e.radius + 0.6;
+    const reachedKing = t === this.king && d < 1.2;
+    if (hit || reachedKeep || reachedKing) {
+      // boom
+      const wall = hit || (reachedKeep ? this.keep : null);
+      if (wall) this.damageWall(wall, e.damage * e.stats.blast);
+      for (const u of this.units) if (u.mesh.position.distanceTo(p) < 2.2) this.damageUnit(u, e.damage);
+      this.burstFx(tmp.copy(p).setY(1.0), '#ffb347', 5, 0.45);
+      this.shake = 0.3;
+      audio.wallHit();
+      e.hp = 0;
+      this.killEnemy(e);
+    }
+  }
+
+  // Enemy archer: closes to just inside its range on the nearest soldier or tower crew, then holds and shoots.
+  updateEnemyArcher(e, dt) {
+    const p = e.mesh.position;
+    e.cooldown -= dt;
+    e.retarget -= dt;
+    if (e.retarget <= 0 || !e.target || e.target.hp <= 0) {
+      e.retarget = 0.6;
+      let best = null;
+      let bd = Infinity;
+      for (const u of [...this.units, ...this.turrets]) {
+        if (u.inKeep || u.captive) continue;
+        const d = p.distanceToSquared(u.isTurret ? u.pos : u.mesh.position);
+        if (d < bd) {
+          bd = d;
+          best = u;
+        }
+      }
+      e.target = best;
+    }
+    const t = e.target;
+    if (!t) return;
+    const tp = t.isTurret ? t.pos : t.mesh.position;
+    tmp2.set(tp.x - p.x, 0, tp.z - p.z);
+    const d = tmp2.length();
+    this.faceTowards(e.mesh, tmp.set(tp.x, 0, tp.z), dt, 8);
+    const hold = e.stats.range - 1.5;
+    let blocked = null;
+    if (d > hold) {
+      tmp2.normalize().multiplyScalar(Math.min(e.stats.speed * dt, d - hold));
+      p.add(tmp2);
+      blocked = this.collideWalls(p, e.radius, false) || this.collideKeep(p, e.radius);
+      this.collideRiver(p, e.radius);
+    }
+    e.moving = d > hold && !blocked;
+    this.animateWalk(e, e.moving ? 1 : 0, dt);
+    if (d <= e.stats.range && e.cooldown <= 0) {
+      e.cooldown = 1 / e.stats.attackRate;
+      this.attackAnim(e);
+      this.fireArrow(tmp.copy(p).setY(1.5), t, e.damage, true);
+    } else if (blocked && e.cooldown <= 0) {
+      e.cooldown = 1 / e.stats.attackRate;
+      this.damageWall(blocked, e.damage, e);
+    }
+  }
+
   // A thief runs at the King, grabs coins off his stack and bolts for the edge of the map. It ignores
   // walls and never fights, so the answer is archers and speed, not fortification.
   updateThief(e, dt) {
@@ -2426,6 +2566,14 @@ export class Game {
       }
       if (e.type === 'thief') {
         this.updateThief(e, dt);
+        continue;
+      }
+      if (e.type === 'sapper') {
+        this.updateSapper(e, dt);
+        continue;
+      }
+      if (e.type === 'archer') {
+        this.updateEnemyArcher(e, dt);
         continue;
       }
       e.cooldown -= dt;
@@ -2544,12 +2692,15 @@ export class Game {
       a.life -= dt;
       const t = a.target;
       if (t && t.hp > 0) {
-        tmp.copy(t.mesh.position);
-        tmp.y += t.type === 'boss' ? 2.0 : 0.8;
+        tmp.copy(t.isTurret ? t.pos : t.mesh.position);
+        tmp.y += t.type === 'boss' ? 2.0 : t.isTurret ? 0 : 0.8;
         a.dir.subVectors(tmp, a.mesh.position);
         const d = a.dir.length();
-        if (d < CFG.arrow.speed * dt + t.radius * 0.5) {
-          this.damageEnemy(t, a.damage, tmp);
+        if (d < CFG.arrow.speed * dt + (t.radius || 0.5) * 0.5) {
+          if (a.hostile) {
+            if (t.isTurret) this.damageTurret(t, a.damage);
+            else this.damageUnit(t, a.damage);
+          } else this.damageEnemy(t, a.damage, tmp, a.from);
           this.root.remove(a.mesh);
           this.arrows.splice(i, 1);
           continue;
