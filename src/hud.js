@@ -267,6 +267,10 @@ export class Hud {
     document.getElementById('info-screen').classList.add('hidden');
   }
 
+  // is the pause screen down? the stuck-game guard uses this to tell a real pause from a lost one
+  pauseHidden() {
+    return document.getElementById('pause-screen').classList.contains('hidden');
+  }
   showSettings() {
     document.getElementById('settings-screen').classList.remove('hidden');
   }

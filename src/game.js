@@ -1427,6 +1427,32 @@ export class Game {
     this.refreshPads();
   }
 
+  // A stopped game with nothing on screen to explain it is the worst bug to report and the easiest
+  // to recover from: every legitimate pause has something visible attached to it (the pause screen,
+  // a reward to choose, the info or settings sheets, the end of the run, a lost graphics context).
+  // If the world has stopped and none of those hold, something failed to hand the pause back, so
+  // take it back here rather than leaving the player looking at a still picture.
+  watchStuck(dt) {
+    const excused = this.running || this.over || this.won || this.contextLost
+      || this.offer || this.infoOpen || this.settingsOpen
+      || !this.hud.pauseHidden();       // the player's own pause, with its screen up
+    if (excused) {
+      this.stuckFor = 0;
+      return;
+    }
+    this.stuckFor = (this.stuckFor || 0) + dt;
+    if (this.stuckFor < 1.5) return;    // a beat of grace, so a normal hand-off is never fought over
+    this.stuckFor = 0;
+    console.warn('recovered a stopped game: paused with nothing on screen');
+    this.offerQueue = 0;
+    this.offer = null;
+    this.offerPaused = false;
+    this.hud.hideOffer();
+    this.hud.hidePause();
+    this.paused = false;
+    this.running = true;
+  }
+
   // #34: the feed pad goes with the Keep and comes back with it
   dropFeedPad() {
     if (!this.feedDef) return;
@@ -1982,6 +2008,7 @@ export class Game {
   // ---------- update ----------
   update(dt) {
     this.time += dt;
+    this.watchStuck(dt);
     if (this.running) {
       this.updatePlayer(dt);
       this.updateArmy(dt);
