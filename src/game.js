@@ -40,13 +40,20 @@ export class Game {
     // one device pixel per CSS pixel, and no preference for a particular GPU. It exists for devices
     // where the normal path shows nothing, and safeMode() turns it on by itself if that happens.
     this.safe = /[?&]safe=1/.test(location.search);
+    // #26: a Pixel Fold rendered a white world until ?safe=1, which left shadows, the GPU preference
+    // hint and the pixel ratio as the only suspects. Phones take the first two of those now: the
+    // shadow map is off and the preference hint is dropped. Characters already cast instanced blob
+    // shadows on a phone, so what goes is building and tree shadows, and that is a speed-up as well.
+    // ?hq=1 puts the full path back on a phone, for testing.
+    this.hq = /[?&]hq=1/.test(location.search);
+    const plain = this.safe || (this.mobile && !this.hq);
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: !this.mobile && !this.safe,
-      powerPreference: this.safe ? 'default' : 'high-performance',
+      powerPreference: plain ? 'default' : 'high-performance',
     });
     this.setPixelRatio();
-    this.renderer.shadowMap.enabled = !this.safe;
+    this.renderer.shadowMap.enabled = !plain;
     this.renderer.shadowMap.type = this.mobile ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -3391,23 +3398,25 @@ export class Game {
   // Slow day cycle across waves: morning, noon, golden evening, dusk, then dawn again every 12 waves.
   updateDaylight(dt) {
     // One cycle: dawn, morning, noon, golden evening, then nightfall at CFG.cycle.nightStart (0.6).
-    // Night stays cool and moonlit rather than truly dark: the game has to remain playable.
+    // #27: night stays cool and moonlit, never truly dark. A playtester could not read the field
+    // after nightfall, so the night keys carry more light than the scene wants for realism: this is
+    // a game you have to fight in at night, and losing sight of the raiders is not a fair difficulty.
     const blood = this.night && this.wave > 0 && this.wave % CFG.waves.bossEvery === 0;
     const keys = blood ? [
       { p: 0.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x6cbd55, exp: 1.22, h: 34, tint: 0xffffff },
       { p: 0.3, sun: 0xffffff, sunI: 1.42, sky: 0xffffff, ground: 0x9ec97a, fog: 0x74c45c, exp: 1.26, h: 42, tint: 0xffffff },
       { p: 0.52, sun: 0xffb36a, sunI: 1.25, sky: 0xffd9b0, ground: 0x7a9a5a, fog: 0x6fae4f, exp: 1.15, h: 20, tint: 0xffe4c8 },
       { p: 0.62, sun: 0xff7a5a, sunI: 1.0, sky: 0xffb0a0, ground: 0x7a4a42, fog: 0x8a4038, exp: 1.06, h: 14, tint: 0xffc8be },
-      { p: 0.74, sun: 0xff6a5a, sunI: 0.8, sky: 0xd08078, ground: 0x5a2a2a, fog: 0x6b2622, exp: 0.98, h: 9, tint: 0xf0a89e },
-      { p: 0.94, sun: 0xff6a5a, sunI: 0.8, sky: 0xd08078, ground: 0x5a2a2a, fog: 0x6b2622, exp: 0.98, h: 9, tint: 0xf0a89e },
+      { p: 0.74, sun: 0xff8a76, sunI: 1.0, sky: 0xe09a90, ground: 0x7a4040, fog: 0x8f3a34, exp: 1.06, h: 11, tint: 0xf5bdb2 },
+      { p: 0.94, sun: 0xff8a76, sunI: 1.0, sky: 0xe09a90, ground: 0x7a4040, fog: 0x8f3a34, exp: 1.06, h: 11, tint: 0xf5bdb2 },
       { p: 1.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x6cbd55, exp: 1.22, h: 34, tint: 0xffffff },
     ] : [
       { p: 0.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x6cbd55, exp: 1.22, h: 34, tint: 0xffffff },
       { p: 0.3, sun: 0xffffff, sunI: 1.42, sky: 0xffffff, ground: 0x9ec97a, fog: 0x74c45c, exp: 1.26, h: 42, tint: 0xffffff },
       { p: 0.52, sun: 0xffb36a, sunI: 1.25, sky: 0xffd9b0, ground: 0x7a9a5a, fog: 0x6fae4f, exp: 1.15, h: 20, tint: 0xffe4c8 },
-      { p: 0.62, sun: 0xb9a2ff, sunI: 0.92, sky: 0xb2bdf5, ground: 0x4a6270, fog: 0x3f6f74, exp: 1.0, h: 14, tint: 0xc6cdf2 },
-      { p: 0.74, sun: 0x8aa0f5, sunI: 0.62, sky: 0x7f92d8, ground: 0x2b3f57, fog: 0x24405e, exp: 0.9, h: 9, tint: 0x93a3cc },
-      { p: 0.94, sun: 0x8aa0f5, sunI: 0.62, sky: 0x7f92d8, ground: 0x2b3f57, fog: 0x24405e, exp: 0.9, h: 9, tint: 0x93a3cc },
+      { p: 0.62, sun: 0xc9b6ff, sunI: 1.06, sky: 0xc3ccf8, ground: 0x5c7686, fog: 0x4e828a, exp: 1.08, h: 14, tint: 0xd8dcf7 },
+      { p: 0.74, sun: 0xa8bcff, sunI: 0.92, sky: 0x9fb0e8, ground: 0x44607e, fog: 0x3c6389, exp: 1.02, h: 11, tint: 0xc0ccec },
+      { p: 0.94, sun: 0xa8bcff, sunI: 0.92, sky: 0x9fb0e8, ground: 0x44607e, fog: 0x3c6389, exp: 1.02, h: 11, tint: 0xc0ccec },
       { p: 1.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x6cbd55, exp: 1.22, h: 34, tint: 0xffffff },
     ];
     // dayPhase is advanced by updateWaves, which owns the clock; this only paints it
