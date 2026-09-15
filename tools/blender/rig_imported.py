@@ -32,6 +32,11 @@ def flag(name, default, cast=str):
     return default
 RIG_FROM = flag("--rig", "public/models/king.glb")
 PREVIEW = flag("--preview", "")
+# When the arms never separate from the body in the front silhouette -- thick bare arms on a wide
+# torso, or a held weapon bridging the gap -- there is nothing to measure. Set them by eye instead,
+# reading the numbers off the --measure-img.
+ARM_X = flag("--arm-x", 0.0, float)
+ARM_R = flag("--arm-r", 0.0, float)
 NO_ARMS = "--no-arms" in args    # let the arms ride with the body: right for a gown, where a swung
 if NO_ARMS:                      # arm drags the skirt with it however the weights are scoped
     args.remove("--no-arms")
@@ -128,23 +133,40 @@ def measure(obj, co):
     # instead put the bone inside a wide skirt and the capsule then dragged the skirt with the arm.
     ci = int(np.clip((crotch - z0) / H * nz, 0, nz - 1))
     mi = int((si + ci) / 2)
-    arm_x, r_arm = width[mi] / 2 * 0.82, width[mi] / 2 * 0.18
-    row = grid[mi]
-    runs, j = [], 0
-    while j < nx:
-        if row[j]:
-            k = j
-            while k + 1 < nx and row[k + 1]:
-                k += 1
-            runs.append((j, k))
-            j = k + 1
-        else:
-            j += 1
-    outer = [(lo, hi) for lo, hi in runs if xs[lo] > 0.02 * H]      # runs clear of the centre line
-    if outer:
-        lo, hi = max(outer, key=lambda t: xs[t[1]])                 # the furthest out is the arm
-        arm_x = float((xs[lo] + xs[hi]) / 2)
-        r_arm = max(0.02 * H, float((xs[hi] - xs[lo]) / 2))
+    arm_x, r_arm, runs = width[mi] / 2 * 0.82, width[mi] / 2 * 0.18, []
+
+    def runs_at(i):
+        out, j = [], 0
+        row = grid[i]
+        while j < nx:
+            if row[j]:
+                k = j
+                while k + 1 < nx and row[k + 1]:
+                    k += 1
+                out.append((j, k))
+                j = k + 1
+            else:
+                j += 1
+        return out
+
+    # Try several heights down the arm, not just the midpoint. Where a held weapon or a thick torso
+    # merges everything into one run the measurement falls back to a fraction of the total width, which
+    # on a brute with a mace put the bone out past his arm and the capsule then took the tunic with it.
+    best = None
+    for frac in (0.5, 0.38, 0.62, 0.3, 0.7):
+        i = int(si + (ci - si) * frac)
+        rs = runs_at(int(np.clip(i, 0, nz - 1)))
+        outer = [(lo, hi) for lo, hi in rs if xs[lo] > 0.02 * H]
+        if len(rs) >= 3 and outer:
+            lo, hi = max(outer, key=lambda t: xs[t[1]])
+            cand_r = float((xs[hi] - xs[lo]) / 2)
+            if cand_r > 0.015 * H and (best is None or cand_r < best[1]):
+                best = (float((xs[lo] + xs[hi]) / 2), cand_r, len(rs))
+    if best:
+        arm_x, r_arm, nruns = best
+        runs = [0] * nruns
+    else:
+        runs = runs_at(mi)
     return dict(z0=z0, z1=z1, H=H, crotch=crotch, leg_x=leg_x, neck=neck, shoulder=shoulder,
                 arm_x=arm_x, r_arm=r_arm, arm_runs=len(runs), grid=grid, zs=zs, xs=xs, width=width)
 
@@ -248,7 +270,9 @@ y = co[:, 1]
 # which is continuous with the sleeve there, and the swing then dragged the side of the gown out into
 # a sheet. The top of the sleeve stays with the body, which is also where it barely moves.
 zc = np.clip(z, a["shoulder"] - 0.26 * a["H"], a["shoulder"] - 0.06 * a["H"])
-r_arm = max(1e-3, a["r_arm"] * 1.35)
+if ARM_X:
+    a["arm_x"] = ARM_X
+r_arm = max(1e-3, (ARM_R if ARM_R else a["r_arm"] * 1.35))
 d_arm = np.sqrt((np.abs(x) - a["arm_x"]) ** 2 + y ** 2 + (z - zc) ** 2)
 # a tight blend on the arm. A wide one leaves vertices half on the bone and half on the body, and the
 # swing then stretches the geometry between them into a ribbon instead of moving the arm as one piece

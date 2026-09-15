@@ -140,7 +140,7 @@ function mergeCharacter(scene) {
 // Characters whose model does not come from make_character.py. The King is a generated mesh that was
 // remeshed, baked to vertex colours and fitted to our skeleton (tools/blender/rig_imported.py); it
 // keeps its own filename so rebuilding the parametric King cannot quietly overwrite him.
-const MODEL_FILE = { king: 'king_ai', queen: 'queen_ai', raider: 'raider_ai' };
+const MODEL_FILE = { king: 'king_ai', queen: 'queen_ai', raider: 'raider_ai', brute: 'brute_ai' };
 
 export function loadRig(name) {
   if (!cache.has(name)) {
