@@ -192,6 +192,7 @@ export class Game {
     this.bestScore = Number(localStorage.getItem('crownrush-best-score') || 0);
     this.mineTimer = 0;
     this.nodes = [];
+    this.tradePost = null;  // the bank, once its pad is paid for
     this.piles = [];        // what has been mined and is lying on the ground waiting to be carried
     this.pileFlies = [];    // chunks in the air between the rock and the heap
     this.chips = [];
@@ -276,14 +277,6 @@ export class Game {
       if (def.type !== 'straw' && open) this.root.add(mesh);
       this.nodes.push({ type: def.type, mesh, stock: def.stock, max: def.stock, regrow: 0, from, open, pos: new V3(def.pos[0], 0, def.pos[1]) });
     }
-    // The trade post stands from the first minute. It cannot be something you build, because until
-    // it exists there is nowhere to turn a mined pile into coin, and mining would be worth nothing.
-    const post = this.makeStructureMesh('bank');
-    post.position.set(CFG.trade.pos[0], 0, CFG.trade.pos[1]);
-    post.rotation.y = Math.PI * 0.12;
-    this.root.add(post);
-    this.tradePost = post;
-
     // world roads/bridges are scene-level: reset them
     for (const r of this.world.roads) {
       r.revealed = false;

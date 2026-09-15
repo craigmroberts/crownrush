@@ -372,7 +372,8 @@ export const ViewMethods = {
         if (room <= 0) {
           if (this.time - (this.fullAt || 0) > 4) {
             this.fullAt = this.time;
-            this.hud.toast('Your bag is full. Sell at the trade post.', 2600);
+            this.hud.toast(this.tradePost ? 'Your bag is full. Sell at the trade post.'
+              : 'Your bag is full. Build the Trade Post to sell what you have mined.', 2800);
           }
           continue;
         }
@@ -399,6 +400,7 @@ export const ViewMethods = {
   // Walk in with a load and walk out with coin. This is the only place materials become money, so it
   // is the only number the HUD has to carry.
   updateTrade(dt) {
+    if (!this.tradePost) return;
     const kp = this.king.mesh.position;
     const d = Math.hypot(kp.x - CFG.trade.pos[0], kp.z - CFG.trade.pos[1]);
     if (d > CFG.trade.radius || this.loadTotal() <= 0) return;

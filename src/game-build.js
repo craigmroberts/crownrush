@@ -139,6 +139,12 @@ export const BuildMethods = {
       locked: pad.locked === 'rescue' ? 'Free the Queen' : pad.locked ? `Keep Lv ${pad.locked}` : null,
       lockIcon: pad.locked === 'rescue' ? 'tiara' : 'keep',
       shape: style.shape, rim: style.rim,
+      // #37: the cost lived only in the sheet along the bottom edge, and the eyes are on the King.
+      // Coin pads carry it on the mat instead: what it costs, how far in you are, and anything in
+      // the way sitting above the bar so the bar itself never moves.
+      cost: pad.def.crew ? 0 : pad.cost,
+      left: Math.max(0, pad.cost - pad.paid),
+      blocker: pad.locked === 'rescue' ? 'Free the Queen first' : pad.locked ? `Needs Keep ${pad.locked}` : null,
     });
   },
 
@@ -331,6 +337,10 @@ export const BuildMethods = {
     this.popIn(m);
     this.root.add(m);
     if (kind !== 'bank') this.structures.push({ kind, id: def.id, mesh: m });
+    else {
+      m.rotation.y = Math.PI * 0.12;
+      this.tradePost = m;
+    }
     if (kind === 'tower') {
       this.towers[def.id] = { id: def.id, x: def.buildAt[0], z: def.buildAt[1], top: m.userData.top, level: 1, mesh: m, crew: 0, pos: def.pos };
       this.queueTowerPad(def.id, 'crew');

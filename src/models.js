@@ -1298,7 +1298,7 @@ export function makePadTexture() {
 // #8: the marker carries IDENTITY ONLY - icon, name, and a level where one applies. Costs used to be
 // painted here too, but nobody can read a price off the floor at a sharp angle while running past;
 // they live in the panel that appears when you stop on the pad.
-export function drawPad(canvas, tex, { icon, label, paid, active = false, sub = null, locked = null, lockIcon = 'keep', shape = 'square', rim = '#ffffff' }) {
+export function drawPad(canvas, tex, { icon, label, paid, active = false, sub = null, locked = null, lockIcon = 'keep', shape = 'square', rim = '#ffffff', cost = 0, left = 0, blocker = null }) {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 256, 256);
   const outline = () => {
@@ -1309,7 +1309,7 @@ export function drawPad(canvas, tex, { icon, label, paid, active = false, sub = 
   outline();
   ctx.fillStyle = active ? 'rgba(255, 230, 120, 0.45)' : 'rgba(58, 42, 26, 0.5)';
   ctx.fill();
-  if (paid > 0) {
+  if (paid > 0 && !cost) {
     ctx.save();
     outline();
     ctx.clip();
@@ -1341,12 +1341,13 @@ export function drawPad(canvas, tex, { icon, label, paid, active = false, sub = 
   ctx.textBaseline = 'middle';
   // one big icon on a soft disc: this is what has to read at a glance
   const img = iconImage(icon);
-  const isz = 104;
+  const isz = cost ? 88 : 104;
+  const iy = cost ? 86 : 100;
   ctx.beginPath();
-  ctx.arc(128, 100, isz * 0.62, 0, Math.PI * 2);
+  ctx.arc(128, iy, isz * 0.62, 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(255,251,232,0.9)';
   ctx.fill();
-  if (img) ctx.drawImage(img, 128 - isz / 2, 100 - isz / 2, isz, isz);
+  if (img) ctx.drawImage(img, 128 - isz / 2, iy - isz / 2, isz, isz);
   const text = (str, y, size, fill) => {
     ctx.font = `800 ${size}px "Baloo 2", "Trebuchet MS", system-ui, sans-serif`;
     ctx.lineWidth = size * 0.28;
@@ -1355,15 +1356,66 @@ export function drawPad(canvas, tex, { icon, label, paid, active = false, sub = 
     ctx.fillStyle = fill;
     ctx.fillText(str, 128, y);
   };
-  text(label, sub ? 186 : 196, label.length > 15 ? 26 : 31, '#ffffff');
-  if (sub) text(sub, 220, 25, '#ffe98a');
-  if (locked) {
-    outline();
-    ctx.fillStyle = 'rgba(20, 16, 30, 0.5)';
+  if (cost) {
+    text(label, 152, label.length > 15 ? 24 : 28, '#ffffff');
+    // Anything standing in the way goes ABOVE the bar, so the bar is always in the same place and
+    // always means the same thing: this is what it costs and this is how far in you are.
+    if (blocker) {
+      const bw = Math.min(228, 26 + blocker.length * 13);
+      ctx.beginPath();
+      ctx.roundRect(128 - bw / 2, 166, bw, 30, 15);
+      ctx.fillStyle = 'rgba(200, 40, 46, 0.92)';
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+      ctx.stroke();
+      ctx.font = '800 21px "Baloo 2", "Trebuchet MS", system-ui, sans-serif';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(blocker, 128, 182);
+    }
+    // the cost bar: one shape in one place on every mat, so it is read once and then recognised
+    const by = blocker ? 204 : 190;
+    const bx = 26;
+    const bw2 = 204;
+    const bh = 34;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, bw2, bh, 17);
+    ctx.fillStyle = 'rgba(24, 18, 12, 0.72)';
     ctx.fill();
-    const li = iconImage(lockIcon);
-    if (li) ctx.drawImage(li, 128 - 29, 78, 58, 58);
-    text(locked, 168, locked.length > 13 ? 24 : 29, '#ffd23d');
+    if (paid > 0) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(bx, by, bw2, bh, 17);
+      ctx.clip();
+      ctx.fillStyle = '#3fd455';
+      ctx.fillRect(bx, by, bw2 * Math.min(1, paid), bh);
+      ctx.restore();
+    }
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+    ctx.beginPath();
+    ctx.roundRect(bx, by, bw2, bh, 17);
+    ctx.stroke();
+    const ci = iconImage('gold');
+    if (ci) ctx.drawImage(ci, bx + 5, by + 3, 28, 28);
+    ctx.font = '800 24px "Baloo 2", "Trebuchet MS", system-ui, sans-serif';
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    ctx.strokeText(String(left), bx + bw2 / 2 + 14, by + bh / 2 + 1);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(String(left), bx + bw2 / 2 + 14, by + bh / 2 + 1);
+    if (sub) text(sub, 243, 20, '#ffe98a');
+  } else {
+    text(label, sub ? 186 : 196, label.length > 15 ? 26 : 31, '#ffffff');
+    if (sub) text(sub, 220, 25, '#ffe98a');
+    if (locked) {
+      outline();
+      ctx.fillStyle = 'rgba(20, 16, 30, 0.5)';
+      ctx.fill();
+      const li = iconImage(lockIcon);
+      if (li) ctx.drawImage(li, 128 - 29, 78, 58, 58);
+      text(locked, 168, locked.length > 13 ? 24 : 29, '#ffd23d');
+    }
   }
   tex.needsUpdate = true;
 }

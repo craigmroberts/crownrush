@@ -57,9 +57,16 @@ class Audio {
   }
 
   // Must be called from a user gesture (the Play button) so mobile browsers allow sound.
+  //
+  // One call is not enough. A browser can hand back a context that is still `suspended` even when it
+  // was created inside a gesture, and resume() is a promise that can settle late or not at all. The
+  // only thing that ever revived it afterwards was the visibilitychange handler below, which is why
+  // sound would arrive only after leaving the app and coming back. So every call re-arms a set of
+  // gesture listeners that keep asking until the context is actually running, and then take
+  // themselves off.
   init() {
     if (this.ctx) {
-      if (this.ctx.state === 'suspended') this.ctx.resume();
+      this.armResume();
       return;
     }
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -87,14 +94,35 @@ class Audio {
     document.addEventListener('visibilitychange', () => {
       if (!this.ctx) return;
       if (document.hidden) this.ctx.suspend();
-      else this.ctx.resume();
+      else this.ctx.resume().catch(() => {});
     });
+    this.armResume();
+  }
+
+  // Keep asking on any gesture until it takes. Cheap when it works first time: the listeners are
+  // added once and removed the moment the context reports running.
+  armResume() {
+    if (!this.ctx || this.ctx.state === 'running') return;
+    this.ctx.resume().catch(() => {});
+    if (this.resumeArmed) return;
+    this.resumeArmed = true;
+    const tryIt = () => {
+      if (!this.ctx) return;
+      this.ctx.resume().catch(() => {});
+      if (this.ctx.state !== 'running') return;
+      for (const ev of ['pointerdown', 'touchstart', 'keydown', 'click']) window.removeEventListener(ev, tryIt, true);
+      this.resumeArmed = false;
+      // the loop was scheduled against a clock that was not moving; restart it on the one that is
+      if (this.dayBus) this.startMusic();
+    };
+    for (const ev of ['pointerdown', 'touchstart', 'keydown', 'click']) window.addEventListener(ev, tryIt, true);
   }
 
   setMuted(m) {
     this.muted = m;
     localStorage.setItem('crownrush-muted', m ? '1' : '0');
-    if (this.master) this.master.gain.setTargetAtTime(m ? 0 : 0.6, this.ctx.currentTime, 0.05);
+    if (this.master && this.ctx) this.master.gain.setTargetAtTime(m ? 0 : 0.6, this.ctx.currentTime, 0.05);
+    if (!m) this.armResume();   // turning sound back on is a gesture: use it to retry a stuck context
   }
 
   // ---- synth helpers ----
