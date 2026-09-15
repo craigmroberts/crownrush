@@ -393,6 +393,8 @@ export const BuildMethods = {
       this.towers[def.id] = { id: def.id, x: def.buildAt[0], z: def.buildAt[1], top: m.userData.top, level: 1, mesh: m, crew: 0, pos: def.pos };
       this.queueTowerPad(def.id, 'crew');
     }
+    // #48: a home is not just a roof. Someone moves in, and they work.
+    if (kind === 'house') this.addVillager(def.buildAt[0], def.buildAt[1]);
     if (m.userData.chimney) {
       const c = m.userData.chimney;
       this.world.addSmoker(def.buildAt[0] + c.x, c.y, def.buildAt[1] + c.z);

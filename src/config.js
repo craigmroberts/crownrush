@@ -74,6 +74,10 @@ export const CFG = {
   // How much he can carry before he has to walk it back. This is what makes the trade post a place
   // you go rather than a formality, and what gives a trip out to the diamonds something to lose.
   carry: { base: 18, perUpgrade: 8 },
+  // #48: the villagers who gather. One moves into each home. They must not out-earn the King at his
+  // own job -- he walks at 5.6 and carries 18 -- so they are slower on both halves of the trip and
+  // paid at the cheapest rate their trade works. What they are for is the hours he is somewhere else.
+  villager: { speed: 2.8, slow: 8, carry: 4, range: 46, flee: 13 },
   // The trade post, once built. Walk into it and whatever you are carrying becomes coin. It is the
   // first thing worth building -- you start with enough coin for it -- because until it stands the
   // heaps you make have nowhere to go.

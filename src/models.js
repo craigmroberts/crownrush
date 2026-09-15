@@ -270,7 +270,7 @@ function face(w, h, x, y, z, style) {
 }
 
 // ---- characters live in characters.js (smooth, painted-face figures) ----
-export { makeArcher, makeSwordsman, makeKnight, makeElite, makeBrute, makeBoss, makeKing, makeKingFoot, makeQueen } from './characters.js';
+export { makeArcher, makeSwordsman, makeVillager, makeKnight, makeElite, makeBrute, makeBoss, makeKing, makeKingFoot, makeQueen } from './characters.js';
 
 // The Royal Keep: a small stone castle with a balcony the Queen stands on.
 // #3: one palette per material age. Buildings are rebuilt in the current material when the Keep

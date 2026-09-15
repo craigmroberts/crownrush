@@ -268,6 +268,49 @@ export function makeSwordsman() {
   return finish(g);
 }
 
+// #48: the three who work. They are built rather than generated because what tells one from another
+// is the tool in the hand, and a tool is four boxes; the tunic colour only has to say "not a soldier".
+// Each carries its tool at rest across the body, which is also where the mining swing wants it.
+const VILLAGER = {
+  farmer: { tunic: 0xd8c27a, trim: 0x8a6f2e, hair: P.hair },
+  lumberjack: { tunic: 0xa8543a, trim: 0x6b3220, hair: P.hairDark },
+  miner: { tunic: 0x6f7b8a, trim: 0x47505c, hair: P.beard },
+};
+
+function haft(len, g, tilt) {
+  const h = sbox(0.055, len, 0.055, P.leather, 0.36, 0.78, 0.18);
+  h.rotation.z = tilt;
+  g.add(h);
+  return h;
+}
+
+export function makeVillager(kind = 'farmer') {
+  const v = VILLAGER[kind] || VILLAGER.farmer;
+  const g = figure({ style: 'archer', tunic: v.tunic, trim: v.trim, pants: 0x6b5a3e });
+  g.add(hairCap(v.hair, 1.4));
+  if (kind === 'farmer') {
+    // a wide straw hat and a scythe: the blade is one long box raked off the top of the haft
+    const brim = cyl(0.52, 0.52, 0.05, 0xe3cf8a, 0, 1.52, 0, 16);
+    const crown = cyl(0.26, 0.3, 0.22, 0xd8c27a, 0, 1.62, 0, 12);
+    g.add(brim, crown);
+    const h = haft(1.15, g, 0.22);
+    const blade = sbox(0.5, 0.05, 0.09, P.steel, -0.2, 0.58, 0, smat(P.steel, { roughness: 0.4, metalness: 0.35 }));
+    blade.rotation.z = -0.5;
+    h.add(blade);
+  } else if (kind === 'lumberjack') {
+    const h = haft(0.95, g, 0.18);
+    const head = sbox(0.28, 0.24, 0.08, P.steel, 0, 0.5, 0, smat(P.steel, { roughness: 0.4, metalness: 0.35 }));
+    const bit = sbox(0.1, 0.3, 0.07, P.steelDark, 0.17, 0.5, 0);
+    h.add(head, bit);
+  } else {
+    const h = haft(0.9, g, 0.18);
+    const head = sbox(0.62, 0.07, 0.07, P.steelDark, 0, 0.46, 0, smat(P.steelDark, { roughness: 0.45, metalness: 0.3 }));
+    head.rotation.z = 0.18;
+    h.add(head);
+  }
+  return finish(g);
+}
+
 export function makeKnight({ scale = 1, tunic = P.red, trim = P.darkRed } = {}) {
   const g = figure({ style: 'raider', tunic, trim, pants: trim, scale });
   const helm = new THREE.Mesh(new THREE.SphereGeometry(0.41, 24, 14, 0, Math.PI * 2, 0, Math.PI * 0.46), smat(tunic));

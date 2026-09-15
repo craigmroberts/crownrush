@@ -11,6 +11,7 @@ import { BuildMethods } from './game-build.js';
 import { EnemiesMethods } from './game-enemies.js';
 import { UnitsMethods } from './game-units.js';
 import { ViewMethods } from './game-view.js';
+import { VillagerMethods } from './game-villagers.js';
 
 export class Game {
   constructor(canvas, hud) {
@@ -192,6 +193,7 @@ export class Game {
     this.bestScore = Number(localStorage.getItem('crownrush-best-score') || 0);
     this.mineTimer = 0;
     this.nodes = [];
+    this.villagers = [];    // #48: one gatherer per villager home, working on their own
     this.tradePost = null;  // the bank, once its pad is paid for
     this.tradePos = null;   // and where you stand to sell at it: its own mat, not a constant
     this.tradeMat = null;
@@ -527,6 +529,7 @@ export class Game {
       this.updatePileFlies(dt);
       this.updatePiles(dt);
       this.updateTrade(dt);
+      this.updateVillagers(dt);
       this.updatePads(dt);
       this.updateWaves(dt);
       this.updateFog(dt);
@@ -674,4 +677,4 @@ export class Game {
 
 // The rest of the class. These were cut out of this file to keep it readable; they are ordinary
 // methods of Game and behave exactly as they did when they were written inline.
-Object.assign(Game.prototype, BuildMethods, EnemiesMethods, UnitsMethods, ViewMethods);
+Object.assign(Game.prototype, BuildMethods, EnemiesMethods, UnitsMethods, ViewMethods, VillagerMethods);

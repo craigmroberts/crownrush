@@ -275,16 +275,23 @@ export const ViewMethods = {
     this.faceTowards(this.king.mesh, best.pos, 1, 60);
     // the node shakes and throws chips
     if (best.type !== 'straw') best.shake = 0.3;
-    const chipColor = best.type === 'wood' ? 0x9a6a3a : best.type === 'stone' ? 0xa9aeb5 : 0xe0c25a;
-    for (let i = 0; i < 5; i++) {
-      const ch = new THREE.Mesh(CHIP_GEO, RES_MATS[best.type]);
-      ch.position.copy(best.type === 'straw' ? kp : best.pos).setY(0.9);
+    this.throwChips(best.type, best.type === 'straw' ? kp : best.pos);
+    this.addToPile(best);
+  },
+
+  // A handful of the material, thrown off whatever is being worked. Straw comes off the reaper rather
+  // than off the field, so the caller says where; #48 gave the villagers the same call.
+  throwChips(type, at, n = 5) {
+    if (this.chips.length > 90) return;
+    const colour = type === 'wood' ? 0x9a6a3a : type === 'stone' ? 0xa9aeb5 : 0xe0c25a;
+    for (let i = 0; i < n; i++) {
+      const ch = new THREE.Mesh(CHIP_GEO, RES_MATS[type]);
+      ch.position.copy(at).setY(0.9);
       ch.position.x += rand(-0.4, 0.4);
       ch.position.z += rand(-0.4, 0.4);
       this.root.add(ch);
-      this.chips.push({ mesh: ch, vx: rand(-3, 3), vz: rand(-3, 3), vy: rand(3, 6), t: 0.7, color: chipColor });
+      this.chips.push({ mesh: ch, vx: rand(-3, 3), vz: rand(-3, 3), vy: rand(3, 6), t: 0.7, color: colour });
     }
-    this.addToPile(best);
   },
 
   // ---------- piles ----------
