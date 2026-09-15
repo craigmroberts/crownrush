@@ -137,10 +137,15 @@ function mergeCharacter(scene) {
   parent.add(mesh);
 }
 
+// Characters whose model does not come from make_character.py. The King is a generated mesh that was
+// remeshed, baked to vertex colours and fitted to our skeleton (tools/blender/rig_imported.py); it
+// keeps its own filename so rebuilding the parametric King cannot quietly overwrite him.
+const MODEL_FILE = { king: 'king_ai' };
+
 export function loadRig(name) {
   if (!cache.has(name)) {
     cache.set(name, new Promise((resolve, reject) => {
-      loader.load(`${import.meta.env.BASE_URL}models/${name}.glb`, (gltf) => {
+      loader.load(`${import.meta.env.BASE_URL}models/${MODEL_FILE[name] || name}.glb`, (gltf) => {
         mergeCharacter(gltf.scene);
         gltf.scene.traverse((o) => {
           if (o.isMesh) {
