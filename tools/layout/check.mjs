@@ -33,10 +33,22 @@ for (const d of PADS) {
 const keep = PADS.find((p) => p.id === 'keep');
 items.push({ id: 'feed:pad', t: 0, x: keep.buildAt[0], z: keep.buildAt[1] + FEED_OFFSET, w: PAD, d: PAD, pad: true });
 
+// Two pads can share ground if they are never on the field together. A pad that is not repeatable
+// is removed once it is bought, so anything that `requires` it only appears after it has gone --
+// which is how the archer pads come to stand where the pad that built their range used to.
+const byId = Object.fromEntries(PADS.map((d) => [d.id, d]));
+const needs = (id, want, seen = new Set()) => {
+  const d = byId[id];
+  if (!d || seen.has(id)) return false;
+  seen.add(id);
+  return (d.requires || []).some((r) => r === want || needs(r, want, seen));
+};
+const exclusive = (A, B) => (!byId[A]?.repeatable && needs(B, A)) || (!byId[B]?.repeatable && needs(A, B));
+
 // a pad is meant to sit in front of its own building, and the feed pad replaces the keep pad
 const paired = (a, b) => {
   const [A, B] = [a.split(':')[0], b.split(':')[0]];
-  return A === B || (A === 'keep' && B === 'feed') || (A === 'feed' && B === 'keep');
+  return A === B || (A === 'keep' && B === 'feed') || (A === 'feed' && B === 'keep') || exclusive(A, B);
 };
 const hits = (a, b) => Math.abs(a.x - b.x) < (a.w + b.w) / 2 - 0.02 && Math.abs(a.z - b.z) < (a.d + b.d) / 2 - 0.02;
 
