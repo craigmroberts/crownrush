@@ -225,7 +225,27 @@ export const BuildMethods = {
 
   // where a crew pad sends its archers: gate posts, or the next free spots around a tower top
   crewSpots(def) {
-    if (def.spots) return def.spots.map((s) => [s[0], s[1], def.posts ? CFG.gatePost.height + 0.08 : s[2] || 0]);
+    // Gate posts are read off the ring's own gates rather than written out by hand: a pair of posts
+    // just inside each gateway, set either side of it. The hand-written list was rectangle corners
+    // and had nothing to say about a wall that bends.
+    if (def.posts) {
+      const y = CFG.gatePost.height + 0.08;
+      const c = TIERS[def.postTier ?? def.tier].ring;
+      const out = [];
+      for (const sec of this.wallSections(def.postTier ?? def.tier, 'all')) {
+        if (!sec.gate) continue;
+        const ix = (c.x - sec.mx);
+        const iz = (c.z - sec.mz);
+        const il = Math.hypot(ix, iz) || 1;
+        const px = sec.mx + (ix / il) * 1.5;      // a step inside the gateway
+        const pz = sec.mz + (iz / il) * 1.5;
+        const ax = Math.cos(sec.ang);
+        const az = Math.sin(sec.ang);
+        out.push([px - ax * 2.2, pz - az * 2.2, y], [px + ax * 2.2, pz + az * 2.2, y]);
+      }
+      return out.slice(0, def.crew || out.length);
+    }
+    if (def.spots) return def.spots.map((s) => [s[0], s[1], s[2] || 0]);
     const t = this.towers[def.tower];
     if (!t) return [];
     const spots = [];
@@ -738,42 +758,52 @@ export const BuildMethods = {
   },
 
   // ---------- walls ----------
-  // Generate the sections along one side (or all sides) of a tier's rectangle, gates included.
+  // Which quarter of the ring an angle falls in. +z is south in this world, so the compass runs
+  // east / south / west / north as the angle sweeps from 0.
+  wallSideOf(ang) {
+    const a = ((ang % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+    if (a < Math.PI / 4 || a >= Math.PI * 1.75) return 'east';
+    if (a < Math.PI * 0.75) return 'south';
+    if (a < Math.PI * 1.25) return 'west';
+    return 'north';
+  },
+
+  // The ring, cut into segments: a regular polygon with enough sides that it reads as a circle, and
+  // the segment nearest each of the four compass points turned into a gate. A section is a pair of
+  // endpoints now rather than an axis and an offset, which is what lets the wall bend.
   wallSections(tier, side) {
     const t = TIERS[tier];
-    const b = t.bounds;
-    const sides = side === 'all' ? ['south', 'east', 'north', 'west'] : [side];
+    const { x: cx, z: cz, r } = t.ring;
+    const n = Math.max(12, Math.round((Math.PI * 2 * r) / t.sectionLen));
+    const at = (i) => {
+      const a = (i / n) * Math.PI * 2;
+      return [cx + Math.cos(a) * r, cz + Math.sin(a) * r];
+    };
+    // one gate per compass point: the segment whose middle is closest to it
+    const gateAt = new Set([0, 0.25, 0.5, 0.75].map((f) => Math.round(f * n) % n));
     const out = [];
-    for (const name of sides) {
-      const alongX = name === 'south' || name === 'north';
-      const fixed = name === 'south' ? b.z1 : name === 'north' ? b.z0 : name === 'east' ? b.x1 : b.x0;
-      const from = alongX ? b.x0 : b.z0;
-      const to = alongX ? b.x1 : b.z1;
-      const gate = t.gates[name];
-      const spans = gate ? [[from, gate[0]], [gate[1], to]] : [[from, to]];
-      let idx = 0;
-      const push = (a0, a1, isGate) => {
-        out.push({ id: `${tier}-${name}-${idx++}`, tier, wall: name, alongX, a0, a1, fixed, gate: isGate });
-      };
-      spans.forEach((span, si) => {
-        const len = span[1] - span[0];
-        const n = Math.max(1, Math.round(len / t.sectionLen));
-        for (let i = 0; i < n; i++) push(span[0] + (len * i) / n, span[0] + (len * (i + 1)) / n, false);
-        if (gate && si === 0) push(gate[0], gate[1], true);
+    for (let i = 0; i < n; i++) {
+      const [x0, z0] = at(i);
+      const [x1, z1] = at(i + 1);
+      const mx = (x0 + x1) / 2;
+      const mz = (z0 + z1) / 2;
+      const wall = this.wallSideOf(Math.atan2(mz - cz, mx - cx));
+      if (side !== 'all' && wall !== side) continue;
+      out.push({
+        id: `${tier}-${i}`, tier, wall, gate: gateAt.has(i),
+        x0, z0, x1, z1, mx, mz,
+        len: Math.hypot(x1 - x0, z1 - z0),
+        ang: Math.atan2(z1 - z0, x1 - x0),
       });
     }
     return out;
   },
 
   makeWallMesh(sec, level = this.wallLevel) {
-    const len = sec.a1 - sec.a0;
-    const m = sec.gate ? makeGate(level) : makeWallSegment(len, level);
-    const mid = (sec.a0 + sec.a1) / 2;
-    if (sec.alongX) m.position.set(mid, 0, sec.fixed);
-    else {
-      m.position.set(sec.fixed, 0, mid);
-      m.rotation.y = Math.PI / 2;
-    }
+    const m = sec.gate ? makeGate(level) : makeWallSegment(sec.len, level);
+    m.position.set(sec.mx, 0, sec.mz);
+    // the pieces are modelled along +X; rotating by -ang about Y aims them down the segment
+    m.rotation.y = -sec.ang;
     return m;
   },
 
@@ -843,21 +873,26 @@ export const BuildMethods = {
       if (w.state !== 'built') continue;
       if (friendly && w.gate) continue;
       const thick = r + 0.25;
-      if (w.alongX) {
-        if (p.x < w.a0 - r || p.x > w.a1 + r) continue;
-        const d = p.z - w.fixed;
-        if (Math.abs(d) < thick) {
-          p.z = w.fixed + Math.sign(d || 1) * thick;
-          hit = w;
-        }
-      } else {
-        if (p.z < w.a0 - r || p.z > w.a1 + r) continue;
-        const d = p.x - w.fixed;
-        if (Math.abs(d) < thick) {
-          p.x = w.fixed + Math.sign(d || 1) * thick;
-          hit = w;
-        }
-      }
+      // nearest point on the segment, then push straight out from it. A ring's sections sit at every
+      // angle, so this replaces the axis-aligned test the rectangle used.
+      const dx = w.x1 - w.x0;
+      const dz = w.z1 - w.z0;
+      const L2 = dx * dx + dz * dz || 1;
+      const t = Math.max(0, Math.min(1, ((p.x - w.x0) * dx + (p.z - w.z0) * dz) / L2));
+      const qx = w.x0 + dx * t;
+      const qz = w.z0 + dz * t;
+      let ox = p.x - qx;
+      let oz = p.z - qz;
+      const d = Math.hypot(ox, oz);
+      if (d >= thick) continue;
+      if (d < 1e-4) {                       // dead on the line: push along its normal
+        ox = -dz; oz = dx;
+        const n = Math.hypot(ox, oz) || 1;
+        ox /= n; oz /= n;
+      } else { ox /= d; oz /= d; }
+      p.x = qx + ox * thick;
+      p.z = qz + oz * thick;
+      hit = w;
     }
     return hit;
   },
@@ -939,20 +974,17 @@ export const BuildMethods = {
   breakWall(w) {
     w.state = 'broken';
     this.root.remove(w.mesh);
-    w.mesh = makeRubble(w.a1 - w.a0, w.level);
-    const mid = (w.a0 + w.a1) / 2;
-    if (w.alongX) w.mesh.position.set(mid, 0, w.fixed);
-    else {
-      w.mesh.position.set(w.fixed, 0, mid);
-      w.mesh.rotation.y = Math.PI / 2;
-    }
+    w.mesh = makeRubble(w.len, w.level);
+    w.mesh.position.set(w.mx, 0, w.mz);
+    w.mesh.rotation.y = -w.ang;
     this.root.add(w.mesh);
     this.hud.toast(w.gate ? 'The gate is down!' : 'A wall section has fallen!', 1600);
-    // a repair pad appears just inside the gap
-    const b = TIERS[w.tier].bounds;
-    const c = [(b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2];
-    const inward = w.alongX ? Math.sign(c[1] - w.fixed) : Math.sign(c[0] - w.fixed);
-    const pos = w.alongX ? [mid, w.fixed + inward * 2.6] : [w.fixed + inward * 2.6, mid];
+    // a repair pad appears just inside the gap, on the line back to the middle of the ring
+    const c = TIERS[w.tier].ring;
+    const ix = c.x - w.mx;
+    const iz = c.z - w.mz;
+    const il = Math.hypot(ix, iz) || 1;
+    const pos = [w.mx + (ix / il) * 3.4, w.mz + (iz / il) * 3.4];
     this.dynamicPads.push({
       id: `repair-${w.id}-${this.time.toFixed(0)}`, pos, cost: CFG.wallLevels[this.wallLevel].repair, icon: 'hammer',
       label: w.gate ? 'Repair Gate' : 'Repair Wall', repair: w,
