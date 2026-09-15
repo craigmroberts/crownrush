@@ -108,7 +108,10 @@ def measure(obj, co):
         right = [xs[j] for j in on if xs[j] > 0.01 * H]
         leg_x = float((min(right) + max(right)) / 2) if right else leg_x   # centre of the leg, not its median column
 
-    lo_n, hi_n = int(nz * 0.62), int(nz * 0.90)
+    # The neck is the narrowest slice under the head. Searching as high as 90% finds the inside of a
+    # tall helmet spike instead, which put a guard's neck above his own shoulders; 80% stays under any
+    # headgear while still clearing the chest.
+    lo_n, hi_n = int(nz * 0.55), int(nz * 0.80)
     band = [(width[i], i) for i in range(lo_n, hi_n) if width[i] > 0]
     neck = float(zs[min(band)[1]]) if band else z0 + 0.78 * H
 

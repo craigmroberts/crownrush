@@ -29,6 +29,27 @@ def flag(name, default, cast=str):
     return default
 HEIGHT = flag("--height", 2.0, float)     # what our own characters are built to, crown to sole
 PREVIEW = flag("--preview", "")
+# --parts N bakes into N flat materials named after our palette roles instead of per-vertex colours.
+# The crowd draws enemies as one instanced mesh and recolours them per rank by looking a part's colour
+# up in a palette, and a part is a material. One material with the colour in the mesh would leave every
+# rank the same shade and throw away the thing the colour is there for: saying how dangerous this one is.
+PARTS = flag("--parts", 0, int)
+# --roles names those parts explicitly, largest first, e.g. "darkRed,red,leather,skin,skin,steel".
+# Naming them by whichever palette colour they are nearest does not work: generated art is far more
+# saturated than our palette, so the bright red armour came back called darkRed and the skin called
+# pink, and the rank tint would then have painted the trim colour over the whole body. Repeats are
+# allowed and merge into one part, which is what a part is in the crowd shader anyway.
+ROLES = [r for r in flag("--roles", "").split(",") if r]
+# the builder's own palette, linear as it defines it. Only used to NAME a cluster after the role whose
+# colour it is nearest; the colour itself comes from the model.
+ROLES_LINEAR = {
+    "skin": (0.97, 0.80, 0.66), "hair": (0.32, 0.17, 0.07), "beard": (0.38, 0.22, 0.10),
+    "blue": (0.16, 0.42, 0.85), "gold": (0.95, 0.70, 0.18), "leather": (0.45, 0.27, 0.14),
+    "boot": (0.32, 0.20, 0.12), "white": (0.97, 0.97, 0.97), "black": (0.05, 0.05, 0.06),
+    "red": (0.85, 0.12, 0.14), "pink": (0.94, 0.48, 0.66), "steel": (0.76, 0.78, 0.81),
+    "steelDark": (0.45, 0.48, 0.52), "navy": (0.2, 0.22, 0.34), "darkRed": (0.52, 0.08, 0.1),
+    "ink": (0.13, 0.13, 0.16), "bone": (0.93, 0.89, 0.9), "wood": (0.5, 0.33, 0.16),
+}
 if len(args) < 2:
     print(__doc__)
     sys.exit(1)
@@ -100,24 +121,99 @@ xs = np.clip((sample[:, 0] % 1.0) * w, 0, w - 1).astype(np.int32)
 ys = np.clip((sample[:, 1] % 1.0) * h, 0, h - 1).astype(np.int32)
 cols = tex[ys, xs]
 
-for a in list(me.color_attributes):
-    me.color_attributes.remove(a)
-attr = me.color_attributes.new(name="Col", type="FLOAT_COLOR", domain="CORNER")
-flat = np.concatenate([cols, np.ones((len(cols), 1), np.float32)], axis=1).reshape(-1)
-attr.data.foreach_set("color", flat)
+def srgb(c):
+    c = np.clip(np.asarray(c, np.float64), 0, 1)
+    return np.where(c <= 0.0031308, 12.92 * c, 1.055 * c ** (1 / 2.4) - 0.055)
 
-# one plain material: the colour now lives in the mesh, and the game supplies its own shader anyway
-for i in range(len(me.materials)):
-    me.materials.pop(index=0)
-mat = bpy.data.materials.new("Baked")
-mat.use_nodes = True
-bsdf = mat.node_tree.nodes["Principled BSDF"]
-vc = mat.node_tree.nodes.new("ShaderNodeVertexColor")
-vc.layer_name = "Col"
-mat.node_tree.links.new(vc.outputs["Color"], bsdf.inputs["Base Color"])
-bsdf.inputs["Roughness"].default_value = 0.85
-bsdf.inputs["Metallic"].default_value = 0.0
-me.materials.append(mat)
+def kmeans(px, k, rounds=24):
+    """Farthest-point seeding then Lloyd, so a small but distinct part (a belt, a shield boss) keeps a
+    centre instead of being absorbed into the nearest big one."""
+    rng = np.random.default_rng(0)
+    cents = [px[rng.integers(len(px))]]
+    for _ in range(k - 1):
+        d = np.min(np.stack([np.linalg.norm(px - c, axis=1) for c in cents]), axis=0)
+        cents.append(px[int(np.argmax(d))])
+    cents = np.stack(cents)
+    lab = np.zeros(len(px), np.int32)
+    for _ in range(rounds):
+        lab = np.argmin(np.stack([np.linalg.norm(px - c, axis=1) for c in cents]), axis=0)
+        for i in range(k):
+            if (lab == i).any():
+                cents[i] = px[lab == i].mean(axis=0)
+    return cents, lab
+
+if PARTS:
+    # One flat material per colour, named after the palette role it is nearest. The face takes the
+    # colour at its own UV centre, so a face never straddles two parts the way a corner sample can.
+    starts = np.empty(len(me.polygons), np.int32)
+    totals = np.empty(len(me.polygons), np.int32)
+    me.polygons.foreach_get("loop_start", starts)
+    me.polygons.foreach_get("loop_total", totals)
+    poly_of = np.repeat(np.arange(len(me.polygons)), totals)
+    face_uv = np.zeros((len(me.polygons), 2), np.float64)
+    np.add.at(face_uv, poly_of, uvs)
+    face_uv /= totals[:, None]
+    fx = np.clip((face_uv[:, 0] % 1.0) * w, 0, w - 1).astype(np.int32)
+    fy = np.clip((face_uv[:, 1] % 1.0) * h, 0, h - 1).astype(np.int32)
+    face_col = tex[fy, fx]
+    cents, lab = kmeans(face_col, min(PARTS, len(me.polygons)))
+    role_lin = np.array([ROLES_LINEAR[r] for r in ROLES_LINEAR], np.float64)
+    role_names = list(ROLES_LINEAR)
+    used = {}
+    for i in range(len(me.materials)):
+        me.materials.pop(index=0)
+    order = np.argsort(-np.bincount(lab, minlength=len(cents)))   # biggest part first
+    slot_of, mat_slot = {}, {}
+    for rank, ci in enumerate(order):
+        c = cents[ci]
+        if rank < len(ROLES):
+            name = ROLES[rank]
+        else:
+            name = role_names[int(np.argmin(np.linalg.norm(srgb(role_lin) - srgb(c), axis=1)))]
+            while name in mat_slot:                               # only auto-names need uniquifying
+                name += "2"
+        if name in mat_slot:
+            slot_of[int(ci)] = mat_slot[name]                     # merge into the part already made
+            print("  part %-10s %5d faces  (merged)" % (name, int((lab == ci).sum())))
+            continue
+        mat = bpy.data.materials.new(name)
+        if mat.name != name:
+            print("  note: Blender renamed the material to", mat.name)
+        mat.use_nodes = True
+        bs = mat.node_tree.nodes["Principled BSDF"]
+        bs.inputs["Base Color"].default_value = (float(c[0]), float(c[1]), float(c[2]), 1.0)
+        bs.inputs["Roughness"].default_value = 0.85
+        bs.inputs["Metallic"].default_value = 0.0
+        mat.diffuse_color = (float(c[0]), float(c[1]), float(c[2]), 1.0)
+        me.materials.append(mat)
+        mat_slot[name] = len(me.materials) - 1
+        slot_of[int(ci)] = mat_slot[name]
+        print("  part %-10s %5d faces  #%02x%02x%02x" % (name, int((lab == ci).sum()),
+              *(int(round(v * 255)) for v in srgb(c))))
+    idx = np.array([slot_of[int(l)] for l in lab], np.int32)
+    me.polygons.foreach_set("material_index", idx)
+    for a in list(me.color_attributes):
+        me.color_attributes.remove(a)
+else:
+    for a in list(me.color_attributes):
+        me.color_attributes.remove(a)
+    attr = me.color_attributes.new(name="Col", type="FLOAT_COLOR", domain="CORNER")
+    flat = np.concatenate([cols, np.ones((len(cols), 1), np.float32)], axis=1).reshape(-1)
+    attr.data.foreach_set("color", flat)
+
+if not PARTS:
+    # one plain material reading the mesh's own colours; in parts mode the materials are the colours
+    for i in range(len(me.materials)):
+        me.materials.pop(index=0)
+    mat = bpy.data.materials.new("Baked")
+    mat.use_nodes = True
+    bsdf = mat.node_tree.nodes["Principled BSDF"]
+    vc = mat.node_tree.nodes.new("ShaderNodeVertexColor")
+    vc.layer_name = "Col"
+    mat.node_tree.links.new(vc.outputs["Color"], bsdf.inputs["Base Color"])
+    bsdf.inputs["Roughness"].default_value = 0.85
+    bsdf.inputs["Metallic"].default_value = 0.0
+    me.materials.append(mat)
 for i in list(bpy.data.images):
     if i.users == 0 or i is img:
         bpy.data.images.remove(i)
