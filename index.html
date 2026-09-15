@@ -46,34 +46,40 @@
 
     <div id="hud">
       <!-- #22: one slim bar instead of the corner plaque, so the playfield is clear -->
+      <!-- lane 1. The left plaque IS the Keep: tapping it opens the level sheet, which is where the
+           "what do I need next" detail lives instead of being crammed in beside it. -->
       <div id="topbar">
-        <div class="tb-left">
-          <div id="wave-hud">Night <span id="wave-num">1</span> <span id="wave-goal" class="goal"></span><div id="next-wave"></div></div>
+        <button class="tb-left" id="keep-plaque" title="Keep progress (K)">
+          <div class="keep-top"><span id="wave-hud">Night <span id="wave-num">1</span></span><span id="keep-level">Keep 0</span></div>
+          <div class="pips" id="keep-pips"></div>
           <div class="tb-bars">
             <div id="king-hp" class="bar-row"><i data-icon="crown" data-size="16"></i><div class="track"><div id="king-hp-fill"></div></div></div>
             <div id="queen-hp" class="bar-row"><i data-icon="tiara" data-size="16"></i><div class="track"><div id="queen-hp-fill"></div></div></div>
           </div>
-        </div>
-        <div class="tb-right">
-          <div id="res-hud" class="stat-row">
-            <span title="Army"><i data-icon="archer" data-size="18"></i><b id="army-count">0</b></span>
-            <span title="Score"><i data-icon="star" data-size="18"></i><b id="score-num">0</b></span>
-            <span title="Keep level"><i data-icon="keep" data-size="18"></i><b id="keep-level">0</b></span>
-            <span title="Wood"><i data-icon="wood" data-size="18"></i><b id="res-wood">0</b></span>
-            <span title="Straw"><i data-icon="straw" data-size="18"></i><b id="res-straw">0</b></span>
-            <span class="hidden" title="Stone"><i data-icon="stone" data-size="18"></i><b id="res-stone">0</b></span>
-            <span class="hidden" title="Iron"><i data-icon="iron" data-size="18"></i><b id="res-iron">0</b></span>
-            <span class="hidden" title="Diamond"><i data-icon="diamond" data-size="18"></i><b id="res-diamond">0</b></span>
+        </button>
+        <button class="tb-right" id="carry-rail" title="What you are carrying (K)">
+          <div id="res-hud" class="carry">
+            <span data-key="army" title="Army"><i data-icon="archer" data-size="20"></i><b id="army-count">0</b></span>
+            <span data-key="wood" title="Wood"><i data-icon="wood" data-size="20"></i><b id="res-wood">0</b></span>
+            <span data-key="straw" title="Straw"><i data-icon="straw" data-size="20"></i><b id="res-straw">0</b></span>
+            <span data-key="stone" class="hidden" title="Stone"><i data-icon="stone" data-size="20"></i><b id="res-stone">0</b></span>
+            <span data-key="iron" class="hidden" title="Iron"><i data-icon="iron" data-size="20"></i><b id="res-iron">0</b></span>
+            <span data-key="diamond" class="hidden" title="Diamond"><i data-icon="diamond" data-size="20"></i><b id="res-diamond">0</b></span>
           </div>
-        </div>
+          <span id="carry-more" class="more hidden"></span>
+        </button>
       </div>
+      <!-- lanes 2 and 3: the countdown and the alarm each own a band under the plaques, so neither
+           can land on the other or squeeze the health bars the way the inline countdown did -->
+      <div id="lane-countdown"><span id="next-wave" class="hidden"></span></div>
+      <div id="lane-alarm"><span id="alarm" class="hidden"><i data-icon="alert" data-size="16"></i>The Keep is under attack</span></div>
       <!-- the controls hang under the plaques, in the flow, so they clear them whatever height they are -->
       <div id="side-controls">
         <div id="coin-hud"><i id="coin-icon" data-icon="gold" data-size="40"></i><span id="coin-count">0</span></div>
         <!-- #23: sound, pause and info live in the settings sheet now; only coin and gear sit on the field -->
         <button id="settings-btn" title="Settings"><i data-icon="gear" data-size="22"></i></button>
       </div>
-      <button id="next-wave-btn" class="hidden"><i data-icon="next" data-size="22"></i> Bring on the night</button>
+      <button id="next-wave-btn" class="hidden" title="Bring on the night"><i data-icon="swords" data-size="20"></i><b id="next-wave-btn-t">0:00</b><span>skip</span></button>
       <button id="horn-btn" class="hidden" title="Warhorn (Space): rally the army"><span class="ring"></span><i data-icon="horn" data-size="30"></i><b id="horn-cd"></b></button>
       <div id="pad-tip" class="hidden"><div class="tip-name"></div><div class="tip-desc"></div><div class="tip-costs"></div><div class="tip-bar"><i></i></div><div class="tip-note"></div></div>
       <canvas id="minimap" width="160" height="160"></canvas>
@@ -81,7 +87,6 @@
 
     <div id="indicators"></div>
     <div id="toast"><i data-icon="crown" data-size="22"></i><span id="toast-text"></span></div>
-    <div id="alarm" class="hidden">The Keep is under attack!</div>
 
     <div id="start-screen" class="overlay">
       <div class="panel title">
@@ -138,6 +143,20 @@
         <p class="hint" id="offer-more"></p>
       </div>
     </div>
+    <!-- what the Keep plaque opens: where you are, what the next level costs, what it gives, and
+         two levels past that so there is a reason to come back to it -->
+    <div id="keep-screen" class="overlay hidden">
+      <div class="panel keep-sheet">
+        <h1 id="ks-title">Keep level 0</h1>
+        <p class="hint" id="ks-goal"></p>
+        <div class="ks-track"><i id="ks-fill"></i></div>
+        <p class="ks-of" id="ks-of"></p>
+        <div id="ks-body"></div>
+        <button id="ks-close">Back to the game</button>
+        <p class="hint">Press K or Esc to close</p>
+      </div>
+    </div>
+
     <div id="info-screen" class="overlay hidden">
       <div class="panel info">
         <h1>Your Kingdom</h1>
@@ -163,6 +182,7 @@
       <div class="panel">
         <h1>Paused</h1>
         <p class="hint">Press P or Esc to resume</p>
+        <p class="score">Score <strong id="pause-score">0</strong> <span class="hint">· night <span id="pause-wave">1</span></span></p>
         <button id="resume-btn">Resume</button>
         <p class="best"><a href="#" id="pause-restart">Restart</a></p>
       </div>

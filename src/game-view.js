@@ -809,6 +809,29 @@ export const ViewMethods = {
     else this.showInfo();
   },
 
+  // The Keep sheet, opened by tapping either plaque. It pauses like the info screen: reading what
+  // the next level costs is not something to do while raiders are crossing the wall.
+  showKeep() {
+    if (this.over || this.won || this.keepOpen || this.offer) return;
+    if (this.infoOpen) this.hideInfo();
+    if (this.paused) this.hud.hidePause();
+    else this.pause(true);
+    this.keepOpen = true;
+    this.hud.showKeep(this.infoData());
+  },
+
+  hideKeep() {
+    if (!this.keepOpen) return;
+    this.keepOpen = false;
+    document.getElementById('keep-screen').classList.add('hidden');
+    this.unpause();
+  },
+
+  toggleKeep() {
+    if (this.keepOpen) this.hideKeep();
+    else this.showKeep();
+  },
+
   padDesc(def) {
     if (def.desc) return def.desc;
     if (def.feed) return 'Pour in wood, stone and straw to raise the Keep a level.';
@@ -829,18 +852,19 @@ export const ViewMethods = {
       return { type, need: n - (row ? row.paid : 0), have: this.res[type] };
     }).filter((n) => n.need > 0) : [];
     const unlocks = [];
-    if (!this.keep) unlocks.push('Build the Royal Keep first: feeding it levels up everything else.');
+    if (!this.keep) unlocks.push({ icon: 'keep', text: 'Build the Royal Keep first: feeding it levels up everything else.' });
     else if (req) {
-      if (CFG.base.unlocks[N]) unlocks.push(CFG.base.unlocks[N]);
-      unlocks.push(`Army limit: ${CFG.base.archers[N]} archers, ${CFG.base.swordsmen[N]} swordsmen`);
-      unlocks.push(`Arrow speed ${CFG.base.fireRate(N).toFixed(1)}x for archers, towers and the King`);
-      if (CFG.base.wallAt.includes(N)) unlocks.push(`All walls rebuilt in ${CFG.wallLevels[CFG.base.wallAt.indexOf(N)].name.toLowerCase()}`);
-      if (CFG.coins.valueAt.includes(N)) unlocks.push(`Every coin is worth ${CFG.coins.value[CFG.coins.valueAt.indexOf(N)]} score instead of ${this.coinValue()}`);
+      const add = (icon, text) => unlocks.push({ icon, text });
+      if (CFG.base.unlocks[N]) add('star', CFG.base.unlocks[N]);
+      add('archer', `Army limit: ${CFG.base.archers[N]} archers, ${CFG.base.swordsmen[N]} swordsmen`);
+      add('arrows', `Arrow speed ${CFG.base.fireRate(N).toFixed(1)}x for archers, towers and the King`);
+      if (CFG.base.wallAt.includes(N)) add('wall', `All walls rebuilt in ${CFG.wallLevels[CFG.base.wallAt.indexOf(N)].name.toLowerCase()}`);
+      if (CFG.coins.valueAt.includes(N)) add('gold', `Every coin is worth ${CFG.coins.value[CFG.coins.valueAt.indexOf(N)]} score instead of ${this.coinValue()}`);
       const rank = CFG.ranks.find((r) => r.fromLevel === N);
-      if (rank) unlocks.push(`${rank.name}s start raiding: tougher, but they drop more coins`);
-      for (const def of PADS) if (def.minLevel === N) unlocks.push(`${def.label} pad appears`);
-      if (N === CFG.finale.level) unlocks.push('The march on the raider camp opens: kill the Warlord to end the war');
-      unlocks.push(`Keep health ${CFG.keep.hp + (N - 1) * CFG.keep.hpPerLevel}`);
+      if (rank) add('skull', `${rank.name}s start raiding: tougher, but they drop more coins`);
+      for (const def of PADS) if (def.minLevel === N) add(def.icon, `${def.label} pad appears`);
+      if (N === CFG.finale.level) add('swords', 'The march on the raider camp opens: kill the Warlord to end the war');
+      add('keep', `Keep health ${CFG.keep.hp + (N - 1) * CFG.keep.hpPerLevel}`);
     }
     const costText = (def, pad) => def.crew ? `${def.crew} archers` : def.feed ? 'materials' : `${pad ? pad.cost - pad.paid : this.padCost(def)} coins${def.res ? ' + ' + Object.entries(def.res).map(([t, n]) => `${n} ${t}`).join(', ') : ''}`;
     const padsNow = this.pads.map((p) => ({ icon: p.def.icon, label: p.def.label, cost: costText(p.def, p), desc: this.padDesc(p.def), locked: this.padLocked(p.def), kind: this.padKind(p.def) }));

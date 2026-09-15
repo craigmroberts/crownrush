@@ -109,10 +109,14 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 
 #next-wave-btn {
   position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%);
-  pointer-events: auto; border: 0; border-bottom: 4px solid #8a1a22; border-radius: 14px; padding: 10px 22px;
-  background: linear-gradient(#f05a4a, #d8262c); color: #fff; font-weight: 900; font-size: 18px; cursor: pointer;
+  pointer-events: auto; display: inline-flex; align-items: center; gap: 7px;
+  border: 0; border-bottom: 4px solid #8a1a22; border-radius: 14px; padding: 7px 14px 7px 11px;
+  background: linear-gradient(#f05a4a, #d8262c); color: #fff; cursor: pointer;
+  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 17px;
   box-shadow: 0 6px 16px rgba(0,0,0,0.3); text-shadow: 0 2px 0 rgba(0,0,0,0.3);
 }
+#next-wave-btn b { font-variant-numeric: tabular-nums; }
+#next-wave-btn span { font-size: 13px; opacity: 0.78; font-family: "Nunito", system-ui, sans-serif; font-weight: 700; }
 #next-wave-btn.hidden { display: none; }
 /* #8: anchored bottom-right, clear of the minimap and the night button, never over the middle */
 /* #31: the pad panel is a sheet across the bottom edge rather than a card floating over the field,
@@ -144,14 +148,17 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 #vignette { position: fixed; inset: 0; pointer-events: none; z-index: 1;
   background: radial-gradient(ellipse at center, rgba(0,0,0,0) 58%, rgba(20,30,10,0.32) 100%); }
 
+/* lane 3. It used to be positioned at 18% of screen height, which is exactly where the toast card
+   lands, so the two sat on top of each other whenever both were up. Now it has a band of its own. */
 #alarm {
-  position: fixed; left: 50%; top: calc(18% + 54px); transform: translateX(-50%);
-  background: #d8262c; color: #fff; padding: 8px 20px; border-radius: 12px; border: 3px solid #fff;
-  font-weight: 900; font-size: 18px; pointer-events: none; z-index: 4;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.3); animation: alarmPulse 0.6s ease-in-out infinite alternate;
+  display: inline-flex; align-items: center; gap: 7px;
+  background: #d8262c; color: #fff; padding: 5px 16px 6px 12px; border-radius: 999px; border: 2px solid #fff;
+  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 15px;
+  pointer-events: none; box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+  animation: alarmPulse 0.6s ease-in-out infinite alternate;
 }
 #alarm.hidden { display: none; }
-@keyframes alarmPulse { from { transform: translateX(-50%) scale(1); opacity: 0.85; } to { transform: translateX(-50%) scale(1.06); opacity: 1; } }
+@keyframes alarmPulse { from { transform: scale(1); opacity: 0.86; } to { transform: scale(1.05); opacity: 1; } }
 #queen-hp.hit .track { border-color: #ff4a4a; animation: barFlash 0.4s ease-in-out infinite alternate; }
 @keyframes barFlash { from { box-shadow: 0 0 0 0 rgba(255,60,60,0.0); } to { box-shadow: 0 0 10px 3px rgba(255,60,60,0.8); } }
 .indicator.alarm .arrow { background: #ff2d2d; width: 40px; height: 40px; left: -20px; top: -20px; animation: alarmPulse2 0.5s ease-in-out infinite alternate; }
@@ -163,68 +170,77 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 /* #22: the status strip. Two plaques hanging from the top edge with a gap between them, the left
    one for the night and the royals, the right one for what you are carrying. */
 #topbar {
-  position: relative; display: flex; align-items: stretch; justify-content: space-between;
+  position: relative; display: flex; align-items: flex-start; justify-content: space-between;
   gap: 10px; padding: 0 10px; padding-top: max(4px, env(safe-area-inset-top));
   padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right));
   color: #fff; background: none; pointer-events: none;
 }
 #topbar .tb-left, #topbar .tb-right {
   background: var(--plaque); border: var(--rim-line) solid var(--rim); border-top-color: rgba(216,168,62,0.75);
-  border-radius: 0 0 20px 20px; padding: 7px 14px 9px; min-height: var(--bar-h);
+  border-radius: 0 0 20px 20px; padding: 7px 14px 9px; color: #fff; font: inherit; cursor: pointer;
   box-shadow: 0 5px 16px rgba(0,0,0,0.32), inset 0 0 0 1px rgba(0,0,0,0.25);
+  pointer-events: auto; -webkit-tap-highlight-color: transparent;
 }
-/* the blur is a desktop-only nicety: over a WebGL canvas it makes some mobile compositors read the
-   frame back every frame, which costs more than it is worth on a phone. The wood is translucent
-   either way, so the grass still shows through. */
+#topbar .tb-left:active, #topbar .tb-right:active { filter: brightness(1.12); }
+#topbar .tb-left:focus-visible, #topbar .tb-right:focus-visible { outline: 3px solid #fff; outline-offset: -6px; }
 @media (hover: hover) and (min-width: 431px) { #topbar { backdrop-filter: blur(3px); } }
-/* the two plaques share the width between them, the way a banner across the top would */
-#topbar .tb-left { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1 1 50%; }
-#topbar .tb-bars { display: flex; flex-direction: column; gap: 5px; flex: 1 1 auto; max-width: 320px; }
-#topbar .tb-right { display: flex; align-items: center; justify-content: space-evenly; min-width: 0; flex: 1 1 50%; overflow: hidden; }
-#topbar .tb-right .stat-row { flex: 1 1 auto; justify-content: space-evenly; }
-/* when the bar is tight it is the wording that gives way, never the health bars or the chips */
-/* No clipping here. Baloo 2's glyphs stand taller than a tight line box, so an `overflow: hidden`
-   on this line (added to truncate it on a phone) sliced the tops off "Night 1 · Keep 0/13". The
-   plaques share the width now, so the line has room and wraps on a phone instead of truncating. */
-#wave-hud { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 22px; font-weight: 800; line-height: 1.25; text-shadow: 0 2px 3px rgba(0,0,0,0.5); white-space: nowrap; min-width: 0; }
-#wave-hud .goal { font-size: 13px; opacity: 0.85; }
-/* the countdown rides on the night line rather than starting a second row: a one-row plaque is what
-   the mock has, and it keeps the plaque's height from depending on what is in it */
-#next-wave { display: inline; font-family: "Nunito", system-ui, sans-serif; font-size: 13px; font-weight: 700; opacity: 0.85; }
-#next-wave:not(:empty)::before { content: " · "; }
-.bar-row { display: flex; align-items: center; gap: 8px; }
+/* the Keep plaque: three short rows that never reflow, so its height is the same all game */
+#topbar .tb-left { display: grid; gap: 6px; flex: 0 1 auto; min-width: 232px; max-width: 46%; text-align: left; }
+.keep-top { display: flex; align-items: baseline; gap: 10px; }
+#wave-hud { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 22px; font-weight: 800; line-height: 1.1; text-shadow: 0 2px 3px rgba(0,0,0,0.5); white-space: nowrap; }
+#keep-level { margin-left: auto; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #ffe08a; white-space: nowrap; }
+/* one pip per Keep level: how far is left is the question, and a bar answers it faster than "9/13" */
+.pips { display: flex; gap: 3px; align-items: center; }
+.pips i { flex: 1 1 auto; height: 7px; border-radius: 2px; background: rgba(0,0,0,0.42); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16); }
+.pips i.on { background: linear-gradient(180deg, #ffd76a, #e8a91c); box-shadow: none; }
+.pips i.now { background: linear-gradient(180deg, #fff2c0, #ffd23f); }
+#topbar .tb-bars { display: flex; gap: 8px; }
+/* the carry rail: coins are spent every few seconds, materials every minute, and score has left the
+   bar entirely. What does not fit collapses into a +n that says so rather than being clipped away. */
+#topbar .tb-right { display: flex; align-items: center; gap: 8px; flex: 0 1 auto; min-width: 0; }
+.carry { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 17px; flex-wrap: nowrap; min-width: 0; }
+.carry span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; text-shadow: 0 2px 3px rgba(0,0,0,0.5); font-variant-numeric: tabular-nums; }
+.carry span.hidden, .carry span.over { display: none; }
+.more {
+  display: inline-flex; align-items: center; gap: 3px; font-size: 13px; font-weight: 800; color: #ffe08a;
+  background: rgba(0,0,0,0.34); border: 1px solid rgba(255,255,255,0.28); border-radius: 999px; padding: 2px 8px; white-space: nowrap;
+}
+.more.hidden { display: none; }
+.bar-row { display: flex; align-items: center; gap: 6px; flex: 1 1 0; min-width: 0; }
 .bar-row .track {
-  flex: 1; height: 14px; border-radius: 999px; background: rgba(0,0,0,0.45);
+  flex: 1; height: 13px; min-width: 74px; border-radius: 999px; background: rgba(0,0,0,0.45);
   border: 2px solid rgba(255,255,255,0.92); overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.35);
 }
 #king-hp-fill, #queen-hp-fill { border-radius: 999px; }
-/* the Queen's bar sits empty and dim while she is taken */
 #queen-hp.empty { opacity: 0.45; }
-/* a phone has no room for the desktop sizes: shrink the bar's type rather than drop anything from it */
+
+/* lane 2: the countdown, on its own line under the plaques. It used to ride inline on the night
+   line, where it fought the health bars for the same row. */
+#lane-countdown, #lane-alarm { display: flex; justify-content: center; pointer-events: none; padding: 6px 12px 0; }
+#lane-alarm { padding-top: 5px; }
+#next-wave {
+  display: inline-flex; align-items: center; gap: 6px; font-family: "Nunito", system-ui, sans-serif;
+  font-size: 13px; font-weight: 800; letter-spacing: 0.01em; color: #ffe08a; font-variant-numeric: tabular-nums;
+  background: rgba(26,32,17,0.82); border: 2px solid var(--rim-dark); border-radius: 999px; padding: 3px 13px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+}
+#next-wave.soon { border-color: #f0a020; color: #ffd9a0; }
+#next-wave.hidden { display: none; }
+
 @media (max-width: 430px) {
   #topbar { gap: 6px; padding: 0 6px; padding-top: max(4px, env(safe-area-inset-top)); }
   #topbar .tb-left, #topbar .tb-right { padding: 5px 9px 7px; border-radius: 0 0 16px 16px; }
-  /* stack the night line over the two bars: side by side there is no room for both plus the chips */
-  #topbar .tb-left { flex-direction: column; align-items: flex-start; gap: 3px; }
-  #topbar .tb-bars { flex-direction: row; gap: 6px; flex-basis: auto; }
-  #topbar .bar-row { width: 62px; gap: 4px; }
-  #topbar .bar-row .track { height: 11px; }
-  #wave-hud { font-size: 16px; white-space: normal; }
-  #wave-hud .goal { font-size: 11px; }
-  #next-wave { display: block; font-size: 10px; }   /* on a phone it goes back to its own line */
-  #next-wave:not(:empty)::before { content: none; }
-  /* the chips wrap onto a second short row rather than being clipped: every number stays readable */
-  #topbar .stat-row { gap: 7px; font-size: 14px; flex-wrap: wrap; justify-content: flex-end; row-gap: 0; }
-  #topbar .tb-right { overflow: visible; flex: 1 1 auto; }
+  #topbar .tb-left { min-width: 176px; gap: 5px; }
+  #wave-hud { font-size: 17px; }
+  #keep-level { font-size: 10px; }
+  #topbar .bar-row .track { min-width: 52px; height: 11px; }
+  .carry { gap: 9px; font-size: 15px; }
   #coin-hud { font-size: 22px; padding: 3px 13px 3px 3px; }
   #settings-btn { width: 46px; height: 46px; }
 }
 #king-hp-fill { height: 100%; width: 100%; background: linear-gradient(#7de88f, #3fd455); transition: width 0.15s; }
 #queen-hp-fill { height: 100%; width: 100%; background: linear-gradient(#ffb3cf, #f07aa8); transition: width 0.15s; }
-.stat-row { display: flex; gap: 12px; font-weight: 800; font-size: 17px; flex-wrap: nowrap; }
-.stat-row span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; text-shadow: 0 2px 3px rgba(0,0,0,0.5); }
-.stat-row em { font-style: normal; opacity: 0.7; font-size: 12px; }
-/* under the plaques, not on them: on a phone the badge used to sit over the resource chips */
+
 #side-controls {
   align-self: flex-end; display: flex; flex-direction: column; align-items: flex-end; gap: 12px;
   padding: 12px; padding-right: max(12px, env(safe-area-inset-right));
@@ -260,16 +276,16 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .panel.sheet .sheet-row.danger.armed em { color: #a3201f; font-weight: 800; }
 .panel.sheet #set-close { font-size: 20px; padding: 10px 24px; margin-top: 4px; }
 #toast {
-  position: fixed; left: 50%; top: 18%; transform: translateX(-50%);
-  background: var(--parchment); color: var(--ink); padding: 8px 20px 8px 14px; border-radius: var(--radius);
-  border: var(--gold-line) solid var(--gold); font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 19px;
-  /* stays clear of the coin badge and gear stacked down the right-hand side */
-  width: max-content; max-width: min(420px, calc(100vw - 142px)); text-align: left;
-  opacity: 0; transition: opacity 0.25s; pointer-events: none; display: flex; align-items: center; gap: 8px;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+  position: fixed; left: 50%; bottom: calc(124px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(10px);
+  background: var(--parchment); color: var(--ink); padding: 8px 18px 8px 13px; border-radius: var(--radius);
+  border: var(--gold-line) solid var(--gold); font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 17px;
+  /* it clears the minimap and the warhorn by sitting above them, so it can have the full width */
+  width: max-content; max-width: min(400px, calc(100vw - 28px)); text-align: left;
+  opacity: 0; transition: opacity 0.25s, transform 0.25s; pointer-events: none; display: flex; align-items: center; gap: 8px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.3); z-index: 4;
 }
-#toast.show { opacity: 1; }
-#next-wave-btn { display: inline-flex; align-items: center; gap: 8px; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; }
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+@media (prefers-reduced-motion: reduce) { #toast { transition: opacity 0.25s; transform: translateX(-50%); } }
 #next-wave-btn.hidden { display: none; }
 #pad-tip .tip-name { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; }
 #pad-tip .chip { display: inline-flex; align-items: center; gap: 5px; }
@@ -353,7 +369,6 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 #pad-tip .tip-bar { height: 8px; border-radius: 999px; background: rgba(0,0,0,0.16); margin: 7px auto 0; max-width: 520px; overflow: hidden; }
 #pad-tip .tip-bar i { display: block; height: 100%; width: 0; background: #3fd455; border-radius: 4px; transition: width 0.1s linear; }
 
-.stat-row span.hidden { display: none; }
 
 /* the stepped intro */
 .panel.intro { max-width: 380px; padding: 26px 26px 20px; }
@@ -409,3 +424,27 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 /* the raider camp, once the march is open */
 .indicator.camp .arrow { background: #24232b; width: 40px; height: 40px; left: -20px; top: -20px; border: 2px solid #f5b800; }
 .indicator.camp .count { font-size: 20px; top: 14px; }
+
+/* ---- the Keep sheet: what the left plaque opens ---- */
+.panel.keep-sheet { max-width: 400px; text-align: left; padding: 26px 24px 22px; }
+.panel.keep-sheet h1 { font-size: 30px; margin-bottom: 2px; text-align: left; }
+.panel.keep-sheet .hint { text-align: left; }
+.ks-track { height: 12px; border-radius: 999px; background: #e2d5a8; overflow: hidden; margin: 14px 0 5px; box-shadow: inset 0 1px 2px rgba(0,0,0,0.18); }
+.ks-track i { display: block; height: 100%; background: linear-gradient(90deg, #ffd76a, #f5a800); border-radius: 999px; transition: width 0.2s; }
+.ks-of { font-size: 11px; font-weight: 800; letter-spacing: 0.1em; color: #8a8a72; margin-bottom: 14px; }
+.ks-h { font-size: 13px; font-weight: 800; color: #5f5f4c; margin: 14px 0 8px; }
+.ks-needs { display: flex; gap: 7px; flex-wrap: wrap; }
+.ks-need {
+  display: inline-flex; align-items: center; gap: 6px; background: #efe2b4; border: 2px solid #d8c88c;
+  border-radius: 999px; padding: 3px 11px 3px 6px; font-weight: 800; font-size: 14px; color: #4a4a3a;
+  font-variant-numeric: tabular-nums;
+}
+.ks-need.done { background: #d8efc0; border-color: #8fc86a; color: #3c6a22; }
+.ks-need.short { background: #f6d9cf; border-color: #e2937c; color: #93341c; }
+.ks-list { display: grid; gap: 7px; }
+.ks-row { display: grid; grid-template-columns: 26px 1fr; gap: 9px; align-items: center; font-size: 14px; color: #4a4a3a; line-height: 1.3; }
+.ks-row .at { font-size: 11px; font-weight: 800; color: #8a8a72; white-space: nowrap; }
+.ks-list.later { opacity: 0.62; }
+.panel.keep-sheet hr { border: 0; border-top: 2px dashed #ddd0a0; margin: 16px 0 0; }
+.panel.keep-sheet #ks-close { display: block; margin: 20px auto 0; font-size: 20px; padding: 10px 24px; }
+.panel.keep-sheet .hint:last-child { text-align: center; margin-top: 10px; }

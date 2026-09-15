@@ -12,7 +12,6 @@ export class Hud {
     this.overScreen = document.getElementById('gameover-screen');
     this.toastTimer = null;
     this.nextEl = document.getElementById('next-wave');
-    this.goalEl = document.getElementById('wave-goal');
     this.winScreen = document.getElementById('victory-screen');
     this.indicatorLayer = document.getElementById('indicators');
     this.indicators = [];
@@ -23,8 +22,20 @@ export class Hud {
     this.resEls = {};
     for (const k of ['wood', 'straw', 'stone', 'iron', 'diamond']) this.resEls[k] = document.getElementById(`res-${k}`);
     this.matKey = '';
-    this.scoreEl = document.getElementById('score-num');
     this.levelEl = document.getElementById('keep-level');
+    this.pipsEl = document.getElementById('keep-pips');
+    this.carryEl = document.getElementById('res-hud');
+    this.carryRail = document.getElementById('carry-rail');
+    this.moreEl = document.getElementById('carry-more');
+    this.btnTimeEl = document.getElementById('next-wave-btn-t');
+    this.lastPips = -1;
+    // The rail re-fits whenever it or the window changes size. Nothing is ever clipped away: the
+    // chips that do not fit are hidden deliberately and counted on the +n, which opens the sheet.
+    if (window.ResizeObserver) {
+      this.railObs = new ResizeObserver(() => this.fitCarry());
+      this.railObs.observe(this.carryRail);
+    }
+    addEventListener('resize', () => this.fitCarry());
     this.kingHpEl = document.getElementById('king-hp-fill');
     this.queenHpEl = document.getElementById('queen-hp-fill');
     this.lastScore = -1;
@@ -34,10 +45,7 @@ export class Hud {
     this.lastNext = -1;
   }
   set(coins, wave, army, nextIn, goal, res, score, kingFrac, queenFrac, level) {
-    if (level !== undefined && level !== this.lastLevel) {
-      this.levelEl.textContent = level;
-      this.lastLevel = level;
-    }
+    this.score = score;
     if (queenFrac !== undefined) this.queenHpEl.style.width = `${Math.max(0, Math.min(1, queenFrac)) * 100}%`;
     if (res) {
       for (const k of Object.keys(this.resEls)) {
@@ -45,19 +53,31 @@ export class Hud {
         if (el && el.textContent !== String(res[k])) el.textContent = res[k];
       }
     }
-    if (score !== undefined && score !== this.lastScore) {
-      this.scoreEl.textContent = score.toLocaleString();
-      this.lastScore = score;
-    }
     if (kingFrac !== undefined) this.kingHpEl.style.width = `${Math.max(0, Math.min(1, kingFrac)) * 100}%`;
     const n = Math.max(0, Math.ceil(nextIn));
-    if (n !== this.lastNext) {
-      this.nextEl.textContent = nextIn === null ? '' : `nightfall in ${n}s`;
+    if (n !== this.lastNext || (nextIn === null) !== this.lastNextNull) {
       this.lastNext = n;
+      this.lastNextNull = nextIn === null;
+      const clock = `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
+      this.nextEl.classList.toggle('hidden', nextIn === null);
+      this.nextEl.classList.toggle('soon', nextIn !== null && n <= 10);
+      if (nextIn !== null) this.nextEl.textContent = `Night ${(wave || 0) + 1} in ${clock}`;
+      if (this.btnTimeEl) this.btnTimeEl.textContent = clock;
     }
     if (goal !== this.lastGoal) {
       this.lastGoal = goal;
-      this.goalEl.textContent = goal === 'camp' ? '· march on the camp!' : goal ? `· Keep ${goal}` : '';
+      // the goal is the pips now, not a sentence: one per Keep level, lit up to where you are
+      const m = /^(\d+)\/(\d+)$/.exec(String(goal || ''));
+      const at = m ? +m[1] : 0;
+      const max = m ? +m[2] : 0;
+      this.levelEl.textContent = goal === 'camp' ? 'March!' : `Keep ${at}`;
+      if (max && max !== this.lastPips) {
+        this.pipsEl.innerHTML = Array.from({ length: max }, () => '<i></i>').join('');
+        this.lastPips = max;
+      }
+      [...this.pipsEl.children].forEach((el, i) => {
+        el.className = i < at - 1 ? 'on' : i === at - 1 ? 'now' : '';
+      });
     }
     if (coins !== this.lastCoins) {
       this.coinEl.textContent = coins;
@@ -70,6 +90,26 @@ export class Hud {
     if (army !== this.lastArmy) {
       this.armyEl.textContent = army;
       this.lastArmy = army;
+    }
+    this.fitCarry();
+  }
+
+  // Priority order, left to right: what is dropped first is what matters least in the moment. A chip
+  // is only ever hidden here, never clipped, and the +n says how many went so nothing vanishes
+  // without a trace the way the old overflow:hidden row did.
+  fitCarry() {
+    if (!this.carryEl) return;
+    const chips = [...this.carryEl.children].filter((c) => !c.classList.contains('hidden'));
+    for (const c of chips) c.classList.remove('over');
+    this.moreEl.classList.add('hidden');
+    const room = () => this.carryRail.clientWidth - 30;
+    if (this.carryEl.scrollWidth <= room()) return;
+    let over = 0;
+    for (let i = chips.length - 1; i > 0 && this.carryEl.scrollWidth > room(); i--) {
+      chips[i].classList.add('over');
+      over++;
+      this.moreEl.classList.remove('hidden');
+      this.moreEl.textContent = `+${over}`;
     }
   }
   // #29: notices queue rather than overwrite. A playtester missed the one telling him a pad wanted
@@ -226,6 +266,43 @@ export class Hud {
     this.coinIcon.innerHTML = iconSvg(tier, 40);
   }
 
+  // The Keep sheet: where you are, what the next level costs against what you carry, what it gives,
+  // and two levels past that. Every number here was already computed for the info screen; it was
+  // just buried two thirds of the way down one long page, which is why nobody found it.
+  showKeep(d) {
+    const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    const N = d.level + 1;
+    document.getElementById('ks-title').textContent = d.level >= d.max ? `Keep level ${d.level} — max` : `Keep level ${d.level}`;
+    document.getElementById('ks-goal').textContent = d.finaleOpen
+      ? 'The march is open: kill the Warlord to end the war.'
+      : `Level ${d.finaleLevel} opens the march on the raider camp.`;
+    document.getElementById('ks-fill').style.width = `${Math.min(100, (d.level / d.finaleLevel) * 100)}%`;
+    document.getElementById('ks-of').textContent = `${d.level} OF ${d.finaleLevel}`;
+    const h = [];
+    if (!d.hasKeep) {
+      h.push('<p class="ks-h">Not built yet. Stand on the Royal Keep pad in the village.</p>');
+    } else if (d.need.length) {
+      h.push(`<p class="ks-h">To reach level ${N}, feed the Keep</p><div class="ks-needs">${d.need.map((n) => {
+        const state = n.have >= n.need ? 'done' : n.have > 0 ? '' : 'short';
+        return `<span class="ks-need ${state}">${iconSvg(n.type, 16)}${Math.min(n.have, n.need)} / ${n.need}</span>`;
+      }).join('')}</div>`);
+    } else if (d.level < d.max) {
+      h.push('<p class="ks-h">Everything is fed. The Keep levels on your next delivery.</p>');
+    }
+    if (d.unlocks.length) {
+      h.push(`<p class="ks-h">Level ${N} gives you</p><div class="ks-list">${d.unlocks.map((u) => {
+        const t = typeof u === 'string' ? { icon: 'keep', text: u } : u;
+        return `<div class="ks-row">${iconSvg(t.icon, 24)}<div>${esc(t.text)}</div></div>`;
+      }).join('')}</div>`);
+    }
+    if (d.later && d.later.length) {
+      h.push(`<hr><p class="ks-h">Later</p><div class="ks-list later">${d.later.slice(0, 4).map((u) =>
+        `<div class="ks-row">${iconSvg(u.icon, 24)}<div>${esc(u.label)} <span class="at">level ${u.at}</span></div></div>`).join('')}</div>`);
+    }
+    document.getElementById('ks-body').innerHTML = h.join('');
+    document.getElementById('keep-screen').classList.remove('hidden');
+  }
+
   showInfo(d) {
     const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     const chip = (icon, text, state = '') => `<span class="ichip ${state}">${iconSvg(icon, 16)}${esc(text)}</span>`;
@@ -237,7 +314,7 @@ export class Hud {
     else if (d.need.length) {
       h.push(`<p class="sub">To reach level ${d.level + 1}, feed the Keep:</p><p>${d.need.map((n) => chip(n.type, `${n.need} ${n.type} (you carry ${n.have})`, n.have >= n.need ? 'ok' : n.have > 0 ? '' : 'short')).join(' ')}</p>`);
     }
-    if (d.unlocks.length) h.push(`<p class="sub">Level ${d.level + 1} gives you:</p><ul>${d.unlocks.map((u) => `<li>${esc(u)}</li>`).join('')}</ul>`);
+    if (d.unlocks.length) h.push(`<p class="sub">Level ${d.level + 1} gives you:</p><ul>${d.unlocks.map((u) => `<li>${esc(typeof u === 'string' ? u : u.text)}</li>`).join('')}</ul>`);
     h.push(`<h2>${iconSvg('archer', 22)} Your army</h2><p>${chip('archer', `${d.army.archers} / ${d.army.archerCap} archers`)} ${chip('swordsman', `${d.army.swords} / ${d.army.swordCap} swordsmen`)} ${chip('tower', d.army.towers.length ? `${d.army.towers.length} towers (levels ${d.army.towers.join(', ')})` : 'no towers yet')} ${chip('arrows', `arrows ${d.army.fire.toFixed(1)}x speed, training ${d.army.training}/5`)} ${chip('wall', `${d.army.wall.toLowerCase()} walls`)}${d.army.keepHp ? ' ' + chip('keep', `Keep ${d.army.keepHp}`) : ''}</p>`);
     h.push(`<h2>${iconSvg('gold', 22)} Coins</h2><p>You carry ${d.coins.count} coins, each worth ${d.coins.value} score.${d.coins.nextValue ? ` At Keep level ${d.coins.nextAt} each one is worth ${d.coins.nextValue}.` : ''} Every pad costs coins except crews (archers) and the Keep (materials).</p>`);
     if (d.taken && d.taken.length) {
@@ -294,6 +371,12 @@ export class Hud {
   }
 
   showPause() {
+    // score is not in the status bar any more: it grows without limit, it is read once at the end of
+    // a run, and it was pushing live resource counts off the edge to earn its place there
+    const sc = document.getElementById('pause-score');
+    if (sc) sc.textContent = (this.score || 0).toLocaleString();
+    const pw = document.getElementById('pause-wave');
+    if (pw) pw.textContent = this.lastWave > 0 ? this.lastWave : 1;
     document.getElementById('pause-screen').classList.remove('hidden');
   }
   hidePause() {

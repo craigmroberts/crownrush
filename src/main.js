@@ -105,6 +105,10 @@ document.getElementById('horn-btn').addEventListener('pointerdown', (e) => {
   game.useHorn();
 });
 document.getElementById('info-close').addEventListener('click', () => game.hideInfo());
+// both plaques open the Keep sheet: the left one is the level, the right one is what feeds it
+document.getElementById('keep-plaque').addEventListener('click', () => game.toggleKeep());
+document.getElementById('carry-rail').addEventListener('click', () => game.toggleKeep());
+document.getElementById('ks-close').addEventListener('click', () => game.hideKeep());
 
 // #23: one gear instead of three buttons on the field. The sheet holds sound, pause and how to play.
 const settingsScreen = document.getElementById('settings-screen');
@@ -170,10 +174,12 @@ window.addEventListener('keydown', (e) => {
   if (game.offer) return; // an upgrade choice must be made before anything else
   if (e.key === ' ' || e.key === 'e' || e.key === 'E') return game.useHorn();
   if (e.key === 'i' || e.key === 'I') game.toggleInfo();
+  else if (e.key === 'k' || e.key === 'K') game.toggleKeep();
   else if (e.key === 'Escape' && game.settingsOpen) {
     disarmRestart();
     game.hideSettings();
   }
+  else if (e.key === 'Escape' && game.keepOpen) game.hideKeep();
   else if (e.key === 'Escape' && game.infoOpen) game.hideInfo();
   else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') game.togglePause();
 });
