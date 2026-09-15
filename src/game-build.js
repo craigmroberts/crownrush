@@ -6,7 +6,7 @@ import { audio } from './audio.js';
 import { makeRigged } from './rig.js';
 import { pickOffer } from './upgrades.js';
 import {
-  makeKing, makeKeep, makeResourceCube, makeArcher, makeSwordsman, makeCoin, makeHut, makeTower, makeBarracks, makeWallSegment, makeGate, makeRubble, makeBridge, makePad, drawPad, ghostify, makeHealthBar, setHealthBar, makeBank, makeGatePost,
+  makeKing, makeKeep, makeResourceCube, makeArcher, makeSwordsman, makeCoin, makeHut, makeTower, makeTowerLevelBits, makeBarracks, makeWallSegment, makeGate, makeRubble, makeBridge, makePad, drawPad, ghostify, makeHealthBar, setHealthBar, makeBank, makeGatePost,
 } from './models.js';
 import { makeProp } from './props.js';
 import { V3, HAIR, plural, PAD_STYLE, rand } from './game-shared.js';
@@ -181,7 +181,17 @@ export const BuildMethods = {
       }
       return makeKeep(m);
     }
-    if (kind === 'tower') return makeTower(level, m);
+    if (kind === 'tower') {
+      // The deck is where crewSpots stands the archers, so the import is sized to put it exactly
+      // where the built tower's is (2.72) and the crew code needs no idea which one it got.
+      const p = makeProp('tower', CFG.structureTint[m]);
+      if (p) {
+        p.userData.top = 2.72;
+        p.add(makeTowerLevelBits(level));
+        return p;
+      }
+      return makeTower(level, m);
+    }
     if (kind === 'barracks') return makeBarracks(m);
     return new THREE.Group();
   },
@@ -273,7 +283,7 @@ export const BuildMethods = {
       const t = this.towers[def.towerUp];
       t.level++;
       this.root.remove(t.mesh);
-      t.mesh = makeTower(t.level, this.materialName());
+      t.mesh = this.makeStructureMesh('tower', t.level);
       t.mesh.position.set(t.x, 0, t.z);
       const rec = this.structures.find((s) => s.id === def.towerUp);
       if (rec) rec.mesh = t.mesh;

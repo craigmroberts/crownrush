@@ -40,10 +40,19 @@ import inherited the same mistake until someone stood in the doorway.
     blender -b -P tools/blender/bake_vertex_colors.py -- tools/imports/meshy-keep-8k.glb \
         tools/imports/keep-tex.glb --texture 1024 --height 10.5
 
+    blender -b -P tools/blender/bake_vertex_colors.py -- tools/imports/meshy-tower-8k.glb \
+        tools/imports/tower-tex.glb --texture 1024 --height 7.1
+
 A building that units fight over needs more than a size. The Keep carries its collision in
 `CFG.keep` (`half` is its footprint from the centre, `radius` how close a unit may come), and those
 have to follow the model or enemies stand inside the walls they are hitting. It also has to name the
 spot the Queen stands on, `userData.balcony`, the way the built one does.
+
+A tower needs two more. `userData.top` is the height `crewSpots` stands archers at, so the import is
+sized to put its deck exactly where the built tower's is (2.72) and the crew code never learns which
+one it got. And a tower has levels, which one generated mesh cannot carry: `makeTowerLevelBits`
+builds the things that say the level -- a pennant each, braziers on the rail, gold studs at the top
+level -- and hangs them on the import.
 
 Royals bake to vertex colours (no `--parts`), because they keep their texture detail and are drawn on
 their own. Everyone the crowd draws bakes to flat named materials instead, because a part in the crowd

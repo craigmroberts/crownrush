@@ -1578,6 +1578,27 @@ export function makeTag(text) {
   return s;
 }
 
+// The level marks for an imported tower. The generated mesh is one model, but a tower's level has to
+// be readable across the field, so the things that say it -- a pennant per level, braziers on the
+// rail, gold studs at the top level -- are built here and hung on it. Heights are the imported
+// tower's own: deck at 2.72, rail to about 3.5, pole from 6.0.
+export function makeTowerLevelBits(level) {
+  const g = new THREE.Group();
+  if (level >= 2) {
+    for (const [x, z] of [[-0.92, -0.92], [0.92, -0.92]]) {
+      g.add(cyl(0.16, 0.12, 0.3, C.steelDark, x, 2.9, z, 8));
+      const ember = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshBasicMaterial({ color: level >= 3 ? 0xffd166 : 0xff8a3d }));
+      ember.position.set(x, 3.15, z);
+      g.add(ember);
+    }
+  }
+  if (level >= 3) for (const [x, z] of [[-0.92, 0.92], [0.92, 0.92]]) g.add(box(0.24, 0.24, 0.24, C.gold, x, 3.05, z));
+  // the model carries its own blue pennant, which is level one; the rest hang under it
+  const flagColors = [null, C.red, C.gold];
+  for (let i = 1; i < Math.min(level, 3); i++) g.add(box(0.6, 0.34, 0.04, flagColors[i], 0.3, 5.95 - (i - 1) * 0.44, 0));
+  return g;
+}
+
 // A heap of gathered material: a stepped mound in the material's own colour with loose chunks round
 // the foot, so it reads as a pile someone made rather than cubes that happen to be near each other.
 export function makeHeap(type) {
