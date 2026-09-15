@@ -376,6 +376,7 @@ export const BuildMethods = {
     else {
       m.rotation.y = Math.PI * 0.12;
       this.tradePost = m;
+      this.addTradeMat(def);
     }
     if (kind === 'tower') {
       this.towers[def.id] = { id: def.id, x: def.buildAt[0], z: def.buildAt[1], top: m.userData.top, level: 1, mesh: m, crew: 0, pos: def.pos };
@@ -395,6 +396,24 @@ export const BuildMethods = {
       this.baseLevel = Math.max(1, this.baseLevel);
       this.addFeedPad();
     }
+  },
+
+  // The Trade Post's mat. Selling is somewhere you walk to with a full bag, so it needs a mark on the
+  // floor like everywhere else you walk to. It stands where the pad that built the Trade Post stood,
+  // which is the building's own front door and is already held clear of the roads by the layout.
+  //
+  // Where you stand to sell used to be a constant in config, which stopped matching the building the
+  // first time the building moved -- and nothing showed you the spot, so there was no way to tell.
+  // It is read off the mat now, so the two cannot drift apart again.
+  addTradeMat(def) {
+    if (this.tradeMat) return;
+    const { mesh, canvas, tex } = makePad();
+    drawPad(canvas, tex, { icon: 'gold', label: 'Sell', paid: 0, shape: PAD_STYLE.trade.shape, rim: PAD_STYLE.trade.rim });
+    mesh.position.set(def.pos[0], 0.03, def.pos[1]);
+    this.popIn(mesh);
+    this.root.add(mesh);
+    this.tradeMat = mesh;
+    this.tradePos = [def.pos[0], def.pos[1]];
   },
 
   keepHp() {

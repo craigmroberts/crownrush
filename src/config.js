@@ -77,7 +77,8 @@ export const CFG = {
   // The trade post, once built. Walk into it and whatever you are carrying becomes coin. It is the
   // first thing worth building -- you start with enough coin for it -- because until it stands the
   // heaps you make have nowhere to go.
-  trade: { pos: [-8, -7], radius: 3.0 },
+  // where you stand to sell is the Trade Post's own mat, not a constant here; this is how near it counts
+  trade: { radius: 3.0 },
   // how close before a pile tells you what is in it, and how close before he picks it up
   pile: { showRadius: 7.0, pickRadius: 1.9 },
 

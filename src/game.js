@@ -193,6 +193,8 @@ export class Game {
     this.mineTimer = 0;
     this.nodes = [];
     this.tradePost = null;  // the bank, once its pad is paid for
+    this.tradePos = null;   // and where you stand to sell at it: its own mat, not a constant
+    this.tradeMat = null;
     this.piles = [];        // what has been mined and is lying on the ground waiting to be carried
     this.pileFlies = [];    // chunks in the air between the rock and the heap
     this.chips = [];

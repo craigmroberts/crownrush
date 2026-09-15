@@ -400,9 +400,9 @@ export const ViewMethods = {
   // Walk in with a load and walk out with coin. This is the only place materials become money, so it
   // is the only number the HUD has to carry.
   updateTrade(dt) {
-    if (!this.tradePost) return;
+    if (!this.tradePost || !this.tradePos) return;
     const kp = this.king.mesh.position;
-    const d = Math.hypot(kp.x - CFG.trade.pos[0], kp.z - CFG.trade.pos[1]);
+    const d = Math.hypot(kp.x - this.tradePos[0], kp.z - this.tradePos[1]);
     if (d > CFG.trade.radius || this.loadTotal() <= 0) return;
     this.tradeTimer = (this.tradeTimer || 0) - dt;
     if (this.tradeTimer > 0) return;
@@ -416,7 +416,7 @@ export const ViewMethods = {
     this.coinsEarned += paid;
     this.addScore(CFG.score.material);
     audio.ching();
-    tmp.set(CFG.trade.pos[0], 1.9, CFG.trade.pos[1]);
+    tmp.set(this.tradePos[0], 1.9, this.tradePos[1]);
     this.popup(`+${paid}`, tmp, '#ffd23f', 1.4);
   },
 
