@@ -272,10 +272,12 @@ def build_head(style):
         # swallowed by the head and read as faint smudges.
         fy = -0.368
         for side, x in (("L", 0.155), ("R", -0.155)):
-            part("cube", f"eye.{side}", (x, fy, 1.42), scale=(0.095, 0.03, 0.105), color="black", bone="head", sub=0)
-        # no brow bars: the fringe reaches z 1.50 and stands further forward than the face, so they
-        # never show. Its lower edge reads as the brow line instead.
-        part("cube", "mouth", (0, fy, 1.285), scale=(0.095, 0.028, 0.024), color="ink", bone="head", sub=0)
+            part("cube", f"eye.{side}", (x, fy, 1.405), scale=(0.095, 0.03, 0.1), color="black", bone="head", sub=0)
+            # just under the fringe, whose front face stands proud of the brow and would hide it
+            part("cube", f"brow.{side}", (x, fy, 1.49), scale=(0.15, 0.03, 0.038),
+                 color="ink" if angry else "hair", bone="head", sub=0)
+        if style != "king":   # his moustache and beard already cover the mouth; a bar there sits on top of them
+            part("cube", "mouth", (0, fy, 1.285), scale=(0.095, 0.028, 0.024), color="ink", bone="head", sub=0)
         return
     # eyes: sclera, iris, pupil, glint
     for side, x in (("L", 0.135), ("R", -0.135)):
@@ -368,8 +370,10 @@ def build_figure(style, tunic, trim, boots="boot", pants="leather", dress=False,
         # two stacked cones rather than one: gown_bell sets the width halfway down, so the skirt can
         # curve out into a bell instead of being a straight-sided cone (0.5 is straight)
         mid_r = waist_r + (hem_r - waist_r) * PROPS.get("gown_bell", 0.5) * 2 * 0.5
-        part("frustum", "gownlow", (0, 0, fh + 0.165 * gh), color=tunic, bone="root", sub=0, r1=hem_r, r2=mid_r, depth=0.33 * gh)
-        part("frustum", "gown", (0, 0, fh + 0.495 * gh), color=tunic, bone="root", sub=0, r1=mid_r, r2=waist_r, depth=0.33 * gh)
+        # a gown wants panels, not the four sides a boxy torso gets: eight reads as a lampshade
+        gsides = int(PROPS.get("skirt_sides", 0)) or (12 if BOXY else None)
+        part("frustum", "gownlow", (0, 0, fh + 0.165 * gh), color=tunic, bone="root", sub=0, r1=hem_r, r2=mid_r, depth=0.33 * gh, sides=gsides)
+        part("frustum", "gown", (0, 0, fh + 0.495 * gh), color=tunic, bone="root", sub=0, r1=mid_r, r2=waist_r, depth=0.33 * gh, sides=gsides)
         band("hem", (0, 0, fh + 0.035), hem_r * 1.02, 0.07, trim, "root")
         for side, x in (("L", 0.11), ("R", -0.11)):
             ell(f"foot.{side}", (x, -0.02, fh * 0.45), (0.075, 0.1, max(0.03, fh * 0.55)), "skin", "root")
@@ -890,6 +894,7 @@ if STUDIO:
     # Standard, not the default filmic curve: that rolls white off to grey and the background with it
     scene.view_settings.view_transform = "Standard"
     scene.view_settings.look = "None"
+    scene.view_settings.exposure = -0.45   # otherwise the key light lifts every colour off its own value
     scene.render.engine = "CYCLES"
     scene.cycles.samples = 96
     scene.cycles.use_denoising = True

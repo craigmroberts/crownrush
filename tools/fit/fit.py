@@ -147,8 +147,10 @@ BOUNDS = {
 DISCRETE = {"crown_points"}
 _NEW = dict(body_h=1.0, leg_h=1.0, head_w=1.0, arm_ang=0.0, shoulder_s=1.0, hair_w=1.0, hair_fringe=1.0, hair_flap=1.0)
 DEFAULTS = {
-    "king": dict(torso_x=0.34, torso_y=0.29, torso_z=0.33, arm_r=0.09, arm_len=0.32, hand_r=0.085, leg_r=0.105, head_s=1.0, leg_x=0.14, boot_s=1.0, crown_s=1.0, crown_h=1.0, crown_z=0.0, beard_s=1.0, beard_h=1.0, crown_points=5, **_NEW),
-    "queen": dict(torso_x=0.34, torso_y=0.29, torso_z=0.33, arm_r=0.075, arm_len=0.34, hand_r=0.075, leg_r=0.105, head_s=1.0, gown_s=1.0, gown_h=1.0, gown_waist=1.0, sleeve_len=0.3, foot_h=0.1, hair_len=1.0, gown_bell=0.5, arm_fwd=0.16, arm_x=0.34, **_NEW),
+    "king": dict(torso_x=0.34, torso_y=0.29, torso_z=0.33, arm_r=0.09, arm_len=0.32, hand_r=0.085, leg_r=0.105, head_s=1.0, leg_x=0.14, boot_s=1.0, crown_s=1.0, crown_h=1.0, crown_z=0.0, beard_s=1.0, beard_h=1.0, crown_points=5,
+                 boxy=1, face_simple=1, **_NEW),
+    "queen": dict(torso_x=0.34, torso_y=0.29, torso_z=0.33, arm_r=0.075, arm_len=0.34, hand_r=0.075, leg_r=0.105, head_s=1.0, gown_s=1.0, gown_h=1.0, gown_waist=1.0, sleeve_len=0.3, foot_h=0.1, hair_len=1.0, gown_bell=0.5, arm_fwd=0.16, arm_x=0.34,
+                  boxy=1, face_simple=1, skirt_sides=14, **_NEW),
     # boxy / pigtails / skirt_sides are style, not proportion: authored to match the art, never searched
     "archer": dict(torso_x=0.34, torso_y=0.29, torso_z=0.33, arm_r=0.09, arm_len=0.32, hand_r=0.085, leg_r=0.105, head_s=1.0, leg_x=0.14, boot_s=1.0,
                    boxy=1, pigtails=1.0, skirt_sides=12, **_NEW),
