@@ -279,7 +279,8 @@ export class Game {
       if (def.type !== 'straw' && open) this.root.add(mesh);
       this.nodes.push({ type: def.type, mesh, stock: def.stock, max: def.stock, regrow: 0, from, open, pos: new V3(def.pos[0], 0, def.pos[1]) });
     }
-    // world roads/bridges are scene-level: reset them
+    // world roads/bridges/chimneys are scene-level: reset them
+    if (this.world.clearSmokers) this.world.clearSmokers();
     for (const r of this.world.roads) {
       r.revealed = false;
       r.progress = 0;

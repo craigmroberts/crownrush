@@ -183,9 +183,13 @@ export const BuildMethods = {
     }
     if (kind === 'house') {
       // A villager home. Small, and there are six of them, so it is the one building that gets the
-      // generated model at a size below the Archery Range rather than above it.
+      // generated model at a size below the Archery Range rather than above it. Its chimney is the
+      // tallest thing on it, and naming the cap is what puts smoke over a village that is lived in.
       const p = makeProp('house', CFG.structureTint[m]);
-      if (p) return p;
+      if (p) {
+        p.userData.chimney = new THREE.Vector3(-0.03, 5.3, 0.26);
+        return p;
+      }
       return makeHut(m);
     }
     if (kind === 'tower') {

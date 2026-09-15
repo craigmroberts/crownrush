@@ -514,17 +514,41 @@ export function buildWorld(scene) {
     life.add(g);
     world.butterflies.push({ mesh: g, home: sp.clone(), wings, phase: rand() * 10, speed: 0.6 + rand() * 0.5 });
   }
-  // chimney smoke emitters
+  // Chimney smoke. Every puff on every chimney is one instance of one mesh, the way the health bars
+  // are: a puff used to be its own Mesh with its own geometry and its own material, which was seven
+  // draw calls for the Archery Range alone. Six villager homes would have made it forty-nine, which
+  // is more than the village spends on the village.
+  //
+  // What instancing costs is per-puff opacity, since one material serves them all. A float attribute
+  // carries it and the standard material's own alpha is multiplied by it before anything else uses
+  // it, so the puffs still fade in and out exactly as they did.
+  const PUFFS = 7;              // alive at once: 3.6 s of life at one every 0.55 s
+  const SMOKE_MAX = 90;
+  const smokeGeo = new THREE.SphereGeometry(1, 7, 6);
+  const smokeAlpha = new THREE.InstancedBufferAttribute(new Float32Array(SMOKE_MAX), 1);
+  smokeGeo.setAttribute('aAlpha', smokeAlpha);
+  const smokeMat = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 1, transparent: true, depthWrite: false });
+  smokeMat.onBeforeCompile = (shader) => {
+    shader.vertexShader = `attribute float aAlpha;\nvarying float vAlpha;\n${shader.vertexShader}`
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvAlpha = aAlpha;');
+    shader.fragmentShader = `varying float vAlpha;\n${shader.fragmentShader}`
+      .replace('vec4 diffuseColor = vec4( diffuse, opacity );', 'vec4 diffuseColor = vec4( diffuse, opacity * vAlpha );');
+  };
+  const smoke = new THREE.InstancedMesh(smokeGeo, smokeMat, SMOKE_MAX);
+  smoke.frustumCulled = false;   // the matrices are written straight in, so there is no bounds to cull by
+  smoke.count = 0;
+  life.add(smoke);
+  const smokeM = new THREE.Matrix4();
   world.smokers = [];
   world.addSmoker = (x, y, z) => {
-    const puffs = [];
-    for (let i = 0; i < 7; i++) {
-      const m = new THREE.Mesh(new THREE.SphereGeometry(1, 7, 6), new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 1, transparent: true, opacity: 0 }));
-      m.visible = false;
-      life.add(m);
-      puffs.push({ mesh: m, t: 99, life: 3.6, ox: 0 });
-    }
-    world.smokers.push({ x, y, z, puffs, next: 0 });
+    // A restart rebuilds every structure, and this group is scene-level and outlives it; without this
+    // the same chimney would collect a second smoker every time the game was restarted.
+    if (world.smokers.some((s) => Math.abs(s.x - x) < 0.1 && Math.abs(s.z - z) < 0.1)) return;
+    world.smokers.push({ x, y, z, next: 0, puffs: Array.from({ length: PUFFS }, () => ({ t: 99, life: 3.6, ox: 0 })) });
+  };
+  world.clearSmokers = () => {
+    world.smokers.length = 0;
+    smoke.count = 0;
   };
 
   // ---- per-frame animation ----
@@ -561,7 +585,8 @@ export function buildWorld(scene) {
       bf.wings[0].rotation.z = flap;
       bf.wings[1].rotation.z = -flap;
     }
-    // smoke
+    // smoke: every live puff on every chimney packs into the front of one instanced mesh
+    let sn = 0;
     for (const sm of world.smokers) {
       sm.next -= dt;
       if (sm.next <= 0) {
@@ -570,20 +595,27 @@ export function buildWorld(scene) {
         if (p) {
           p.t = 0;
           p.ox = rand() * Math.PI * 2;
-          p.mesh.visible = true;
         }
       }
       for (const p of sm.puffs) {
         if (p.t >= p.life) continue;
         p.t += dt;
+        if (p.t >= p.life || sn >= SMOKE_MAX) continue;
         const k = p.t / p.life;
-        p.mesh.position.set(sm.x + Math.sin(k * 4 + p.ox) * 0.25 + k * 0.6, sm.y + k * 2.6, sm.z + Math.cos(k * 3 + p.ox) * 0.2);
         const sc = 0.14 + k * 0.55;
-        p.mesh.scale.setScalar(sc);
-        p.mesh.material.opacity = 0.55 * (1 - k) * Math.min(1, k * 6);
-        if (p.t >= p.life) p.mesh.visible = false;
+        smokeM.makeScale(sc, sc, sc).setPosition(
+          sm.x + Math.sin(k * 4 + p.ox) * 0.25 + k * 0.6,
+          sm.y + k * 2.6,
+          sm.z + Math.cos(k * 3 + p.ox) * 0.2,
+        );
+        smoke.setMatrixAt(sn, smokeM);
+        smokeAlpha.array[sn] = 0.55 * (1 - k) * Math.min(1, k * 6);
+        sn++;
       }
     }
+    smoke.count = sn;
+    smoke.instanceMatrix.needsUpdate = true;
+    smokeAlpha.needsUpdate = true;
     if (world.waterTex) world.waterTex.offset.y -= dt * 0.08;
     world.sway.value = world.time;
     for (const r of world.roads) {
