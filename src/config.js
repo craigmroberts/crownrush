@@ -79,6 +79,9 @@ export const CFG = {
   // heaps you make have nowhere to go.
   // where you stand to sell is the Trade Post's own mat, not a constant here; this is how near it counts
   trade: { radius: 3.0 },
+  // Villager homes. The Keep level sets the floor on how big the army can be; every home built raises
+  // it from there, which is what makes filling the settlement worth coin rather than only decoration.
+  home: { archers: 3, swordsmen: 2 },
   // how close before a pile tells you what is in it, and how close before he picks it up
   pile: { showRadius: 7.0, pickRadius: 1.9 },
 
@@ -263,6 +266,14 @@ export const TIERS = [
 // pad). Watchtowers stand in the fort's corners: their pad turns into "man the tower" and then "upgrade"
 // pads on the same spot. Gate Guards get small posts beside each gate.
 const T = (id, tier, pos, cost, buildAt) => ({ id, tier, pos, cost, icon: 'tower', label: 'Watchtower', structure: 'tower', buildAt, desc: 'Corner watchtower. Man it with archers, then upgrade it for more crew and sharper arrows.', toast: 'Watchtower built. It needs a crew!' });
+// Villager homes. They are separate pads rather than one repeatable pad because each one stands in
+// its own place: a repeatable pad builds at the same spot every time, and a village is the one thing
+// that has to spread. Each needs the one before it, so only one home mat is ever on the field.
+const HOME = (n, pos, cost, buildAt, requires) => ({
+  id: `home-${n}`, tier: 1, pos, cost, icon: 'home', label: 'Villager Home', structure: 'house', buildAt, requires,
+  desc: `A family moves in. Every home raises the army limit by ${CFG.home.archers} archers and ${CFG.home.swordsmen} swordsmen, on top of whatever the Keep level allows.`,
+  toast: 'A family moves in. Room for more soldiers.',
+});
 const W = (id, tier, pos, cost, side, label) => ({ id, tier, pos, cost, icon: 'wall', label, requires: [tier === 1 ? 'expand1' : 'expand2'], wall: { tier, side }, desc: 'Walls this side of the new plot. Raiders must break through.' });
 export const PADS = [
   // ---- tier 0: the starting plot (28 x 22) ----
@@ -298,6 +309,14 @@ export const PADS = [
   { id: 'barracks', tier: 1, pos: [5.2, 15.4], cost: 40, minLevel: 3, icon: 'swords', label: 'Barracks', requires: ['expand1'], structure: 'barracks', buildAt: [9.2, 9.2], desc: 'Lets you recruit swordsmen.', toast: 'Barracks built! Recruit swordsmen.' },
   { id: 'recruit-sword', tier: 1, pos: [5.2, 15.4], cost: 8, growth: 2, icon: 'swordsman', label: '+2 Swordsmen', requires: ['barracks'], repeatable: true, units: { type: 'swordsman', count: 2 }, desc: 'Two swordsmen: tough melee fighters who charge whatever comes near the King.' },
   { id: 'crown', tier: 1, pos: [-12, -21], cost: 35, growth: 25, maxBuys: 3, icon: 'crown', label: 'Royal Guard', requires: ['expand1'], repeatable: true, effect: 'kinghp', desc: 'King max HP +80 and a full heal.', toast: 'King max HP +80 and fully healed' },
+  // The village quarter: two rows of homes, south-east and north-east of the citadel, filling the
+  // ground the farmland does not use. Positions come from tools/layout/place.mjs.
+  { ...HOME(1, [14, 20], 30, [9.6, 20], ['expand1']), minLevel: 3 },
+  HOME(2, [20.4, 15.8], 45, [16, 15.8], ['home-1']),
+  HOME(3, [24.4, 18.2], 62, [18.4, 20.2], ['home-2']),
+  HOME(4, [15, -19.6], 82, [10.6, -19.6], ['home-3']),
+  HOME(5, [21.8, -15.4], 105, [17.4, -15.4], ['home-4']),
+  HOME(6, [15, -23.6], 130, [19.4, -19.8], ['home-5']),
   { id: 'expand2', tier: 1, pos: [5, 21], cost: 150, minLevel: 6, icon: 'expand', label: 'Expand Village', requires: ['wall2-south', 'wall2-east', 'wall2-west', 'wall2-north', 'crew-gates2'], effect: 'expand', desc: 'The biggest plot: outer walls, four more towers and veteran archers.', toast: 'The kingdom grows again!' },
 
   // ---- tier 2 ----

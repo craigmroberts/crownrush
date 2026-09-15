@@ -10,9 +10,9 @@
 // The rules it places against are the ones the village has to obey anyway: nothing inside a road's
 // shoulder, nothing overlapping anything else, nothing straddling the citadel wall, everything
 // inside the wall it belongs to, and every pad within reach of the building it belongs to.
-import { MAP, TIERS } from '../../src/config.js';
+import { MAP, TIERS, PADS } from '../../src/config.js';
 
-const SIZE = { bank: [3.46, 3.46], barracks: [7.68, 7.96], hut: [5.58, 4.49], keep: [6.02, 5.38], tower: [2.50, 3.32] };
+const SIZE = { bank: [3.46, 3.46], barracks: [7.68, 7.96], hut: [5.58, 4.49], keep: [6.02, 5.38], tower: [2.50, 3.32], house: [4.6, 4.0] };
 const PAD = 3.6;
 const CLEAR = MAP.roadClear;
 const RING = TIERS.find((t) => t.ring).ring;
@@ -87,10 +87,20 @@ function tower(name, quad) {
   return [null, null];
 }
 
+// Ids this run works out for itself. Everything else in PADS is seeded where config already puts it,
+// so the solver has to fit around the wall mats, the outer towers and anything else it is not moving
+// -- which is how a home ended up under the north wall's mat the first time this ran.
+const SOLVING = new Set(['range', 'barracks', 'exchange', 'keep', 'feed', 'train', 'recruit', 'recruit-sword', 'palisade', 'crew-gates1', 'expand1', 'stable', 'crown', 'expand2', 'crew-gates2', 'tower-0-ne', 'tower-0-nw', 'tower-0-se', 'tower-0-sw', 'home-1', 'home-2', 'home-3', 'home-4', 'home-5', 'home-6']);
+
 function run(quiet) {
   placed.length = 0;
   const out = [];
   const log = (b) => { out.push(b); if (!quiet) say(b); };
+  for (const d of PADS) {
+    if (SOLVING.has(d.id)) continue;
+    placed.push({ id: `${d.id}:pad`, x: d.pos[0], z: d.pos[1], w: PAD, d: PAD });
+    if (d.structure && d.buildAt) placed.push({ id: `${d.id}:bld`, x: d.buildAt[0], z: d.buildAt[1], ...({ w: (SIZE[d.structure] || [3, 3])[0], d: (SIZE[d.structure] || [3, 3])[1] }) });
+  }
   placed.push({ id: 'keep:bld', x: 0, z: 0, w: SIZE.keep[0], d: SIZE.keep[1] });
   const B = { inside: true, mid: true, margin: 1.0 };
   const range = solve('range:bld', ...SIZE.hut, { quad: 'nw', ...B });
@@ -109,6 +119,18 @@ function run(quiet) {
   const townPads = [['expand1:pad', 'sw'], ['stable:pad', 'sw'], ['crown:pad', 'nw'], ['expand2:pad', 'se'], ['crew-gates2:pad', 'se']];
   if (!quiet) console.log('\nbetween the citadel and the town wall:');
   for (const [id, q] of townPads) log(solve(id, PAD, PAD, { quad: q, outside: true, box: T1, margin: 0.4 }));
+  // Villager homes: a quarter of their own down the east side, each with its own mat in front. The
+  // farmland has the west strip, so the houses take the other one and the roads keep them apart.
+  if (!quiet) console.log('\nvillager homes:');
+  let prev = null;
+  for (let i = 1; i <= 6; i++) {
+    const q = i <= 3 ? 'se' : 'ne';
+    // each house settles beside the last, so the quarter grows outward from one street corner
+    const h = solve(`home-${i}:bld`, ...SIZE.house, { quad: q, outside: true, box: T1, margin: 0.8, anchor: prev });
+    log(h);
+    log(solve(`home-${i}:pad`, PAD, PAD, { quad: q, outside: true, box: T1, margin: 0.4, anchor: h, maxDist: 6.5 }));
+    prev = h && i !== 3 ? h : null;
+  }
   return out;
 }
 

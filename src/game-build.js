@@ -181,6 +181,13 @@ export const BuildMethods = {
       }
       return makeKeep(m);
     }
+    if (kind === 'house') {
+      // A villager home. Small, and there are six of them, so it is the one building that gets the
+      // generated model at a size below the Archery Range rather than above it.
+      const p = makeProp('house', CFG.structureTint[m]);
+      if (p) return p;
+      return makeHut(m);
+    }
     if (kind === 'tower') {
       // The deck is where crewSpots stands the archers, so the import is sized to put it exactly
       // where the built tower's is (2.72) and the crew code needs no idea which one it got.
@@ -1122,8 +1129,19 @@ export const BuildMethods = {
     return n;
   },
 
+  // How many homes stand. Counted off the field rather than kept as a number, so it cannot drift from
+  // what is actually built -- a restart clears the structures and the count goes with them.
+  homeCount() {
+    let n = 0;
+    for (const s of this.structures) if (s.kind === 'house') n++;
+    return n;
+  },
+
+  // The Keep level is the floor; every villager home raises it from there.
   unitCap(type) {
     const t = type === 'archer' ? CFG.base.archers : CFG.base.swordsmen;
-    return t[Math.min(this.baseLevel, t.length - 1)] + (type === 'archer' ? this.mods.towerSlots * 4 : 0);
+    const perHome = type === 'archer' ? CFG.home.archers : CFG.home.swordsmen;
+    return t[Math.min(this.baseLevel, t.length - 1)] + this.homeCount() * perHome
+      + (type === 'archer' ? this.mods.towerSlots * 4 : 0);
   },
 };
