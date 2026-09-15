@@ -23,6 +23,7 @@ def flag(name, default=None):
     return default
 PARAMS_PATH = flag("--params")
 FRONT = flag("--front")
+STUDIO = flag("--studio")  # a lit presentation render on white: matte, soft key light, real occlusion
 IDS = flag("--ids")  # with --front: colour every part by index and write [[part, role], ...] to this JSON
 # --half builds only the +X side of every mirrored pair. These characters are symmetric and the fitter
 # mirrors the render back to whole in numpy for free, so a third of the primitives need never be made.
@@ -216,15 +217,18 @@ def arm_chain(side, px, pz, length, r, hand_r, color, trim, ang, cuff_r=None, sl
     d = (sx * math.sin(ang), -math.cos(ang))
     at = lambda t: (px + d[0] * t, py, pz + d[1] * t)
     rot = (0, -sx * ang, 0)
+    # Segments overlap by a little. Flat-ended boxes butted end to end leave a visible seam, and any
+    # swing angle opens it into a gap; a sphere hid that, a facet does not.
+    lap = r * 0.5
     if sleeve > 0.01:
         sl = length * sleeve
-        limb(f"sleeve.{side}", at(sl / 2), sleeve_r or r * 1.4, sl, color, f"arm.{side}", rot=rot)
-        limb(f"arm.{side}", at((sl + length) / 2), r, length - sl, "skin", f"arm.{side}", rot=rot)
+        limb(f"sleeve.{side}", at(sl / 2 - lap / 2), sleeve_r or r * 1.4, sl + lap, color, f"arm.{side}", rot=rot)
+        limb(f"arm.{side}", at((sl + length) / 2), r, length - sl + lap, "skin", f"arm.{side}", rot=rot)
     else:
-        limb(f"arm.{side}", at(length / 2), r, length, color, f"arm.{side}", rot=rot)
+        limb(f"arm.{side}", at(length / 2 - lap / 2), r, length + lap, color, f"arm.{side}", rot=rot)
         if cuff:
             band(f"cuff.{side}", at(length - 0.03), cuff_r or r * 1.12, 0.06, trim, f"arm.{side}", rot=rot)
-    ell(f"hand.{side}", at(length + hand_r * 0.7), (hand_r, hand_r, hand_r), "skin", f"arm.{side}")
+    ell(f"hand.{side}", at(length + hand_r * 0.55), (hand_r, hand_r, hand_r), "skin", f"arm.{side}")
 
 def bow_arc(name, loc, color, bone, half=0.4, belly=0.17):
     curve = bpy.data.curves.new(name, "CURVE")
@@ -260,6 +264,19 @@ def build_head(style):
     for side, x in (("L", 0.37), ("R", -0.37)):
         ell(f"ear.{side}", (x, 0.02, 1.4), (0.05, 0.07, 0.08), skin, "head")
     ell("nose", (0, -0.35, 1.36), (0.045, 0.035, 0.035), skin, "head")
+    # props.face_simple: the blocky pixel face of the reference art. One dark square per eye, a brow
+    # above it, a flat mouth, no blush. The built-up sclera/iris/pupil/glint eye reads as anime
+    # close up, which is wrong for this style.
+    if PROPS.get("face_simple", 0):
+        # The head's front face is at y = -0.35, so these sit just proud of it. Inside it they are
+        # swallowed by the head and read as faint smudges.
+        fy = -0.368
+        for side, x in (("L", 0.155), ("R", -0.155)):
+            part("cube", f"eye.{side}", (x, fy, 1.42), scale=(0.095, 0.03, 0.105), color="black", bone="head", sub=0)
+        # no brow bars: the fringe reaches z 1.50 and stands further forward than the face, so they
+        # never show. Its lower edge reads as the brow line instead.
+        part("cube", "mouth", (0, fy, 1.285), scale=(0.095, 0.028, 0.024), color="ink", bone="head", sub=0)
+        return
     # eyes: sclera, iris, pupil, glint
     for side, x in (("L", 0.135), ("R", -0.135)):
         ell(f"eye.{side}", (x, -0.315, 1.43), (0.062, 0.035, 0.09 if queen else 0.08), "white", "head")
@@ -301,10 +318,16 @@ def build_hair(style):
     ell("lock2", (0.26, -0.27, 1.58), (0.1 * fr, 0.09 * fr, 0.08 * fr), hair, "head", rot=(0, math.radians(-25), 0))
     hw = PROPS.get("hair_w", 1.0)  # hair down the sides of the face: outer edge stays, it thickens inward over the cheeks
     fl = PROPS.get("hair_flap", 1.0)  # ... unless flap pushes it out past the head and hangs it lower
-    for side, sx in (("L", 1), ("R", -1)):
-        rx = 0.075 * hw
-        ell(f"side.{side}", (sx * (0.455 - rx) * fl, -0.02, 1.4 - 0.1 * (fl - 1)),
-            (rx, 0.14, 0.17 * (1 + 0.5 * (hw - 1)) * fl), hair, "head")
+    pg = PROPS.get("pigtails", 0.0)   # instead: a tie at the temple and a tail hanging outboard of it
+    if pg:
+        for side, sx in (("L", 1), ("R", -1)):
+            ell(f"tie.{side}", (sx * 0.40, 0.0, 1.45), (0.075 * pg, 0.11, 0.10 * pg), hair, "head")
+            ell(f"tail.{side}", (sx * 0.52 * pg, 0.015, 1.31), (0.115 * pg, 0.125, 0.20 * pg), hair, "head")
+    else:
+        for side, sx in (("L", 1), ("R", -1)):
+            rx = 0.075 * hw
+            ell(f"side.{side}", (sx * (0.455 - rx) * fl, -0.02, 1.4 - 0.1 * (fl - 1)),
+                (rx, 0.14, 0.17 * (1 + 0.5 * (hw - 1)) * fl), hair, "head")
     if style == "queen":
         # long hair down the back and over the shoulders. hair_len shortens it from the bottom (the top
         # stays against the head), so the fitter can lift it off the shoulders and let the arms show.
@@ -385,7 +408,9 @@ def build_figure(style, tunic, trim, boots="boot", pants="leather", dress=False,
         bx, by = (torso[0] * 1.04, torso[1] * 1.04) if BOXY else (0.315 * tw, 0.315 * tw)
         # the skirt hangs off the torso, so its width follows the torso rather than flaring into a plate
         sk1, sk2 = (torso[0] * 1.06, torso[0] * 0.88) if BOXY else (0.37 * tw, 0.3 * tw)
-        part("frustum", "skirt", (0, 0, 0.47), color=tunic, bone="spine", sub=0, r1=sk1, r2=sk2, depth=0.22, sides=4 if BOXY else None)
+        pleats = int(PROPS.get("skirt_sides", 0))   # a many-sided cone: each facet reads as a pleat
+        part("frustum", "skirt", (0, 0, 0.47), color=tunic, bone="spine", sub=0, r1=sk1, r2=sk2, depth=0.22,
+             sides=pleats or (4 if BOXY else None))
         if hem:
             band("skirthem", (0, 0, 0.375), sk1 * 1.02, 0.06, trim, "spine", dy=sk1 * 1.02)
         band("belt", (0, 0, 0.58), bx, belt_h, belt, "spine", dy=by)
@@ -508,14 +533,16 @@ def build_soldier():
     dy = t[1] + 0.02
     # Named sash1/sash2, not .L/.R: each one crosses the whole chest, so it is not half of a mirrored
     # pair and a half build must keep both or the X becomes a single stroke.
-    for n, ang in ((1, 34), (2, -34)):
-        part("cube", f"sash{n}", (0, -dy, 0.84), scale=(0.1, 0.05, 0.82),
+    # one strap lies over the other: at the same depth they are coincident where they cross, which
+    # renders as a black diamond
+    for n, ang, out in ((1, 34, 0.0), (2, -34, 0.035)):
+        part("cube", f"sash{n}", (0, -dy - out, 0.84), scale=(0.1, 0.05, 0.82),
              rot=(0, math.radians(ang), 0), color="blue", bone="spine", sub=0)
 
 def build_archer():
     build_soldier()
     if GEAR:
-        bow_and_quiver("blue")
+        bow_and_quiver("wood")
 
 def build_swordsman():
     build_soldier()
@@ -821,6 +848,83 @@ if FRONT:
     scene.render.filepath = FRONT
     bpy.ops.render.render(write_still=True)
     print("front", FRONT)
+
+# ---------- studio render ----------
+# The flat front render is a scoring diagnostic: no lights, no shading, 160 px. This is the opposite,
+# and the one to look at when judging the model: matte materials, soft light from a white room, and
+# the flat facets left flat so the form reads as geometry rather than as a smooth blob.
+if STUDIO:
+    for m in mats.values():
+        b = m.node_tree.nodes["Principled BSDF"]
+        b.inputs["Roughness"].default_value = 1.0        # matte: no glossy highlights
+        b.inputs["Metallic"].default_value = 0.0
+        for spec in ("Specular IOR Level", "Specular"):
+            if spec in b.inputs:
+                b.inputs[spec].default_value = 0.0
+                break
+    world = bpy.data.worlds.new("studio")
+    scene.world = world
+    world.use_nodes = True
+    world.node_tree.nodes["Background"].inputs["Color"].default_value = (1, 1, 1, 1)
+    world.node_tree.nodes["Background"].inputs["Strength"].default_value = 0.85  # the room is the fill
+    for loc, energy, size in (((2.6, -3.4, 3.6), 260, 4.5), ((-3.2, -2.4, 1.8), 90, 6.0), ((0, 3.4, 3.2), 110, 5.0)):
+        bpy.ops.object.light_add(type="AREA", location=loc)
+        L = bpy.context.active_object
+        L.data.energy = energy
+        L.data.size = size
+        L.rotation_euler = (Vector((0, 0, 1.05)) - Vector(loc)).to_track_quat("-Z", "Y").to_euler()
+    # frame from the model's own bounds, so nothing is ever cropped and every character sits the same
+    dg0 = bpy.context.evaluated_depsgraph_get()
+    zs, xs_ = [], []
+    for corner in (Vector(c) for c in body.evaluated_get(dg0).bound_box):
+        w_ = body.matrix_world @ corner
+        zs.append(w_.z)
+        xs_.append(abs(w_.x))
+    z_lo, z_hi, half_w = min(zs), max(zs), max(xs_)
+    bpy.ops.object.camera_add(location=(0, -9.0, (z_lo + z_hi) / 2))
+    cam = bpy.context.active_object
+    cam.rotation_euler = (math.radians(90), 0, 0)
+    cam.data.type = "ORTHO"                              # a product shot: no perspective distortion
+    cam.data.ortho_scale = max(z_hi - z_lo, half_w * 2) * 1.16
+    scene.camera = cam
+    # Standard, not the default filmic curve: that rolls white off to grey and the background with it
+    scene.view_settings.view_transform = "Standard"
+    scene.view_settings.look = "None"
+    scene.render.engine = "CYCLES"
+    scene.cycles.samples = 96
+    scene.cycles.use_denoising = True
+    try:
+        scene.cycles.device = "GPU"
+    except Exception:
+        pass
+    scene.render.resolution_x = scene.render.resolution_y = int(PARAMS.get("studio_res", 900))
+    # The world lights the model, so its strength is a lighting choice, not a background colour. Render
+    # the background out and lay the result on white afterwards, and the two stop fighting.
+    scene.render.film_transparent = True
+    scene.render.filepath = STUDIO
+    for t in arm.animation_data.nla_tracks:              # the rest pose, arms at Idle's first frame
+        t.mute = True
+    for pb in arm.pose.bones:
+        pb.rotation_euler = (0, 0, 0)
+        pb.location = (0, 0, 0)
+        pb.scale = (1, 1, 1)
+    arm.pose.bones["arm.L"].rotation_euler = (0, 0, IDLE_ARM_SWING)
+    arm.pose.bones["arm.R"].rotation_euler = (0, 0, -IDLE_ARM_SWING)
+    scene.frame_set(1)
+    bpy.ops.render.render(write_still=True)
+    img = bpy.data.images.load(STUDIO)
+    w_, h_ = img.size
+    px = list(img.pixels[:])
+    for i in range(0, len(px), 4):
+        a = px[i + 3]
+        for k in range(3):
+            px[i + k] = px[i + k] * a + (1.0 - a)   # over white
+        px[i + 3] = 1.0
+    img.pixels = px
+    img.filepath_raw = STUDIO
+    img.file_format = "PNG"
+    img.save()
+    print("studio", STUDIO)
 
 # ---------- preview render ----------
 if PREVIEW:

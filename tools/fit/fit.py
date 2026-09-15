@@ -149,7 +149,9 @@ _NEW = dict(body_h=1.0, leg_h=1.0, head_w=1.0, arm_ang=0.0, shoulder_s=1.0, hair
 DEFAULTS = {
     "king": dict(torso_x=0.34, torso_y=0.29, torso_z=0.33, arm_r=0.09, arm_len=0.32, hand_r=0.085, leg_r=0.105, head_s=1.0, leg_x=0.14, boot_s=1.0, crown_s=1.0, crown_h=1.0, crown_z=0.0, beard_s=1.0, beard_h=1.0, crown_points=5, **_NEW),
     "queen": dict(torso_x=0.34, torso_y=0.29, torso_z=0.33, arm_r=0.075, arm_len=0.34, hand_r=0.075, leg_r=0.105, head_s=1.0, gown_s=1.0, gown_h=1.0, gown_waist=1.0, sleeve_len=0.3, foot_h=0.1, hair_len=1.0, gown_bell=0.5, arm_fwd=0.16, arm_x=0.34, **_NEW),
-    "archer": dict(torso_x=0.34, torso_y=0.29, torso_z=0.33, arm_r=0.09, arm_len=0.32, hand_r=0.085, leg_r=0.105, head_s=1.0, leg_x=0.14, boot_s=1.0, **_NEW),
+    # boxy / pigtails / skirt_sides are style, not proportion: authored to match the art, never searched
+    "archer": dict(torso_x=0.34, torso_y=0.29, torso_z=0.33, arm_r=0.09, arm_len=0.32, hand_r=0.085, leg_r=0.105, head_s=1.0, leg_x=0.14, boot_s=1.0,
+                   boxy=1, pigtails=1.0, skirt_sides=12, **_NEW),
     "brute": dict(torso_x=0.42, torso_y=0.36, torso_z=0.36, arm_r=0.12, arm_len=0.36, hand_r=0.11, leg_r=0.13, head_s=1.0, leg_x=0.14, boot_s=1.0, **_NEW),
     "boss": dict(torso_x=0.44, torso_y=0.38, torso_z=0.4, arm_r=0.13, arm_len=0.46, hand_r=0.14, leg_r=0.15, head_s=0.92, leg_x=0.14, boot_s=1.0, **_NEW),
 }
@@ -519,7 +521,10 @@ if os.path.exists(existing) and not FRESH:
     prev = json.load(open(existing))
     if "props" in prev:
         pr = prev["props"]
-        p.update(torso_x=pr["torso"][0], torso_y=pr["torso"][1], torso_z=pr["torso"][2], **{k: v for k, v in pr.items() if k in BOUNDS})
+        # carry every prop through, not only the searched ones: style values a person authored by hand
+        # (boxy, pigtails, pleats) are not in BOUNDS and were being dropped on reload
+        p.update(torso_x=pr["torso"][0], torso_y=pr["torso"][1], torso_z=pr["torso"][2],
+                 **{k: v for k, v in pr.items() if k != "torso"})
         print("starting from the previous fit")
 keys = [k for k in KEYS.get(WHO, _COMMON + _LEGS) if k in p and k in BOUNDS]
 _missing = [k for k in KEYS.get(WHO, _COMMON + _LEGS) if k in p and k not in BOUNDS]
