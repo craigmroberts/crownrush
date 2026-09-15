@@ -789,7 +789,6 @@ export const EnemiesMethods = {
     q.moving = moving > 0.05;
     this.animateWalk(q, moving, dt);
     this.regen(q, dt);
-    q.bar.visible = true;
   },
 
   damageEnemy(e, dmg, hitPos, from = null) {

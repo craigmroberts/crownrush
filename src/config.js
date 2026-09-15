@@ -172,6 +172,9 @@ export const CFG = {
   },
 
   regen: { delay: 4, perSecond: 3 },
+  // #46: how the King shows a hit. A square wave rather than a fade, because a flicker reads as a
+  // blow landing and a fade reads as a condition he is in.
+  hurtFlash: { time: 0.34, blink: 0.08, amount: 0.85, colour: 0xff2a1e },
 
   // pads only take payment once you STOP on them (or hold for a moment), so walking past costs nothing
   // showRadius: how close before a build mat fades up out of the grass. The field reads better with
@@ -303,20 +306,23 @@ export const PADS = [
   W('wall2-north', 1, [6, -22], 25, 'north', 'North Wall'),
   { id: 'crew-gates2', tier: 1, pos: [21, 5], crew: 6, icon: 'shield', label: 'Gate Guards', requires: ['wall2-south', 'wall2-east', 'wall2-west'], posts: true, postTier: 1, desc: 'Six archers take posts beside the new gates.', toast: 'Archers now watch the new gates.' },
   { ...T('tower-1-nw', 1, [-26.2, -22.2], 25, [-30, -26]), requires: ['expand1'] },
-  { ...T('tower-1-ne', 1, [26.2, -22.2], 25, [30, -26]), requires: ['expand1'] },
+  { ...T('tower-1-ne', 1, [25.2, -24], 25, [30, -26]), requires: ['expand1'] },
   { ...T('tower-1-sw', 1, [-26.2, 22.2], 25, [-30, 26]), requires: ['expand1'] },
-  { ...T('tower-1-se', 1, [26.2, 22.2], 25, [30, 26]), requires: ['expand1'] },
+  { ...T('tower-1-se', 1, [25.2, 24], 25, [30, 26]), requires: ['expand1'] },
   { id: 'barracks', tier: 1, pos: [5.2, 15.4], cost: 40, minLevel: 3, icon: 'swords', label: 'Barracks', requires: ['expand1'], structure: 'barracks', buildAt: [9.2, 9.2], desc: 'Lets you recruit swordsmen.', toast: 'Barracks built! Recruit swordsmen.' },
   { id: 'recruit-sword', tier: 1, pos: [5.2, 15.4], cost: 8, growth: 2, icon: 'swordsman', label: '+2 Swordsmen', requires: ['barracks'], repeatable: true, units: { type: 'swordsman', count: 2 }, desc: 'Two swordsmen: tough melee fighters who charge whatever comes near the King.' },
   { id: 'crown', tier: 1, pos: [-12, -21], cost: 35, growth: 25, maxBuys: 3, icon: 'crown', label: 'Royal Guard', requires: ['expand1'], repeatable: true, effect: 'kinghp', desc: 'King max HP +80 and a full heal.', toast: 'King max HP +80 and fully healed' },
-  // The village quarter: two rows of homes, south-east and north-east of the citadel, filling the
-  // ground the farmland does not use. Positions come from tools/layout/place.mjs.
-  { ...HOME(1, [14, 20], 30, [9.6, 20], ['expand1']), minLevel: 3 },
-  HOME(2, [20.4, 15.8], 45, [16, 15.8], ['home-1']),
-  HOME(3, [24.4, 18.2], 62, [18.4, 20.2], ['home-2']),
-  HOME(4, [15, -19.6], 82, [10.6, -19.6], ['home-3']),
-  HOME(5, [21.8, -15.4], 105, [17.4, -15.4], ['home-4']),
-  HOME(6, [15, -23.6], 130, [19.4, -19.8], ['home-5']),
+  // #47: the village street. Two rows of three, evenly spaced and facing the east road, mirrored
+  // across it -- built out from the citadel, so the street fills in from the near end as it grows.
+  // They stand off the road further than a street normally would because the citadel decides it: a
+  // home and the mat in front of it need about nine units of depth, and the strip between the ring
+  // and the town wall is seven, so the rows sit where the ring has curved out of the way.
+  { ...HOME(1, [16.6, 16], 30, [16.6, 20], ['expand1']), minLevel: 3 },
+  HOME(2, [16.6, -16], 45, [16.6, -20], ['home-1']),
+  HOME(3, [21.9, 16], 62, [21.9, 20], ['home-2']),
+  HOME(4, [21.9, -16], 82, [21.9, -20], ['home-3']),
+  HOME(5, [27.2, 16], 105, [27.2, 20], ['home-4']),
+  HOME(6, [27.2, -16], 130, [27.2, -20], ['home-5']),
   { id: 'expand2', tier: 1, pos: [5, 21], cost: 150, minLevel: 6, icon: 'expand', label: 'Expand Village', requires: ['wall2-south', 'wall2-east', 'wall2-west', 'wall2-north', 'crew-gates2'], effect: 'expand', desc: 'The biggest plot: outer walls, four more towers and veteran archers.', toast: 'The kingdom grows again!' },
 
   // ---- tier 2 ----
@@ -344,7 +350,7 @@ export const PADS = [
 export const NODES = [
   // wood: close to home, available immediately
   { type: 'wood', pos: [-11, 22], stock: 8 }, { type: 'wood', pos: [-16.5, 14.5], stock: 8 }, { type: 'wood', pos: [-13, 18], stock: 8 }, { type: 'wood', pos: [-15, 17.5], stock: 8 },
-  { type: 'wood', pos: [15, -15], stock: 8 }, { type: 'wood', pos: [18, -17], stock: 8 }, { type: 'wood', pos: [14.5, -18.5], stock: 8 },
+  { type: 'wood', pos: [-15, -15], stock: 8 }, { type: 'wood', pos: [-18, -17], stock: 8 }, { type: 'wood', pos: [-14.5, -18.5], stock: 8 },
   { type: 'wood', pos: [-44, 28], stock: 10 }, { type: 'wood', pos: [-47, 31], stock: 10 }, { type: 'wood', pos: [-42, 32], stock: 10 },
   // straw: the light binder, needed in small amounts all the way up
   { type: 'straw', pos: [45, -6], stock: 16 }, { type: 'straw', pos: [-24, 12], stock: 14 }, { type: 'straw', pos: [14, 62], stock: 20 },

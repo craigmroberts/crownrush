@@ -9,6 +9,8 @@ import {
 } from './models.js';
 import { V3, tmp, tmp2, HAIR, rand } from './game-shared.js';
 
+const HURT = new THREE.Color(CFG.hurtFlash.colour);
+
 export const UnitsMethods = {
   mountKing() {
     if (this.mounted) return;
@@ -54,6 +56,10 @@ export const UnitsMethods = {
       stats = CFG.swordsman;
     }
     mesh.position.set(x, 0, z);
+    // #44: every bar hides itself at full health, and the Queen's used to be forced back on each
+    // frame, so hers was the one that hung over a character nothing was trying to kill. She keeps it
+    // -- an area attack can still catch her on the walk home, and losing her that way ends the run --
+    // but it now appears only when that actually happens.
     const bar = makeHealthBar(type === 'king' || type === 'queen' ? 1.6 : 1.0, true);
     bar.position.y = type === 'king' ? (this.mounted ? 3.2 : 2.4) : type === 'queen' ? 2.5 : 1.8;
     mesh.add(bar);
@@ -124,6 +130,7 @@ export const UnitsMethods = {
       k.mesh.rotation.y = this.lerpAngle(k.mesh.rotation.y, Math.atan2(inp.x, inp.z), 1 - Math.exp(-dt * 12));
     }
     this.regen(k, dt);
+    this.flashHurt(k);
     k.bar.visible = true;
     this.updateMining(dt);
     this.ring.position.set(p.x, 0.04, p.z);
@@ -260,6 +267,27 @@ export const UnitsMethods = {
       u.bar.visible = false;
       this.dying.push({ mesh: u.mesh, t: 0.4 });
     }
+  },
+
+  // #46: the King flickers red for a moment after each hit. His bar is one small thing in a scrum of
+  // twenty characters, so the blow itself has to read off the King. Emissive rather than base colour,
+  // because it has to show on the dark blue tunic and on the gold alike, and because putting it back
+  // is one copy rather than a remembered colour per material.
+  flashHurt(u) {
+    const F = CFG.hurtFlash;
+    const on = this.time - u.lastHit < F.time;
+    if (!on && !u.flashing) return;      // nothing to do, and nothing left to put back
+    u.flashing = on;
+    const lit = on && Math.floor((this.time - u.lastHit) / F.blink) % 2 === 0;
+    u.mesh.traverse((o) => {
+      if (!o.isMesh && !o.isSkinnedMesh) return;
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+        if (!m || !m.emissive) continue;
+        if (!m.userData.restEmissive) m.userData.restEmissive = m.emissive.clone();
+        m.emissive.copy(m.userData.restEmissive);
+        if (lit) m.emissive.lerp(HURT, F.amount);
+      }
+    });
   },
 
   regen(u, dt) {

@@ -31,16 +31,14 @@ export class Hud {
     this.lastPips = -1;
     this.lastLoad = '';
     this.kingHpEl = document.getElementById('king-hp-fill');
-    this.queenHpEl = document.getElementById('queen-hp-fill');
     this.lastScore = -1;
     this.lastCoins = -1;
     this.lastWave = -1;
     this.lastArmy = -1;
     this.lastNext = -1;
   }
-  set(coins, wave, army, nextIn, goal, res, score, kingFrac, queenFrac, level, cap) {
+  set(coins, wave, army, nextIn, goal, res, score, kingFrac, level, cap) {
     this.score = score;
-    if (queenFrac !== undefined) this.queenHpEl.style.width = `${Math.max(0, Math.min(1, queenFrac)) * 100}%`;
     if (res) this.setLoad(res, cap);
     if (kingFrac !== undefined) this.kingHpEl.style.width = `${Math.max(0, Math.min(1, kingFrac)) * 100}%`;
     const n = Math.max(0, Math.ceil(nextIn));
@@ -203,7 +201,8 @@ export class Hud {
     const on = !!text;
     if (on && el.textContent !== text) el.textContent = text;
     if (on !== !el.classList.contains('hidden')) el.classList.toggle('hidden', !on);
-    document.getElementById('queen-hp').classList.toggle('hit', on);
+    // the alarm flashes the bar that does move, which is the King's
+    document.getElementById('king-hp').classList.toggle('hit', on);
   }
   showNextWave(show) {
     this.nextBtn.classList.toggle('hidden', !show);
