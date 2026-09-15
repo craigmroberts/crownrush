@@ -734,6 +734,7 @@ export const EnemiesMethods = {
   freeQueen() {
     const q = this.queen;
     q.captive = false;
+    this.refreshPads();          // pads held back until the rescue can appear now
     q.hp = q.maxHp;
     setHealthBar(q.bar, 1);
     tmp.copy(q.mesh.position).setY(1.0);

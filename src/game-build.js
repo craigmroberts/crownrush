@@ -26,6 +26,9 @@ export const BuildMethods = {
       const okReq = (def.requires || []).every((id) => this.built[id]);
       if (!okReq) continue;
       if (def.minLevel && this.baseLevel < def.minLevel) continue;
+      // some pads have nothing to say until the Queen is home: showing them shut from the first
+      // frame teaches nothing and adds a mat to walk over
+      if (def.afterRescue && this.queen.captive) continue;
       if (def.maxBuys && (this.buyCount[def.id] || 0) >= def.maxBuys) continue;
       this.addPad(def);
       added++;
@@ -447,6 +450,21 @@ export const BuildMethods = {
   },
 
   // Keep level needed before a recruit pad can add its units; null if it can recruit now
+  // Why this mat will not take your coin, in a sentence, naming the thing to go and do.
+  lockReason(pad, locked) {
+    const name = this.padName(pad.def);
+    if (locked === 'rescue') {
+      return this.queen.taken
+        ? `${name} is shut until the Queen is home. Cut off her escort and bring her back.`
+        : `${name} is shut until the Queen is free. Follow the pink arrow and clear her guards.`;
+    }
+    if (pad.def.units) {
+      const t = pad.def.units.type === 'archer' ? 'archers' : 'swordsmen';
+      return `Your army is full: Keep level ${locked} is needed for more ${t}. Pay coin into the Keep to raise it.`;
+    }
+    return `${name} needs Keep level ${locked}. Pay coin into the Keep to raise it.`;
+  },
+
   padLocked(def) {
     if (!def.units) return null;
     const wanted = this.unitCount(def.units.type) + def.units.count;
@@ -515,6 +533,19 @@ export const BuildMethods = {
         pad.active = inside;
         pad.locked = locked;
         this.drawPad(pad);
+      }
+      // #38: a shut mat says what it wants if you stand on it. The strip on the mat has room for
+      // three words; this is where the rest of the sentence goes, and only for someone who waited
+      // long enough to be actually asking.
+      if (inside && locked) {
+        pad.lockT = (pad.lockT || 0) + dt;
+        if (pad.lockT > 1.1 && !pad.lockSaid) {
+          pad.lockSaid = true;
+          this.hud.toast(this.lockReason(pad, locked), 4200);
+        }
+      } else {
+        pad.lockT = 0;
+        pad.lockSaid = false;
       }
       // coins pour faster the longer the King stands on the pad, so big purchases don't drag
       pad.holdT = inside ? (pad.holdT || 0) + dt : 0;
