@@ -2,6 +2,7 @@ import { Game } from './game.js';
 import { Hud } from './hud.js';
 import { audio } from './audio.js';
 import { preloadRigs, renderPortrait, releasePortraitRenderer } from './rig.js';
+import { preloadProps } from './props.js';
 import { preloadIcons, mountIcons, iconSvg } from './icons.js';
 
 const canvas = document.getElementById('game');
@@ -27,7 +28,14 @@ const setLoad = (frac, text) => {
 };
 setLoad(0.05, 'Loading…');
 const RIGS = ['king', 'queen', 'king_mounted', 'archer', 'swordsman', 'raider', 'elite', 'brute', 'boss'];
-Promise.all([preloadIcons(), document.fonts ? document.fonts.ready : Promise.resolve(), preloadRigs(RIGS, (n, total) => setLoad(0.1 + (0.85 * n) / total, `Loading ${n} of ${total}…`))]).then(() => {
+// Imported buildings. They are loaded here rather than on demand because a pad builds its structure
+// synchronously, and a ghost preview appears before that: both need the model already in hand.
+const PROPS = ['hut'];
+Promise.all([
+  preloadIcons(),
+  document.fonts ? document.fonts.ready : Promise.resolve(),
+  preloadRigs(RIGS, (n, total) => setLoad(0.1 + (0.85 * n) / total, `Loading ${n} of ${total}…`)).then(() => preloadProps(PROPS)),
+]).then(() => {
   game.pads.forEach((p) => game.drawPad(p));
   // the title portraits come from the rigs that just loaded
   try {

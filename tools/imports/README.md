@@ -24,6 +24,13 @@ clusters named for what he carries:
     --parts 12 --roles skin,blue,boot,white,white,skin,gold,blue,steel,steel,steel,steel \
     --carve boot>hair:0.80:0.40
 
+A building has no rig and no palette, so it stops after the bake. It does need to stand at the size
+the procedural one was built at, which is what `--height` is for: the Archery Range comes out
+3.23 x 2.60 on the ground against the built hut's 3.4 x 2.6.
+
+    blender -b -P tools/blender/bake_vertex_colors.py -- tools/imports/meshy-hut-8k.glb \
+        tools/imports/hut-baked.glb --height 4.4
+
 Royals bake to vertex colours (no `--parts`), because they keep their texture detail and are drawn on
 their own. Everyone the crowd draws bakes to flat named materials instead, because a part in the crowd
 palette IS a material, and that is what the rank and veteran tints recolour.

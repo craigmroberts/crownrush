@@ -8,6 +8,7 @@ import { pickOffer } from './upgrades.js';
 import {
   makeKing, makeKeep, makeResourceCube, makeArcher, makeSwordsman, makeCoin, makeHut, makeTower, makeBarracks, makeWallSegment, makeGate, makeRubble, makeBridge, makePad, drawPad, ghostify, makeHealthBar, setHealthBar, makeBank, makeGatePost,
 } from './models.js';
+import { makeProp } from './props.js';
 import { V3, HAIR, plural, PAD_STYLE, rand } from './game-shared.js';
 
 export const BuildMethods = {
@@ -144,7 +145,17 @@ export const BuildMethods = {
   makeStructureMesh(kind, level = 1) {
     const m = this.materialName();
     if (kind === 'bank') return makeBank();
-    if (kind === 'hut') return makeHut(m);
+    if (kind === 'hut') {
+      // The generated cabin if it is loaded, the built one if it is not, exactly as the characters
+      // fall back. The chimney is where world.addSmoker hangs the smoke, so the import has to say
+      // where its own is; the built hut sets the same userData.
+      const p = makeProp('hut', CFG.structureTint[m]);
+      if (p) {
+        p.userData.chimney = new THREE.Vector3(0.6, 3.4, -0.5);
+        return p;
+      }
+      return makeHut(m);
+    }
     if (kind === 'keep') return makeKeep(m);
     if (kind === 'tower') return makeTower(level, m);
     if (kind === 'barracks') return makeBarracks(m);

@@ -162,6 +162,17 @@ export const CFG = {
 
   // Wall materials, in upgrade order. Named for what you actually mine, so "stone walls" means the
   // walls are made of the stone you carried to the Keep.
+  // Imported buildings are generated in one material (the Archery Range is a log cabin), so until
+  // there is a generated version per village material they are recoloured to follow the walls.
+  // Wood is the art as it came; the rest push its hue over while keeping its own light and shade.
+  // Each colour is that material's own wall from MATERIALS, so an imported building agrees with the
+  // walls and the Keep standing around it rather than being a fourth guess at "stone".
+  structureTint: {
+    wood: null,
+    stone: { color: 0x9aa0a8, amount: 0.8 },
+    iron: { color: 0x5b626c, amount: 0.85 },
+    diamond: { color: 0xbde6f2, amount: 0.8 },
+  },
   wallLevels: [
     { name: 'Wood', hp: 140, gateHp: 220, repair: 6 },
     { name: 'Stone', hp: 360, gateHp: 520, repair: 12 },
