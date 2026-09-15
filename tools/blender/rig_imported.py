@@ -1,7 +1,7 @@
 """Fit our skeleton to a model from somewhere else, so our animations drive it.
 
     blender -b -P tools/blender/rig_imported.py -- baked.glb out.glb [--rig public/models/king.glb]
-                                                  [--preview p.png] [--measure-only]
+                                                  [--preview p.png] [--measure-only] [--no-arms]
 
 The game plays Idle, Walk and Attack from one seven-bone rig that every character shares, which is
 what keeps a crowd cheap. A model generated elsewhere has no bones at all. This takes the rig and the
@@ -16,6 +16,14 @@ joints, not its own.
 Where the joints are is measured off the mesh, not assumed: slice it horizontally, and read the crotch
 off the highest slice where the legs are still two separate masses, the neck off the narrowest slice
 under the head, and the shoulders off the step out into the arms.
+
+Arms are where the measurement gives up most often, because a held weapon, a wide skirt or a head
+broader than the shoulders all read as an arm. Check the --measure-img, and when it is wrong set them
+by eye: --arm-x how far out the arm is, --arm-z the shoulder it hangs from, --arm-r how thick,
+--arm-drop how far down the arm reaches below the shoulder, --arm-blend how softly it hands over to
+the body. --no-arms leaves the arms on the spine, which is the answer for a model whose arms are
+welded to its torso: the shared clips swing an arm as far as 143 degrees, and geometry with no gap at
+the shoulder tears open rather than swings.
 """
 import sys, os, math
 import numpy as np
@@ -37,6 +45,20 @@ PREVIEW = flag("--preview", "")
 # reading the numbers off the --measure-img.
 ARM_X = flag("--arm-x", 0.0, float)
 ARM_R = flag("--arm-r", 0.0, float)
+# How far below the shoulder the arm capsule reaches, as a fraction of the figure's height. The
+# default suits a sleeve that stops at the elbow, which is what a gown or a tabard gives you. Bare
+# arms hanging at the hip run much further down, and a capsule that stops at the elbow binds the top
+# of the arm to the bone and leaves the forearm and the fist on the body: the walk then tears the arm
+# in half and stretches the gap into a sheet. Read the drop off the --measure-img and pass it here.
+ARM_DROP = flag("--arm-drop", 0.26, float)
+# The shoulder the arm bone hangs from. Measured as the largest width step below the neck, which is
+# right until the head is wider than the shoulders -- on a stylised figure with a big head it often
+# is -- and the step then lands at the jaw and the arm swings from above its own shoulder.
+ARM_Z = flag("--arm-z", 0.0, float)
+# How softly the arm hands over to the body, as a fraction of the anatomy band. Tight is right for a
+# character built as separate parts, where there is a real gap at the shoulder. On one continuous
+# welded shell there is no gap, and a tight hand-over tears the shoulder open at the end of the swing.
+ARM_BLEND = flag("--arm-blend", 0.35, float)
 # A mounted character is a different skeleton: four horse legs that carry the gait, a horse head that
 # bobs, a body, and a rider sitting on it. The humanoid rules cannot describe it, so --mounted places
 # and weights those bones instead. The rider's own legs never move in any mounted clip, so they ride
@@ -184,6 +206,17 @@ print("measured: height %.3f, crotch %.3f (%.0f%%), legs at x %.3f, shoulders %.
          a["neck"], 100 * (a["neck"] - a["z0"]) / a["H"]))
 print("  arm measured as its own run: half width %.3f, %d runs across the body at that height"
       % (a["r_arm"], a["arm_runs"]))
+# Overrides land here, on the measurement itself, so the bone and the weights that follow both use
+# them. Applying --arm-x further down moved only the weighting capsule and left the bone where the
+# measurement had put it, which on an archer was out on his bow: the arm then swung about a point
+# beside his body and tore off at the shoulder, while every printed number said it was fine.
+if ARM_X:
+    a["arm_x"] = ARM_X
+if ARM_Z:
+    a["shoulder"] = ARM_Z
+if ARM_X or ARM_Z:
+    print("  overridden: arms at x %.3f, shoulders %.3f (%.0f%%)"
+          % (a["arm_x"], a["shoulder"], 100 * (a["shoulder"] - a["z0"]) / a["H"]))
 MEASURE_IMG = flag("--measure-img", "")
 if MEASURE_IMG:
     # the occupancy grid with the landmarks drawn on it, so a wrong reading is obvious at a glance
@@ -347,14 +380,12 @@ y = co[:, 1]
 # The capsule starts a little BELOW the shoulder. Reaching all the way up to it caught the bodice,
 # which is continuous with the sleeve there, and the swing then dragged the side of the gown out into
 # a sheet. The top of the sleeve stays with the body, which is also where it barely moves.
-zc = np.clip(z, a["shoulder"] - 0.26 * a["H"], a["shoulder"] - 0.06 * a["H"])
-if ARM_X:
-    a["arm_x"] = ARM_X
+zc = np.clip(z, a["shoulder"] - ARM_DROP * a["H"], a["shoulder"] - 0.06 * a["H"])
 r_arm = max(1e-3, (ARM_R if ARM_R else a["r_arm"] * 1.35))
 d_arm = np.sqrt((np.abs(x) - a["arm_x"]) ** 2 + y ** 2 + (z - zc) ** 2)
 # a tight blend on the arm. A wide one leaves vertices half on the bone and half on the body, and the
 # swing then stretches the geometry between them into a ribbon instead of moving the arm as one piece
-arm_band = band * 0.35
+arm_band = band * ARM_BLEND
 armness = ramp((r_arm + arm_band - d_arm) / (2 * arm_band)) * (1 - legness) * (1 - headness)
 if NO_ARMS:
     armness = np.zeros_like(armness)
@@ -380,7 +411,8 @@ body.matrix_parent_inverse = arm.matrix_world.inverted()
 mod = body.modifiers.new("Armature", "ARMATURE")
 mod.object = arm
 total = sum(w for w in weights.values())
-print("arm capsule radius %.3f around x=%.3f" % (r_arm, a["arm_x"]))
+print("arm capsule radius %.3f around x=%.3f, reaching %.3f below the shoulder"
+      % (r_arm, a["arm_x"], ARM_DROP * a["H"]))
 print("bound by anatomy: " + ", ".join("%s %d" % (n, int((w > 1e-4).sum())) for n, w in weights.items()))
 print("  %d of %d vertices carry no weight" % (int((total < 1e-4).sum()), len(co)))
 

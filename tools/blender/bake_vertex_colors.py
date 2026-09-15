@@ -1,6 +1,8 @@
 """Bake a textured model's colours into vertex colours, and stand it where our characters stand.
 
     blender -b -P tools/blender/bake_vertex_colors.py -- in.glb out.glb [--height 2.0] [--preview p.png]
+    blender -b -P tools/blender/bake_vertex_colors.py -- in.glb out.glb --parts 10 --roles boot,skin,...
+                                                        [--carve boot>hair:0.80:0.40]
 
 Why: the game draws every character with one shared material and per-vertex colours, which is what
 lets a hundred of them cost the GPU almost nothing. A model from an outside tool arrives with its own
@@ -40,6 +42,17 @@ PARTS = flag("--parts", 0, int)
 # pink, and the rank tint would then have painted the trim colour over the whole body. Repeats are
 # allowed and merge into one part, which is what a part is in the crowd shader anyway.
 ROLES = [r for r in flag("--roles", "").split(",") if r]
+# --carve boot>hair:0.80:0.40 takes the faces of the part named boot that sit above 80% of the
+# figure's height and within 40% of the way out from its centre line, and makes them a part called
+# hair instead. Clustering can only see colour, and on this art the hair, the boots and the wooden
+# bow are all one brown: one part. That is fine until the game tints it, because the archer's hair
+# is tinted per soldier so a crowd is not one man repeated, and tinting the brown would have taken
+# his boots and his bow with it. Where a part is on the body is the thing colour cannot tell you.
+CARVES = []
+for spec in [c for c in flag("--carve", "").split(",") if c]:
+    src_dst, zmin, rmax = spec.split(":")
+    src, dst = src_dst.split(">")
+    CARVES.append((src, dst, float(zmin), float(rmax)))
 # the builder's own palette, linear as it defines it. Only used to NAME a cluster after the role whose
 # colour it is nearest; the colour itself comes from the model.
 ROLES_LINEAR = {
@@ -157,6 +170,15 @@ if PARTS:
     fy = np.clip((face_uv[:, 1] % 1.0) * h, 0, h - 1).astype(np.int32)
     face_col = tex[fy, fx]
     cents, lab = kmeans(face_col, min(PARTS, len(me.polygons)))
+    # Where each cluster sits on the figure, printed beside its colour. Colour alone cannot tell you
+    # whether a brown cluster is the hair, the boots or a bow, and that is exactly what you need to
+    # know to name it: a part the game tints must not quietly include something that should not move.
+    fc = np.empty(len(me.polygons) * 3, np.float64)
+    me.polygons.foreach_get("center", fc)
+    fc = fc.reshape(-1, 3)
+    z0, z1 = float(fc[:, 2].min()), float(fc[:, 2].max())
+    zf = (fc[:, 2] - z0) / max(1e-9, z1 - z0)
+    rf = np.abs(fc[:, 0]) / max(1e-9, np.abs(fc[:, 0]).max())
     role_lin = np.array([ROLES_LINEAR[r] for r in ROLES_LINEAR], np.float64)
     role_names = list(ROLES_LINEAR)
     used = {}
@@ -174,7 +196,10 @@ if PARTS:
                 name += "2"
         if name in mat_slot:
             slot_of[int(ci)] = mat_slot[name]                     # merge into the part already made
-            print("  part %-10s %5d faces  (merged)" % (name, int((lab == ci).sum())))
+            m = lab == ci
+            print("  part %-10s %5d faces  (merged)   height %.2f-%.2f  off-centre %.2f"
+                  % (name, int(m.sum()), float(np.percentile(zf[m], 2)),
+                     float(np.percentile(zf[m], 98)), float(rf[m].mean())))
             continue
         mat = bpy.data.materials.new(name)
         if mat.name != name:
@@ -188,9 +213,29 @@ if PARTS:
         me.materials.append(mat)
         mat_slot[name] = len(me.materials) - 1
         slot_of[int(ci)] = mat_slot[name]
-        print("  part %-10s %5d faces  #%02x%02x%02x" % (name, int((lab == ci).sum()),
-              *(int(round(v * 255)) for v in srgb(c))))
+        m = lab == ci
+        print("  part %-10s %5d faces  #%02x%02x%02x  height %.2f-%.2f  off-centre %.2f"
+              % (name, int(m.sum()), *(int(round(v * 255)) for v in srgb(c)),
+                 float(np.percentile(zf[m], 2)), float(np.percentile(zf[m], 98)), float(rf[m].mean())))
     idx = np.array([slot_of[int(l)] for l in lab], np.int32)
+    for src, dst, zmin, rmax in CARVES:
+        if src not in mat_slot:
+            sys.exit("--carve names %r, which is not one of the parts: %s" % (src, ", ".join(mat_slot)))
+        m = (idx == mat_slot[src]) & (zf > zmin) & (rf < rmax)
+        if not m.any():
+            sys.exit("--carve %s>%s:%s:%s selects no face" % (src, dst, zmin, rmax))
+        c = face_col[m].mean(axis=0)
+        mat = bpy.data.materials.new(dst)
+        mat.use_nodes = True
+        bs = mat.node_tree.nodes["Principled BSDF"]
+        bs.inputs["Base Color"].default_value = (float(c[0]), float(c[1]), float(c[2]), 1.0)
+        bs.inputs["Roughness"].default_value = 0.85
+        bs.inputs["Metallic"].default_value = 0.0
+        mat.diffuse_color = (float(c[0]), float(c[1]), float(c[2]), 1.0)
+        me.materials.append(mat)
+        idx[m] = len(me.materials) - 1
+        print("  carved %-10s %5d faces  #%02x%02x%02x  out of %s"
+              % (dst, int(m.sum()), *(int(round(v * 255)) for v in srgb(c)), src))
     me.polygons.foreach_set("material_index", idx)
     for a in list(me.color_attributes):
         me.color_attributes.remove(a)
