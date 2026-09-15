@@ -184,7 +184,7 @@ function groundTexture() {
 export function buildWorld(scene) {
   const size = CFG.world.size;
   const rand = rng(1337);
-  const world = { river: null, bridges: [], crossings: [], roads: [], foam: [], time: 0, sway: { value: 0 }, flowerSpots: [], focus: new THREE.Vector3() };
+  const world = { river: null, bridges: [], crossings: [], roads: [], fields: [], foam: [], time: 0, sway: { value: 0 }, flowerSpots: [], focus: new THREE.Vector3() };
   setSwayUniform(world.sway);
 
   // ---- ground ----
@@ -292,6 +292,25 @@ export function buildWorld(scene) {
       world.crossings.push({ roadId: road.id, x: p.x, z: p.z, dx: dir.x, dz: dir.y });
     }
   });
+  // #45: straw is cut off a field rather than off a node mesh, so the field is what has to show the
+  // work. Turning the instance count down takes stalks out from all over the plot -- they are written
+  // in shuffled order for exactly this -- and turning it back up puts them back as the node regrows.
+  // A cut field keeps a tenth of its crop so the plot still reads as a field rather than as bare soil.
+  world.cutField = (x, z, frac) => {
+    let best = null;
+    let bd = 8;
+    for (const f of world.fields) {
+      const d = Math.hypot(f.x - x, f.z - z);
+      if (d < bd) { bd = d; best = f; }
+    }
+    if (!best || !best.crop) return;
+    const k = 0.1 + 0.9 * Math.max(0, Math.min(1, frac));
+    if (Math.abs(k - best.cut) < 0.01) return;
+    best.cut = k;
+    const n = Math.round(best.crop.full * k);
+    for (const part of best.crop.parts) part.count = n;
+  };
+
   // roads grow out from the village when revealed
   world.revealRoad = (id) => {
     const r = world.roads.find((r) => r.id === id);
@@ -388,6 +407,7 @@ export function buildWorld(scene) {
   for (const f of MAP.fields) {
     const field = makeWheatField(f.size[0], f.size[1]);
     field.position.set(f.pos[0], 0, f.pos[1]);
+    world.fields.push({ x: f.pos[0], z: f.pos[1], crop: field.userData.crop, cut: 1 });
     scenery.add(field);
     for (let i = 0; i < 2; i++) {
       const h = makeHayBale();

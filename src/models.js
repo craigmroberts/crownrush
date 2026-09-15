@@ -1223,20 +1223,27 @@ export function makeWheatField(w, d) {
   const m = new THREE.Matrix4();
   const q = new THREE.Quaternion();
   const sc = new THREE.Vector3();
+  // #45: the field is cut by lowering the instance count, so the order the stalks are written in is
+  // the order they are taken in. Written row by row, a harvested field would peel away from one edge
+  // like a bad haircut; shuffled, it thins evenly across the whole plot the way a reaped field does.
+  const cells = [];
+  for (let r = 0; r < rows; r++) for (let k = 0; k < per; k++) cells.push([r, k]);
+  for (let a = cells.length - 1; a > 0; a--) {
+    const b = Math.floor(Math.random() * (a + 1));
+    [cells[a], cells[b]] = [cells[b], cells[a]];
+  }
   let i = 0;
-  for (let r = 0; r < rows; r++) {
-    for (let k = 0; k < per; k++) {
-      const x = -w / 2 + 0.5 + r * 0.7 + (Math.random() - 0.5) * 0.2;
-      const z = -d / 2 + 0.4 + k * 0.5 + (Math.random() - 0.5) * 0.2;
-      const h = 0.85 + Math.random() * 0.3;
-      q.setFromEuler(new THREE.Euler(0, Math.random() * Math.PI, (Math.random() - 0.5) * 0.15));
-      sc.set(1, h, 1);
-      m.compose(new THREE.Vector3(x, 0, z), q, sc);
-      stalks.setMatrixAt(i, m);
-      heads.setMatrixAt(i, m);
-      leaves.setMatrixAt(i, m);
-      i++;
-    }
+  for (const [r, k] of cells) {
+    const x = -w / 2 + 0.5 + r * 0.7 + (Math.random() - 0.5) * 0.2;
+    const z = -d / 2 + 0.4 + k * 0.5 + (Math.random() - 0.5) * 0.2;
+    const h = 0.85 + Math.random() * 0.3;
+    q.setFromEuler(new THREE.Euler(0, Math.random() * Math.PI, (Math.random() - 0.5) * 0.15));
+    sc.set(1, h, 1);
+    m.compose(new THREE.Vector3(x, 0, z), q, sc);
+    stalks.setMatrixAt(i, m);
+    heads.setMatrixAt(i, m);
+    leaves.setMatrixAt(i, m);
+    i++;
   }
   stalks.count = heads.count = leaves.count = i;
   stalks.castShadow = true;
@@ -1251,6 +1258,8 @@ export function makeWheatField(w, d) {
       g.add(post);
     }
   }
+  // what the harvest turns down, and how many stalks a full field is
+  g.userData.crop = { parts: [stalks, heads, leaves], full: i };
   return bake(g);
 }
 

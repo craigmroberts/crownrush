@@ -448,7 +448,9 @@ export const ViewMethods = {
   },
 
   setNodeLook(n) {
-    if (n.type === 'straw') return;
+    // #45: straw has no node mesh -- it is cut off the wheat field it stands on -- so the field
+    // thins out instead, and fills back in as the node regrows.
+    if (n.type === 'straw') return this.world.cutField(n.pos.x, n.pos.z, n.stock / n.max);
     const f = 0.45 + 0.55 * (n.stock / n.max);
     n.mesh.scale.setScalar(f);
   },
