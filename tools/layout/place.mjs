@@ -12,7 +12,7 @@
 // inside the wall it belongs to, and every pad within reach of the building it belongs to.
 import { MAP, TIERS, PADS } from '../../src/config.js';
 
-const SIZE = { bank: [3.46, 3.46], barracks: [7.68, 7.96], hut: [5.58, 4.49], keep: [6.02, 5.38], tower: [2.50, 3.32], house: [4.6, 4.0] };
+const SIZE = { bank: [3.46, 3.46], barracks: [7.68, 7.96], hut: [5.58, 4.49], keep: [6.02, 5.38], tower: [2.50, 3.32], house: [4.03, 3.71] };
 const PAD = 3.6;
 const CLEAR = MAP.roadClear;
 const RING = TIERS.find((t) => t.ring).ring;

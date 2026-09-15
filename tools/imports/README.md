@@ -46,6 +46,17 @@ import inherited the same mistake until someone stood in the doorway.
     blender -b -P tools/blender/bake_vertex_colors.py -- tools/imports/meshy-barracks-8k.glb \
         tools/imports/barracks-tex.glb --texture 1024 --height 9.0
 
+    blender -b -P tools/blender/bake_vertex_colors.py -- tools/imports/meshy-house-8k.glb \
+        tools/imports/house-tex.glb --texture 1024 --height 5.3
+
+The villager home's 5.3 was found rather than guessed, and the way to find it is worth keeping. Its
+chimney is the tallest thing on it and carries about a third of the total height, so sizing by the
+overall number would have made the house itself far too small. Instead: bake at any height, render an
+orthographic elevation of it beside a building whose door is already right, and compare the two doors
+at the same scale. At 8.0 its door came out 2.47 units against the Archery Range's 1.65; 8.0 x
+1.65/2.47 is 5.3, and at 5.3 the doors match to within 2%. The footprint that falls out, 4.0 x 3.7,
+is what tools/layout/check.mjs is told.
+
 Size by the building, then check the footprint against the plot. A generated building often brings a
 yard with it -- the barracks has a training dummy, hay bales and a weapon rack -- so its bounds can
 be twice the building's. The barracks came out 7.7 x 8.0 against the built hall's 4.2 x 3.0, which no
