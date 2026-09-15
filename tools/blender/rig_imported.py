@@ -37,6 +37,13 @@ PREVIEW = flag("--preview", "")
 # reading the numbers off the --measure-img.
 ARM_X = flag("--arm-x", 0.0, float)
 ARM_R = flag("--arm-r", 0.0, float)
+# A mounted character is a different skeleton: four horse legs that carry the gait, a horse head that
+# bobs, a body, and a rider sitting on it. The humanoid rules cannot describe it, so --mounted places
+# and weights those bones instead. The rider's own legs never move in any mounted clip, so they ride
+# with his spine and only his arms and head are treated separately.
+MOUNTED = "--mounted" in args
+if MOUNTED:
+    args.remove("--mounted")
 NO_ARMS = "--no-arms" in args    # let the arms ride with the body: right for a gown, where a swung
 if NO_ARMS:                      # arm drags the skirt with it however the weights are scoped
     args.remove("--no-arms")
@@ -219,6 +226,33 @@ arm.matrix_world = Matrix.Identity(4)
 print("rig from %s: %d bones, clips %s" % (os.path.basename(RIG_FROM), len(arm.data.bones),
       [t.name for t in (arm.animation_data.nla_tracks if arm.animation_data else [])]))
 
+if MOUNTED:
+    # measure the horse: the legs are thin columns, the barrel above them is not, so the height where
+    # the slice suddenly holds many more vertices is the belly
+    zc_, yc_, xc_ = co[:, 2], co[:, 1], co[:, 0]
+    z0m, z1m = float(zc_.min()), float(zc_.max())
+    Hm = z1m - z0m
+    NS = 120
+    idxm = np.clip(((zc_ - z0m) / Hm * NS).astype(int), 0, NS - 1)
+    counts = np.array([int((idxm == i).sum()) for i in range(NS)])
+    # Look for the jump only where a belly can plausibly be. Searching from the floor finds the hooves,
+    # which are chunky enough to look like a body and put the belly at a tenth of the figure's height,
+    # leaving everything but the feet welded to the barrel.
+    base = max(1.0, float(np.median(counts[int(NS * 0.10): int(NS * 0.22)])))
+    belly = z0m + 0.32 * Hm
+    for i in range(int(NS * 0.22), int(NS * 0.48)):
+        if counts[i] > base * 2.5:
+            belly = z0m + (i + 0.5) / NS * Hm
+            break
+    belly = float(flag("--belly", belly, float))
+    y_lo, y_hi = float(yc_.min()), float(yc_.max())
+    saddle = z0m + 0.52 * Hm          # where the rider begins, as a share of a mounted figure's height
+    neck_r = z0m + 0.74 * Hm          # the rider's neck
+    shoulder_r = z0m + 0.70 * Hm
+    head_front = y_lo + (y_hi - y_lo) * 0.22     # the horse's head and neck are the forward mass
+    print("mounted: height %.2f, belly %.2f (%.0f%%), saddle %.2f, y %.2f..%.2f"
+          % (Hm, belly, 100 * (belly - z0m) / Hm, saddle, y_lo, y_hi))
+
 bpy.ops.object.select_all(action="DESELECT")
 bpy.context.view_layer.objects.active = arm
 arm.select_set(True)
@@ -239,6 +273,29 @@ place = {
 # sideways and tearing at the shoulder instead of swinging forward. The new bones point the same way
 # as the old ones, so the original roll still means the same thing.
 rolls = {b.name: b.roll for b in eb}
+if MOUNTED:
+    # the horse's four legs sit under the four corners of the barrel; front is -Y
+    leg_x = (float(np.percentile(np.abs(co[co[:, 2] < belly][:, 0]), 70)) if (co[:, 2] < belly).any()
+             else 0.1 * Hm)
+    front_y = y_lo + (y_hi - y_lo) * 0.30
+    back_y = y_lo + (y_hi - y_lo) * 0.72
+    place = {
+        "horse":   ((0, (y_lo + y_hi) / 2, belly + 0.12 * Hm), (0, y_lo + (y_hi - y_lo) * 0.25, belly + 0.12 * Hm)),
+        "hhead":   ((0, head_front + 0.06 * Hm, belly + 0.22 * Hm), (0, y_lo, belly + 0.30 * Hm)),
+        "hleg.FL": ((leg_x, front_y, belly), (leg_x, front_y, z0m + 0.02 * Hm)),
+        "hleg.FR": ((-leg_x, front_y, belly), (-leg_x, front_y, z0m + 0.02 * Hm)),
+        "hleg.BL": ((leg_x, back_y, belly), (leg_x, back_y, z0m + 0.02 * Hm)),
+        "hleg.BR": ((-leg_x, back_y, belly), (-leg_x, back_y, z0m + 0.02 * Hm)),
+        "root":    ((0, 0, saddle), (0, 0, saddle + 0.04 * Hm)),
+        "spine":   ((0, 0, saddle + 0.04 * Hm), (0, 0, neck_r)),
+        "head":    ((0, 0, neck_r), (0, 0, z1m)),
+        "arm.L":   ((0.16 * Hm, 0, shoulder_r), (0.16 * Hm, 0, shoulder_r - 0.10 * Hm)),
+        "arm.R":   ((-0.16 * Hm, 0, shoulder_r), (-0.16 * Hm, 0, shoulder_r - 0.10 * Hm)),
+        "leg.L":   ((0.10 * Hm, 0, saddle), (0.10 * Hm, 0, saddle - 0.06 * Hm)),
+        "leg.R":   ((-0.10 * Hm, 0, saddle), (-0.10 * Hm, 0, saddle - 0.06 * Hm)),
+    }
+    print("  horse legs at x %.2f, front y %.2f, back y %.2f" % (leg_x, front_y, back_y))
+
 for name, (head, tail) in place.items():
     b = eb.get(name)
     if b is None:
@@ -258,6 +315,27 @@ co = np.empty(len(me.vertices) * 3, np.float32)
 me.vertices.foreach_get("co", co)
 co = co.reshape(-1, 3)
 x, z = co[:, 0], co[:, 2]
+if MOUNTED:
+    y = co[:, 1]
+    mid_y = (y_lo + y_hi) / 2
+    weights = {}
+    below = z < belly                                   # everything under the barrel is leg
+    for nm, sx, fwd in (("hleg.FL", 1, True), ("hleg.FR", -1, True), ("hleg.BL", 1, False), ("hleg.BR", -1, False)):
+        side = (x > 0) if sx > 0 else (x <= 0)
+        half = (y < mid_y) if fwd else (y >= mid_y)
+        weights[nm] = (below & side & half).astype(np.float64)
+    rider = z >= saddle
+    horse_head = (~below) & (~rider) & (y < head_front)
+    weights["hhead"] = horse_head.astype(np.float64)
+    weights["horse"] = ((~below) & (~rider) & (~horse_head)).astype(np.float64)
+    headness_r = np.clip((z - neck_r) / (0.04 * Hm), 0, 1) * rider
+    weights["head"] = headness_r
+    weights["spine"] = (rider.astype(np.float64) - headness_r).clip(0, 1)
+    weights["arm.L"] = np.zeros(len(co))                # mounted arms only move in Attack; leaving them
+    weights["arm.R"] = np.zeros(len(co))                # on the spine costs that swing and nothing else
+    weights["leg.L"] = np.zeros(len(co))
+    weights["leg.R"] = np.zeros(len(co))
+    weights["root"] = np.zeros(len(co))
 band = 0.05 * a["H"]
 ramp = lambda t: np.clip(t, 0.0, 1.0)
 legness = ramp((a["crotch"] + band - z) / (2 * band))
@@ -282,11 +360,12 @@ if NO_ARMS:
     armness = np.zeros_like(armness)
 spineness = np.clip(1.0 - legness - headness - armness, 0.0, 1.0)
 right = x > 0
-weights = {
-    "leg.L": legness * right, "leg.R": legness * ~right,
-    "arm.L": armness * right, "arm.R": armness * ~right,
-    "head": headness, "spine": spineness,
-}
+if not MOUNTED:
+    weights = {
+        "leg.L": legness * right, "leg.R": legness * ~right,
+        "arm.L": armness * right, "arm.R": armness * ~right,
+        "head": headness, "spine": spineness,
+    }
 for g in list(body.vertex_groups):
     body.vertex_groups.remove(g)
 for name, w in weights.items():
