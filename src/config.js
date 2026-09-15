@@ -168,7 +168,10 @@ export const CFG = {
   regen: { delay: 4, perSecond: 3 },
 
   // pads only take payment once you STOP on them (or hold for a moment), so walking past costs nothing
-  spend: { tick: 0.07, fastTick: 0.022, crewTick: 0.28, padRadius: 1.7, arm: 0.25, walkHold: 0.8 },
+  // showRadius: how close before a build mat fades up out of the grass. The field reads better with
+  // them hidden, but a mat nobody can see is a thing nobody builds, so a pad that has only just
+  // appeared shows itself for showNew seconds wherever you are.
+  spend: { tick: 0.07, fastTick: 0.022, crewTick: 0.28, padRadius: 1.7, arm: 0.25, walkHold: 0.8, showRadius: 10, showNew: 7 },
 
   arrow: { speed: 30, life: 2.0 },
 

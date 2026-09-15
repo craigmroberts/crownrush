@@ -48,7 +48,7 @@ export const BuildMethods = {
     mesh.position.set(def.pos[0], 0.03, def.pos[1]);
     mesh.scale.setScalar(0.01);
     this.root.add(mesh);
-    const pad = { def, mesh, canvas, tex, cost: this.padCost(def), paid: 0, ghosts: [], res: Object.entries(def.res || {}).map(([type, need]) => ({ type, need, paid: 0 })) };
+    const pad = { def, mesh, canvas, tex, cost: this.padCost(def), paid: 0, ghosts: [], bornAt: this.time, fade: 0, res: Object.entries(def.res || {}).map(([type, need]) => ({ type, need, paid: 0 })) };
     // ghost previews: units on the pad, structures where they'd be built, wall outlines along the edge
     if (def.units) {
       for (let i = 0; i < def.units.count; i++) {
@@ -535,7 +535,17 @@ export const BuildMethods = {
       const s = pad.mesh.scale.x;
       if (s < 1) pad.mesh.scale.setScalar(Math.min(1, s + dt * 4));
       else if (s > 1) pad.mesh.scale.setScalar(Math.max(1, s - dt * 0.8));
-      const inside = kp.distanceTo(pad.mesh.position) < CFG.spend.padRadius;
+      const dist = kp.distanceTo(pad.mesh.position);
+      // Mats fade up as you come near and sink back into the grass behind you: eleven of them
+      // standing on the field at once is what made the village look like a car park. A pad you are
+      // paying into stays up however far you drift, and a brand new one shows itself for a few
+      // seconds wherever you are, because otherwise the only clue it exists is a toast.
+      const show = dist < CFG.spend.showRadius || pad.active || this.time - pad.bornAt < CFG.spend.showNew;
+      pad.fade += ((show ? 1 : 0) - pad.fade) * Math.min(1, dt * 7);
+      pad.mesh.visible = pad.fade > 0.02;
+      pad.mesh.material.opacity = pad.fade;
+      for (const g of pad.ghosts) g.visible = pad.fade > 0.4;
+      const inside = dist < CFG.spend.padRadius;
       // #9: no pad can be paid until the Queen is free. They stay visible so the player can see what
       // the village will offer, but they are plainly shut.
       const locked = this.queen.captive ? 'rescue' : this.padLocked(pad.def);
