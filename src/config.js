@@ -205,31 +205,41 @@ export const MAP = {
     bridgeRadius: 6.5, // no river collision this close to a bridge centre
   },
   roads: [
-    { id: 'south', points: [[0, -4], [0, 8], [1, 20], [1, 32], [1, 49], [3, 62], [12, 80], [22, 96]] },
-    { id: 'east', points: [[-6, 2], [11, 1.5], [24, 2], [36, 3.8], [53, 3], [66, 0], [80, -14], [96, -30]] },
-    { id: 'west', points: [[-18, 4], [-22, 4], [-34, 4], [-50, 6], [-64, 2], [-80, -10], [-96, -20]] },
-    { id: 'north', points: [[2, -18], [2, -24], [2, -40], [8, -58], [16, -76], [22, -96]] },
+    // Four tracks out of the castle, one per gate, straight until they are clear of the outer wall
+    // and only then wandering. They used to start at odd offsets from a village that was laid out
+    // along its north edge, and crossed the new walls at an angle instead of running through them.
+    { id: 'south', points: [[0, 4], [0, 14], [0, 24], [0, 36], [1, 49], [3, 62], [12, 80], [22, 96]] },
+    { id: 'east', points: [[4, 0], [14, 0], [24, 0], [38, 0], [53, 3], [66, 0], [80, -14], [96, -30]] },
+    { id: 'west', points: [[-4, 0], [-14, 0], [-24, 0], [-38, 0], [-50, 6], [-64, 2], [-80, -10], [-96, -20]] },
+    { id: 'north', points: [[0, -4], [0, -14], [0, -24], [0, -38], [2, -52], [8, -68], [16, -82], [22, -96]] },
   ],
   roadWidth: 4.2,
   fields: [{ pos: [35, 19], size: [10, 7] }, { pos: [-20, 25], size: [8, 6] }, { pos: [10, 62], size: [10, 8] },
     // the settlement's own farmland, west of the core inside the expanded wall
-    { pos: [-18, 0], size: [8, 8] }, { pos: [-16, 10], size: [7, 7] }],
+    { pos: [-19, 6], size: [9, 8] }, { pos: [-17, 15], size: [8, 6] }],
 };
 
 // Village tiers. The village starts as tier 0 and each "Expand Village" pad moves it up one.
 // Walls are generated around `bounds`; `gates` lists the gap on each side (along that side's axis).
-// The village is a ring around the castle, not a box: one wall running right round it with a gate
-// on each of the four sides, and each expansion a wider ring. `bounds` is just the ring's bounding
-// box, kept because the fog, the raid spawner and the scenery placer all want a rectangle.
+// Two shapes, as the plan has them. The first wall is a ring: the citadel, tight around the castle
+// with the four central towers inside it. Everything after that is a rectangle thrown round the
+// whole settlement -- farmland, workshops, homes and all. `bounds` is the ring's bounding box in the
+// first case and the wall itself in the others; the fog, the raid spawner and the scenery placer all
+// want a rectangle either way. Every wall has a gate on each of the four sides.
 const ring = (x, z, r, sectionLen) => ({
   ring: { x, z, r },
   bounds: { x0: x - r, x1: x + r, z0: z - r, z1: z + r },
   sectionLen,
 });
+const box = (x0, x1, z0, z1, sectionLen) => ({
+  bounds: { x0, x1, z0, z1 },
+  gates: { north: [-2.5, 2.5], south: [-2.5, 2.5], east: [-2.5, 2.5], west: [-2.5, 2.5] },
+  sectionLen,
+});
 export const TIERS = [
-  ring(0, 0, 17, 4.4),
-  ring(0, 0, 25, 4.6),
-  ring(0, 0, 35, 4.8),
+  ring(0, 0, 13, 4.2),
+  box(-26, 26, -20, 20, 4.4),
+  box(-36, 36, -28, 28, 4.8),
 ];
 
 // Build pads. `requires` are ids that must have been built at least once; `minLevel` is the Keep level
@@ -243,36 +253,36 @@ const T = (id, tier, pos, cost, buildAt) => ({ id, tier, pos, cost, icon: 'tower
 const W = (id, tier, pos, cost, side, label) => ({ id, tier, pos, cost, icon: 'wall', label, requires: [tier === 1 ? 'expand1' : 'expand2'], wall: { tier, side }, desc: 'Walls this side of the new plot. Raiders must break through.' });
 export const PADS = [
   // ---- tier 0: the starting plot (28 x 22) ----
-  { id: 'exchange', tier: 0, pos: [11.3, 2.9], cost: 8, afterRescue: true, icon: 'gold', label: 'Trade Post', structure: 'bank', buildAt: [11.5, -2], desc: 'Sell what you have mined. Until it stands there is nowhere to turn a heap into coin.', toast: 'Trade Post built! Bring your bag here to sell.' },
-  { id: 'range', tier: 0, pos: [-11.5, 1.5], cost: 5, icon: 'bow', label: 'Archery Range', structure: 'hut', buildAt: [-11.5, -3], desc: 'Lets you recruit archers.', toast: 'Archery Range built! Recruit archers.' },
-  { id: 'recruit', tier: 0, pos: [-11.5, 1.5], cost: 5, growth: 1, icon: 'archer', label: '+2 Archers', requires: ['range'], repeatable: true, units: { type: 'archer', count: 2 }, desc: 'Two archers join the King. The Keep level caps how many you can have.' },
-  { id: 'train', tier: 0, pos: [-7.9, 1.5], cost: 12, growth: 8, maxBuys: 5, icon: 'arrows', label: 'Train Archers', requires: ['recruit'], repeatable: true, effect: 'archerPower', desc: 'Every archer, now and later: +25% damage and +20% health per level.', toast: 'Archers trained: +25% damage, +20% health' },
+  { id: 'exchange', tier: 0, pos: [17.5, 1.5], cost: 8, afterRescue: true, icon: 'gold', label: 'Trade Post', structure: 'bank', buildAt: [17.5, -3], desc: 'Sell what you have mined. Until it stands there is nowhere to turn a heap into coin.', toast: 'Trade Post built! Bring your bag here to sell.' },
+  { id: 'range', tier: 0, pos: [-18, 1], cost: 5, icon: 'bow', label: 'Archery Range', structure: 'hut', buildAt: [-18, -4], desc: 'Lets you recruit archers.', toast: 'Archery Range built! Recruit archers.' },
+  { id: 'recruit', tier: 0, pos: [-18, 1], cost: 5, growth: 1, icon: 'archer', label: '+2 Archers', requires: ['range'], repeatable: true, units: { type: 'archer', count: 2 }, desc: 'Two archers join the King. The Keep level caps how many you can have.' },
+  { id: 'train', tier: 0, pos: [-14.4, 1], cost: 12, growth: 8, maxBuys: 5, icon: 'arrows', label: 'Train Archers', requires: ['recruit'], repeatable: true, effect: 'archerPower', desc: 'Every archer, now and later: +25% damage and +20% health per level.', toast: 'Archers trained: +25% damage, +20% health' },
   { id: 'keep', tier: 0, pos: [0, 5.4], cost: 25, icon: 'keep', label: 'Royal Keep', requires: ['range'], structure: 'keep', buildAt: [0, 0], desc: 'Shelters the Queen. Feed it materials to level up your whole kingdom.', toast: 'The Queen is safe in the Keep. Feed it wood and stone to level up!' },
   { ...T('tower-0-ne', 0, [9.4, -9.4], 20, [5.6, -5.6]), requires: ['recruit'] },
   { ...T('tower-0-nw', 0, [-9.4, -9.4], 20, [-5.6, -5.6]), requires: ['recruit'] },
   { ...T('tower-0-se', 0, [9.4, 9.4], 20, [5.6, 5.6]), requires: ['recruit'] },
   { ...T('tower-0-sw', 0, [-9.4, 9.4], 20, [-5.6, 5.6]), requires: ['recruit'] },
-  { id: 'palisade', tier: 0, pos: [-2, 9], cost: 20, icon: 'wall', label: 'Palisade', requires: ['recruit'], wall: { tier: 0, side: 'all' }, desc: 'A wooden wall around the plot with two gates. Upgrades to brick, stone and iron as the Keep levels.', toast: 'Palisade raised. Raiders must break through!' },
-  { id: 'crew-gates1', tier: 0, pos: [-5.6, -11], crew: 4, icon: 'shield', label: 'Gate Guards', requires: ['palisade'], posts: true, postTier: 0, desc: 'Four archers take posts beside the gates.', toast: 'Archers now watch the gates from their posts.' },
-  { id: 'expand1', tier: 0, pos: [2, 12], cost: 60, minLevel: 2, icon: 'expand', label: 'Expand Village', requires: ['palisade', 'keep'], effect: 'expand', desc: 'Grows the village onto a bigger plot with new pads, towers and the barracks.', toast: 'The village grows! Wall the new ground.' },
-  { id: 'stable', tier: 0, pos: [-5.6, 11], cost: 25, icon: 'horse', label: 'Warhorse', requires: ['keep'], effect: 'horse', desc: 'The King rides: much faster around the map.', toast: 'The King rides! Much faster now.' },
+  { id: 'palisade', tier: 0, pos: [-3.6, 10], cost: 20, icon: 'wall', label: 'Palisade', requires: ['recruit'], wall: { tier: 0, side: 'all' }, desc: 'A wooden wall around the plot with two gates. Upgrades to brick, stone and iron as the Keep levels.', toast: 'Palisade raised. Raiders must break through!' },
+  { id: 'crew-gates1', tier: 0, pos: [-5.8, -10], crew: 4, icon: 'shield', label: 'Gate Guards', requires: ['palisade'], posts: true, postTier: 0, desc: 'Four archers take posts beside the gates.', toast: 'Archers now watch the gates from their posts.' },
+  { id: 'expand1', tier: 0, pos: [4, 12], cost: 60, minLevel: 2, icon: 'expand', label: 'Expand Village', requires: ['palisade', 'keep'], effect: 'expand', desc: 'Grows the village onto a bigger plot with new pads, towers and the barracks.', toast: 'The village grows! Wall the new ground.' },
+  { id: 'stable', tier: 0, pos: [-7.3, 13], cost: 25, icon: 'horse', label: 'Warhorse', requires: ['keep'], effect: 'horse', desc: 'The King rides: much faster around the map.', toast: 'The King rides! Much faster now.' },
   { id: 'bridge-south', tier: 0, pos: [1, 44], cost: 30, icon: 'bridge', label: 'South Bridge', requires: ['palisade'], bridge: 'south', desc: 'Crosses the river: new land to mine, and new directions raiders can come from.', toast: 'Bridge built. New lands, and new raiders, across the river.' },
   { id: 'bridge-east', tier: 0, pos: [47, 3], cost: 30, icon: 'bridge', label: 'East Bridge', requires: ['palisade'], bridge: 'east', desc: 'Crosses the river: new land to mine, and new directions raiders can come from.', toast: 'Bridge built. New lands, and new raiders, across the river.' },
 
   // ---- tier 1 ----
-  W('wall2-south', 1, [-2, 19], 25, 'south', 'South Wall'),
-  W('wall2-east', 1, [20, -2], 25, 'east', 'East Wall'),
-  W('wall2-west', 1, [-20, 6], 25, 'west', 'West Wall'),
-  W('wall2-north', 1, [-2, -19], 25, 'north', 'North Wall'),
+  W('wall2-south', 1, [6, 17], 25, 'south', 'South Wall'),
+  W('wall2-east', 1, [22, 0], 25, 'east', 'East Wall'),
+  W('wall2-west', 1, [-23, -4], 25, 'west', 'West Wall'),
+  W('wall2-north', 1, [0, -16], 25, 'north', 'North Wall'),
   { id: 'crew-gates2', tier: 1, pos: [2, 13], crew: 6, icon: 'shield', label: 'Gate Guards', requires: ['wall2-south', 'wall2-east', 'wall2-west'], posts: true, postTier: 1, desc: 'Six archers take posts beside the new gates.', toast: 'Archers now watch the new gates.' },
   { ...T('tower-1-nw', 1, [-18, -9], 25, [-20.6, -11.6]), requires: ['expand1'] },
   { ...T('tower-1-ne', 1, [20, -9], 25, [22.6, -11.6]), requires: ['expand1'] },
   { ...T('tower-1-sw', 1, [-18, 16], 25, [-20.6, 18.6]), requires: ['expand1'] },
   { ...T('tower-1-se', 1, [13.5, 17.5], 25, [22.6, 18.6]), requires: ['expand1'] },
-  { id: 'barracks', tier: 1, pos: [13, 8.5], cost: 40, minLevel: 3, icon: 'swords', label: 'Barracks', requires: ['expand1'], structure: 'barracks', buildAt: [17, 4], desc: 'Lets you recruit swordsmen.', toast: 'Barracks built! Recruit swordsmen.' },
-  { id: 'recruit-sword', tier: 1, pos: [13.9, 9.8], cost: 8, growth: 2, icon: 'swordsman', label: '+2 Swordsmen', requires: ['barracks'], repeatable: true, units: { type: 'swordsman', count: 2 }, desc: 'Two swordsmen: tough melee fighters who charge whatever comes near the King.' },
-  { id: 'crown', tier: 1, pos: [-16.5, -1], cost: 35, growth: 25, maxBuys: 3, icon: 'crown', label: 'Royal Guard', requires: ['expand1'], repeatable: true, effect: 'kinghp', desc: 'King max HP +80 and a full heal.', toast: 'King max HP +80 and fully healed' },
-  { id: 'expand2', tier: 1, pos: [6, 13], cost: 150, minLevel: 6, icon: 'expand', label: 'Expand Village', requires: ['wall2-south', 'wall2-east', 'wall2-west', 'wall2-north', 'crew-gates2'], effect: 'expand', desc: 'The biggest plot: outer walls, four more towers and veteran archers.', toast: 'The kingdom grows again!' },
+  { id: 'barracks', tier: 1, pos: [18, 14.5], cost: 40, minLevel: 3, icon: 'swords', label: 'Barracks', requires: ['expand1'], structure: 'barracks', buildAt: [18, 9], desc: 'Lets you recruit swordsmen.', toast: 'Barracks built! Recruit swordsmen.' },
+  { id: 'recruit-sword', tier: 1, pos: [18.3, 14.8], cost: 8, growth: 2, icon: 'swordsman', label: '+2 Swordsmen', requires: ['barracks'], repeatable: true, units: { type: 'swordsman', count: 2 }, desc: 'Two swordsmen: tough melee fighters who charge whatever comes near the King.' },
+  { id: 'crown', tier: 1, pos: [-17.5, -13], cost: 35, growth: 25, maxBuys: 3, icon: 'crown', label: 'Royal Guard', requires: ['expand1'], repeatable: true, effect: 'kinghp', desc: 'King max HP +80 and a full heal.', toast: 'King max HP +80 and fully healed' },
+  { id: 'expand2', tier: 1, pos: [9, 14], cost: 150, minLevel: 6, icon: 'expand', label: 'Expand Village', requires: ['wall2-south', 'wall2-east', 'wall2-west', 'wall2-north', 'crew-gates2'], effect: 'expand', desc: 'The biggest plot: outer walls, four more towers and veteran archers.', toast: 'The kingdom grows again!' },
 
   // ---- tier 2 ----
   W('wall3-south', 2, [0, 26], 50, 'south', 'South Wall'),

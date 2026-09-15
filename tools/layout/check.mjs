@@ -67,9 +67,12 @@ for (let i = 0; i < items.length; i++) {
     bad++;
   }
 }
-// corner towers straddle the wall on purpose; nothing else may cross it
+// The first wall is the citadel: a ring round the castle, which the town is meant to stand outside
+// of. What has to contain everything is the settlement wall, so that is what buildings are judged
+// against. Corner towers straddle their own wall on purpose.
+const TOWN = TIERS.find((t) => !t.ring)?.bounds || TIERS[TIERS.length - 1].bounds;
 for (const t of [0, 1]) {
-  const B = TIERS[t].bounds;
+  const B = TOWN;
   for (const it of items.filter((i) => i.t === t && !i.pad && i.kind !== 'tower')) {
     const out = [];
     if (it.x - it.w / 2 < B.x0) out.push('west');

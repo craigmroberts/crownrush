@@ -230,7 +230,8 @@ export const BuildMethods = {
     // and had nothing to say about a wall that bends.
     if (def.posts) {
       const y = CFG.gatePost.height + 0.08;
-      const c = TIERS[def.postTier ?? def.tier].ring;
+      const T = TIERS[def.postTier ?? def.tier];
+      const c = T.ring || { x: (T.bounds.x0 + T.bounds.x1) / 2, z: (T.bounds.z0 + T.bounds.z1) / 2 };
       const out = [];
       for (const sec of this.wallSections(def.postTier ?? def.tier, 'all')) {
         if (!sec.gate) continue;
@@ -768,10 +769,54 @@ export const BuildMethods = {
     return 'north';
   },
 
-  // The ring, cut into segments: a regular polygon with enough sides that it reads as a circle, and
-  // the segment nearest each of the four compass points turned into a gate. A section is a pair of
-  // endpoints now rather than an axis and an offset, which is what lets the wall bend.
+  // A section is a pair of endpoints, whatever shape the wall is, so everything downstream -- the
+  // mesh, the collision, the rubble, the repair mat -- works the same for a ring and a rectangle.
+  section(tier, id, wall, x0, z0, x1, z1, gate) {
+    return {
+      id: `${tier}-${id}`, tier, wall, gate,
+      x0, z0, x1, z1, mx: (x0 + x1) / 2, mz: (z0 + z1) / 2,
+      len: Math.hypot(x1 - x0, z1 - z0), ang: Math.atan2(z1 - z0, x1 - x0),
+    };
+  },
+
   wallSections(tier, side) {
+    return TIERS[tier].ring ? this.ringSections(tier, side) : this.boxSections(tier, side);
+  },
+
+  // The outer walls: four straight sides with a gateway in the middle of each, which is what the
+  // roads run through. This is the shape the village had before the citadel ring was added, rebuilt
+  // to hand back the same endpoint-pair sections the ring does.
+  boxSections(tier, side) {
+    const t = TIERS[tier];
+    const b = t.bounds;
+    const sides = side === 'all' ? ['south', 'east', 'north', 'west'] : [side];
+    const out = [];
+    for (const name of sides) {
+      const alongX = name === 'south' || name === 'north';
+      const fixed = name === 'south' ? b.z1 : name === 'north' ? b.z0 : name === 'east' ? b.x1 : b.x0;
+      const from = alongX ? b.x0 : b.z0;
+      const to = alongX ? b.x1 : b.z1;
+      const gate = t.gates[name];
+      const spans = gate ? [[from, gate[0]], [gate[1], to]] : [[from, to]];
+      let idx = 0;
+      const push = (a0, a1, isGate) => {
+        const p0 = alongX ? [a0, fixed] : [fixed, a0];
+        const p1 = alongX ? [a1, fixed] : [fixed, a1];
+        out.push(this.section(tier, `${name}-${idx++}`, name, p0[0], p0[1], p1[0], p1[1], isGate));
+      };
+      spans.forEach((span, si) => {
+        const len = span[1] - span[0];
+        const n = Math.max(1, Math.round(len / t.sectionLen));
+        for (let i = 0; i < n; i++) push(span[0] + (len * i) / n, span[0] + (len * (i + 1)) / n, false);
+        if (gate && si === 0) push(gate[0], gate[1], true);
+      });
+    }
+    return out;
+  },
+
+  // The citadel ring, cut into segments: a regular polygon with enough sides that it reads as a
+  // circle, and the segment nearest each of the four compass points turned into a gate.
+  ringSections(tier, side) {
     const t = TIERS[tier];
     const { x: cx, z: cz, r } = t.ring;
     const n = Math.max(12, Math.round((Math.PI * 2 * r) / t.sectionLen));
@@ -789,12 +834,7 @@ export const BuildMethods = {
       const mz = (z0 + z1) / 2;
       const wall = this.wallSideOf(Math.atan2(mz - cz, mx - cx));
       if (side !== 'all' && wall !== side) continue;
-      out.push({
-        id: `${tier}-${i}`, tier, wall, gate: gateAt.has(i),
-        x0, z0, x1, z1, mx, mz,
-        len: Math.hypot(x1 - x0, z1 - z0),
-        ang: Math.atan2(z1 - z0, x1 - x0),
-      });
+      out.push(this.section(tier, i, wall, x0, z0, x1, z1, gateAt.has(i)));
     }
     return out;
   },
@@ -832,14 +872,17 @@ export const BuildMethods = {
       this.rebuildWall(w, this.wallLevel, i * 0.07);
       this.walls.push(w);
     });
-    // once a full outer ring stands, the old inner wall is torn down for materials
+    // Once a full outer wall stands, the one it replaced comes down for materials -- but the citadel
+    // is not one of those. It is the ring around the castle and it is meant to stand inside every
+    // wall that goes up after it, which is a second line to fight on rather than a leftover.
     const sides = ['south', 'east', 'north', 'west'];
     const complete = sides.every((s) => this.walls.some((w) => w.tier === tier && w.wall === s));
-    if (complete && this.walls.some((w) => w.tier < tier)) {
-      for (const w of this.walls.filter((w) => w.tier < tier)) this.root.remove(w.mesh);
-      this.walls = this.walls.filter((w) => w.tier >= tier);
-      for (const def of [...this.dynamicPads]) if (def.repair && def.repair.tier < tier) this.removePadDef(def);
-      this.hud.toast('Old inner wall torn down.', 1600);
+    const spent = (w) => w.tier < tier && !TIERS[w.tier].ring;
+    if (complete && this.walls.some(spent)) {
+      for (const w of this.walls.filter(spent)) this.root.remove(w.mesh);
+      this.walls = this.walls.filter((w) => !spent(w));
+      for (const def of [...this.dynamicPads]) if (def.repair && spent(def.repair)) this.removePadDef(def);
+      this.hud.toast('The old outer wall is torn down for materials.', 1600);
     }
   },
 
@@ -980,7 +1023,8 @@ export const BuildMethods = {
     this.root.add(w.mesh);
     this.hud.toast(w.gate ? 'The gate is down!' : 'A wall section has fallen!', 1600);
     // a repair pad appears just inside the gap, on the line back to the middle of the ring
-    const c = TIERS[w.tier].ring;
+    const T = TIERS[w.tier];
+    const c = T.ring || { x: (T.bounds.x0 + T.bounds.x1) / 2, z: (T.bounds.z0 + T.bounds.z1) / 2 };
     const ix = c.x - w.mx;
     const iz = c.z - w.mz;
     const il = Math.hypot(ix, iz) || 1;
