@@ -192,6 +192,7 @@ export class Game {
     this.bestScore = Number(localStorage.getItem('crownrush-best-score') || 0);
     this.mineTimer = 0;
     this.nodes = [];
+    this.piles = [];        // what has been mined and is lying on the ground waiting to be carried
     this.chips = [];
     this.fx = [];
     this.alarmT = 0;
@@ -274,6 +275,14 @@ export class Game {
       if (def.type !== 'straw' && open) this.root.add(mesh);
       this.nodes.push({ type: def.type, mesh, stock: def.stock, max: def.stock, regrow: 0, from, open, pos: new V3(def.pos[0], 0, def.pos[1]) });
     }
+    // The trade post stands from the first minute. It cannot be something you build, because until
+    // it exists there is nowhere to turn a mined pile into coin, and mining would be worth nothing.
+    const post = this.makeStructureMesh('bank');
+    post.position.set(CFG.trade.pos[0], 0, CFG.trade.pos[1]);
+    post.rotation.y = Math.PI * 0.12;
+    this.root.add(post);
+    this.tradePost = post;
+
     // world roads/bridges are scene-level: reset them
     for (const r of this.world.roads) {
       r.revealed = false;
@@ -332,7 +341,7 @@ export class Game {
     this.refreshPads();
     this.hud.showNextWave(false);
     this.hud.hidePadTip();
-    this.hud.set(this.coinsCarried, 1, 0, null, `0/${CFG.finale.level}`, this.res, 0, 1, 1, 0);
+    this.hud.set(this.coinsCarried, 1, 0, null, `0/${CFG.finale.level}`, this.res, 0, 1, 1, 0, this.loadCap());
     this.hud.setCoinTier(this.coinTier());
     this.hud.setIndicators([]);
   }
@@ -518,6 +527,8 @@ export class Game {
       this.updateEnemies(dt);
       this.updateArrows(dt);
       this.updateCoins(dt);
+      this.updatePiles(dt);
+      this.updateTrade(dt);
       this.updatePads(dt);
       this.updateWaves(dt);
       this.updateFog(dt);
@@ -541,7 +552,7 @@ export class Game {
       this.hud.setHorn(!this.queen.captive || this.queen.taken, this.hornT / CFG.horn.cooldown, this.hornT);
       this.hud.setCoinTier(this.coinTier());
       this.hud.setMaterials(Object.keys(CFG.base.materialAt).filter((m) => this.baseLevel >= CFG.base.materialAt[m]).concat('straw'));
-      this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, this.finaleOpen ? 'camp' : `${this.baseLevel}/${CFG.finale.level}`, this.res, this.score, this.king.hp / this.king.maxHp, this.queen.hp / this.queen.maxHp, this.baseLevel);
+      this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, this.finaleOpen ? 'camp' : `${this.baseLevel}/${CFG.finale.level}`, this.res, this.score, this.king.hp / this.king.maxHp, this.queen.hp / this.queen.maxHp, this.baseLevel, this.loadCap());
       this.updateIndicators(dt);
     }
     this.world.focus.copy(this.king.mesh.position);

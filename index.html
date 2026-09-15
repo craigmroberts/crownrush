@@ -57,16 +57,15 @@
             <div id="queen-hp" class="bar-row"><i data-icon="tiara" data-size="16"></i><div class="track"><div id="queen-hp-fill"></div></div></div>
           </div>
         </button>
-        <button class="tb-right" id="carry-rail" title="What you are carrying (K)">
-          <div id="res-hud" class="carry">
-            <span data-key="army" title="Army"><i data-icon="archer" data-size="20"></i><b id="army-count">0</b></span>
-            <span data-key="wood" title="Wood"><i data-icon="wood" data-size="20"></i><b id="res-wood">0</b></span>
-            <span data-key="straw" title="Straw"><i data-icon="straw" data-size="20"></i><b id="res-straw">0</b></span>
-            <span data-key="stone" class="hidden" title="Stone"><i data-icon="stone" data-size="20"></i><b id="res-stone">0</b></span>
-            <span data-key="iron" class="hidden" title="Iron"><i data-icon="iron" data-size="20"></i><b id="res-iron">0</b></span>
-            <span data-key="diamond" class="hidden" title="Diamond"><i data-icon="diamond" data-size="20"></i><b id="res-diamond">0</b></span>
+        <!-- Coin is the only currency, so the only counts left are the army and what he is carrying.
+             The load is a bar, not five numbers: what matters is how full he is, and the mix shows
+             as coloured segments without asking anyone to read them. -->
+        <button class="tb-right" id="carry-rail" title="Your load and your army (K)">
+          <span class="stat"><i data-icon="archer" data-size="20"></i><b id="army-count">0</b></span>
+          <div class="load">
+            <div class="load-track" id="load-track"></div>
+            <div class="load-num"><b id="load-now">0</b><span id="load-cap">/18</span></div>
           </div>
-          <span id="carry-more" class="more hidden"></span>
         </button>
       </div>
       <!-- lanes 2 and 3: the countdown and the alarm each own a band under the plaques, so neither

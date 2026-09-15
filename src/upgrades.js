@@ -5,6 +5,7 @@
 // can avoid showing three variations of the same idea.
 
 export const MODS = {
+  carryBonus: 0,
   archerDamage: 1,
   archerHp: 1,
   archerRange: 1,
@@ -44,7 +45,8 @@ export const UPGRADES = [
   // ---- economy ----
   { id: 'lodestone', pool: 'economy', icon: 'coin', name: 'Lodestone', desc: 'Coins are pulled to you from much further away.', max: 2, apply: mul('pickup', 1.8) },
   { id: 'plunder', pool: 'economy', icon: 'coin', name: 'Plunder', desc: 'Every raider you kill drops an extra coin.', max: 3, apply: add('coinBonus', 1) },
-  { id: 'sharp-tools', pool: 'economy', icon: 'hammer', name: 'Sharp Tools', desc: 'You mine wood, stone and straw 45% faster.', max: 2, apply: mul('mineSpeed', 1.45) },
+  { id: 'sharp-tools', pool: 'economy', icon: 'hammer', name: 'Sharp Tools', desc: 'You mine 45% faster.', max: 2, apply: mul('mineSpeed', 1.45) },
+  { id: 'packhorse', pool: 'economy', icon: 'horse', name: 'Packhorse', desc: 'Carry 8 more before you have to sell at the trade post.', max: 3, apply: add('carryBonus', 1) },
 
   // ---- the King ----
   { id: 'swift', pool: 'king', icon: 'horse', name: 'Swift', desc: 'The King moves 20% faster on foot and mounted.', max: 3, apply: mul('kingSpeed', 1.2) },

@@ -36,24 +36,11 @@ export const CFG = {
   // The Keep is the base. Materials you mine go ONLY into the Keep; each level unlocks more.
   base: {
     maxLevel: 15,
-    // materials needed to reach the NEXT level, indexed by the current level (level 0 = no keep yet)
-    levels: [
-      null,
-      { wood: 10 }, // 1 -> 2   timber age
-      { wood: 14, straw: 4 },
-      { wood: 18, straw: 6 }, // 3 -> 4  unlocks stone
-      { stone: 10, wood: 8 }, // 4 -> 5   stone age
-      { stone: 14, wood: 10, straw: 6 },
-      { stone: 18, wood: 12, straw: 8 },
-      { stone: 24, wood: 14, straw: 10 }, // 7 -> 8  unlocks iron
-      { iron: 10, stone: 12 }, // 8 -> 9   iron age
-      { iron: 14, stone: 16, straw: 10 },
-      { iron: 18, stone: 20, straw: 12 },
-      { iron: 24, stone: 24, straw: 14 }, // 11 -> 12  unlocks diamond
-      { diamond: 8, iron: 14 }, // 12 -> 13  diamond age
-      { diamond: 12, iron: 18, stone: 20 },
-      { diamond: 16, iron: 24, stone: 26 },
-    ],
+    // Coin to reach the NEXT level, indexed by the current level (level 0 = no keep yet). These are
+    // the old material lists priced at CFG.materials rates, then smoothed so a level never costs
+    // less than the one before it: the old dips were the material TYPE getting harder, and type no
+    // longer means anything now that everything sells for coin.
+    levelCost: [null, 20, 36, 48, 60, 88, 112, 144, 185, 230, 285, 350, 430, 530, 660],
     // how many archers / swordsmen the Keep supports at each level (tower crews count as archers)
     archers: [4, 6, 9, 12, 15, 18, 22, 26, 30, 34, 38, 42, 46, 50, 54, 60],
     swordsmen: [0, 0, 0, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 30],
@@ -70,6 +57,26 @@ export const CFG = {
   },
 
   mining: { radius: 2.8, tick: 0.55, regrow: 9 },
+
+  // What each material is worth and what it costs you to get. Coin is the only currency now: the
+  // materials are a journey to it, not a second ledger. Harder rock takes longer per swing and pays
+  // more per unit, so the far seams are worth the walk without being required for anything -- which
+  // is what keeps the map optional rather than gated.
+  materials: {
+    wood:    { mine: 0.45, coin: 2,  name: 'Wood' },
+    straw:   { mine: 0.40, coin: 2,  name: 'Straw' },
+    stone:   { mine: 0.70, coin: 4,  name: 'Stone' },
+    iron:    { mine: 1.00, coin: 9,  name: 'Iron' },
+    diamond: { mine: 1.40, coin: 20, name: 'Diamond' },
+  },
+  // How much he can carry before he has to walk it back. This is what makes the trade post a place
+  // you go rather than a formality, and what gives a trip out to the diamonds something to lose.
+  carry: { base: 18, perUpgrade: 8 },
+  // The trade post: always standing, at the west side of the starting village. Walk into it and
+  // whatever you are carrying becomes coin.
+  trade: { pos: [-8, -7], radius: 3.0 },
+  // how close before a pile tells you what is in it, and how close before he picks it up
+  pile: { showRadius: 7.0, pickRadius: 1.9 },
 
   score: { earlyWavePerSecond: 4, kill: { knight: 10, elite: 25, brute: 20, boss: 200, thief: 40, sapper: 15, archer: 20, shield: 30 }, coin: 1, material: 2, buildPerCoin: 2, buildPerMaterial: 3, soldierPerWave: 2, waveClear: 50, levelUp: 60, rescue: 150, recapture: 90, finale: 1500 },
 
@@ -213,7 +220,8 @@ export const TIERS = [
 
 // Build pads. `requires` are ids that must have been built at least once; `minLevel` is the Keep level
 // a pad needs before it appears. cost = coins; crew = archers taken from your army instead of coins.
-// Materials (wood / stone / straw) only ever feed the Keep (CFG.base). `desc` is shown on the info screen.
+// Everything costs coin. Materials are mined, piled, carried and sold at the trade post; what comes
+// back is coin, and coin is the only thing a pad ever asks for. `desc` is shown on the info screen.
 // `buildAt` is where a structure appears; its pad sits right in front of it (pads for units spawn on the
 // pad). Watchtowers stand in the fort's corners: their pad turns into "man the tower" and then "upgrade"
 // pads on the same spot. Gate Guards get small posts beside each gate.
@@ -224,7 +232,7 @@ export const PADS = [
   { id: 'range', tier: 0, pos: [8.5, -4], cost: 5, icon: 'bow', label: 'Archery Range', structure: 'hut', buildAt: [8.5, -8], desc: 'Lets you recruit archers.', toast: 'Archery Range built! Recruit archers.' },
   { id: 'recruit', tier: 0, pos: [-4, 3], cost: 5, growth: 1, icon: 'archer', label: '+2 Archers', requires: ['range'], repeatable: true, units: { type: 'archer', count: 2 }, desc: 'Two archers join the King. The Keep level caps how many you can have.' },
   { id: 'train', tier: 0, pos: [8.5, -0.5], cost: 12, growth: 8, maxBuys: 5, icon: 'arrows', label: 'Train Archers', requires: ['recruit'], repeatable: true, effect: 'archerPower', desc: 'Every archer, now and later: +25% damage and +20% health per level.', toast: 'Archers trained: +25% damage, +20% health' },
-  { id: 'keep', tier: 0, pos: [1, -4], cost: 15, res: { wood: 6 }, icon: 'keep', label: 'Royal Keep', requires: ['range'], structure: 'keep', buildAt: [1, -8], desc: 'Shelters the Queen. Feed it materials to level up your whole kingdom.', toast: 'The Queen is safe in the Keep. Feed it wood and stone to level up!' },
+  { id: 'keep', tier: 0, pos: [1, -4], cost: 25, icon: 'keep', label: 'Royal Keep', requires: ['range'], structure: 'keep', buildAt: [1, -8], desc: 'Shelters the Queen. Feed it materials to level up your whole kingdom.', toast: 'The Queen is safe in the Keep. Feed it wood and stone to level up!' },
   { ...T('tower-0-ne', 0, [11, -7], 20, [12.6, -9.6]), requires: ['recruit'] },
   { ...T('tower-0-nw', 0, [-11, -7], 20, [-12.6, -9.6]), requires: ['recruit'] },
   { ...T('tower-0-se', 0, [10.5, 6.5], 20, [12.6, 9.6]), requires: ['recruit'] },

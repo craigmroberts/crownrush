@@ -34,6 +34,7 @@ export const BuildMethods = {
   },
 
   padCost(def) {
+    if (def.feed) return this.levelReq() || 0;
     if (def.crew) return def.crew;
     const n = this.buyCount[def.id] || 0;
     return def.cost + (def.growth || 0) * n;
@@ -44,7 +45,7 @@ export const BuildMethods = {
     mesh.position.set(def.pos[0], 0.03, def.pos[1]);
     mesh.scale.setScalar(0.01);
     this.root.add(mesh);
-    const pad = { def, mesh, canvas, tex, cost: this.padCost(def), paid: 0, ghosts: [], res: Object.entries((def.feed ? this.levelReq() : def.res) || {}).map(([type, need]) => ({ type, need, paid: 0 })) };
+    const pad = { def, mesh, canvas, tex, cost: this.padCost(def), paid: 0, ghosts: [], res: Object.entries(def.res || {}).map(([type, need]) => ({ type, need, paid: 0 })) };
     // ghost previews: units on the pad, structures where they'd be built, wall outlines along the edge
     if (def.units) {
       for (let i = 0; i < def.units.count; i++) {
@@ -356,9 +357,19 @@ export const BuildMethods = {
     return CFG.keep.hp + Math.max(0, this.baseLevel - 1) * CFG.keep.hpPerLevel + Math.max(0, tiers) * CFG.keep.materialBonus;
   },
 
-  // ---------- the Keep as the base: feed it materials to level up ----------
+  // ---------- the Keep as the base: pay coin into it to level up ----------
   levelReq() {
-    return CFG.base.levels[this.baseLevel] || null;
+    return CFG.base.levelCost[this.baseLevel] || null;
+  },
+
+  // What he is carrying, and how much of it he can carry. Mining fills a pile on the ground; the
+  // pile fills this; the trade post empties it into coin.
+  loadTotal() {
+    return Object.values(this.res).reduce((a, b) => a + b, 0);
+  },
+
+  loadCap() {
+    return CFG.carry.base + CFG.carry.perUpgrade * (this.mods.carryBonus || 0);
   },
 
   addFeedPad() {
@@ -366,7 +377,7 @@ export const BuildMethods = {
     // a Keep that was not standing, and losing it cost nothing.
     if (!this.keep || this.keep.state !== 'built' || !this.levelReq() || this.feedDef) return;
     // the feed pad sits at the Keep's front door
-    this.feedDef = { id: 'feed', pos: [this.keep.x, this.keep.z + 3.7], cost: 0, icon: 'keep', label: 'Feed the Keep', repeatable: true, feed: true };
+    this.feedDef = { id: 'feed', pos: [this.keep.x, this.keep.z + 3.7], cost: 0, icon: 'keep', label: 'Raise the Keep', repeatable: true, feed: true };
     this.dynamicPads.push(this.feedDef);
     this.refreshPads();
   },

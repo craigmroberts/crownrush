@@ -1,5 +1,9 @@
 import { iconSvg } from './icons.js';
 
+// the load bar's segments, in the order they are mined, painted the materials' own colours
+const LOAD_ORDER = ['wood', 'straw', 'stone', 'iron', 'diamond'];
+const LOAD_COLORS = { wood: '#9a6a3a', straw: '#e9d27a', stone: '#9a9ea3', iron: '#7d8892', diamond: '#8fe8ff' };
+
 export class Hud {
   constructor() {
     this.coinEl = document.getElementById('coin-count');
@@ -19,23 +23,16 @@ export class Hud {
     this.nextBtn = document.getElementById('next-wave-btn');
     this.alarmEl = document.getElementById('alarm');
     this.minimap = document.getElementById('minimap');
-    this.resEls = {};
-    for (const k of ['wood', 'straw', 'stone', 'iron', 'diamond']) this.resEls[k] = document.getElementById(`res-${k}`);
     this.matKey = '';
+    this.loadTrack = document.getElementById('load-track');
+    this.loadNow = document.getElementById('load-now');
+    this.loadCapEl = document.getElementById('load-cap');
     this.levelEl = document.getElementById('keep-level');
     this.pipsEl = document.getElementById('keep-pips');
-    this.carryEl = document.getElementById('res-hud');
     this.carryRail = document.getElementById('carry-rail');
-    this.moreEl = document.getElementById('carry-more');
     this.btnTimeEl = document.getElementById('next-wave-btn-t');
     this.lastPips = -1;
-    // The rail re-fits whenever it or the window changes size. Nothing is ever clipped away: the
-    // chips that do not fit are hidden deliberately and counted on the +n, which opens the sheet.
-    if (window.ResizeObserver) {
-      this.railObs = new ResizeObserver(() => this.fitCarry());
-      this.railObs.observe(this.carryRail);
-    }
-    addEventListener('resize', () => this.fitCarry());
+    this.lastLoad = '';
     this.kingHpEl = document.getElementById('king-hp-fill');
     this.queenHpEl = document.getElementById('queen-hp-fill');
     this.lastScore = -1;
@@ -44,15 +41,10 @@ export class Hud {
     this.lastArmy = -1;
     this.lastNext = -1;
   }
-  set(coins, wave, army, nextIn, goal, res, score, kingFrac, queenFrac, level) {
+  set(coins, wave, army, nextIn, goal, res, score, kingFrac, queenFrac, level, cap) {
     this.score = score;
     if (queenFrac !== undefined) this.queenHpEl.style.width = `${Math.max(0, Math.min(1, queenFrac)) * 100}%`;
-    if (res) {
-      for (const k of Object.keys(this.resEls)) {
-        const el = this.resEls[k];
-        if (el && el.textContent !== String(res[k])) el.textContent = res[k];
-      }
-    }
+    if (res) this.setLoad(res, cap);
     if (kingFrac !== undefined) this.kingHpEl.style.width = `${Math.max(0, Math.min(1, kingFrac)) * 100}%`;
     const n = Math.max(0, Math.ceil(nextIn));
     if (n !== this.lastNext || (nextIn === null) !== this.lastNextNull) {
@@ -91,26 +83,23 @@ export class Hud {
       this.armyEl.textContent = army;
       this.lastArmy = army;
     }
-    this.fitCarry();
   }
 
-  // Priority order, left to right: what is dropped first is what matters least in the moment. A chip
-  // is only ever hidden here, never clipped, and the +n says how many went so nothing vanishes
-  // without a trace the way the old overflow:hidden row did.
-  fitCarry() {
-    if (!this.carryEl) return;
-    const chips = [...this.carryEl.children].filter((c) => !c.classList.contains('hidden'));
-    for (const c of chips) c.classList.remove('over');
-    this.moreEl.classList.add('hidden');
-    const room = () => this.carryRail.clientWidth - 30;
-    if (this.carryEl.scrollWidth <= room()) return;
-    let over = 0;
-    for (let i = chips.length - 1; i > 0 && this.carryEl.scrollWidth > room(); i--) {
-      chips[i].classList.add('over');
-      over++;
-      this.moreEl.classList.remove('hidden');
-      this.moreEl.textContent = `+${over}`;
-    }
+  // One bar for the whole load. The segments are the mix, in mining order, and their colours are the
+  // materials' own -- nobody has to read them for the bar to say "nearly full, go and sell".
+  setLoad(res, cap) {
+    if (!this.loadTrack) return;
+    const total = Object.values(res).reduce((a, b) => a + b, 0);
+    const key = `${total}/${cap}`;
+    if (key === this.lastLoad) return;
+    this.lastLoad = key;
+    this.loadNow.textContent = total;
+    this.loadCapEl.textContent = `/${cap}`;
+    this.carryRail.classList.toggle('full', cap > 0 && total >= cap);
+    this.loadTrack.innerHTML = LOAD_ORDER
+      .filter((k) => res[k] > 0)
+      .map((k) => `<i style="width:${(res[k] / Math.max(cap, total)) * 100}%;background:${LOAD_COLORS[k]}"></i>`)
+      .join('');
   }
   // #29: notices queue rather than overwrite. A playtester missed the one telling him a pad wanted
   // stone, because the next notice replaced it before he had read it. Each one now waits its turn,
@@ -227,16 +216,9 @@ export class Hud {
   showNextWave(show) {
     this.nextBtn.classList.toggle('hidden', !show);
   }
-  // only show materials the Keep can actually use yet
-  setMaterials(list) {
-    const key = list.join(',');
-    if (key === this.matKey) return;
-    this.matKey = key;
-    for (const k of Object.keys(this.resEls)) {
-      const el = this.resEls[k];
-      if (el) el.parentElement.classList.toggle('hidden', !list.includes(k));
-    }
-  }
+  // Nothing to do since the five counters became one load bar: which materials are worth gathering
+  // is said by the world -- the nodes appear when the Keep opens them -- not by the status bar.
+  setMaterials() {}
 
   // #18: the warhorn button. `frac` is cooldown remaining 0..1; hidden until the game is running.
   setHorn(show, frac, secs) {
@@ -282,7 +264,7 @@ export class Hud {
     if (!d.hasKeep) {
       h.push('<p class="ks-h">Not built yet. Stand on the Royal Keep pad in the village.</p>');
     } else if (d.need.length) {
-      h.push(`<p class="ks-h">To reach level ${N}, feed the Keep</p><div class="ks-needs">${d.need.map((n) => {
+      h.push(`<p class="ks-h">To reach level ${N}, pay into the Keep</p><div class="ks-needs">${d.need.map((n) => {
         const state = n.have >= n.need ? 'done' : n.have > 0 ? '' : 'short';
         return `<span class="ks-need ${state}">${iconSvg(n.type, 16)}${Math.min(n.have, n.need)} / ${n.need}</span>`;
       }).join('')}</div>`);

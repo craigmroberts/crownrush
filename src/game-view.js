@@ -251,7 +251,9 @@ export const ViewMethods = {
       if (this.swing <= 0 && this.tool) this.tool.visible = false;
     }
     if (this.mineTimer > 0 || !best) return;
-    this.mineTimer = CFG.mining.tick / this.mods.mineSpeed;
+    // harder rock is slower per swing and pays more per unit: that trade is the only reason to walk
+    // out to the iron and the diamonds now that nothing requires them
+    this.mineTimer = (CFG.materials[best.type] || CFG.mining).mine / this.mods.mineSpeed;
     best.stock--;
     this.setNodeLook(best);
     audio.mine(best.type);
@@ -282,13 +284,130 @@ export const ViewMethods = {
       this.root.add(ch);
       this.chips.push({ mesh: ch, vx: rand(-3, 3), vz: rand(-3, 3), vy: rand(3, 6), t: 0.7, color: chipColor });
     }
-    tmp.copy(best.type === 'straw' ? kp : best.pos).setY(1.2);
-    this.popup(`+1 ${{ wood: '🪵', stone: '🪨', straw: '🌾', iron: '⛏️', diamond: '💎' }[best.type] || ''}`, tmp, '#ffffff', 1.6);
-    const c = makeResourceCube(best.type);
-    c.position.copy(best.pos).setY(1.0);
-    if (best.type === 'straw') c.position.set(kp.x + rand(-2, 2), 0.6, kp.z + rand(-2, 2));
-    this.root.add(c);
-    this.coins.push({ mesh: c, state: 'fly', resType: best.type, t: 0, vx: 0, vz: 0, vy: 0 });
+    this.addToPile(best);
+  },
+
+  // ---------- piles ----------
+  // What comes out of a node lands beside it and stays there. Walking into a pile picks it up, up to
+  // what the King can still carry, so a rich seam is worth more than one trip.
+  addToPile(node) {
+    if (!node.pile) {
+      const g = new THREE.Group();
+      g.position.copy(node.pos);
+      // On the far side of the node from whoever is working it, and outside the mining radius. Both
+      // matter: inside it, the pile is picked up on the frame it appears so it is never seen, and
+      // standing on it to collect would start you mining again instead.
+      const a = Math.atan2(this.king.mesh.position.z - node.pos.z, this.king.mesh.position.x - node.pos.x) + Math.PI;
+      g.position.x += Math.cos(a) * (CFG.mining.radius + 0.9);
+      g.position.z += Math.sin(a) * (CFG.mining.radius + 0.9);
+      this.root.add(g);
+      node.pile = { mesh: g, count: 0, cubes: [] };
+      this.piles.push(node.pile);
+      node.pile.type = node.type;
+    }
+    const p = node.pile;
+    p.count++;
+    // one cube per unit up to a dozen, then the stack just gets taller-looking rather than heavier
+    if (p.cubes.length < 12) {
+      const c = makeResourceCube(p.type);
+      const i = p.cubes.length;
+      const ring = i < 4 ? 0 : i < 9 ? 1 : 2;
+      const a = (i % 4) * (Math.PI / 2) + ring * 0.6;
+      c.position.set(Math.cos(a) * ring * 0.34, 0.18 + ring * 0.3, Math.sin(a) * ring * 0.34);
+      c.scale.setScalar(0.62);
+      c.rotation.y = rand(0, Math.PI);
+      p.mesh.add(c);
+      p.cubes.push(c);
+    }
+    p.bump = 0.25;
+    tmp.copy(p.mesh.position).setY(0.9);
+    this.popup(`+1`, tmp, '#ffffff', 1.2);
+  },
+
+  // The count only shows when he is close enough to care, which is the whole reason the numbers came
+  // off the status bar: the information is at the pile, where you are looking.
+  updatePiles(dt) {
+    const kp = this.king.mesh.position;
+    const cap = this.loadCap();
+    for (let i = this.piles.length - 1; i >= 0; i--) {
+      const p = this.piles[i];
+      if (p.bump > 0) {
+        p.bump = Math.max(0, p.bump - dt);
+        p.mesh.scale.setScalar(1 + p.bump * 0.5);
+      }
+      const d = Math.hypot(kp.x - p.mesh.position.x, kp.z - p.mesh.position.z);
+      const near = d < CFG.pile.showRadius;
+      if (near !== !!p.labelOn) {
+        p.labelOn = near;
+        if (p.label) { this.root.remove(p.label); p.label.material.dispose(); p.label = null; }
+        if (near) {
+          p.label = makePopup(`${p.count} ${CFG.materials[p.type].name}`, '#ffffff');
+          p.label.position.copy(p.mesh.position).setY(1.5);
+          p.label.scale.set(1.9, 0.95, 1);
+          this.root.add(p.label);
+        }
+      } else if (near && p.label && p.labelCount !== p.count) {
+        this.root.remove(p.label);
+        p.label.material.dispose();
+        p.label = makePopup(`${p.count} ${CFG.materials[p.type].name}`, '#ffffff');
+        p.label.position.copy(p.mesh.position).setY(1.5);
+        p.label.scale.set(1.9, 0.95, 1);
+        this.root.add(p.label);
+      }
+      if (near) p.labelCount = p.count;
+      // Close enough to scoop it up, and only as much as he can still carry. Not while the pick is
+      // still swinging: the pile is meant to build up in front of you while you work and be yours
+      // the moment you stop, rather than never existing because it was collected on the same frame.
+      if (d < CFG.pile.pickRadius && p.count > 0) {
+        const room = cap - this.loadTotal();
+        if (room <= 0) {
+          if (this.time - (this.fullAt || 0) > 4) {
+            this.fullAt = this.time;
+            this.hud.toast('You cannot carry any more. Sell at the trade post.', 2600);
+          }
+          continue;
+        }
+        const take = Math.min(room, p.count);
+        p.count -= take;
+        this.res[p.type] += take;
+        audio.coin(0);
+        tmp.copy(p.mesh.position).setY(1.1);
+        this.popup(`+${take}`, tmp, '#ffd23f', 1.5);
+        while (p.cubes.length > Math.min(12, p.count)) {
+          const c = p.cubes.pop();
+          p.mesh.remove(c);
+        }
+      }
+      if (p.count <= 0) {
+        if (p.label) { this.root.remove(p.label); p.label.material.dispose(); }
+        this.root.remove(p.mesh);
+        for (const n of this.nodes) if (n.pile === p) n.pile = null;
+        this.piles.splice(i, 1);
+      }
+    }
+  },
+
+  // ---------- the trade post ----------
+  // Walk in with a load and walk out with coin. This is the only place materials become money, so it
+  // is the only number the HUD has to carry.
+  updateTrade(dt) {
+    const kp = this.king.mesh.position;
+    const d = Math.hypot(kp.x - CFG.trade.pos[0], kp.z - CFG.trade.pos[1]);
+    if (d > CFG.trade.radius || this.loadTotal() <= 0) return;
+    this.tradeTimer = (this.tradeTimer || 0) - dt;
+    if (this.tradeTimer > 0) return;
+    this.tradeTimer = 0.09;
+    // one unit at a time, so it reads as a counter paying out rather than a number jumping
+    const type = Object.keys(this.res).find((k) => this.res[k] > 0);
+    if (!type) return;
+    this.res[type]--;
+    const paid = CFG.materials[type].coin;
+    this.coinsCarried += paid;
+    this.coinsEarned += paid;
+    this.addScore(CFG.score.material);
+    audio.ching();
+    tmp.set(CFG.trade.pos[0], 1.9, CFG.trade.pos[1]);
+    this.popup(`+${paid}`, tmp, '#ffd23f', 1.4);
   },
 
   makeNodeMesh(type) {
@@ -847,10 +966,7 @@ export const ViewMethods = {
     const N = L + 1;
     const req = this.levelReq();
     const feed = this.pads.find((p) => p.def.feed);
-    const need = req ? Object.entries(req).map(([type, n]) => {
-      const row = feed && feed.res.find((r) => r.type === type);
-      return { type, need: n - (row ? row.paid : 0), have: this.res[type] };
-    }).filter((n) => n.need > 0) : [];
+    const need = req ? [{ type: 'gold', need: req - (feed ? feed.paid : 0), have: this.coinsCarried }] : [];
     const unlocks = [];
     if (!this.keep) unlocks.push({ icon: 'keep', text: 'Build the Royal Keep first: feeding it levels up everything else.' });
     else if (req) {
