@@ -1486,6 +1486,76 @@ export class HealthBars {
 
 // ---- damage popup ----
 const popupCache = new Map();
+// A label for something standing in the world, as opposed to a damage number. makePopup draws into a
+// fixed 160px canvas at 54px, which fits "+1" and clips anything with a word in it; this measures the
+// text first, sizes the canvas to it, and puts it on a plaque so it reads as a thing you can act on.
+const tagCache = new Map();
+export function makeTag(text) {
+  if (!tagCache.has(text)) {
+    const pad = 26;
+    const font = 'bold 40px "Trebuchet MS", system-ui, sans-serif';
+    const m = document.createElement('canvas').getContext('2d');
+    m.font = font;
+    const w = Math.ceil(m.measureText(text).width) + pad * 2;
+    const h = 76;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.font = font;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const r = 24;
+    ctx.beginPath();
+    ctx.roundRect(4, 12, w - 8, h - 30, r);
+    ctx.fillStyle = 'rgba(26,32,17,0.82)';
+    ctx.fill();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#d8a83e';
+    ctx.stroke();
+    ctx.fillStyle = '#ffe9b0';
+    ctx.fillText(text, w / 2, h / 2 - 2);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tagCache.set(text, { mat: new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }), aspect: w / h });
+  }
+  const e = tagCache.get(text);
+  const s = new THREE.Sprite(e.mat.clone());
+  s.scale.set(1.15 * e.aspect, 1.15, 1);
+  s.renderOrder = 20;
+  return s;
+}
+
+// A heap of gathered material: a stepped mound in the material's own colour with loose chunks round
+// the foot, so it reads as a pile someone made rather than cubes that happen to be near each other.
+export function makeHeap(type) {
+  const g = new THREE.Group();
+  const col = RES_COLORS[type] || 0xffffff;
+  const m = matFlat(col);
+  const dark = new THREE.MeshStandardMaterial({ color: col, roughness: 0.95, flatShading: true });
+  dark.color.multiplyScalar(0.78);
+  // three courses, narrowing upward
+  const tiers = [[0.92, 0.30, 0.0], [0.64, 0.26, 0.30], [0.34, 0.22, 0.54]];
+  for (const [w, h, y] of tiers) {
+    const b = new THREE.Mesh(new RoundedBoxGeometry(w, h, w, 1, 0.06), y === 0 ? dark : m);
+    b.position.y = y + h / 2;
+    b.rotation.y = y * 2.1;
+    b.castShadow = true;
+    b.receiveShadow = true;
+    g.add(b);
+  }
+  // loose chunks at the foot, so the silhouette is not a neat wedding cake
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 + 0.4;
+    const c = new THREE.Mesh(new RoundedBoxGeometry(0.2, 0.18, 0.2, 1, 0.05), m);
+    c.position.set(Math.cos(a) * 0.56, 0.09, Math.sin(a) * 0.56);
+    c.rotation.y = a;
+    c.castShadow = true;
+    g.add(c);
+  }
+  return g;
+}
+
 export function makePopup(text, color = '#ffffff') {
   const key = text + color;
   if (!popupCache.has(key)) {

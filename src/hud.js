@@ -1,8 +1,5 @@
 import { iconSvg } from './icons.js';
 
-// the load bar's segments, in the order they are mined, painted the materials' own colours
-const LOAD_ORDER = ['wood', 'straw', 'stone', 'iron', 'diamond'];
-const LOAD_COLORS = { wood: '#9a6a3a', straw: '#e9d27a', stone: '#9a9ea3', iron: '#7d8892', diamond: '#8fe8ff' };
 
 export class Hud {
   constructor() {
@@ -85,10 +82,9 @@ export class Hud {
     }
   }
 
-  // One bar for the whole load. The segments are the mix, in mining order, and their colours are the
-  // materials' own -- nobody has to read them for the bar to say "nearly full, go and sell".
+  // The bag: one number against its cap, beside the coin it is on its way to becoming.
   setLoad(res, cap) {
-    if (!this.loadTrack) return;
+    if (!this.loadNow) return;
     const total = Object.values(res).reduce((a, b) => a + b, 0);
     const key = `${total}/${cap}`;
     if (key === this.lastLoad) return;
@@ -96,10 +92,6 @@ export class Hud {
     this.loadNow.textContent = total;
     this.loadCapEl.textContent = `/${cap}`;
     this.carryRail.classList.toggle('full', cap > 0 && total >= cap);
-    this.loadTrack.innerHTML = LOAD_ORDER
-      .filter((k) => res[k] > 0)
-      .map((k) => `<i style="width:${(res[k] / Math.max(cap, total)) * 100}%;background:${LOAD_COLORS[k]}"></i>`)
-      .join('');
   }
   // #29: notices queue rather than overwrite. A playtester missed the one telling him a pad wanted
   // stone, because the next notice replaced it before he had read it. Each one now waits its turn,

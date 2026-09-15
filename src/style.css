@@ -197,18 +197,19 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 #topbar .tb-bars { display: flex; gap: 8px; }
 /* the carry rail: coins are spent every few seconds, materials every minute, and score has left the
    bar entirely. What does not fit collapses into a +n that says so rather than being clipped away. */
-#topbar .tb-right { display: grid; gap: 6px; justify-items: stretch; flex: 0 1 auto; min-width: 150px; text-align: right; }
-#topbar .tb-right .stat { display: inline-flex; align-items: center; gap: 5px; font-weight: 800; font-size: 17px; white-space: nowrap; text-shadow: 0 2px 3px rgba(0,0,0,0.5); font-variant-numeric: tabular-nums; }
-.load { display: flex; align-items: center; gap: 7px; min-width: 96px; }
-.load-track {
-  flex: 1; display: flex; height: 13px; min-width: 62px; border-radius: 999px; background: rgba(0,0,0,0.45);
-  border: 2px solid rgba(255,255,255,0.92); overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.35);
+#topbar .tb-right {
+  display: flex; align-items: center; gap: 8px; flex: 0 1 auto; min-width: 0;
+  background: none; border: 0; box-shadow: none; padding: 8px 0 0;
 }
-.load-track i { display: block; height: 100%; transition: width 0.15s; }
-.load-num { font-weight: 800; font-size: 15px; white-space: nowrap; text-shadow: 0 2px 3px rgba(0,0,0,0.5); font-variant-numeric: tabular-nums; }
-.load-num span { opacity: 0.62; font-size: 12px; }
-#carry-rail.full .load-num b { color: #ffc9a0; }
-#carry-rail.full .load-track { border-color: #ffb37a; }
+.badge {
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  background: var(--plaque); border: var(--rim-line) solid var(--rim); border-radius: 999px; padding: 3px 14px 3px 4px;
+  color: #fff; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 23px;
+  box-shadow: 0 5px 14px rgba(0,0,0,0.3); font-variant-numeric: tabular-nums; line-height: 1.1;
+}
+.badge span { font-size: 15px; opacity: 0.62; margin-left: -2px; }
+#carry-rail.full .badge.bag { border-color: #ffb37a; }
+#carry-rail.full .badge.bag b { color: #ffc9a0; }
 .bar-row { display: flex; align-items: center; gap: 6px; flex: 1 1 0; min-width: 0; }
 .bar-row .track {
   flex: 1; height: 13px; min-width: 74px; border-radius: 999px; background: rgba(0,0,0,0.45);
@@ -237,23 +238,15 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   #wave-hud { font-size: 17px; }
   #keep-level { font-size: 10px; }
   #topbar .bar-row .track { min-width: 52px; height: 11px; }
-  #topbar .tb-right { gap: 7px; }
-  #topbar .tb-right .stat { font-size: 15px; }
-  .load { min-width: 74px; }
-  .load-track { min-width: 46px; height: 11px; }
-  #coin-hud { font-size: 22px; }
+  #topbar .tb-right { gap: 5px; padding-top: 6px; }
+  .badge { font-size: 19px; padding: 2px 11px 2px 3px; gap: 4px; }
+  .badge span { font-size: 13px; }
   #settings-btn { width: 42px; height: 42px; bottom: calc(76px + env(safe-area-inset-bottom)); }
   #topbar .tb-right { min-width: 128px; }
 }
 #king-hp-fill { height: 100%; width: 100%; background: linear-gradient(#7de88f, #3fd455); transition: width 0.15s; }
 #queen-hp-fill { height: 100%; width: 100%; background: linear-gradient(#ffb3cf, #f07aa8); transition: width 0.15s; }
 
-/* coin sits inside the top-right plaque now, so it needs no badge of its own */
-#coin-hud {
-  display: flex; align-items: center; gap: 7px; justify-content: flex-end;
-  color: #fff; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 27px;
-  letter-spacing: 0.5px; text-shadow: 0 2px 4px rgba(0,0,0,0.55); font-variant-numeric: tabular-nums; line-height: 1.05;
-}
 /* #23: the only control left on the field. It used to hang off the right edge under the coin; with
    the coin in the corner it joins the warhorn instead, so one column holds every button. */
 #settings-btn {

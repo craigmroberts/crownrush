@@ -60,13 +60,13 @@
         <!-- Coin is the only currency, so the only counts left are the army and what he is carrying.
              The load is a bar, not five numbers: what matters is how full he is, and the mix shows
              as coloured segments without asking anyone to read them. -->
-        <button class="tb-right" id="carry-rail" title="Your coin and your load (K)">
-          <div id="coin-hud"><i id="coin-icon" data-icon="gold" data-size="34"></i><span id="coin-count">0</span></div>
-          <div class="load">
-            <div class="load-track" id="load-track"></div>
-            <div class="load-num"><b id="load-now">0</b><span id="load-cap">/18</span></div>
-          </div>
+        <!-- two badges, not one plaque: coin is what you spend, the bag is what you are still carrying
+             to the trade post. They are different things, so they read as different things. -->
+        <button class="tb-right" id="carry-rail" title="Your coin and your bag (K)">
+          <span class="badge coin"><i id="coin-icon" data-icon="gold" data-size="30"></i><b id="coin-count">0</b></span>
+          <span class="badge bag"><i data-icon="sack" data-size="26"></i><b id="load-now">0</b><span id="load-cap">/18</span></span>
           <b id="army-count" hidden>0</b>
+          <i id="load-track" hidden></i>
         </button>
       </div>
       <!-- lanes 2 and 3: the countdown and the alarm each own a band under the plaques, so neither

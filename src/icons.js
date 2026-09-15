@@ -33,6 +33,7 @@ export const ICONS = {
   expand: `<path d="M4 21v-8h9v8z" fill="#8d9096" ${S}/><path d="M4 13V10h2v2h2v-2h2v2h3v-2" fill="#7d848e" ${S}/><path d="M15 9l5-5M20 4h-4M20 4v4" fill="none" stroke="#3fd455" stroke-width="2.2" stroke-linecap="round"/>`,
   info: `<circle cx="12" cy="12" r="10" fill="#5aa0ff" ${S}/><circle cx="12" cy="7.6" r="1.6" fill="#fff"/><path d="M10.2 10.6h3.2v6.4h1.4v1.8H9.4V17h1.4v-4.6h-.6z" fill="#fff"/>`,
   horn: `<path d="M3 11l10-5v12L3 13z" fill="#f5b800" ${S}/><path d="M13 7c4 0 7 2 7 5s-3 5-7 5" fill="none" stroke="#c98a00" stroke-width="2.4"/><circle cx="20" cy="12" r="2.2" fill="#ffd23f" stroke="#c98a00" stroke-width="1.2"/><path d="M4 12h4" stroke="#8a5a00" stroke-width="1.4"/>`,
+  sack: `<path d="M8.5 8.5h7c2.2 1.6 3.5 4.2 3.5 7 0 3-2.4 5-7 5s-7-2-7-5c0-2.8 1.3-5.4 3.5-7z" fill="#c69a5e" ${S}/><path d="M9.5 9.5h5c1.4 1.2 2.2 2.9 2.2 4.6" fill="none" stroke="#e0bd88" stroke-width="1.6" stroke-linecap="round"/><path d="M8 8.5c0-1.6 1.8-2.5 4-2.5s4 .9 4 2.5z" fill="#8a5a2b" ${S}/><path d="M6.6 11.2c3.6 1.5 7.2 1.5 10.8 0" fill="none" stroke="#8a5a2b" stroke-width="1.5"/>`,
   chev: `<path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`,
   star: `<path d="M12 3l2.7 5.6 6.1.8-4.5 4.3 1.1 6.1L12 17l-5.4 2.8 1.1-6.1L3.2 9.4l6.1-.8z" fill="#ffd23f" ${S}/>`,
   speaker: `<path d="M4 9h4l5-4v14l-5-4H4z" fill="#fff" ${S}/><path d="M16 9c1.5 1.5 1.5 4.5 0 6M19 6.5c3 3 3 8 0 11" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>`,

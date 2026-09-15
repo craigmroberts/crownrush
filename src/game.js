@@ -193,6 +193,7 @@ export class Game {
     this.mineTimer = 0;
     this.nodes = [];
     this.piles = [];        // what has been mined and is lying on the ground waiting to be carried
+    this.pileFlies = [];    // chunks in the air between the rock and the heap
     this.chips = [];
     this.fx = [];
     this.alarmT = 0;
@@ -527,6 +528,7 @@ export class Game {
       this.updateEnemies(dt);
       this.updateArrows(dt);
       this.updateCoins(dt);
+      this.updatePileFlies(dt);
       this.updatePiles(dt);
       this.updateTrade(dt);
       this.updatePads(dt);

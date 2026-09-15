@@ -6,7 +6,7 @@ import { CFG, PADS, TIERS } from './config.js';
 import { audio } from './audio.js';
 import { UPGRADES } from './upgrades.js';
 import {
-  makeLumberTree, makeOreRock, makeIronSeam, makeGemNode, makeResourceCube, RES_MATS, CHIP_GEO, makeTool, drawPad, disposeHealthBar, makePopup, makeSpawnFx, makeBurst, makeHeart, COIN_TIER_COLORS,
+  makeLumberTree, makeOreRock, makeIronSeam, makeGemNode, makeResourceCube, RES_MATS, CHIP_GEO, makeTool, drawPad, disposeHealthBar, makePopup, makeTag, makeHeap, makeSpawnFx, makeBurst, makeHeart, COIN_TIER_COLORS,
 } from './models.js';
 import { tmp, tmp2, tmpM, cap, rand } from './game-shared.js';
 
@@ -288,82 +288,91 @@ export const ViewMethods = {
   },
 
   // ---------- piles ----------
-  // What comes out of a node lands beside it and stays there. Walking into a pile picks it up, up to
-  // what the King can still carry, so a rich seam is worth more than one trip.
+  // What comes out of a node flies into a heap beside it and stays there. The flight is the point:
+  // it is what tells you the material went somewhere rather than into a counter, and the heap
+  // swelling as each piece lands is what says come and get this.
   addToPile(node) {
     if (!node.pile) {
-      const g = new THREE.Group();
+      const g = makeHeap(node.type);
       g.position.copy(node.pos);
       // On the far side of the node from whoever is working it, and outside the mining radius. Both
-      // matter: inside it, the pile is picked up on the frame it appears so it is never seen, and
+      // matter: inside it, the heap is picked up on the frame it appears so it is never seen, and
       // standing on it to collect would start you mining again instead.
       const a = Math.atan2(this.king.mesh.position.z - node.pos.z, this.king.mesh.position.x - node.pos.x) + Math.PI;
       g.position.x += Math.cos(a) * (CFG.mining.radius + 0.9);
       g.position.z += Math.sin(a) * (CFG.mining.radius + 0.9);
+      g.scale.setScalar(0.01);
       this.root.add(g);
-      node.pile = { mesh: g, count: 0, cubes: [] };
+      node.pile = { mesh: g, count: 0, type: node.type, bump: 0, node };
       this.piles.push(node.pile);
-      node.pile.type = node.type;
     }
-    const p = node.pile;
-    p.count++;
-    // one cube per unit up to a dozen, then the stack just gets taller-looking rather than heavier
-    if (p.cubes.length < 12) {
-      const c = makeResourceCube(p.type);
-      const i = p.cubes.length;
-      const ring = i < 4 ? 0 : i < 9 ? 1 : 2;
-      const a = (i % 4) * (Math.PI / 2) + ring * 0.6;
-      c.position.set(Math.cos(a) * ring * 0.34, 0.18 + ring * 0.3, Math.sin(a) * ring * 0.34);
-      c.scale.setScalar(0.62);
-      c.rotation.y = rand(0, Math.PI);
-      p.mesh.add(c);
-      p.cubes.push(c);
+    // one chunk, thrown from the rock to the heap. It lands in updatePileFlies, and only then does
+    // the heap count it, so the number and the thing you can see always agree.
+    const c = makeResourceCube(node.type);
+    c.scale.setScalar(0.5);
+    c.position.copy(node.pos).setY(1.1);
+    this.root.add(c);
+    this.pileFlies.push({ mesh: c, pile: node.pile, t: 0, from: c.position.clone(), spin: rand(-8, 8) });
+  },
+
+  updatePileFlies(dt) {
+    for (let i = this.pileFlies.length - 1; i >= 0; i--) {
+      const f = this.pileFlies[i];
+      f.t += dt * 2.6;
+      const to = f.pile.mesh.position;
+      const k = Math.min(1, f.t);
+      f.mesh.position.lerpVectors(f.from, to, k);
+      f.mesh.position.y = f.from.y * (1 - k) + 0.5 * k + Math.sin(k * Math.PI) * 1.5;   // a lobbed arc
+      f.mesh.rotation.y += f.spin * dt;
+      f.mesh.rotation.x += f.spin * 0.6 * dt;
+      if (k < 1) continue;
+      this.root.remove(f.mesh);
+      this.pileFlies.splice(i, 1);
+      if (!this.piles.includes(f.pile)) continue;   // the heap was collected while this was in the air
+      f.pile.count++;
+      f.pile.bump = 0.22;
+      audio.mine(f.pile.type);
     }
-    p.bump = 0.25;
-    tmp.copy(p.mesh.position).setY(0.9);
-    this.popup(`+1`, tmp, '#ffffff', 1.2);
   },
 
   // The count only shows when he is close enough to care, which is the whole reason the numbers came
-  // off the status bar: the information is at the pile, where you are looking.
+  // off the status bar: the information is at the heap, where you are looking.
   updatePiles(dt) {
     const kp = this.king.mesh.position;
     const cap = this.loadCap();
     for (let i = this.piles.length - 1; i >= 0; i--) {
       const p = this.piles[i];
-      if (p.bump > 0) {
-        p.bump = Math.max(0, p.bump - dt);
-        p.mesh.scale.setScalar(1 + p.bump * 0.5);
-      }
+      // the heap grows with what is in it, and pops each time a piece lands
+      p.bump = Math.max(0, p.bump - dt * 3);
+      // big enough to be a landmark you walk towards: about waist height on the King when it holds a
+      // load, rather than something you step over without noticing
+      const grown = 0.78 + Math.min(p.count, 24) * 0.028;
+      p.mesh.scale.setScalar(grown * (1 + p.bump));
       const d = Math.hypot(kp.x - p.mesh.position.x, kp.z - p.mesh.position.z);
       const near = d < CFG.pile.showRadius;
-      if (near !== !!p.labelOn) {
-        p.labelOn = near;
-        if (p.label) { this.root.remove(p.label); p.label.material.dispose(); p.label = null; }
-        if (near) {
-          p.label = makePopup(`${p.count} ${CFG.materials[p.type].name}`, '#ffffff');
-          p.label.position.copy(p.mesh.position).setY(1.5);
-          p.label.scale.set(1.9, 0.95, 1);
+      const want = near ? `${p.count} ${CFG.materials[p.type].name}` : null;
+      if (want !== p.labelText) {
+        if (p.label) {
+          this.root.remove(p.label);
+          p.label.material.dispose();
+          p.label = null;
+        }
+        p.labelText = want;
+        if (want) {
+          p.label = makeTag(want);
+          p.label.position.copy(p.mesh.position).setY(1.35 + grown);
           this.root.add(p.label);
         }
-      } else if (near && p.label && p.labelCount !== p.count) {
-        this.root.remove(p.label);
-        p.label.material.dispose();
-        p.label = makePopup(`${p.count} ${CFG.materials[p.type].name}`, '#ffffff');
-        p.label.position.copy(p.mesh.position).setY(1.5);
-        p.label.scale.set(1.9, 0.95, 1);
-        this.root.add(p.label);
+      } else if (p.label) {
+        p.label.position.y = 1.35 + grown + Math.sin(this.time * 2.4) * 0.06;
       }
-      if (near) p.labelCount = p.count;
-      // Close enough to scoop it up, and only as much as he can still carry. Not while the pick is
-      // still swinging: the pile is meant to build up in front of you while you work and be yours
-      // the moment you stop, rather than never existing because it was collected on the same frame.
+      // close enough to scoop it up, and only as much as he can still carry
       if (d < CFG.pile.pickRadius && p.count > 0) {
         const room = cap - this.loadTotal();
         if (room <= 0) {
           if (this.time - (this.fullAt || 0) > 4) {
             this.fullAt = this.time;
-            this.hud.toast('You cannot carry any more. Sell at the trade post.', 2600);
+            this.hud.toast('Your bag is full. Sell at the trade post.', 2600);
           }
           continue;
         }
@@ -373,15 +382,14 @@ export const ViewMethods = {
         audio.coin(0);
         tmp.copy(p.mesh.position).setY(1.1);
         this.popup(`+${take}`, tmp, '#ffd23f', 1.5);
-        while (p.cubes.length > Math.min(12, p.count)) {
-          const c = p.cubes.pop();
-          p.mesh.remove(c);
-        }
       }
-      if (p.count <= 0) {
-        if (p.label) { this.root.remove(p.label); p.label.material.dispose(); }
+      if (p.count <= 0 && !this.pileFlies.some((f) => f.pile === p)) {
+        if (p.label) {
+          this.root.remove(p.label);
+          p.label.material.dispose();
+        }
         this.root.remove(p.mesh);
-        for (const n of this.nodes) if (n.pile === p) n.pile = null;
+        if (p.node) p.node.pile = null;
         this.piles.splice(i, 1);
       }
     }
