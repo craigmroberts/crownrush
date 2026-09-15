@@ -12,7 +12,7 @@
 // So the arithmetic is done here rather than in someone's head. Footprints are measured off the
 // models; update SIZE when a model is re-baked at a different height, and run this after moving
 // anything in PADS or TIERS.
-import { PADS, TIERS, MAP, CFG } from '../../src/config.js';
+import { PADS, TIERS, MAP, CFG, NODES } from '../../src/config.js';
 
 // width x depth, measured off the built meshes (see props.js / models.js)
 const SIZE = { bank: [3.46, 3.46], barracks: [7.68, 7.96], hut: [5.58, 4.49], keep: [6.02, 5.38], tower: [2.50, 3.32] };
@@ -117,6 +117,11 @@ const rectToRoad = (it, pts) => {
 // Farmland is checked the same way. It is placed in MAP rather than PADS, and it is the thing most
 // likely to creep onto a road or across a wall, because it is the only thing sized in whole plots.
 MAP.fields.forEach((f, i) => items.push({ id: `field-${i}:land`, t: 0, x: f.pos[0], z: f.pos[1], w: f.size[0], d: f.size[1], far: true, land: true }));
+// A resource node is a thing the King stands next to and swings at, so it needs the same elbow room
+// a building does: off the road, and not inside the citadel, which is the castle's ward and not a
+// quarry. NODE is the patch it occupies, not the rock itself.
+const NODE = 3.0;
+NODES.forEach((n, i) => items.push({ id: `${n.type}-${i}:node`, t: 0, x: n.pos[0], z: n.pos[1], w: NODE, d: NODE, far: true, node: true }));
 
 for (const it of items) {
   // the castle is the one thing that may stand on a road: all four meet underneath it
@@ -164,6 +169,11 @@ for (const [ti, t] of TIERS.entries()) {
   const { x: cx, z: cz, r } = t.ring;
   for (const it of items) {
     if (it.kind === 'tower') continue;                       // towers stand on the wall on purpose
+    if (it.node && Math.hypot(it.x - cx, it.z - cz) < r) {
+      console.log(`INSIDE   ${it.id.padEnd(20)} is inside the tier ${ti} citadel`);
+      bad++;
+      continue;
+    }
     const dx = Math.abs(it.x - cx);
     const dz = Math.abs(it.z - cz);
     const near = Math.hypot(Math.max(0, dx - it.w / 2), Math.max(0, dz - it.d / 2));
