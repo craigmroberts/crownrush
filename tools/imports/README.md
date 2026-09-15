@@ -24,12 +24,19 @@ clusters named for what he carries:
     --parts 12 --roles skin,blue,boot,white,white,skin,gold,blue,steel,steel,steel,steel \
     --carve boot>hair:0.80:0.40
 
-A building has no rig and no palette, so it stops after the bake. It does need to stand at the size
-the procedural one was built at, which is what `--height` is for: the Archery Range comes out
-3.23 x 2.60 on the ground against the built hut's 3.4 x 2.6.
+A building has no rig and no palette, and it does not bake either: `--texture` keeps the texture and
+only resizes it. A character is baked because the crowd draws a hundred of them from one palette; a
+building is one object drawn once, and what makes this art worth importing is painted, not modelled.
+Baked to vertex colours, the Archery Range's bullseye -- four rings on a disc of twenty triangles --
+came out a smear, and no amount of sampling fixes that, because the vertices to put the rings on do
+not exist. Keeping the texture also came out smaller: 330 kB brotli'd against 342 kB, rings intact.
+
+`--height` sizes it, and the thing to size a building by is its door. Our scale comes from the
+characters, so a door wants to be about a King tall. The procedural hut's is half that, and the
+import inherited the same mistake until someone stood in the doorway.
 
     blender -b -P tools/blender/bake_vertex_colors.py -- tools/imports/meshy-hut-8k.glb \
-        tools/imports/hut-baked.glb --height 4.4
+        tools/imports/hut-tex.glb --texture 1024 --height 7.6
 
 Royals bake to vertex colours (no `--parts`), because they keep their texture detail and are drawn on
 their own. Everyone the crowd draws bakes to flat named materials instead, because a part in the crowd

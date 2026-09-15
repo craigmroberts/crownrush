@@ -3,6 +3,7 @@
     blender -b -P tools/blender/bake_vertex_colors.py -- in.glb out.glb [--height 2.0] [--preview p.png]
     blender -b -P tools/blender/bake_vertex_colors.py -- in.glb out.glb --parts 10 --roles boot,skin,...
                                                         [--carve boot>hair:0.80:0.40]
+    blender -b -P tools/blender/bake_vertex_colors.py -- in.glb out.glb --texture 1024 --height 7.6
 
 Why: the game draws every character with one shared material and per-vertex colours, which is what
 lets a hundred of them cost the GPU almost nothing. A model from an outside tool arrives with its own
@@ -35,6 +36,13 @@ PREVIEW = flag("--preview", "")
 # The crowd draws enemies as one instanced mesh and recolours them per rank by looking a part's colour
 # up in a palette, and a part is a material. One material with the colour in the mesh would leave every
 # rank the same shade and throw away the thing the colour is there for: saying how dangerous this one is.
+# --texture 1024 keeps the texture instead of baking it, resized to that many pixels square. A
+# character is baked because the crowd draws a hundred of them from one palette; a building is one
+# object drawn once, and the thing that makes this art worth importing is painted detail a mesh
+# cannot hold. The Archery Range's bullseye is four concentric rings on a disc of about twenty
+# triangles: baked to vertex colours it came out a smear, and no sampling fixes that, because the
+# vertices to put the rings on are not there.
+TEXTURE = flag("--texture", 0, int)
 PARTS = flag("--parts", 0, int)
 # --roles names those parts explicitly, largest first, e.g. "darkRed,red,leather,skin,skin,steel".
 # Naming them by whichever palette colour they are nearest does not work: generated art is far more
@@ -100,6 +108,9 @@ def base_colour_image(mat):
 img = next((i for i in (base_colour_image(m) for m in me.materials) if i is not None), None)
 if img is None:
     sys.exit("no base colour texture to bake")
+if TEXTURE and (img.size[0] != TEXTURE or img.size[1] != TEXTURE):
+    img.scale(TEXTURE, TEXTURE)
+    print(f"texture kept, resized to {TEXTURE}x{TEXTURE}")
 w, h = img.size
 tex = np.array(img.pixels[:], np.float32).reshape(h, w, 4)[..., :3]
 print(f"baking from {img.name} ({w}x{h}, {img.colorspace_settings.name}) onto {len(me.loops)} face corners")
@@ -239,6 +250,9 @@ if PARTS:
     me.polygons.foreach_set("material_index", idx)
     for a in list(me.color_attributes):
         me.color_attributes.remove(a)
+elif TEXTURE:
+    for a in list(me.color_attributes):
+        me.color_attributes.remove(a)          # the texture is the colour; nothing else to write
 else:
     for a in list(me.color_attributes):
         me.color_attributes.remove(a)
@@ -246,7 +260,23 @@ else:
     flat = np.concatenate([cols, np.ones((len(cols), 1), np.float32)], axis=1).reshape(-1)
     attr.data.foreach_set("color", flat)
 
-if not PARTS:
+if TEXTURE:
+    # One material, base colour only. The generator also ships a metallic-roughness map, which the
+    # game's lighting does not read and which the exporter was writing out at full size: that one
+    # unused image was most of the file. Rebuilding the material rather than pruning nodes also means
+    # a normal map or anything else it invents later cannot creep in.
+    for i in range(len(me.materials)):
+        me.materials.pop(index=0)
+    mat = bpy.data.materials.new("Textured")
+    mat.use_nodes = True
+    bsdf = mat.node_tree.nodes["Principled BSDF"]
+    node = mat.node_tree.nodes.new("ShaderNodeTexImage")
+    node.image = img
+    mat.node_tree.links.new(node.outputs["Color"], bsdf.inputs["Base Color"])
+    bsdf.inputs["Roughness"].default_value = 0.85
+    bsdf.inputs["Metallic"].default_value = 0.0
+    me.materials.append(mat)
+elif not PARTS:
     # one plain material reading the mesh's own colours; in parts mode the materials are the colours
     for i in range(len(me.materials)):
         me.materials.pop(index=0)
@@ -260,7 +290,7 @@ if not PARTS:
     bsdf.inputs["Metallic"].default_value = 0.0
     me.materials.append(mat)
 for i in list(bpy.data.images):
-    if i.users == 0 or i is img:
+    if i.users == 0 or (i is img and not TEXTURE):
         bpy.data.images.remove(i)
 
 # stand it where our characters stand: feet at z=0, centred on x, scaled to HEIGHT.
@@ -286,7 +316,8 @@ me.calc_loop_triangles()
 print("TRIS", len(me.loop_triangles))
 bpy.ops.object.select_all(action="SELECT")
 bpy.ops.export_scene.gltf(filepath=OUT, export_format="GLB", export_apply=True, export_yup=True,
-                          use_selection=True, export_animations=False, export_materials="EXPORT")
+                          use_selection=True, export_animations=False, export_materials="EXPORT",
+                          export_image_format="JPEG" if TEXTURE else "AUTO", export_jpeg_quality=88)
 print("exported", OUT)
 
 if PREVIEW:

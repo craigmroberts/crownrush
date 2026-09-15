@@ -151,7 +151,7 @@ export const BuildMethods = {
       // where its own is; the built hut sets the same userData.
       const p = makeProp('hut', CFG.structureTint[m]);
       if (p) {
-        p.userData.chimney = new THREE.Vector3(0.6, 3.4, -0.5);
+        p.userData.chimney = new THREE.Vector3(1.14, 5.8, -0.86);
         return p;
       }
       return makeHut(m);
