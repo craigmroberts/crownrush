@@ -400,7 +400,7 @@ export const BuildMethods = {
     // a Keep that was not standing, and losing it cost nothing.
     if (!this.keep || this.keep.state !== 'built' || !this.levelReq() || this.feedDef) return;
     // the feed pad sits at the Keep's front door
-    this.feedDef = { id: 'feed', pos: [this.keep.x, this.keep.z + 3.7], cost: 0, icon: 'keep', label: 'Raise the Keep', repeatable: true, feed: true };
+    this.feedDef = { id: 'feed', pos: [this.keep.x, this.keep.z + 5.0], cost: 0, icon: 'keep', label: 'Raise the Keep', repeatable: true, feed: true };
     this.dynamicPads.push(this.feedDef);
     this.refreshPads();
   },
