@@ -142,7 +142,7 @@ function mergeCharacter(scene) {
 // keeps its own filename so rebuilding the parametric King cannot quietly overwrite him.
 const MODEL_FILE = {
   king: 'king_ai', queen: 'queen_ai', raider: 'raider_ai', brute: 'brute_ai',
-  king_mounted: 'king_mounted_ai', archer: 'archer_ai',
+  king_mounted: 'king_mounted_ai', archer: 'archer_ai', swordsman: 'swordsman_ai',
 };
 
 export function loadRig(name) {
