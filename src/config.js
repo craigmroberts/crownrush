@@ -27,7 +27,11 @@ export const CFG = {
     recaptures: 2,
     keepCost: 0.4,
   },
-  keep: { hp: 420, hpPerLevel: 90, radius: 2.1, half: 1.7, materialBonus: 420 },
+  // half is the Keep's footprint from its centre and radius is how close a unit may get: both follow
+  // what the model actually measures, so enemies hit its wall rather than standing inside it. The
+  // imported castle is 6.03 x 5.38 where the built Keep was 3.44 square, which is the size a keep
+  // should be next to a King of 2.3 and an Archery Range of 5.58 -- it was smaller than the hut.
+  keep: { hp: 420, hpPerLevel: 90, radius: 3.6, half: 2.9, materialBonus: 420 },
 
   // The Keep is the base. Materials you mine go ONLY into the Keep; each level unlocks more.
   base: {

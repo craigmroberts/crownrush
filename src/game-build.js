@@ -11,6 +11,10 @@ import {
 import { makeProp } from './props.js';
 import { V3, HAIR, plural, PAD_STYLE, rand } from './game-shared.js';
 
+// Clear of the castle's crown, which is the tallest thing on it. The built Keep is shorter, but the
+// bar sitting a little high over it costs nothing and one number is easier to keep true than two.
+const KEEP_BAR_Y = 11.3;
+
 export const BuildMethods = {
   // ---------- pads ----------
   refreshPads() {
@@ -68,7 +72,7 @@ export const BuildMethods = {
       this.root.add(g);
       pad.ghosts.push(g);
     } else if (def.repairKeep) {
-      const g = ghostify(makeKeep());
+      const g = ghostify(this.makeStructureMesh('keep'));
       g.position.set(this.keep.x, 0, this.keep.z);
       this.root.add(g);
       pad.ghosts.push(g);
@@ -156,7 +160,17 @@ export const BuildMethods = {
       }
       return makeHut(m);
     }
-    if (kind === 'keep') return makeKeep(m);
+    if (kind === 'keep') {
+      // The Queen stands on userData.balcony when she is rescued, so the import has to name a spot
+      // for her the way the built Keep does: here it is the wall walk over the gate, between the two
+      // front towers, rather than the built Keep's jutting ledge.
+      const p = makeProp('keep', CFG.structureTint[m]);
+      if (p) {
+        p.userData.balcony = new THREE.Vector3(0, 3.3, 1.9);
+        return p;
+      }
+      return makeKeep(m);
+    }
     if (kind === 'tower') return makeTower(level, m);
     if (kind === 'barracks') return makeBarracks(m);
     return new THREE.Group();
@@ -328,7 +342,7 @@ export const BuildMethods = {
       this.keep = { isKeep: true, x: def.buildAt[0], z: def.buildAt[1], mesh: m, state: 'built', hp: 0, maxHp: 0, radius: CFG.keep.radius, level: this.wallLevel };
       this.keep.maxHp = this.keep.hp = this.keepHp();
       this.keep.bar = makeHealthBar(3.0);
-      this.keep.bar.position.y = 4.4;
+      this.keep.bar.position.y = KEEP_BAR_Y;
       m.add(this.keep.bar);
       this.queenEnterKeep();
       this.baseLevel = Math.max(1, this.baseLevel);
