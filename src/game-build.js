@@ -313,7 +313,9 @@ export const BuildMethods = {
       this.queueTowerPad(def.towerUp, 'crew');
     }
     if (def.posts) {
-      for (const [x, z] of def.spots) {
+      // crewSpots is where the posts come from -- def.spots is the hand-written override it falls back
+      // to, and no pad has one, so reading it here threw and left the pad on the ground half-bought.
+      for (const [x, z] of this.crewSpots(def)) {
         const m = makeGatePost();
         m.position.set(x, 0, z);
         this.popIn(m);
@@ -420,8 +422,9 @@ export const BuildMethods = {
     // #34: rubble takes no materials. Without this the repair was optional: you could keep levelling
     // a Keep that was not standing, and losing it cost nothing.
     if (!this.keep || this.keep.state !== 'built' || !this.levelReq() || this.feedDef) return;
-    // the feed pad sits at the Keep's front door
-    this.feedDef = { id: 'feed', pos: [this.keep.x, this.keep.z + 5.0], cost: 0, icon: 'keep', label: 'Raise the Keep', repeatable: true, feed: true };
+    // The feed pad sits at the Keep's door, on the corner between two roads: the castle stands at the
+    // crossroads, so straight out of any face of it is the middle of a track.
+    this.feedDef = { id: 'feed', pos: [this.keep.x + CFG.keep.padOffset[0], this.keep.z + CFG.keep.padOffset[1]], cost: 0, icon: 'keep', label: 'Raise the Keep', repeatable: true, feed: true };
     this.dynamicPads.push(this.feedDef);
     this.refreshPads();
   },
@@ -814,27 +817,36 @@ export const BuildMethods = {
     return out;
   },
 
-  // The citadel ring, cut into segments: a regular polygon with enough sides that it reads as a
-  // circle, and the segment nearest each of the four compass points turned into a gate.
+  // The citadel ring: four gateways laid down first, each one centred exactly on a compass point so
+  // it lines up with the road that runs through it, then the arc between each pair filled with
+  // whole segments. Picking the segment nearest a compass point instead -- which is what this did --
+  // leaves the gate up to half a segment off the axis, and the road went through the wall beside it.
   ringSections(tier, side) {
     const t = TIERS[tier];
     const { x: cx, z: cz, r } = t.ring;
-    const n = Math.max(12, Math.round((Math.PI * 2 * r) / t.sectionLen));
-    const at = (i) => {
-      const a = (i / n) * Math.PI * 2;
-      return [cx + Math.cos(a) * r, cz + Math.sin(a) * r];
-    };
-    // one gate per compass point: the segment whose middle is closest to it
-    const gateAt = new Set([0, 0.25, 0.5, 0.75].map((f) => Math.round(f * n) % n));
+    const gw = t.gateWidth || 5;
+    const half = Math.asin(Math.min(0.6, gw / (2 * r)));   // half-angle a gateway of that width spans
+    const at = (a) => [cx + Math.cos(a) * r, cz + Math.sin(a) * r];
     const out = [];
-    for (let i = 0; i < n; i++) {
-      const [x0, z0] = at(i);
-      const [x1, z1] = at(i + 1);
-      const mx = (x0 + x1) / 2;
-      const mz = (z0 + z1) / 2;
-      const wall = this.wallSideOf(Math.atan2(mz - cz, mx - cx));
-      if (side !== 'all' && wall !== side) continue;
-      out.push(this.section(tier, i, wall, x0, z0, x1, z1, gateAt.has(i)));
+    let idx = 0;
+    const push = (a0, a1, gate) => {
+      const [x0, z0] = at(a0);
+      const [x1, z1] = at(a1);
+      const wall = this.wallSideOf((a0 + a1) / 2);
+      if (side !== 'all' && wall !== side) return;
+      out.push(this.section(tier, idx, wall, x0, z0, x1, z1, gate));
+    };
+    for (let q = 0; q < 4; q++) {
+      const axis = (q * Math.PI) / 2;                       // east, south, west, north
+      push(axis - half, axis + half, true);
+      idx++;
+      const from = axis + half;
+      const to = axis + Math.PI / 2 - half;
+      const n = Math.max(1, Math.round((r * (to - from)) / t.sectionLen));
+      for (let i = 0; i < n; i++) {
+        push(from + ((to - from) * i) / n, from + ((to - from) * (i + 1)) / n, false);
+        idx++;
+      }
     }
     return out;
   },

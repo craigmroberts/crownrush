@@ -41,7 +41,10 @@ function ribbon(samples, width, color, y, opts = {}) {
     const l = Math.hypot(tx, tz) || 1;
     tx /= l;
     tz /= l;
-    let w = opts.taper ? half * Math.min(1, Math.min(i, n - 1 - i) / 12 + 0.15) : half;
+    // taper: true narrows both tips; 'end' narrows only the far one, so a road can start at full
+    // width where it meets another road instead of coming to a point.
+    const near = opts.taper === 'end' ? n - 1 - i : Math.min(i, n - 1 - i);
+    let w = opts.taper ? half * Math.min(1, near / 12 + 0.15) : half;
     // slightly irregular edges so roads and banks don't look ruled
     const wob = opts.wobble ? 1 + opts.wobble * (Math.sin(i * 0.31) * 0.7 + Math.sin(i * 0.77 + 1.7) * 0.3) : 1;
     const wl = w * wob;
@@ -230,12 +233,15 @@ export function buildWorld(scene) {
 
   // ---- roads (spline ribbons with a darker shoulder and wheel ruts); hidden until revealed ----
   const rutMat = mat(0xd2ae74, { side: THREE.DoubleSide });
-  for (const road of MAP.roads) {
+  MAP.roads.forEach((road, ri) => {
     const samples = spline(road.points, 90);
     const entry = { id: road.id, samples, meshes: [], revealed: false, progress: 0 };
-    entry.meshes.push(ribbon(samples, MAP.roadWidth + 1.4, 0xcaa46c, 0.014, { taper: true, wobble: 0.12 }));
-    entry.meshes.push(ribbon(samples, MAP.roadWidth, 0xdfc08a, 0.018, { taper: true, wobble: 0.06 }));
-    entry.meshes.push(ribbon(samples, MAP.roadWidth * 0.55, 0xe8cd9c, 0.02, { taper: true, wobble: 0.08 }));
+    // All four roads start at the castle and overlap in the square where they cross. Lifting each
+    // one a hair above the last keeps that square from z-fighting; dirt over dirt reads the same.
+    const ry = ri * 0.0012;
+    entry.meshes.push(ribbon(samples, MAP.roadWidth + 1.4, 0xcaa46c, 0.014 + ry, { taper: 'end', wobble: 0.12 }));
+    entry.meshes.push(ribbon(samples, MAP.roadWidth, 0xdfc08a, 0.018 + ry, { taper: 'end', wobble: 0.06 }));
+    entry.meshes.push(ribbon(samples, MAP.roadWidth * 0.55, 0xe8cd9c, 0.02 + ry, { taper: 'end', wobble: 0.08 }));
     // stones scattered along the verge, revealed with the road
     const stoneGeo = new THREE.DodecahedronGeometry(0.16, 0);
     const stones = new THREE.InstancedMesh(stoneGeo, matFlat(0xa8a49c), 40);
@@ -264,7 +270,7 @@ export function buildWorld(scene) {
         const l = Math.hypot(tx, tz) || 1;
         return new THREE.Vector3(p.x - (tz / l) * off, 0, p.z + (tx / l) * off);
       });
-      entry.meshes.push(ribbon(shifted, 0.14, 0xc9a066, 0.022, { material: rutMat }));
+      entry.meshes.push(ribbon(shifted, 0.14, 0xc9a066, 0.022 + ry, { material: rutMat }));
     }
     for (const m of entry.meshes) {
       m.visible = false;
@@ -285,7 +291,7 @@ export function buildWorld(scene) {
       const dir = new THREE.Vector2(q.x - r.x, q.z - r.z).normalize();
       world.crossings.push({ roadId: road.id, x: p.x, z: p.z, dx: dir.x, dz: dir.y });
     }
-  }
+  });
   // roads grow out from the village when revealed
   world.revealRoad = (id) => {
     const r = world.roads.find((r) => r.id === id);
