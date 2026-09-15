@@ -197,7 +197,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 #topbar .tb-bars { display: flex; gap: 8px; }
 /* the carry rail: coins are spent every few seconds, materials every minute, and score has left the
    bar entirely. What does not fit collapses into a +n that says so rather than being clipped away. */
-#topbar .tb-right { display: flex; align-items: center; gap: 8px; flex: 0 1 auto; min-width: 0; }
+#topbar .tb-right { display: grid; gap: 6px; justify-items: stretch; flex: 0 1 auto; min-width: 150px; text-align: right; }
 #topbar .tb-right .stat { display: inline-flex; align-items: center; gap: 5px; font-weight: 800; font-size: 17px; white-space: nowrap; text-shadow: 0 2px 3px rgba(0,0,0,0.5); font-variant-numeric: tabular-nums; }
 .load { display: flex; align-items: center; gap: 7px; min-width: 96px; }
 .load-track {
@@ -241,25 +241,24 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   #topbar .tb-right .stat { font-size: 15px; }
   .load { min-width: 74px; }
   .load-track { min-width: 46px; height: 11px; }
-  #coin-hud { font-size: 22px; padding: 3px 13px 3px 3px; }
-  #settings-btn { width: 46px; height: 46px; }
+  #coin-hud { font-size: 22px; }
+  #settings-btn { width: 42px; height: 42px; bottom: calc(76px + env(safe-area-inset-bottom)); }
+  #topbar .tb-right { min-width: 128px; }
 }
 #king-hp-fill { height: 100%; width: 100%; background: linear-gradient(#7de88f, #3fd455); transition: width 0.15s; }
 #queen-hp-fill { height: 100%; width: 100%; background: linear-gradient(#ffb3cf, #f07aa8); transition: width 0.15s; }
 
-#side-controls {
-  align-self: flex-end; display: flex; flex-direction: column; align-items: flex-end; gap: 12px;
-  padding: 12px; padding-right: max(12px, env(safe-area-inset-right));
-}
+/* coin sits inside the top-right plaque now, so it needs no badge of its own */
 #coin-hud {
-  display: flex; align-items: center; gap: 8px;
-  background: var(--plaque); border: var(--rim-line) solid var(--rim); border-radius: 999px; padding: 3px 16px 3px 4px;
-  color: #fff; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 26px; letter-spacing: 1px;
-  box-shadow: 0 5px 14px rgba(0,0,0,0.3);
+  display: flex; align-items: center; gap: 7px; justify-content: flex-end;
+  color: #fff; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 27px;
+  letter-spacing: 0.5px; text-shadow: 0 2px 4px rgba(0,0,0,0.55); font-variant-numeric: tabular-nums; line-height: 1.05;
 }
-/* #23: the only control left on the field, in the same column under the coin */
+/* #23: the only control left on the field. It used to hang off the right edge under the coin; with
+   the coin in the corner it joins the warhorn instead, so one column holds every button. */
 #settings-btn {
-  pointer-events: auto; width: 52px; height: 52px; border-radius: 50%; border: var(--rim-line) solid var(--rim); cursor: pointer;
+  position: fixed; right: 12px; bottom: calc(86px + env(safe-area-inset-bottom)); z-index: 5;
+  pointer-events: auto; width: 46px; height: 46px; border-radius: 50%; border: var(--rim-line) solid var(--rim); cursor: pointer;
   background: var(--plaque); display: grid; place-items: center; box-shadow: 0 5px 14px rgba(0,0,0,0.3);
 }
 #settings-btn:active { transform: translateY(2px); }

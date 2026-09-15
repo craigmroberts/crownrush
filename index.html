@@ -60,24 +60,22 @@
         <!-- Coin is the only currency, so the only counts left are the army and what he is carrying.
              The load is a bar, not five numbers: what matters is how full he is, and the mix shows
              as coloured segments without asking anyone to read them. -->
-        <button class="tb-right" id="carry-rail" title="Your load and your army (K)">
-          <span class="stat"><i data-icon="archer" data-size="20"></i><b id="army-count">0</b></span>
+        <button class="tb-right" id="carry-rail" title="Your coin and your load (K)">
+          <div id="coin-hud"><i id="coin-icon" data-icon="gold" data-size="34"></i><span id="coin-count">0</span></div>
           <div class="load">
             <div class="load-track" id="load-track"></div>
             <div class="load-num"><b id="load-now">0</b><span id="load-cap">/18</span></div>
           </div>
+          <b id="army-count" hidden>0</b>
         </button>
       </div>
       <!-- lanes 2 and 3: the countdown and the alarm each own a band under the plaques, so neither
            can land on the other or squeeze the health bars the way the inline countdown did -->
       <div id="lane-countdown"><span id="next-wave" class="hidden"></span></div>
       <div id="lane-alarm"><span id="alarm" class="hidden"><i data-icon="alert" data-size="16"></i>The Keep is under attack</span></div>
-      <!-- the controls hang under the plaques, in the flow, so they clear them whatever height they are -->
-      <div id="side-controls">
-        <div id="coin-hud"><i id="coin-icon" data-icon="gold" data-size="40"></i><span id="coin-count">0</span></div>
-        <!-- #23: sound, pause and info live in the settings sheet now; only coin and gear sit on the field -->
-        <button id="settings-btn" title="Settings"><i data-icon="gear" data-size="22"></i></button>
-      </div>
+      <!-- #23: sound, pause and info live in the settings sheet; the gear sits in the controls corner
+           over the warhorn, out of the way of the field and of the coin -->
+      <button id="settings-btn" title="Settings"><i data-icon="gear" data-size="22"></i></button>
       <button id="next-wave-btn" class="hidden" title="Bring on the night"><i data-icon="swords" data-size="20"></i><b id="next-wave-btn-t">0:00</b><span>skip</span></button>
       <button id="horn-btn" class="hidden" title="Warhorn (Space): rally the army"><span class="ring"></span><i data-icon="horn" data-size="30"></i><b id="horn-cd"></b></button>
       <div id="pad-tip" class="hidden"><div class="tip-name"></div><div class="tip-desc"></div><div class="tip-costs"></div><div class="tip-bar"><i></i></div><div class="tip-note"></div></div>
