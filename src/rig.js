@@ -95,13 +95,21 @@ function mergeCharacter(scene) {
     const m = p.material;
     color.copy(m.color);
     const glow = m.emissive && m.emissive.r + m.emissive.g + m.emissive.b > 0.01 ? m.emissiveIntensity || 1 : 0;
-    const col = new Float32Array(n * 3);
     const pbr = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) {
-      col[i * 3] = color.r; col[i * 3 + 1] = color.g; col[i * 3 + 2] = color.b;
       pbr[i * 3] = m.roughness; pbr[i * 3 + 1] = m.metalness; pbr[i * 3 + 2] = glow;
     }
-    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    // Our own characters carry one flat material per part, so the colour is painted on from the
+    // material. A model built elsewhere arrives as a single material with its colour already baked
+    // into the mesh, and repainting it here would flatten the whole character to one shade, so a
+    // geometry that already has colours keeps them.
+    if (!g.attributes.color) {
+      const col = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) {
+        col[i * 3] = color.r; col[i * 3 + 1] = color.g; col[i * 3 + 2] = color.b;
+      }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    }
     g.setAttribute('aPBR', new THREE.BufferAttribute(pbr, 3));
     (parts[m.name] ||= []).push({ start: vertexOffset, count: n });
     vertexOffset += n;

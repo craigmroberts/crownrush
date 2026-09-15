@@ -1,2 +1,3 @@
 reports/_*
 reports/*.png
+__pycache__/
