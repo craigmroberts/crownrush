@@ -517,7 +517,7 @@ export const BuildMethods = {
         audio.ching();
         const c = makeCoin(this.coinTier());
         c.position.copy(kp);
-        c.position.y = 2.4 + this.stackCount() * 0.11;
+        c.position.y = this.stackBase() + this.stackCount() * 0.11;
         this.root.add(c);
         this.flyCoins.push({ mesh: c, from: c.position.clone(), to: new V3(pad.mesh.position.x, 0.4, pad.mesh.position.z), t: 0, pad });
       }

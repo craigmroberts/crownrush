@@ -375,6 +375,13 @@ export const ViewMethods = {
     return Math.min(this.coinsCarried, this.stack.length);
   },
 
+  // Where the first coin sits: just clear of the King's crown. On a horse that crown is most of a
+  // body higher, and the old fixed 2.4 put the bottom of the stack inside his head once he mounted.
+  // Same two heights the health bar uses in spawnUnit.
+  stackBase() {
+    return this.mounted ? 3.2 : 2.4;
+  },
+
   updateCoins(dt) {
     const kp = this.king.mesh.position;
     for (let i = this.coins.length - 1; i >= 0; i--) {
@@ -403,7 +410,7 @@ export const ViewMethods = {
         if (p.distanceTo(kp) < CFG.king.pickupRadius * this.mods.pickup + this.ringRadius * 0.3) c.state = 'fly';
       } else {
         tmp.copy(kp);
-        tmp.y = 2.4 + this.stackCount() * 0.11;
+        tmp.y = this.stackBase() + this.stackCount() * 0.11;
         p.lerp(tmp, 1 - Math.exp(-dt * 14));
         if (p.distanceTo(tmp) < 0.5) {
           if (c.resType) {
@@ -476,13 +483,14 @@ export const ViewMethods = {
     const v = this.king.vel;
     const { outer, inner } = this.stackMesh;
     const col = COIN_TIER_COLORS[this.coinTier()];
+    const base = this.stackBase();
     for (let i = 0; i < n; i++) {
       const c = this.stack[i];
       outer.setColorAt(i, col[0]);
       inner.setColorAt(i, col[1]);
       // the stack leans against the direction of travel, more the higher it goes
       const lean = 0.004 * Math.min(i, 30);
-      tmp.set(kp.x - v.x * lean, 2.4 + i * 0.11, kp.z - v.z * lean);
+      tmp.set(kp.x - v.x * lean, base + i * 0.11, kp.z - v.z * lean);
       tmp.x += Math.sin(this.time * 2.5 + i * 0.2) * 0.004 * Math.min(i, 30);
       c.position.lerp(tmp, 1 - Math.exp(-dt * (18 - Math.min(10, i * 0.15))));
       tmpM.makeTranslation(c.position.x, c.position.y, c.position.z);
