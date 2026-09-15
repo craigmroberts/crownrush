@@ -32,6 +32,9 @@ def flag(name, default, cast=str):
     return default
 RIG_FROM = flag("--rig", "public/models/king.glb")
 PREVIEW = flag("--preview", "")
+NO_ARMS = "--no-arms" in args    # let the arms ride with the body: right for a gown, where a swung
+if NO_ARMS:                      # arm drags the skirt with it however the weights are scoped
+    args.remove("--no-arms")
 MEASURE_ONLY = "--measure-only" in args
 if MEASURE_ONLY:
     args.remove("--measure-only")
@@ -116,19 +119,39 @@ def measure(obj, co):
     steps = [(width[i] - width[i + 1], i) for i in range(lo_s, ni)]
     si = max(steps)[1] if steps else int(nz * 0.64)
     shoulder = float(zs[si])
-    # the arms are read half way down their own length, not at the shoulder: at the shoulder line they
-    # have not swung clear of the torso yet, so the width there is the torso and the bones land inside it
+    # The arm, measured rather than guessed. Half way down its length the silhouette usually breaks into
+    # runs -- body in the middle, an arm either side -- and the outer run IS the arm, so its centre and
+    # its half width are the bone position and the capsule radius. Guessing both from the total width
+    # instead put the bone inside a wide skirt and the capsule then dragged the skirt with the arm.
     ci = int(np.clip((crotch - z0) / H * nz, 0, nz - 1))
     mi = int((si + ci) / 2)
-    arm_x = width[mi] / 2 * 0.82
+    arm_x, r_arm = width[mi] / 2 * 0.82, width[mi] / 2 * 0.18
+    row = grid[mi]
+    runs, j = [], 0
+    while j < nx:
+        if row[j]:
+            k = j
+            while k + 1 < nx and row[k + 1]:
+                k += 1
+            runs.append((j, k))
+            j = k + 1
+        else:
+            j += 1
+    outer = [(lo, hi) for lo, hi in runs if xs[lo] > 0.02 * H]      # runs clear of the centre line
+    if outer:
+        lo, hi = max(outer, key=lambda t: xs[t[1]])                 # the furthest out is the arm
+        arm_x = float((xs[lo] + xs[hi]) / 2)
+        r_arm = max(0.02 * H, float((xs[hi] - xs[lo]) / 2))
     return dict(z0=z0, z1=z1, H=H, crotch=crotch, leg_x=leg_x, neck=neck, shoulder=shoulder,
-                arm_x=arm_x, grid=grid, zs=zs, xs=xs, width=width)
+                arm_x=arm_x, r_arm=r_arm, arm_runs=len(runs), grid=grid, zs=zs, xs=xs, width=width)
 
 a = measure(body, co)
 print("measured: height %.3f, crotch %.3f (%.0f%%), legs at x %.3f, shoulders %.3f (%.0f%%), arms at x %.3f, neck %.3f (%.0f%%)"
       % (a["H"], a["crotch"], 100 * (a["crotch"] - a["z0"]) / a["H"], a["leg_x"],
          a["shoulder"], 100 * (a["shoulder"] - a["z0"]) / a["H"], a["arm_x"],
          a["neck"], 100 * (a["neck"] - a["z0"]) / a["H"]))
+print("  arm measured as its own run: half width %.3f, %d runs across the body at that height"
+      % (a["r_arm"], a["arm_runs"]))
 MEASURE_IMG = flag("--measure-img", "")
 if MEASURE_IMG:
     # the occupancy grid with the landmarks drawn on it, so a wrong reading is obvious at a glance
@@ -218,10 +241,18 @@ headness = ramp((z - (a["neck"] - band)) / (2 * band))
 # tell a sleeve from a tunic, and on a King whose skirt is wider than his shoulders it handed half the
 # skirt to the arm, which then tore it off at the shoulder on the first frame of the walk.
 y = co[:, 1]
-zc = np.clip(z, a["shoulder"] - 0.26 * a["H"], a["shoulder"])       # nearest point on the bone, which is vertical
-r_arm = max(1e-3, (a["arm_x"] / 0.82 - a["arm_x"]) * 1.7)
+# The capsule starts a little BELOW the shoulder. Reaching all the way up to it caught the bodice,
+# which is continuous with the sleeve there, and the swing then dragged the side of the gown out into
+# a sheet. The top of the sleeve stays with the body, which is also where it barely moves.
+zc = np.clip(z, a["shoulder"] - 0.26 * a["H"], a["shoulder"] - 0.06 * a["H"])
+r_arm = max(1e-3, a["r_arm"] * 1.35)
 d_arm = np.sqrt((np.abs(x) - a["arm_x"]) ** 2 + y ** 2 + (z - zc) ** 2)
-armness = ramp((r_arm + band - d_arm) / (2 * band)) * (1 - legness) * (1 - headness)
+# a tight blend on the arm. A wide one leaves vertices half on the bone and half on the body, and the
+# swing then stretches the geometry between them into a ribbon instead of moving the arm as one piece
+arm_band = band * 0.35
+armness = ramp((r_arm + arm_band - d_arm) / (2 * arm_band)) * (1 - legness) * (1 - headness)
+if NO_ARMS:
+    armness = np.zeros_like(armness)
 spineness = np.clip(1.0 - legness - headness - armness, 0.0, 1.0)
 right = x > 0
 weights = {
