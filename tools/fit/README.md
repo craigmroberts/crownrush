@@ -17,6 +17,26 @@ It prints one verdict line and writes:
 - `tools/fit/reports/_<who>-labels.png` – how each side was read, part by part, when the yellow needs
   explaining.
 
+## Seeing what the score cannot: tools/fit/inspect.py
+
+    blender -b -P tools/fit/inspect.py -- king
+
+The fit score is a whole-body pixel count, and pixels are dominated by the torso and the skirt. A face
+is forty pixels out of ten thousand, so it can be completely wrong while the number barely moves: that
+is how a pair of anime eyes survived every run on a character whose reference has two dark squares.
+
+The inspector reports the things area hides. It changes nothing.
+
+- **Bands** cut the figure into six and score each on its own, so the head is judged as a head.
+- **Landmarks** read the shoulder, waist, widest point and hem off the silhouette's width profile and
+  compare their heights. These are proportions, which is what "it looks wrong" usually means.
+- **Census** lists every part colour with its share of the figure and how far down its centre sits, so
+  a feature the art has and the model lacks shows up as area on one side and none on the other.
+- **Detail** counts internal boundary per band. Far below the art means missing trim, seams or a face.
+
+It writes `reports/<who>-inspect.png`: reference, model, a bar per band, and the two width profiles
+overlaid with the art pale and the model dark.
+
 ## Symmetric references
 
 These characters are bilaterally symmetric, but the art is lit from one side, so one half sits in
