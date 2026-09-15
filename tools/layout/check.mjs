@@ -44,11 +44,14 @@ const needs = (id, want, seen = new Set()) => {
   return (d.requires || []).some((r) => r === want || needs(r, want, seen));
 };
 const exclusive = (A, B) => (!byId[A]?.repeatable && needs(B, A)) || (!byId[B]?.repeatable && needs(A, B));
+// ...but only between two mats. A building outlives the pad that bought it, so nothing may share
+// ground with one, however the requires chain reads.
+const bothPads = (a, b) => a.endsWith(':pad') && b.endsWith(':pad');
 
 // a pad is meant to sit in front of its own building, and the feed pad replaces the keep pad
 const paired = (a, b) => {
   const [A, B] = [a.split(':')[0], b.split(':')[0]];
-  return A === B || (A === 'keep' && B === 'feed') || (A === 'feed' && B === 'keep') || exclusive(A, B);
+  return A === B || (A === 'keep' && B === 'feed') || (A === 'feed' && B === 'keep') || (bothPads(a, b) && exclusive(A, B));
 };
 const hits = (a, b) => Math.abs(a.x - b.x) < (a.w + b.w) / 2 - 0.02 && Math.abs(a.z - b.z) < (a.d + b.d) / 2 - 0.02;
 
