@@ -43,6 +43,15 @@ import inherited the same mistake until someone stood in the doorway.
     blender -b -P tools/blender/bake_vertex_colors.py -- tools/imports/meshy-tower-8k.glb \
         tools/imports/tower-tex.glb --texture 1024 --height 7.1
 
+    blender -b -P tools/blender/bake_vertex_colors.py -- tools/imports/meshy-barracks-8k.glb \
+        tools/imports/barracks-tex.glb --texture 1024 --height 9.0
+
+Size by the building, then check the footprint against the plot. A generated building often brings a
+yard with it -- the barracks has a training dummy, hay bales and a weapon rack -- so its bounds can
+be twice the building's. The barracks came out 7.7 x 8.0 against the built hall's 4.2 x 3.0, which no
+longer fitted between its pads and the north wall; it moved rather than shrank, because shrinking it
+to fit the old spot would have made the hall itself smaller than the one it replaced.
+
 A building that units fight over needs more than a size. The Keep carries its collision in
 `CFG.keep` (`half` is its footprint from the centre, `radius` how close a unit may come), and those
 have to follow the model or enemies stand inside the walls they are hitting. It also has to name the

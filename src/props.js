@@ -14,7 +14,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
 
-const PROP_FILE = { hut: 'hut_ai', keep: 'keep_ai', tower: 'tower_ai' };
+const PROP_FILE = { hut: 'hut_ai', keep: 'keep_ai', tower: 'tower_ai', barracks: 'barracks_ai' };
 
 const base = new Map();     // name -> { geometry, material } as generated
 const tints = new Map();    // `name|hex|amount` -> a recoloured material

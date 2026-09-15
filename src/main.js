@@ -30,7 +30,7 @@ setLoad(0.05, 'Loading…');
 const RIGS = ['king', 'queen', 'king_mounted', 'archer', 'swordsman', 'raider', 'elite', 'brute', 'boss'];
 // Imported buildings. They are loaded here rather than on demand because a pad builds its structure
 // synchronously, and a ghost preview appears before that: both need the model already in hand.
-const PROPS = ['hut', 'keep', 'tower'];
+const PROPS = ['hut', 'keep', 'tower', 'barracks'];
 Promise.all([
   preloadIcons(),
   document.fonts ? document.fonts.ready : Promise.resolve(),

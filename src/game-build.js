@@ -192,7 +192,7 @@ export const BuildMethods = {
       }
       return makeTower(level, m);
     }
-    if (kind === 'barracks') return makeBarracks(m);
+    if (kind === 'barracks') return makeProp('barracks', CFG.structureTint[m]) || makeBarracks(m);
     return new THREE.Group();
   },
 

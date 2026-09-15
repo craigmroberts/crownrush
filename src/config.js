@@ -256,7 +256,7 @@ export const PADS = [
   { ...T('tower-1-ne', 1, [20, -9], 25, [22.6, -11.6]), requires: ['expand1'] },
   { ...T('tower-1-sw', 1, [-18, 16], 25, [-20.6, 18.6]), requires: ['expand1'] },
   { ...T('tower-1-se', 1, [20, 16], 25, [22.6, 18.6]), requires: ['expand1'] },
-  { id: 'barracks', tier: 1, pos: [12, 13], cost: 40, minLevel: 3, icon: 'swords', label: 'Barracks', requires: ['expand1'], structure: 'barracks', buildAt: [12, 16.5], desc: 'Lets you recruit swordsmen.', toast: 'Barracks built! Recruit swordsmen.' },
+  { id: 'barracks', tier: 1, pos: [18, 7.5], cost: 40, minLevel: 3, icon: 'swords', label: 'Barracks', requires: ['expand1'], structure: 'barracks', buildAt: [18, 14], desc: 'Lets you recruit swordsmen.', toast: 'Barracks built! Recruit swordsmen.' },
   { id: 'recruit-sword', tier: 1, pos: [8, 13], cost: 8, growth: 2, icon: 'swordsman', label: '+2 Swordsmen', requires: ['barracks'], repeatable: true, units: { type: 'swordsman', count: 2 }, desc: 'Two swordsmen: tough melee fighters who charge whatever comes near the King.' },
   { id: 'crown', tier: 1, pos: [-6, 11], cost: 35, growth: 25, maxBuys: 3, icon: 'crown', label: 'Royal Guard', requires: ['expand1'], repeatable: true, effect: 'kinghp', desc: 'King max HP +80 and a full heal.', toast: 'King max HP +80 and fully healed' },
   { id: 'expand2', tier: 1, pos: [10, -9], cost: 150, minLevel: 6, icon: 'expand', label: 'Expand Village', requires: ['wall2-south', 'wall2-east', 'wall2-west', 'wall2-north', 'crew-gates2'], effect: 'expand', desc: 'The biggest plot: outer walls, four more towers and veteran archers.', toast: 'The kingdom grows again!' },
