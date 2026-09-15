@@ -31,7 +31,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import numpy as np
 import bpy
 from imagelib import (PALETTE, ID_COLORS, DEFAULT_COL, load_rgba, save_rgb, foreground, symmetrise,
-                      fit_frame, iou_of, make_classes, label, layout_score, hex_to_rgb)
+                      fit_frame, iou_of, make_classes, label, layout_score, hex_to_rgb, BANDS)
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 BUILDER = os.path.join(ROOT, "tools", "blender", "make_character.py")
@@ -117,8 +117,6 @@ print(f"{WHO}: {len(used)} roles, {len(centres)} colour classes, reference read 
 print(f"whole figure: silhouette {iou_of(ref_m, m):.3f}, parts agree {layout_score(ref_m, ref_lab, m, lab):.3f}")
 
 # ---------- bands ----------
-BANDS = [("head", 0.00, 0.22), ("chest", 0.22, 0.42), ("waist", 0.42, 0.58),
-         ("hips", 0.58, 0.74), ("legs", 0.74, 0.90), ("feet", 0.90, 1.00)]
 rows = np.where(ref_m.any(axis=1))[0]
 top, bot = rows.min(), rows.max() + 1
 span = bot - top

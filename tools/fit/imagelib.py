@@ -226,6 +226,37 @@ def layout_score(ref_m, ref_lab, m, lab):
     union = np.logical_or(ref_m, m).sum()
     return agree.sum() / union if union else 0.0
 
+# ---------- bands: scoring a figure a piece at a time ----------
+# A whole-figure score is a pixel count, and pixels belong to the torso and the skirt. Scoring each
+# band on its own, then combining so the weakest one hurts, is what stops a good body paying for a
+# bad head.
+BANDS = [("head", 0.00, 0.22), ("chest", 0.22, 0.42), ("waist", 0.42, 0.58),
+         ("hips", 0.58, 0.74), ("legs", 0.74, 0.90), ("feet", 0.90, 1.00)]
+
+def band_rows(ref_m, bands=BANDS):
+    """Band boundaries as row ranges, measured off the reference's own height."""
+    rows = np.where(ref_m.any(axis=1))[0]
+    top, span = int(rows.min()), int(rows.max()) + 1 - int(rows.min())
+    return [(name, top + int(span * a), top + int(span * b)) for name, a, b in bands]
+
+def band_weights(ref_m, rows):
+    """Each band weighted by the square root of its share of the figure. Straight area is what made
+    small things invisible; equal shares would let a sliver of boot outvote the torso. The square root
+    sits between: a band with a twentieth of the pixels earns about a tenth of the say."""
+    share = np.array([max(1, int(ref_m[y0:y1].sum())) for _, y0, y1 in rows], np.float64)
+    w = np.sqrt(share / share.sum())
+    return w / w.sum()
+
+def band_scores(ref_m, ref_lab, m, lab, rows):
+    return np.array([layout_score(ref_m[y0:y1], ref_lab[y0:y1], m[y0:y1], lab[y0:y1]) for _, y0, y1 in rows])
+
+def banded_score(ref_m, ref_lab, m, lab, rows, w, power=0.5):
+    """The bands combined by a power mean below one, so the total tracks the worst band rather than the
+    average. At power 1 this is the old area-blind mean; the lower it goes the more a single bad band
+    costs, which is the whole point of measuring them apart."""
+    s = np.clip(band_scores(ref_m, ref_lab, m, lab, rows), 1e-6, 1.0)
+    return float(np.sum(w * s ** power) ** (1.0 / power))
+
 def role_masks(id_m, id_c):
     """Which palette role each rendered pixel belongs to, from the ID-colour render."""
     ids = np.array(ID_COLORS, np.float32)

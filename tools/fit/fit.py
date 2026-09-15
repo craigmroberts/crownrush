@@ -172,7 +172,7 @@ KEYS = {"king": _COMMON + _LEGS + ["crown_s", "crown_h", "crown_z", "beard_s", "
 # the builder's default palette (linear) as sRGB, so a role can be matched to the reference by colour
 # every measurement lives in imagelib, so the inspector scores exactly what the search scored
 from imagelib import (  # noqa: F401
-    PALETTE, ID_COLORS, ID_OF, _srgb, DEFAULT_COL, NEAR, clusters, MIN_ROLE, RECOLOR, load_rgba, save_rgb, fill_holes, foreground, symmetrise, fit_frame, dominant, iou_of, feat, make_classes, label, layout_score, role_masks, colour_score, hexc, hex_to_rgb,
+    PALETTE, ID_COLORS, ID_OF, BANDS, band_rows, band_weights, band_scores, banded_score, _srgb, DEFAULT_COL, NEAR, clusters, MIN_ROLE, RECOLOR, load_rgba, save_rgb, fill_holes, foreground, symmetrise, fit_frame, dominant, iou_of, feat, make_classes, label, layout_score, role_masks, colour_score, hexc, hex_to_rgb,
 )
 
 # ---------- driving the builder ----------
@@ -407,10 +407,14 @@ def painted(lab):
     out[lab == -1] = (1.0, 0.0, 1.0)  # magenta: matched no part
     return out
 
+BAND_POWER = flag("--band-power", 0.5, float)  # 1 = the old whole-figure mean; lower punishes a bad band harder
+ROWS = band_rows(ref_m)
+BAND_W = band_weights(ref_m, ROWS)
+
 def evaluate(p):
     m, c = render_fit(p, colors)
     lab = label(m, c, centres)
-    return layout_score(ref_m, ref_lab, m, lab), m, c, lab
+    return banded_score(ref_m, ref_lab, m, lab, ROWS, BAND_W, BAND_POWER), m, c, lab
 
 if HALF:
     # The half build is a proxy for the real character. Prove it matches before trusting it: fitting a
@@ -443,6 +447,9 @@ if MIRROR == "auto":
     print("reference halves: " + ", ".join(f"{n} {sc:.3f}" for sc, n, *_ in picks))
     sc, name, ref_m, ref_c, ref_lab, note = picks[0]
     print(f"using the {name} reading ({note})")
+    ROWS = band_rows(ref_m)                      # the bands belong to whichever reading won
+    BAND_W = band_weights(ref_m, ROWS)
+    print("band weights: " + ", ".join(f"{n} {w * 100:.0f}%" for (n, _, _), w in zip(ROWS, BAND_W)))
     best, best_m, best_c, best_lab = evaluate(p)
 print(f"start  score {best:.3f} (silhouette {iou_of(ref_m, best_m):.3f})  ({len(keys)} controls: {', '.join(keys)})")
 step = {k: 0.12 for k in keys}  # as a fraction of each control's range
@@ -580,6 +587,7 @@ part_table(p)
 for f in (WORK_PARAMS, WORK_IDS):
     if os.path.exists(f):
         os.remove(f)
+print("bands: " + ", ".join(f"{n} {v:.2f}" for (n, _, _), v in zip(ROWS, band_scores(ref_m, ref_lab, best_m, best_lab, ROWS))))
 missing = int(np.logical_and(ref_m, ~best_m).sum()) / max(1, int(ref_m.sum()))
 extra = int(np.logical_and(best_m, ~ref_m).sum()) / max(1, int(ref_m.sum()))
 both = np.logical_and(ref_m, best_m)
