@@ -28,6 +28,26 @@ export const SPEAKERS = {
 // The circumference of the r=17 circle both rings are drawn on, which is what the stylesheet's dash
 // array is set to. Change one and change the other.
 const RING_C = 106.81;
+
+// #113: one gain row, composed in one place. The level-up summary, the Keep plaque and the info
+// screen all render the rows `levelGains` returns, so the delta is assembled here or two of the three
+// drift apart the first time anyone touches it.
+//
+// `text` is the label, `now` is what the level makes it, `was` is what it is without it. The emphasis
+// falls on the number and the direction, because that is what is being scanned -- the noun is the
+// least interesting part of "Army limit 15 archers, 6 swordsmen", and the report was that none of it
+// could be scanned at all: "everything must be short and easy to read with key words shown as another
+// colour or bold... as this is a fast paced game".
+//
+// The strings stay escaped, which was the constraint. They are built from config and must never
+// become an HTML channel, so this composes markup AROUND escaped text and a row carries none of its
+// own. A row with no `now` is an event rather than a quantity and stays a plain sentence.
+const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+function gainBody(u) {
+  if (typeof u === 'string') return esc(u);
+  if (!u.now) return esc(u.text);
+  return `${esc(u.text)} <b>${esc(u.now)}</b>${u.was ? ` <em>was ${esc(u.was)}</em>` : ''}`;
+}
 // Green when there is room, red when there is not, through yellow and orange on the way. Interpolated
 // rather than stepped, so filling a bag is a colour moving rather than four colours taking turns.
 const TRAFFIC_STOPS = [[0, 63, 212, 85], [0.55, 255, 210, 63], [0.8, 245, 150, 32], [1, 232, 52, 42]];
@@ -650,7 +670,6 @@ export class Hud {
   // and two levels past that. Every number here was already computed for the info screen; it was
   // just buried two thirds of the way down one long page, which is why nobody found it.
   showKeep(d) {
-    const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     const N = d.level + 1;
     document.getElementById('ks-title').textContent = d.level >= d.max ? `Level ${d.level} — max` : `Level ${d.level}`;
     document.getElementById('ks-goal').textContent = d.finaleOpen
@@ -672,7 +691,7 @@ export class Hud {
     if (d.unlocks.length) {
       h.push(`<p class="ks-h">Level ${N} gives you</p><div class="ks-list">${d.unlocks.map((u) => {
         const t = typeof u === 'string' ? { icon: 'keep', text: u } : u;
-        return `<div class="ks-row">${iconSvg(t.icon, 24)}<div>${esc(t.text)}</div></div>`;
+        return `<div class="ks-row">${iconSvg(t.icon, 24)}<div>${gainBody(t)}</div></div>`;
       }).join('')}</div>`);
     }
     if (d.later && d.later.length) {
@@ -684,7 +703,6 @@ export class Hud {
   }
 
   showInfo(d) {
-    const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     const chip = (icon, text, state = '') => `<span class="ichip ${state}">${iconSvg(icon, 16)}${esc(text)}</span>`;
     const h = [];
     if (d.queenCaptive) h.push('<p class="info-note">Wren is still captive. Follow the pink arrow, clear her guards and reach her. Nothing can be built, and no raiders will come, until she is free.</p>');
@@ -694,7 +712,7 @@ export class Hud {
     else if (d.need.length) {
       h.push(`<p class="sub">To reach level ${d.level + 1}, feed the Keep:</p><p>${d.need.map((n) => chip(n.type, `${n.need} ${n.type} (you carry ${n.have})`, n.have >= n.need ? 'ok' : n.have > 0 ? '' : 'short')).join(' ')}</p>`);
     }
-    if (d.unlocks.length) h.push(`<p class="sub">Level ${d.level + 1} gives you:</p><ul>${d.unlocks.map((u) => `<li>${esc(typeof u === 'string' ? u : u.text)}</li>`).join('')}</ul>`);
+    if (d.unlocks.length) h.push(`<p class="sub">Level ${d.level + 1} gives you:</p><ul>${d.unlocks.map((u) => `<li>${gainBody(u)}</li>`).join('')}</ul>`);
     h.push(`<h2>${iconSvg('archer', 22)} Your army</h2><p>${chip('archer', `${d.army.archers} / ${d.army.archerCap} archers`)} ${chip('swordsman', `${d.army.swords} / ${d.army.swordCap} swordsmen`)} ${chip('tower', d.army.towers.length ? `${d.army.towers.length} towers (levels ${d.army.towers.join(', ')})` : 'no towers yet')} ${chip('arrows', `arrows ${d.army.fire.toFixed(1)}x speed, training ${d.army.training}/5`)} ${chip('wall', `${d.army.wall.toLowerCase()} walls`)}${d.army.keepHp ? ' ' + chip('keep', `Keep ${d.army.keepHp}`) : ''}</p>`);
     h.push(`<h2>${iconSvg('gold', 22)} Coins</h2><p>You carry ${d.coins.count} coins, each worth ${d.coins.value} score.${d.coins.nextValue ? ` At level ${d.coins.nextAt} each one is worth ${d.coins.nextValue}.` : ''} Every pad costs coins except crews (archers) and the Keep (materials).</p>`);
     if (d.taken && d.taken.length) {
@@ -739,7 +757,6 @@ export class Hud {
   // #94: the board, best first. Rebuilt on open rather than kept in sync -- it changes once a run, and
   // the only way to see it is to open it.
   showScores(runs) {
-    const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     const body = document.getElementById('sc-body');
     if (!runs.length) {
       body.innerHTML = '<p class="hint">No finished runs yet. However a run ends, it lands here.</p>';
@@ -790,12 +807,13 @@ export class Hud {
   // level ahead. It goes above the cards because it is the answer to "what just happened", and the
   // cards are the question that follows it.
   showOffer(list, level, queued, gains = []) {
-    const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     document.getElementById('offer-level').textContent = level;
     const gv = document.getElementById('offer-gains');
     const gh = document.getElementById('offer-gave-h');
-    if (gv) gv.innerHTML = gains.map((u) => `<div class="og-row">${iconSvg(u.icon, 22)}<div>${esc(u.text)}</div></div>`).join('');
-    if (gh) gh.textContent = gains.length ? `Level ${level} gave you` : '';
+    if (gv) gv.innerHTML = gains.map((u) => `<div class="og-row">${iconSvg(u.icon, 22)}<div>${gainBody(u)}</div></div>`).join('');
+    // #113: "Level 4 gave you" under an h1 that already says Level 4 is the same words twice, on the
+    // screen the report asked to make shorter. Two words, and the rows say the rest.
+    if (gh) gh.textContent = gains.length ? 'You gained' : '';
     document.getElementById('offer-more').textContent = queued > 1 ? `${queued - 1} more choice${queued > 2 ? 's' : ''} after this` : '';
     document.getElementById('offer-cards').innerHTML = list.map((u) => `
       <button class="offer-card${u.rare ? ' rare' : ''}" data-id="${esc(u.id)}">
@@ -813,7 +831,6 @@ export class Hud {
   // (`.og-row`) because it is the same kind of news. Like `showOffer` this runs on an event and not on
   // a frame, so the innerHTML here is not the per-frame rule `Hud.set` lives under.
   showGain(gain) {
-    const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     document.getElementById('gain-title').textContent = gain.title;
     document.getElementById('gain-sub').textContent = gain.sub || '';
     document.getElementById('gain-rows').innerHTML = gain.rows

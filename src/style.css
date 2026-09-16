@@ -702,6 +702,15 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
    -- a modal that looks like it has nothing to choose is worse than a summary you have to scroll. */
 #offer-gains { display: grid; gap: 5px; max-height: 26vh; overflow-y: auto; margin: 8px 0 14px; text-align: left; }
 .og-row { display: grid; grid-template-columns: 24px 1fr; gap: 8px; align-items: center; font-size: 13px; line-height: 1.28; color: #dde7cf; text-shadow: none; }
+/* #113: what a level gave, in the two weights a glance needs. The new figure takes the HUD's gold --
+   the same colour the countdown and the raid meter use for a number worth looking at -- and the old
+   one goes small and muted behind it, so the eye lands on "15 archers, 6 swordsmen" and picks up
+   "was 12 and 4" only if it wants it. Reported as a panel of flat rows that could not be scanned at
+   all, on a screen a fast game gives you a second to read.
+   Three renderers share these rows (the level-up summary, the Keep plaque and the info screen), so
+   all three are listed rather than the emphasis being reinvented per panel. */
+.og-row b, .ks-row b, .panel.info ul b { color: #ffe08a; font-weight: 800; }
+.og-row em, .ks-row em, .panel.info ul em { font-style: normal; color: #a9bb96; font-size: 0.88em; }
 #offer-gains:empty, #offer-gave-h:empty { display: none; }
 /* #105: the capability panel. The same rows as the level-up summary at a size up, because here they
    are the whole panel rather than the preamble to three cards -- there is nothing below them to be

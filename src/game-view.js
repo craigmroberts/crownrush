@@ -1107,9 +1107,23 @@ export const ViewMethods = {
   // and the level-up modal asks it about the one just reached, which is why it takes N rather than
   // reading `baseLevel` -- the same list answered both questions all along, and only one screen was
   // asking. Pure: it must stay safe to ask about a level that has already happened.
+  // #113: what a level GAVE, not what the player now has. Reported from play: "the text says exactly
+  // what the limits are but i cant tell by how much its increased, which is the most important part
+  // for me as i cant remember the limits previously".
+  //
+  // So a row that carries a number carries both of them: `now` is what this level makes it, `was` is
+  // what it was without it, and the renderer is what decides how to emphasise them (hud.js, `gainBody`).
+  // The coin row had been in this form since #99 and was the only one -- the shape was already here,
+  // it had just never been applied to the rows beside it.
+  //
+  // A row is dropped outright when the number does not move. "Army limit 9 archers was 9" is worse
+  // than saying nothing: it claims a gain that did not happen, on the one screen whose whole job is
+  // saying what did.
   levelGains(N) {
     const out = [];
-    const add = (icon, text) => out.push({ icon, text });
+    // `now`/`was` omitted for a row that is an event rather than a quantity -- a quarry opening, the
+    // walls going up in stone. Those are a sentence and stay one.
+    const add = (icon, text, now, was) => out.push(now === undefined ? { icon, text } : { icon, text, now, was });
     // #29/#99: the levels that open a material are exactly the levels whose `unlocks` line announces
     // it ("Stone quarries open"), so this is one row and not two -- it just uses the material's own
     // icon and the sentence revealNodes would have said, which is where to go and look. That sentence
@@ -1118,8 +1132,16 @@ export const ViewMethods = {
     const material = Object.keys(CFG.base.materialAt).find((m) => CFG.base.materialAt[m] === N);
     if (material) add(material, `${CFG.base.nodeName[material] || material} are open. Look for them on the map.`);
     else if (CFG.base.unlocks[N]) add('star', CFG.base.unlocks[N]);
-    add('archer', `Army limit: ${CFG.base.archers[N]} archers, ${CFG.base.swordsmen[N]} swordsmen`);
-    add('arrows', `Arrow speed ${CFG.base.fireRate(N).toFixed(1)}x for archers, towers and the King`);
+    // Swordsmen are 0 until level 3, so the row says archers alone until there are any -- "12 archers,
+    // 0 swordsmen" is a line about something the player cannot have yet.
+    const A = CFG.base.archers;
+    const S = CFG.base.swordsmen;
+    if (N >= 1 && (A[N] !== A[N - 1] || S[N] !== S[N - 1])) {
+      add('archer', 'Army limit', S[N] ? `${A[N]} archers, ${S[N]} swordsmen` : `${A[N]} archers`, S[N - 1] ? `${A[N - 1]} and ${S[N - 1]}` : `${A[N - 1]}`);
+    }
+    // fireRate is flat between level 0 and level 1, so the first level has nothing to say here.
+    const fire = (lv) => CFG.base.fireRate(lv).toFixed(1);
+    if (N >= 1 && fire(N) !== fire(N - 1)) add('arrows', 'Arrow speed', `${fire(N)}x`, `${fire(N - 1)}x`);
     // walls and buildings both: rebuildStructures goes round the village in the same pass, and the
     // toast that used to say so fired underneath this modal
     if (CFG.base.wallAt.includes(N)) add('wall', `Walls and buildings rebuilt in ${CFG.wallLevels[CFG.base.wallAt.indexOf(N)].name.toLowerCase()}`);
@@ -1127,13 +1149,15 @@ export const ViewMethods = {
       // From the table rather than from coinValue(): asked about a level already reached, coinValue()
       // returns the NEW figure, so the row would have read "worth 3 instead of 3".
       const i = CFG.coins.valueAt.indexOf(N);
-      if (i > 0) add('gold', `Every coin is worth ${CFG.coins.value[i]} score instead of ${CFG.coins.value[i - 1]}`);
+      if (i > 0) add('gold', 'Every coin', `${CFG.coins.value[i]} score`, `${CFG.coins.value[i - 1]}`);
     }
     const rank = CFG.ranks.find((r) => r.fromLevel === N);
     if (rank) add('skull', `${rank.name}s start raiding: tougher, but they drop more coins`);
     for (const def of PADS) if (def.minLevel === N) add(def.icon, `${def.label} pad appears`);
     if (N === CFG.finale.level) add('swords', 'The march on the raider camp opens: kill the Warlord to end the war');
-    add('keep', `Keep health ${CFG.keep.hp + (N - 1) * CFG.keep.hpPerLevel}`);
+    // Level 1 is the level the Keep is BUILT at, so there is no health it had before to compare with.
+    const keepHp = (lv) => CFG.keep.hp + (lv - 1) * CFG.keep.hpPerLevel;
+    add('keep', 'Keep health', `${keepHp(N)}`, N > 1 ? `${keepHp(N - 1)}` : undefined);
     return out;
   },
 

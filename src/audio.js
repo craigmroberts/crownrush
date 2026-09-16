@@ -9,6 +9,12 @@ function freq(name) {
 // --- the background loop: 8 bars, 96 bpm, C major. Tokens are eighth notes; '.' holds, '-' rests.
 const BPM = 96;
 const BEAT = 60 / BPM;
+// The music bus's resting level, and how long it takes to get there and back (#113). 0.22s is long
+// enough that the ear hears a fade rather than a click, and short enough that the suspend it is
+// waiting for still lands inside the beat the panel takes to arrive -- the overlay's own fade is
+// 0.2s, so the music goes with the picture rather than after it.
+const MUSIC = 0.55;
+const FADE = 0.22;
 const LEAD = [
   'E5 G5 A5 G5 E5 D5 C5 -',
   'D5 E5 G5 . B4 D5 . -',
@@ -80,7 +86,8 @@ class Audio {
     this.master.gain.value = this.muted ? 0 : 0.6;
     this.master.connect(this.ctx.destination);
     this.music = this.ctx.createGain();
-    this.music.gain.value = 0.55;
+    this.music.gain.value = MUSIC;
+    this.musicTarget = MUSIC;        // where `rampMusic` believes the bus is heading, so the first call is a no-op
     this.music.connect(this.master);
     // #32: day and night play on the same clock into their own buses, and nightfall is a cross-fade
     // between the two rather than a swap, so no bar is ever cut short or restarted.
@@ -113,13 +120,57 @@ class Audio {
   // Reconciled against the context's real state rather than a remembered flag. A flag goes stale
   // while the page is hidden -- nothing is running to update it -- and the first thing that happens
   // on the way back is precisely the case this has to get right.
+  // #113: and it fades rather than cutting. Reported of the level-up panel: "the level information
+  // just pops up and stops the music abruptly... it kills the rhythm". The panel appearing was only
+  // half of that -- the other half was the whole soundtrack disappearing between one frame and the
+  // next, which is what a page does when something has gone wrong.
+  //
+  // A ramp AND THEN a suspend, in that order, because either alone is wrong. A ramp with no suspend
+  // leaves the loop running silently and out of phase when it comes back; a suspend with no ramp is
+  // what this is fixing, and a suspend scheduled alongside a ramp cuts the ramp off mid-way, since it
+  // stops every scheduled voice at once. So the fade is scheduled, and the suspend waits for it.
+  //
+  // The wait is a real window: the game is stopped but the context is still running for another fifth
+  // of a second, and the player can come back inside it (open the pause screen, close it again). The
+  // timer re-reads `active` when it fires rather than trusting what was true when it was set -- the
+  // same reason the rest of this method reconciles against `ctx.state` instead of a flag.
   setActive(on) {
     this.active = on;
     if (!this.ctx) return;
     if (this.ctx.state === 'running') this.everRan = true;
     const want = on && !document.hidden;
-    if (want && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
-    else if (!want && this.ctx.state === 'running') this.ctx.suspend().catch(() => {});
+    if (want) {
+      if (this.fadeOut) {
+        clearTimeout(this.fadeOut);
+        this.fadeOut = 0;
+      }
+      if (this.ctx.state === 'suspended') {
+        // The gain is wherever the fade left it and `currentTime` is frozen, so the ramp cannot be
+        // scheduled until the clock is running again. `musicTarget` is cleared so it is not taken for
+        // a ramp already in flight.
+        this.musicTarget = null;
+        this.ctx.resume().then(() => this.rampMusic(MUSIC)).catch(() => {});
+      } else this.rampMusic(MUSIC);
+    } else if (this.ctx.state === 'running' && !this.fadeOut) {
+      this.rampMusic(0);
+      this.fadeOut = setTimeout(() => {
+        this.fadeOut = 0;
+        if (this.active && !document.hidden) this.rampMusic(MUSIC);      // they came back inside the fade
+        else if (this.ctx.state === 'running') this.ctx.suspend().catch(() => {});
+      }, FADE * 1000 + 40);
+    }
+  }
+
+  // One ramp at a time, and only when the target actually moves. `setActive` is called every frame
+  // from `Game.update`, and re-scheduling a ramp sixty times a second is a staircase, not a fade.
+  rampMusic(to) {
+    if (!this.ctx || !this.music || this.musicTarget === to) return;
+    this.musicTarget = to;
+    const g = this.music.gain;
+    const t = this.ctx.currentTime;
+    g.cancelScheduledValues(t);
+    g.setValueAtTime(g.value, t);    // start from where the last ramp actually got to, not from the target
+    g.linearRampToValueAtTime(to, t + FADE);
   }
 
   // Keep asking on any gesture until it takes. Cheap when it works first time: the listeners are

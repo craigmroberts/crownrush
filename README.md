@@ -119,6 +119,10 @@ loop underneath it:
   dead with nothing able to resume him.
 - Sound is synthesised in the browser (no audio files): a looping background melody, arrow hits, coin
   pickups, the "ching" of coins being spent, build fanfares and wave horns. The speaker button mutes it.
+  Anything that stops the game suspends the audio context, which stops the loop and freezes
+  `ctx.currentTime` with it so the music comes back in phase rather than desynced -- but the music bus
+  fades over 0.22s first, and the suspend waits for the ramp. Cutting a soundtrack dead between two
+  frames is what a page does when something has broken, and a reward panel should not sound like one.
   Wren has a voice, made the same way -- a sawtooth through two bandpass filters at a vowel's formants,
   which is a buzz shaped by the mouth around it, the same trick the wolf's howl uses. She calls out
   when the Keep is attacked and cries differently when raiders get hold of her, and not while she is
@@ -389,6 +393,16 @@ asks for a choice. That list is `levelGains(N)`, the same one the Keep plaque re
 will the next level give me*; it was there all along and only one of the two screens was asking. The
 level's news used to go out as toasts fired in the same tick as this panel, and `#toast` is z-index 4
 against the panel's 10, so the game announced every level underneath the thing covering it.
+
+Every row that carries a number carries **both** of them -- `Army limit 15 archers, 6 swordsmen was
+12 and 4` -- because nobody remembers what the limit was a level ago, and a total with nothing to
+measure it against is trivia. The new figure takes the HUD's gold and the old one goes small behind
+it, so the panel can be scanned in the second a fast game gives you for it. A row whose number did
+not move is dropped rather than shown unchanged: claiming a gain that did not happen is worse on
+this screen than on any other. `levelGains` returns `{icon, text, now, was}` and the three renderers
+that share it -- the level-up summary, the Keep plaque, the info screen -- compose it through one
+`gainBody` in `hud.js`, which wraps markup around escaped text so a config string can never become
+an HTML channel.
 
 You keep one of three rewards. The pool is in
 [src/upgrades.js](src/upgrades.js) and covers five areas: your army, watchtowers, walls, the economy
