@@ -243,7 +243,7 @@ export class Hud {
     this.startScreen.classList.add('hidden');
   }
   showGameOver(wave, coins, score, best, reason = 'king') {
-    document.getElementById('gameover-title').textContent = reason === 'taken' ? 'The Queen Was Carried Away' : reason === 'queen' ? 'The Queen Was Lost' : 'The King Has Fallen';
+    document.getElementById('gameover-title').textContent = reason === 'taken' ? 'They Carried Wren Away' : reason === 'queen' ? 'Wren Is Lost' : 'The King Has Fallen';
     document.getElementById('final-wave').textContent = wave;
     document.getElementById('final-coins').textContent = coins;
     document.getElementById('final-score').textContent = score.toLocaleString();
@@ -405,7 +405,7 @@ export class Hud {
     const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     const chip = (icon, text, state = '') => `<span class="ichip ${state}">${iconSvg(icon, 16)}${esc(text)}</span>`;
     const h = [];
-    if (d.queenCaptive) h.push('<p class="info-note">The Queen is still captive. Follow the pink arrow, clear her guards and reach her. Nothing can be built, and no raiders will come, until she is free.</p>');
+    if (d.queenCaptive) h.push('<p class="info-note">Wren is still captive. Follow the pink arrow, clear her guards and reach her. Nothing can be built, and no raiders will come, until she is free.</p>');
     h.push(d.finaleOpen ? '<p class="info-note">The march is open: the raiders\' camp lies to the north. Kill the Warlord to end the war.</p>' : `<p class="sub">Goal: reach Keep level ${d.finaleLevel}, then march on the raider camp.</p>`);
     h.push(`<h2>${iconSvg('keep', 22)} Keep level ${d.level}${d.level >= d.max ? ' (max)' : ''}</h2>`);
     if (!d.hasKeep) h.push('<p>Not built yet. Stand on the Royal Keep pad in the village.</p>');

@@ -50,55 +50,51 @@ export const BuildMethods = {
     this.root.add(mesh);
     const pad = { def, mesh, canvas, tex, cost: this.padCost(def), paid: 0, ghosts: [], bornAt: this.time, fade: 0, res: Object.entries(def.res || {}).map(([type, need]) => ({ type, need, paid: 0 })) };
     // ghost previews: units on the pad, structures where they'd be built, wall outlines along the edge
+    //
+    // #62: `mine` is whether this ghost's geometry was made FOR it. A ghost built from a loaded model
+    // borrows -- makeRigged hands back the rig's own buffers and makeProp shares the prop's -- and
+    // freeing those would pull the model out from under every character and building still standing.
+    // Anything built procedurally (the walls, the bridge, the fallback characters) is fresh per pad
+    // and nobody else's, so it goes when the pad goes. Decided here, in the branch that has just
+    // called the builder and knows which it was, rather than guessed at by traversal later.
+    const ghost = (mesh, mine) => {
+      const g = ghostify(mesh);
+      g.userData.ownGeometry = mine;
+      this.root.add(g);
+      pad.ghosts.push(g);
+      return g;
+    };
     if (def.units) {
       for (let i = 0; i < def.units.count; i++) {
         const r = makeRigged(def.units.type === 'archer' ? 'archer' : 'swordsman');
-        const g = ghostify(r ? r.mesh : def.units.type === 'archer' ? makeArcher() : makeSwordsman());
+        const g = ghost(r ? r.mesh : def.units.type === 'archer' ? makeArcher() : makeSwordsman(), !r);
         g.position.set(def.pos[0] - 0.6 + i * 0.7 + (i > 1 ? -1.1 : 0), 0, def.pos[1] + (i > 1 ? 0.8 : 0));
-        this.root.add(g);
-        pad.ghosts.push(g);
       }
     } else if (def.crew) {
       for (const [x, z, y] of this.crewSpots(def)) {
-        const g = ghostify((makeRigged('archer') || { mesh: makeArcher() }).mesh);
+        const r = makeRigged('archer');
+        const g = ghost(r ? r.mesh : makeArcher(), !r);
         g.position.set(x, y, z);
-        this.root.add(g);
-        pad.ghosts.push(g);
       }
     } else if (def.wall) {
-      for (const sec of this.wallSections(def.wall.tier, def.wall.side)) {
-        const g = ghostify(this.makeWallMesh(sec));
-        this.root.add(g);
-        pad.ghosts.push(g);
-      }
+      for (const sec of this.wallSections(def.wall.tier, def.wall.side)) ghost(this.makeWallMesh(sec), true);
     } else if (def.repair) {
-      const g = ghostify(this.makeWallMesh(def.repair));
-      this.root.add(g);
-      pad.ghosts.push(g);
+      ghost(this.makeWallMesh(def.repair), true);
     } else if (def.repairKeep) {
-      const g = ghostify(this.makeStructureMesh('keep'));
-      g.position.set(this.keep.x, 0, this.keep.z);
-      this.root.add(g);
-      pad.ghosts.push(g);
+      const m = this.makeStructureMesh('keep');
+      ghost(m, !m.userData.sharedGeometry).position.set(this.keep.x, 0, this.keep.z);
     } else if (def.bridge) {
       const c = this.world.crossingFor(def.bridge);
       if (c) {
-        const g = ghostify(makeBridge(this.world.river.halfWidth * 2 + 5, 4.8));
+        const g = ghost(makeBridge(this.world.river.halfWidth * 2 + 5, 4.8), true);
         g.position.set(c.x, 0, c.z);
         g.rotation.y = Math.atan2(c.dx, c.dz);
-        this.root.add(g);
-        pad.ghosts.push(g);
       }
     } else if (def.effect === 'horse') {
-      const g = ghostify(makeKing());
-      g.position.set(def.pos[0], 0, def.pos[1] - 1.2);
-      this.root.add(g);
-      pad.ghosts.push(g);
+      ghost(makeKing(), true).position.set(def.pos[0], 0, def.pos[1] - 1.2);
     } else if (def.structure && def.buildAt) {
-      const g = ghostify(this.makeStructureMesh(def.structure));
-      g.position.set(def.buildAt[0], 0, def.buildAt[1]);
-      this.root.add(g);
-      pad.ghosts.push(g);
+      const m = this.makeStructureMesh(def.structure);
+      ghost(m, !m.userData.sharedGeometry).position.set(def.buildAt[0], 0, def.buildAt[1]);
     }
     // a fresh feed pad pauses for a beat so each level-up is a visible moment, not a blur
     if (def.feed) pad.resTimer = 0.9;
@@ -139,7 +135,7 @@ export const BuildMethods = {
       icon: pad.def.icon, label: this.padName(pad.def), paid: total ? paidAll / total : 0,
       active: !!pad.active,
       sub: this.padSub(pad.def),
-      locked: pad.locked === 'rescue' ? 'Free the Queen' : pad.locked ? `Keep Lv ${pad.locked}` : null,
+      locked: pad.locked === 'rescue' ? 'Free Wren' : pad.locked ? `Keep Lv ${pad.locked}` : null,
       lockIcon: pad.locked === 'rescue' ? 'tiara' : 'keep',
       shape: style.shape, rim: style.rim,
       // #37: the cost lived only in the sheet along the bottom edge, and the eyes are on the King.
@@ -147,7 +143,7 @@ export const BuildMethods = {
       // the way sitting above the bar so the bar itself never moves.
       cost: pad.def.crew ? 0 : pad.cost,
       left: Math.max(0, pad.cost - pad.paid),
-      blocker: pad.locked === 'rescue' ? 'Free the Queen first' : pad.locked ? `Needs Keep ${pad.locked}` : null,
+      blocker: pad.locked === 'rescue' ? 'Free Wren first' : pad.locked ? `Needs Keep ${pad.locked}` : null,
     });
   },
 
@@ -288,8 +284,7 @@ export const BuildMethods = {
     const def = pad.def;
     this.built[def.id] = true;
     this.buyCount[def.id] = (this.buyCount[def.id] || 0) + 1;
-    for (const g of pad.ghosts) this.root.remove(g);
-    pad.ghosts = [];
+    this.releaseGhosts(pad);
 
     if (def.units) {
       const n = def.units.count + this.mods.recruitBonus;
@@ -525,8 +520,8 @@ export const BuildMethods = {
     const name = this.padName(pad.def);
     if (locked === 'rescue') {
       return this.queen.taken
-        ? `${name} is shut until the Queen is home. Cut off her escort and bring her back.`
-        : `${name} is shut until the Queen is free. Follow the pink arrow and clear her guards.`;
+        ? `${name} is shut until Wren is home. Cut off her escort and bring her back.`
+        : `${name} is shut until Wren is free. Follow the pink arrow and clear her guards.`;
     }
     if (pad.def.units) {
       const t = pad.def.units.type === 'archer' ? 'archers' : 'swordsmen';
@@ -562,7 +557,7 @@ export const BuildMethods = {
       const chips = [];
       const def = nearest.def;
       const locked = this.padLocked(def);
-      if (this.queen.captive) chips.push({ icon: 'tiara', text: 'Free the Queen first', state: 'short' });
+      if (this.queen.captive) chips.push({ icon: 'tiara', text: 'Free Wren first', state: 'short' });
       if (def.crew) {
         const free = this.units.filter((u) => u.type === 'archer' && !u.assign).length;
         chips.push({ icon: 'person', text: plural(nearest.cost - nearest.paid, 'archer'), state: free > 0 ? 'ok' : 'short' });
@@ -578,7 +573,7 @@ export const BuildMethods = {
         if (def.units) chips.push({ icon: def.units.type, text: `${this.unitCount(def.units.type)} / ${this.unitCap(def.units.type)} ${def.units.type}s`, state: locked ? 'short' : 'ok' });
       }
       const note = this.keep && this.keep.state !== 'built' && def.repairKeep ? 'The Keep must stand before it can be fed again'
-        : this.queen.captive ? (this.queen.taken ? 'Cut off the escort and bring her back' : 'Rescue the Queen first') : locked ? 'Feed the Keep to raise the limit' : this.king.moving && (nearest.holdT || 0) < CFG.spend.walkHold ? 'Stop moving to pay' : def.feed ? `Pouring in materials…` : def.crew ? 'Sending archers…' : 'Paying…';
+        : this.queen.captive ? (this.queen.taken ? 'Cut off the escort and bring her back' : 'Rescue Wren first') : locked ? 'Feed the Keep to raise the limit' : this.king.moving && (nearest.holdT || 0) < CFG.spend.walkHold ? 'Stop moving to pay' : def.feed ? `Pouring in materials…` : def.crew ? 'Sending archers…' : 'Paying…';
       const total = nearest.cost + nearest.res.reduce((a, r) => a + r.need, 0);
       const paidAll = nearest.paid + nearest.res.reduce((a, r) => a + r.paid, 0);
       this.hud.showPadTip({
@@ -700,7 +695,7 @@ export const BuildMethods = {
     q.mesh.position.set(this.keep.x + b.x, b.y, this.keep.z + b.z);
     q.mesh.rotation.y = 0;
     q.moving = false;
-    this.hud.toast('The Queen is inside the keep.', 1500);
+    this.hud.toast('Wren is inside the Keep.', 1500);
   },
 
   queenLeaveKeep() {
@@ -724,10 +719,10 @@ export const BuildMethods = {
     // an ordinary unit made the worst moment in the game a non-event; the raiders carry her off
     // instead, and the chase that already existed starts from here.
     if (sheltering) {
-      this.hud.toast('The keep has fallen and the Queen is taken! Cut off the escort!', 3600);
+      this.hud.toast('The Keep is down and Wren with it. Cut the escort off!', 3600);
       this.captureQueen();
     } else {
-      this.hud.toast('The keep has fallen! Protect the Queen!', 2600);
+      this.hud.toast('The Keep has fallen! Get Wren behind something.', 2600);
     }
     this.dropFeedPad();
     this.dynamicPads.push({ id: `repair-keep-${this.time.toFixed(0)}`, pos: [k.x - 3.2, k.z + 3.2], cost: 20, res: { stone: 10 }, icon: 'hammer', label: 'Repair Keep', repairKeep: true });
@@ -945,21 +940,39 @@ export const BuildMethods = {
   // .js only releases a texture when it is told to -- so without this a long run quietly hands the
   // driver tens of megabytes it can never reuse, and a phone answers that by taking the context away.
   //
-  // Only the three things makePad() itself made. The ghosts are not ours to free: a unit ghost shares
-  // its geometry with the loaded rig and every ghost shares GHOST_MAT, so disposing those would pull
-  // the model out from under every character still standing.
+  // The three things makePad() itself made, and the ghosts whose geometry was made for them.
+  //
+  // #62: every ghost shares GHOST_MAT, so no ghost material is ever freed here. Geometry is split:
+  // addPad tagged each ghost with whether it built the buffers or borrowed them from a loaded rig or
+  // prop, because a wall ghost is fresh per pad and leaks, while a unit ghost's belongs to every
+  // character on the field. That flag is set where the builder was called; nothing here tries to
+  // work it out, which is how you blank every character at once.
   disposePad(pad) {
     if (!pad || pad.disposed) return;
     pad.disposed = true;
+    this.releaseGhosts(pad);
     pad.tex.dispose();
     pad.mesh.geometry.dispose();
     pad.mesh.material.dispose();
   },
 
+  // Ghosts leave the field before the pad does: completePad drops them the moment it is paid, and
+  // the pad itself lives another eighty lines. So this is where they are let go rather than in
+  // disposePad -- both paths come through here, the array can still be emptied straight afterwards
+  // the way it always was, and a second call finds nothing to do.
+  releaseGhosts(pad) {
+    for (const g of pad.ghosts) {
+      this.root.remove(g);
+      if (!g.userData.ownGeometry) continue;      // borrowed from a rig or a prop; not ours to free
+      g.traverse((o) => { if (o.isMesh && o.geometry) o.geometry.dispose(); });
+      for (const geo of g.userData.droppedGeometry || []) geo.dispose();
+    }
+    pad.ghosts = [];
+  },
+
   removePadDef(def) {
     const pad = this.pads.find((p) => p.def === def);
     if (pad) {
-      for (const g of pad.ghosts) this.root.remove(g);
       this.root.remove(pad.mesh);
       this.disposePad(pad);
       this.pads.splice(this.pads.indexOf(pad), 1);

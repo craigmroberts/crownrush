@@ -1001,7 +1001,7 @@ export const ViewMethods = {
     if (def.tower && def.crew) return 'Archers climb the tower and shoot from it (they leave your army).';
     if (def.towerUp) return 'More crew slots, sharper and longer-ranged arrows.';
     if (def.repair) return 'Rebuild this broken wall section.';
-    if (def.repairKeep) return 'Repair the Keep so the Queen can shelter in it again.';
+    if (def.repairKeep) return 'Repair the Keep so Wren has a door again.';
     return '';
   },
 

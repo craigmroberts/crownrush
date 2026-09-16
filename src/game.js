@@ -440,7 +440,7 @@ export class Game {
     this.hud.hideGameOver();
     this.hud.hideVictory();
     this.hud.hidePause();
-    this.hud.toast('The Queen has been taken! Follow the pink arrow and free her.', 3600);
+    this.hud.toast('Raiders have taken Wren. Follow the pink arrow and free her.', 3600);
     audio.init();
     audio.setActive(true);
   }
@@ -699,8 +699,8 @@ export class Game {
     if (this.keep && this.keep.state === 'built') {
       this.keep.hp = Math.max(1, this.keep.hp - this.keep.maxHp * CFG.rescue.keepCost);
       setHealthBar(this.keep.bar, this.keep.hp / this.keep.maxHp);
-      this.hud.toast('The Queen is back, shaken. The Keep paid dearly for it.', 3400);
-    } else this.hud.toast('The Queen is back, shaken. Get her somewhere safe.', 3200);
+      this.hud.toast('Wren is back. "I am not hurt. The Keep took that for me."', 3400);
+    } else this.hud.toast('Wren is back, and furious. "Find me a door."', 3200);
     audio.unlock();
   }
 

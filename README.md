@@ -3,9 +3,13 @@
 **Play it:** https://craigmroberts.github.io/crownrush/ (works on phones; add it to your home screen for full screen).
 
 A simple, addictive low-poly defend-and-build game for the browser (desktop and phone).
-No storyline, just the loop:
 
-1. Raiders attack. You start with the King and the Queen, and losing either ends the game.
+Raiders have carried off Queen Wren. Taking her back is what starts the war, because every raid after
+that is them coming for her again — and it ends at their camp, with the Warlord who sent them. That is
+the whole of the story, and it is told in about a dozen lines at moments the game already had. The
+loop underneath it:
+
+1. Raiders attack. Lose the King, or lose Wren twice, and the run is over.
 2. Shoot them down and grab the coins they drop.
 3. Carry the coins to a build pad and stand on it to spend them.
 4. Pads build your village: an archery range, more archers, watchtowers, a palisade, a barracks...
@@ -207,6 +211,16 @@ until she is back. Cut down the whole escort and she is freed, shaken -- they st
 and it takes a couple of seconds to shake off -- and the Keep loses a chunk of its health for it. It
 can happen once per run (`recaptures`); a second capture, or an escort reaching the edge, ends the
 game.
+
+She has a name and a voice, because a named person being carried off is a different event from "the
+Queen" being carried off. The lines are short and there are not many -- the rescue, the recapture,
+the Keep, the camp waking -- and they go out through `hud.toast`, which was already a queue that
+holds long enough to read and scales its duration to the text. She is not a damsel and does not read
+like one: she cannot be hurt, and coming back from an escort she says so.
+
+The Warlord going down is the exception, and it is in the victory panel rather than a toast. A toast
+there would have had six hundred milliseconds before the overlay covered it, which is not long enough
+to read anything.
 
 ## Day and night
 

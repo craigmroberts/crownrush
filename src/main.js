@@ -79,7 +79,7 @@ Promise.all([
 // #6: the first time through, Play opens a short stepped intro; after that it goes straight in
 const INTRO_KEY = 'crownrush-intro-seen';
 const INTRO = [
-  { icon: 'tiara', title: 'Find the Queen', text: 'She has been taken. Follow the pink arrow, clear her guards and bring her home. Nothing can be built, and no raid comes, until she is free.' },
+  { icon: 'tiara', title: 'Find the Queen', text: 'Raiders have taken Wren, your Queen. Follow the pink arrow, clear her guards and bring her home. Nothing can be built, and no raid comes, until she is free.' },
   { icon: 'coin', title: 'Fight and collect', text: 'Your archers shoot on their own. Raiders drop coins: walk over them to pick them up. The colour a raider wears tells you how dangerous it is.' },
   { icon: 'horn', title: 'Sound the horn', text: 'The horn button (or Space) rallies your army to you and drives them for a few seconds, and the blast throws nearby raiders back. It takes a while to recharge, so save it for a breach.' },
   { icon: 'hammer', title: 'Build', text: 'Stop on a floor marker to spend coins. Square markers build; round ones recruit and upgrade. Walking across a marker costs nothing.' },

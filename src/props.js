@@ -140,5 +140,8 @@ export function makeProp(name, tint = null) {
   mesh.receiveShadow = true;
   const group = new THREE.Group();
   group.add(mesh);
+  // #62: this borrows the prop's buffers rather than making its own, and a ghost built from it must
+  // never free them. Said here because here is the only place that knows.
+  group.userData.sharedGeometry = true;
   return group;
 }

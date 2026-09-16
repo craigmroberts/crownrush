@@ -176,8 +176,8 @@ export const EnemiesMethods = {
       e.maxHp = e.hp = e.maxHp * 1.5;
       q.escort.push(e);
     }
-    this.raiseAlarm('The Queen has been taken!');
-    this.hud.toast('The Queen has been taken! Cut down her escort before they reach the edge.', 3800);
+    this.raiseAlarm('They have Wren!');
+    this.hud.toast('They are carrying Wren to the edge of the map. Cut the escort down.', 3800);
     audio.wave(true);
   },
 
@@ -324,7 +324,7 @@ export const EnemiesMethods = {
         x.post = { x: x.mesh.position.x, z: x.mesh.position.z };
       }
       this.raiseAlarm('The camp is awake!');
-      this.hud.toast(this.finaleOpen ? 'The Warlord rises. End this.' : 'You are not ready for this camp. Run!', 3000);
+      this.hud.toast(this.finaleOpen ? 'The Warlord stands. He has been waiting for this.' : 'The whole camp is up and you are one man. Run.', 3000);
       audio.wave(true);
       return;
     }
@@ -836,7 +836,7 @@ export const EnemiesMethods = {
     // taking her back is what brings the raiders: wind the sun to just before dusk
     this.dayPhase = (CFG.cycle.nightStart - CFG.rescue.firstRaid / CFG.cycle.length + 1) % 1;
     this.duskWarned = false;
-    this.hud.toast('The Queen is safe! Get her home before they come for her.', 3400);
+    this.hud.toast('Wren is on her feet. "Get me home -- then we settle this."', 3400);
     this.raidWarning = this.time + 3.6;
     this.refreshPads();
   },
@@ -870,7 +870,7 @@ export const EnemiesMethods = {
     // part-way down (`shaken`), and that is exactly when a second grab must still be announced. The
     // old alarm fired on every point of damage she took, so the warning arrived as a stutter during
     // the emergency rather than at the start of it.
-    if (hands > 0 && !q.held) this.raiseAlarm('Raiders have hold of the Queen!');
+    if (hands > 0 && !q.held) this.raiseAlarm('They have hold of Wren!');
     q.held = hands > 0;
 
     const was = q.seize;

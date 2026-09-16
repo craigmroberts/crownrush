@@ -3,24 +3,19 @@ export class Input {
   constructor(el) {
     this.el = el;
     this.keys = new Set();
-    this.dir = { x: 0, z: 0 };
     this.stick = null; // { id, ox, oy, x, y }
     this.maxR = 64;
+    // #65: read() fills this rather than returning a new object. It is called once a frame from
+    // updatePlayer and there is exactly one caller, which is what makes handing back the same object
+    // safe -- nobody holds on to last frame's.
+    this.move = { x: 0, z: 0, mag: 0 };
 
+    // #65: styled from src/style.css like everything else. It used to build a <style> element here
+    // and append it to the head, which put the joystick outside both the stylesheet and the media
+    // queries the rest of the HUD answers to.
     this.ui = document.createElement('div');
     this.ui.id = 'joystick';
     this.ui.innerHTML = '<div class="base"></div><div class="knob"></div>';
-    Object.assign(this.ui.style, {
-      position: 'fixed', left: '0', top: '0', width: '0', height: '0', pointerEvents: 'none', display: 'none', zIndex: 5,
-    });
-    const style = document.createElement('style');
-    style.textContent = `
-      #joystick .base { position:absolute; left:-64px; top:-64px; width:128px; height:128px; border-radius:50%;
-        background: rgba(255,255,255,0.18); border: 3px solid rgba(255,255,255,0.55); }
-      #joystick .knob { position:absolute; left:-26px; top:-26px; width:52px; height:52px; border-radius:50%;
-        background: rgba(255,255,255,0.85); box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-    `;
-    document.head.appendChild(style);
     document.body.appendChild(this.ui);
     // Looked up once. This used to be a querySelector inside updateKnob, which runs on every
     // pointermove -- and a phone samples touch at up to 120 Hz while the thumb is down.
@@ -108,6 +103,9 @@ export class Input {
         z /= d;
       }
     }
-    return { x, z, mag: Math.hypot(x, z) };
+    this.move.x = x;
+    this.move.z = z;
+    this.move.mag = Math.hypot(x, z);
+    return this.move;
   }
 }

@@ -112,6 +112,10 @@ export function ghostify(group) {
     }
   });
   for (const o of drop) o.parent.remove(o);
+  // #62: they are out of the scene graph but their buffers are not, and nothing can traverse to them
+  // any more. Hand them to whoever owns this ghost -- disposePad frees them along with the rest, and
+  // only when the geometry was made for this ghost in the first place.
+  if (drop.length) group.userData.droppedGeometry = drop.map((o) => o.geometry).filter(Boolean);
   return group;
 }
 

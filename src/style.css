@@ -458,6 +458,20 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 @keyframes hornReady { from { box-shadow: 0 6px 16px rgba(0,0,0,0.35); } to { box-shadow: 0 0 22px rgba(245,184,0,0.75); } }
 /* the horn has the corner, so the pad tip sits above it */
 
+/* #65: the virtual joystick. This used to be a <style> element the Input constructor built and
+   appended to the head, which made it the one piece of UI you could not find by searching this file,
+   and the one not subject to the media queries the rest of the HUD answers to.
+   The container is zero-size and fixed at the origin; it is moved with `transform` rather than
+   left/top, because both move the same pixels but left/top are layout properties and setting them on
+   a drag invalidates layout at touch sample rate. The base and the knob hang off it on negative
+   offsets of half their own size, so the transform puts their centres under the thumb. Input toggles
+   `display` directly when a finger goes down and up. */
+#joystick { position: fixed; left: 0; top: 0; width: 0; height: 0; pointer-events: none; display: none; z-index: 5; }
+#joystick .base { position: absolute; left: -64px; top: -64px; width: 128px; height: 128px; border-radius: 50%;
+  background: rgba(255,255,255,0.18); border: 3px solid rgba(255,255,255,0.55); }
+#joystick .knob { position: absolute; left: -26px; top: -26px; width: 52px; height: 52px; border-radius: 50%;
+  background: rgba(255,255,255,0.85); box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+
 /* #5: the title screen */
 .panel.title { max-width: 520px; padding: 22px 22px 24px; }
 .panel.title .heroes { display: flex; align-items: flex-end; justify-content: center; gap: 4px; margin-bottom: 6px; }

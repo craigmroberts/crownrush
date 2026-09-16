@@ -190,18 +190,26 @@ class Audio {
     g.gain.linearRampToValueAtTime(gain, t + attack);
     g.gain.setValueAtTime(gain, t + Math.max(attack, dur - release));
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.02);
-    let node = o;
+    let filt = null;
     if (lp) {
-      const filt = ctx.createBiquadFilter();
+      filt = ctx.createBiquadFilter();
       filt.type = 'lowpass';
       filt.frequency.value = lp;
       o.connect(filt);
-      node = filt;
     }
-    node.connect(g);
+    (filt || o).connect(g);
     g.connect(bus || this.sfx);
     o.start(t);
     o.stop(t + dur + 0.05);
+    // #61: let the chain go when the note does. Chrome and Firefox collect a finished source and
+    // whatever hangs off it on their own; Safari historically has not, and a game that advertises
+    // Add to Home Screen is played on iOS for thirty-seven minutes at a stretch, synthesising every
+    // arrow, coin and fanfare in it. Saying when the nodes die is cheaper than hoping.
+    o.onended = () => {
+      o.disconnect();
+      if (filt) filt.disconnect();
+      g.disconnect();
+    };
   }
 
   noise({ t, dur, gain = 0.2, type = 'bandpass', f = 1000, q = 1 }) {
@@ -226,6 +234,11 @@ class Audio {
     g.connect(this.sfx);
     src.start(t);
     src.stop(t + dur + 0.02);
+    src.onended = () => {                       // #61, as in tone()
+      src.disconnect();
+      filt.disconnect();
+      g.disconnect();
+    };
   }
 
   // ---- music ----
@@ -384,6 +397,15 @@ class Audio {
     o.stop(t + dur + 0.5);
     lfo.start(t);
     lfo.stop(t + dur + 0.5);
+    // #61: both sources stop on the same tick, so one handler takes the lot. The vibrato chain goes
+    // with it -- once the oscillator it was bending has ended there is nothing left for it to bend.
+    o.onended = () => {
+      o.disconnect();
+      lfo.disconnect();
+      lfoDepth.disconnect();
+      lp.disconnect();
+      g.disconnect();
+    };
     this.noise({ t: t + 0.15, dur: 1.5, gain: 0.045, type: 'bandpass', f: 500, q: 0.7 });
   }
 
