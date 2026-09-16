@@ -745,8 +745,28 @@ export const BuildMethods = {
     // stood and wears the Keep's own icon; what changes with the Keep's state is the job it offers
     // and the colour that says so -- `build` while it is rubble, `feed` once it can be raised again.
     this.dropFeedPad();
-    this.dynamicPads.push({ id: `repair-keep-${this.time.toFixed(0)}`, pos: [k.x + CFG.keep.padOffset[0], k.z + CFG.keep.padOffset[1]], cost: 20, res: { stone: 10 }, icon: 'keep', label: 'Repair the Keep', repairKeep: true });
+    this.dynamicPads.push({ id: `repair-keep-${this.time.toFixed(0)}`, pos: [k.x + CFG.keep.padOffset[0], k.z + CFG.keep.padOffset[1]], cost: 20, res: this.repairCost(), icon: 'keep', label: 'Repair the Keep', repairKeep: true });
     this.refreshPads();
+  },
+
+  // #108: what the repair asks for has to be something the player can mine RIGHT NOW.
+  //
+  // It was a flat `{ stone: 10 }`, and stone does not exist in the world below Keep level 4 --
+  // `CFG.base.materialAt` gates the nodes and `updateMining` skips one that is not open. So a Keep
+  // destroyed at level 1, 2 or 3 could never be repaired, and `breakKeep` drops the feed mat in the
+  // same breath (#78), so there was no route to level 4 either: the requirement and the only means of
+  // meeting it were removed by the same event. The run stayed playable for several more minutes and
+  // was already lost, and never said so. Reproduced at every level before the fix.
+  //
+  // **The invariant: the repair must never ask for a material the current Keep level cannot open.**
+  // Anything added here has to hold that, or the dead end comes back.
+  //
+  // Capped at stone rather than following the newest material the player has opened, because asking
+  // a level-12 King for ten diamond would make a late repair harder than an early one, and this is
+  // not where difficulty belongs -- the Keep falling is already the punishment. Above level 4 nothing
+  // about this changes, which is the point: the cost is what was broken, not the lock.
+  repairCost() {
+    return this.baseLevel >= CFG.base.materialAt.stone ? { stone: 10 } : { wood: 10 };
   },
 
   // #34: the feed pad goes with the Keep and comes back with it

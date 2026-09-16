@@ -42,7 +42,11 @@ loop underneath it:
   Keep** while it stands, **Repair the Keep** while it is rubble, in the green of an upgrade or the
   brown of a build so you can tell which without reading it. Levelling a Keep that is not standing is
   not possible, which is the whole reason the repair takes the raise's place rather than sitting
-  somewhere else.
+  somewhere else. **The repair is priced in a material the current Keep level can actually open** --
+  wood below level 4, stone from 4 up. It used to ask for stone flat, and stone does not exist in the
+  world below 4 (`CFG.base.materialAt`), so a Keep destroyed early could never be repaired and the
+  same event took away the mat that would have levelled you to 4. The invariant lives next to the
+  number in `repairCost`: never ask for a material the Keep level cannot open.
 - Watchtowers are built empty. A "Man the Tower" pad next to each one takes archers from your army
   (the price is people, not coins). Gate guards work the same way.
 - Red arrows at the screen edge point at raiders you can't see, with a count and a skull for bosses.
