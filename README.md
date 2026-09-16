@@ -200,6 +200,16 @@ stored; at dawn there are none, which is what makes dawn the place to do this. T
 as a 256x256 PNG, because the minimap is most of how the map gets read and coming back blind would
 undo a good part of what the player did. A saved run runs about 17 kB.
 
+Replaying the five builders is what makes the one rule the restore has to hold: **after a load, the
+Keep wears whichever mat its own state would have raised.** `rebuildVillage` puts up every structure
+the run had, a whole Keep included, and the stored state is applied afterwards -- so a run saved while
+the Keep was rubble came back looking like a castle, unrepairable (nothing had raised the repair mat),
+with the Raise the Keep mat standing on it taking coin for levels of a heap of rubble. That is #78's
+bug reached through the save instead of through the field, and it is reachable in ordinary play: the
+dawn save asks only whether a run is in progress, and a Keep can fall without taking Wren with it. The
+restore now calls the same `showKeepBroken` the field does -- the picture without the event, so no
+horn, no notice and nothing done to Wren (#127).
+
 One other thing asks for a save, since installing an update reloads the page. It only gets one when
 the field *looks* like dawn -- daylight, nothing standing, nothing queued, the opening over -- and is
 refused otherwise, which the Settings row says out loud before you tap it, along with what the update

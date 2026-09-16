@@ -263,6 +263,20 @@ export const SaveMethods = {
       this.keep.hp = Math.min(s.keep.hp, this.keep.maxHp);
       setHealthBar(this.keep.bar, this.keep.hp / this.keep.maxHp);
     }
+    // #127: and if it was rubble when the run was saved, it comes back as rubble.
+    //
+    // `rebuildVillage` above builds every structure the run had, which includes a whole Keep, and the
+    // two lines before this then set `state` to 'broken' behind it. Nothing else ran, so the player
+    // came back to a Keep that LOOKED standing, could not be repaired -- `breakKeep` is what raises
+    // the repair mat and it never happened -- and had the Raise the Keep mat on it taking coin for
+    // levels of a heap of rubble, which is #78's bug reached through the save instead of the field.
+    // Reachable in ordinary play: `saveRun` runs at dawn and asks only `inRun()`, and a Keep can fall
+    // without taking Wren with it, so a night that ends with it down and the field clear saves this.
+    //
+    // `showKeepBroken` is the picture without the event: rubble, the repair mat, no feed mat, and
+    // none of the horn, notice or capture that belong to the moment it fell. The invariant worth
+    // holding is that after a restore the Keep wears whichever mat its own state would have raised.
+    if (this.keep && this.keep.state !== 'built') this.showKeepBroken();
 
     // --- the world
     this.revealNodes();

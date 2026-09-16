@@ -763,12 +763,7 @@ export const BuildMethods = {
   breakKeep() {
     const k = this.keep;
     const sheltering = this.queen.inKeep && !this.queen.captive;
-    k.state = 'broken';
     this.queenLeaveKeep();
-    this.root.remove(k.mesh);
-    k.mesh = makeRubble(3.4, 2);
-    k.mesh.position.set(k.x, 0, k.z);
-    this.root.add(k.mesh);
     audio.wave(true);
     // #33: the walls coming down around her is how she is taken. Standing her outside the rubble as
     // an ordinary unit made the worst moment in the game a non-event; the raiders carry her off
@@ -779,13 +774,44 @@ export const BuildMethods = {
     } else {
       this.hud.toast('The Keep has fallen! Get Wren behind something.', 2600, 'Keep');
     }
-    // #78: one Keep mat, in one place, all game. This used to drop the feed mat and raise a repair
-    // mat at a different offset with a different icon, so the Keep had two markers doing two halves
-    // of one job and the player had to notice the second one had moved. It stands where the feed mat
-    // stood and wears the Keep's own icon; what changes with the Keep's state is the job it offers
-    // and the colour that says so -- `build` while it is rubble, `feed` once it can be raised again.
+    this.showKeepBroken();
+  },
+
+  // #127: everything a fallen Keep LOOKS like, with none of the things that only happen at the moment
+  // it falls -- no horn, no notice, nothing done to Wren. Pulled out of `breakKeep` because the save
+  // needs the same picture without the event: a run restored with `keep.state: 'broken'` was rebuilt
+  // by `rebuildVillage` as a standing Keep and then had its state set to broken underneath, so the
+  // player came back to a Keep that looked whole, could not be repaired, and had the RAISE mat
+  // standing on it taking coin for levels. Measured before and after the fix, and on the code before
+  // #125 as well, so it is not something that change introduced.
+  //
+  // #78: one Keep mat, in one place, all game. This used to drop the feed mat and raise a repair
+  // mat at a different offset with a different icon, so the Keep had two markers doing two halves
+  // of one job and the player had to notice the second one had moved. It stands where the feed mat
+  // stood and wears the Keep's own icon; what changes with the Keep's state is the job it offers
+  // and the colour that says so -- `build` while it is rubble, `feed` once it can be raised again.
+  showKeepBroken() {
+    const k = this.keep;
+    if (!k) return;
+    k.state = 'broken';
+    // The mesh is swapped here rather than in `breakKeep`, so a restore gets the rubble too. Without
+    // it the restored Keep was a whole castle with `state: 'broken'` behind it, which is the worst
+    // of the two halves of that bug: nothing on screen disagreed with itself, so nothing said why
+    // the mat underneath had changed its job.
+    if (!k.rubble) {
+      this.root.remove(k.mesh);
+      k.mesh = makeRubble(3.4, 2);
+      k.mesh.position.set(k.x, 0, k.z);
+      this.root.add(k.mesh);
+      k.rubble = true;
+    }
     this.dropFeedPad();
-    this.dynamicPads.push({ id: `repair-keep-${this.time.toFixed(0)}`, pos: [k.x + CFG.keep.padOffset[0], k.z + CFG.keep.padOffset[1]], cost: this.repairCost(), icon: 'keep', label: 'Repair the Keep', repairKeep: true });
+    // #127: a counter, not `time.toFixed(0)`. The id is what `refreshPads` checks against `built` to
+    // decide whether a def has already been used, and two breaks landing in the same game SECOND
+    // produced the same id -- so the second one raised no mat at all. Minutes apart in real play;
+    // it still cost a wrong reading while measuring this.
+    this.keepRepairs = (this.keepRepairs || 0) + 1;
+    this.dynamicPads.push({ id: `repair-keep-${this.keepRepairs}`, pos: [k.x + CFG.keep.padOffset[0], k.z + CFG.keep.padOffset[1]], cost: this.repairCost(), icon: 'keep', label: 'Repair the Keep', repairKeep: true });
     this.refreshPads();
   },
 
@@ -828,6 +854,7 @@ export const BuildMethods = {
     { const rec = this.structures.find((x) => x.kind === 'keep'); if (rec) rec.mesh = k.mesh; }
     k.mesh.position.set(k.x, 0, k.z);
     k.state = 'built';
+    k.rubble = false;        // #127: standing again, so the next fall swaps the mesh again
     k.level = this.wallLevel;
     k.maxHp = k.hp = this.keepHp();
     k.bar = makeHealthBar(3.0, false, true);
