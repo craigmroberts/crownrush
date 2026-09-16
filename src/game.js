@@ -523,6 +523,15 @@ export class Game {
     // keeps a backgrounded title screen from coming back with a pause panel over it. Once a run is
     // under way one of the two is always true, including while a sheet holds a silent pause.
     if (!this.running && !this.paused) return;
+    // #114: the world is already stopped and somebody else is holding it. Backgrounding the page calls
+    // this without `silent` (main.js), so leaving the level-up panel open and coming back put a pause
+    // screen over the choice the player was reading -- a second pause that says nothing, hiding the
+    // first one that said something. A silent pause may still be escalated into a visible one; what
+    // may not happen is a visible pause landing on a stop that already has a screen of its own.
+    //
+    // Safe because nothing else asks for a visible pause while paused: `togglePause` routes an
+    // already-paused game to `unpause` before it gets here, and every sheet pauses with `silent`.
+    if (this.paused && !silent) return;
     this.running = false;
     this.paused = true;
     if (!silent) this.hud.showPause();
