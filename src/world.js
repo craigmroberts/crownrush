@@ -571,12 +571,74 @@ export function buildWorld(scene) {
     smoke.count = 0;
   };
 
+  // ---- #81: rain ----
+  //
+  // One instanced mesh of streaks cycling inside a column that rides with the King. A drop that
+  // reaches the ground goes back to the top somewhere else in the column, and a drop he has walked
+  // past wraps to the far side of it, so the fall stays vertical in WORLD space: a column glued to
+  // his position dragged every drop sideways with him, and at a run of 7.5 against a fall of 20 that
+  // read as the rain being afraid of him. Raining on the whole map instead would be a hundred
+  // thousand drops to show the forty metres of it that are ever on screen.
+  //
+  // The camera never turns -- updateCamera only ever moves it, always to the same offset from the
+  // King -- so every drop can share one orientation baked into the geometry, and a frame's work is
+  // three floats a drop rather than a matrix compose. Which is also why the streak is tipped back:
+  // the camera looks down at about 45 degrees, and a world-vertical quad loses a third of its length
+  // to that and reads as drizzle. The lean off vertical is wind; dead-vertical rain looked like an
+  // overlay laid on the screen rather than something falling in the scene.
+  //
+  // No splashes on the ground and no second light: the ticket's own order of what to drop first, and
+  // neither is missed once the sky itself goes grey (updateDaylight).
+  const RAIN_DROPS = 520;   // 1040 triangles in one draw call, and only while it is actually raining
+  const RAIN_BOX = 40;      // how wide the column is: the view is about 40m across at camDist 16.5
+  const RAIN_TOP = 16;      // and how tall. 16 over 20 a second is 0.8s of fall, so it is always full
+  const RAIN_AHEAD = 4;     // pushed toward what the camera looks at rather than centred on the King
+  const dropGeo = new THREE.PlaneGeometry(0.05, 0.9);
+  dropGeo.rotateX(-0.45);
+  dropGeo.rotateZ(0.12);
+  // FrontSide, and the rotations above are what point it at the camera. Not DoubleSide: three.js
+  // draws a transparent double-sided material TWICE, back faces then front, and measured here that
+  // was 2 draw calls and 2080 triangles for one mesh of rain instead of 1 and 1040.
+  const dropMat = new THREE.MeshBasicMaterial({ color: 0xdfeefb, transparent: true, opacity: 0, depthWrite: false });
+  const drops = new THREE.InstancedMesh(dropGeo, dropMat, RAIN_DROPS);
+  drops.frustumCulled = false;   // the matrices are written straight in, so there is no bounds to cull by
+  drops.visible = false;
+  life.add(drops);
+  const dropP = new Float32Array(RAIN_DROPS * 3);
+  const dropV = new Float32Array(RAIN_DROPS);
+  {
+    // Three.js leaves instanceMatrix as zeros, and only the translation of each is ever written from
+    // here, so the rest of every matrix is laid down once: scale 1, no rotation, nothing per frame.
+    const arr = drops.instanceMatrix.array;
+    for (let i = 0; i < RAIN_DROPS; i++) {
+      const o = i * 16;
+      arr[o] = arr[o + 5] = arr[o + 10] = arr[o + 15] = 1;
+      dropP[i * 3] = (Math.random() - 0.5) * RAIN_BOX;
+      dropP[i * 3 + 1] = Math.random() * RAIN_TOP;
+      dropP[i * 3 + 2] = (Math.random() - 0.5) * RAIN_BOX;
+      dropV[i] = 18 + Math.random() * 8;
+    }
+  }
+  // Math.random throughout the weather, never the seeded `rand` the map is laid out with: the map is
+  // meant to be the same every run and the weather is meant not to be, and drawing from the seeded
+  // stream here would also shift everything downstream of it by 1680 numbers.
+  const span = ([lo, hi]) => lo + Math.random() * (hi - lo);
+  world.rain = { level: 0, on: false, t: span(CFG.rain.gap), run: false };
+  // A restart keeps this world -- buildWorld runs once, in the constructor -- so without this a run
+  // begun while it was raining would open mid-downpour with a timer left over from the last one.
+  world.clearRain = () => {
+    world.rain.on = false;
+    world.rain.level = 0;
+    world.rain.t = span(CFG.rain.gap);
+    drops.visible = false;
+  };
+
   // ---- per-frame animation ----
   world.update = (dt) => {
     world.time += dt;
     // birds
     world.birdTimer -= dt;
-    if (world.birdTimer <= 0 && world.flocks.length < 2) {
+    if (world.birdTimer <= 0 && world.flocks.length < 2 && world.rain.level < 0.5) {
       world.birdTimer = 14 + rand() * 12;
       spawnFlock();
     }
@@ -605,6 +667,60 @@ export function buildWorld(scene) {
       bf.wings[0].rotation.z = flap;
       bf.wings[1].rotation.z = -flap;
     }
+    // #81: the weather clock, which turns only while the game does and only once the Queen is home
+    // -- the opening holds a fixed sky (updateWaves stops the day while she is captive) and it is
+    // already the busiest screen in the game. The drops carry on falling whatever the clock is doing,
+    // the way the birds carry on flying behind a pause screen.
+    const rn = world.rain;
+    if (rn.run) {
+      rn.t -= dt;
+      if (rn.t <= 0) {
+        rn.on = !rn.on;
+        rn.t = span(rn.on ? CFG.rain.dur : CFG.rain.gap);
+      }
+      const step = dt / CFG.rain.fade;
+      rn.level = rn.on ? Math.min(1, rn.level + step) : Math.max(0, rn.level - step);
+      // Nothing that lives on a flower is out in this. Sixteen visibility flags, written on the two
+      // frames it changes rather than on every frame it is true.
+      const out = rn.level < 0.5;
+      if (out !== world.bugsOut) {
+        world.bugsOut = out;
+        for (const bf of world.butterflies) bf.mesh.visible = out;
+      }
+    }
+    if (rn.level > 0.002) {
+      drops.visible = true;
+      dropMat.opacity = 0.55 * rn.level;
+      const f = world.focus;
+      const cz = f.z - RAIN_AHEAD;
+      const half = RAIN_BOX / 2;
+      const arr = drops.instanceMatrix.array;
+      for (let i = 0; i < RAIN_DROPS; i++) {
+        const j = i * 3;
+        let y = dropP[j + 1] - dropV[i] * dt;
+        // #54's lesson, cheaply: one frame of negative dt would push a drop out of the top of the
+        // box, and nothing below would ever bring it back down.
+        if (y > RAIN_TOP) y = Math.random() * RAIN_TOP;
+        if (y <= 0) {
+          y += RAIN_TOP;
+          dropP[j] = f.x + (Math.random() - 0.5) * RAIN_BOX;
+          dropP[j + 2] = cz + (Math.random() - 0.5) * RAIN_BOX;
+        } else {
+          const dx = dropP[j] - f.x;
+          if (dx > half) dropP[j] -= RAIN_BOX;
+          else if (dx < -half) dropP[j] += RAIN_BOX;
+          const dz = dropP[j + 2] - cz;
+          if (dz > half) dropP[j + 2] -= RAIN_BOX;
+          else if (dz < -half) dropP[j + 2] += RAIN_BOX;
+        }
+        dropP[j + 1] = y;
+        const o = i * 16;
+        arr[o + 12] = dropP[j];
+        arr[o + 13] = y;
+        arr[o + 14] = dropP[j + 2];
+      }
+      drops.instanceMatrix.needsUpdate = true;
+    } else drops.visible = false;
     // smoke: every live puff on every chimney packs into the front of one instanced mesh
     let sn = 0;
     for (const sm of world.smokers) {

@@ -256,6 +256,45 @@ export const CFG = {
   // obvious move and short enough that giving up on a straggler is not a punishment.
   cycle: { length: 75, nightStart: 0.6, dawn: 0.98, warn: 8, holdDawn: 40 },
 
+  // #81: weather. It rains now and then, and while it falls the living ground comes back faster --
+  // wood and straw, not the rock. Rain refilling a quarry reads as a bug, and keeping the bonus to
+  // the two things that actually grow is what makes it a rule a player can guess rather than a
+  // number they have to be told. It also lands on the two materials gathered closest to home, which
+  // is where the King is likely to be standing when it starts.
+  //
+  // gap and dur are seconds of game time, drawn uniformly from Math.random rather than the world's
+  // seeded rng: the map is meant to be the same every run and the weather is meant not to be. A
+  // cycle is `cycle.length` = 75s, so a gap of 150-330s is a shower every two to four days and
+  // 26-46s of it is between half a night and a whole one. Both are ranges for the reason the wolf
+  // only howls some nights (#32): a shower that arrives on the hour is scenery, not weather.
+  // Driven over thirty nights (2250s of game time at the game's own capped dt), ten runs:
+  // 8.5 showers a run on average (7-10), 305s of rain (238-372), 13.6% of the run wet (10.6-16.5%).
+  //
+  // fade: seconds for it to arrive and to clear. Six is long enough that the sky is what you notice
+  // first and the drops second, which is the difference between weather and a particle effect; at
+  // two it snapped on like a light switch.
+  //
+  // regrow: what a living node's clock runs at while it rains, scaled by how hard it is falling so a
+  // shower carries the bonus in and out with it. THREE, pinned against what a shower is actually
+  // worth rather than picked round:
+  //   - It has to show. A wood node holds 8 and `mining.regrow` is 9s a unit, so a drained one is
+  //     72s from full dry and 24s wet -- and `setNodeLook` scales the tree from 0.45 to 1 across
+  //     that, so at x3 a tree emptied when the rain starts is visibly whole again before it stops
+  //     (mean shower 36s). At x2 it is 36s, which is the whole shower for half a tree; measured on
+  //     the field, a tree drained at the first drop stood at 0.73 of its height when the sky
+  //     cleared, and a growth you have to remember the start of is not one you can see.
+  //   - It must not be worth farming. A King parked between two home wood nodes is regrow-limited,
+  //     not swing-limited (0.45s a swing against 4.5s a unit), so camping them is the most rain can
+  //     ever pay. Driven for a full thirty nights with the rain schedule above: 543 units dry, 691
+  //     wet -- 148 units, 296 coin over the whole run. A maxed Keep costs 3538 coin, so the best
+  //     case is 8% of one, for thirty-seven minutes of standing in one place ignoring the raids.
+  //     Played rather than farmed it is far less: the King empties an 8-node in 3.6s and carries 18.
+  //   - x4 was tried and rejected. It refills a node in 18s, which is faster than the King can walk
+  //     between the two he is working, so the rain stops being a bonus on gathering and becomes a
+  //     reason not to move -- and a tree that springs back inside a swing looks broken rather than
+  //     watered.
+  rain: { gap: [150, 330], dur: [26, 46], fade: 6, regrow: 3, feeds: ['wood', 'straw'] },
+
   waves: {
     hpGrowthPerWave: 0.04, // ranks (CFG.ranks) and Keep level (CFG.base) carry most of the scaling now
     dmgGrowthPerWave: 0.03,

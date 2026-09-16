@@ -49,6 +49,12 @@ export class Game {
     const { sun, hemi } = setupLights(this.scene);
     this.sun = sun;
     this.hemi = hemi;
+    // #81: what the sky is worth when it is dry. updateDaylight writes the sun, the hemisphere
+    // colours, the fog colour and the exposure every frame, so rain can just scale those on its way
+    // past -- but these four it never touches, so something has to remember them to put them back.
+    // Read off the lights rather than repeated in CFG, because two places holding the same number is
+    // how one of them goes stale.
+    this.dry = { hemi: hemi.intensity, fogNear: this.scene.fog.near, fogFar: this.scene.fog.far, shadow: sun.shadow.intensity };
     this.dayPhase = 0.05; // the run opens in early morning
     this.night = false;
     this.sunHeight = 34;
@@ -295,6 +301,7 @@ export class Game {
     this.raidPeak = 0;  // the most HP tonight's raid has held, for the raid meter
     this.waveTimer = 0; // seconds until nightfall, recomputed from the cycle each frame
     this.duskWarned = false;
+    this.rainTold = false;  // #81: whether this run has had its one line about what rain is for
     this.dawnHeld = 0;      // #73: seconds the sun has been held at the horizon this night
     this.dawnHolding = false;
     this.spendTimer = 0;
@@ -342,10 +349,13 @@ export class Game {
       const from = CFG.base.materialAt[def.type] || 0;
       const open = this.baseLevel >= from;
       if (def.type !== 'straw' && open) this.root.add(mesh);
-      this.nodes.push({ type: def.type, mesh, stock: def.stock, max: def.stock, regrow: 0, from, open, pos: new V3(def.pos[0], 0, def.pos[1]) });
+      // #81: `living` is asked once here rather than by type in updateMining, which walks every node
+      // every frame. It is what the rain waters: the trees and the wheat, never the rock.
+      this.nodes.push({ type: def.type, mesh, stock: def.stock, max: def.stock, regrow: 0, from, open, living: CFG.rain.feeds.includes(def.type), pos: new V3(def.pos[0], 0, def.pos[1]) });
     }
     // world roads/bridges/chimneys are scene-level: reset them
     if (this.world.clearSmokers) this.world.clearSmokers();
+    if (this.world.clearRain) this.world.clearRain();
     for (const r of this.world.roads) {
       r.revealed = false;
       r.progress = 0;
@@ -670,7 +680,18 @@ export class Game {
       this.updateIndicators(dt);
     }
     this.world.focus.copy(this.king.mesh.position);
+    // #81: the weather clock stops when the game does, the way the day clock already does, and it
+    // does not start until the Queen is home. updateDaylight reads the level it leaves behind, so
+    // this has to run before it.
+    this.world.rain.run = this.running && !this.queen.captive;
     this.world.update(dt);
+    audio.setRain(this.world.rain.level);
+    // Said once a run, on the first shower. A regrow bonus nobody is told about is a buff that does
+    // not exist, and a weather report every time it comes on is a notice you learn to dismiss.
+    if (this.running && !this.rainTold && this.world.rain.level > 0.15) {
+      this.rainTold = true;
+      this.hud.toast('Rain. The woods and the wheat come back faster while it falls.', 3400, 'Weather');
+    }
     this.updateDaylight(dt);
     // characters far from the King (at or beyond the screen edge) animate at half rate
     const kp = this.king.mesh.position;
