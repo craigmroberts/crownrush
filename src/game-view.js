@@ -389,7 +389,7 @@ export const ViewMethods = {
         this.res[p.type] += take;
         audio.coin(0);
         tmp.copy(p.mesh.position).setY(1.1);
-        this.popup(`+${take}`, tmp, '#ffd23f', 1.5);
+        this.popup(`+${take}`, tmp, '#e8d9a0', 0.9, p, take, '+');
       }
       if (p.count <= 0 && !this.pileFlies.some((f) => f.pile === p)) {
         if (p.label) {
@@ -424,7 +424,7 @@ export const ViewMethods = {
     this.addScore(CFG.score.material);
     audio.ching();
     tmp.set(this.tradePos[0], 1.9, this.tradePos[1]);
-    this.popup(`+${paid}`, tmp, '#ffd23f', 1.4);
+    this.popup(`+${paid}`, tmp, '#ffd23f', 1.4, null, 0, '+');
   },
 
   makeNodeMesh(type) {
@@ -738,12 +738,12 @@ export const ViewMethods = {
 
   // Damage numbers. Hits on the same target within a quarter second merge into one bigger number:
   // a crowd of archers no longer spawns dozens of sprites a second.
-  popup(text, pos, color, scale = 1.4, owner = null, value = 0) {
+  popup(text, pos, color, scale = 1.4, owner = null, value = 0, sign = '-') {
     if (owner) {
       const p = this.popups.find((q) => q.owner === owner && q.t > 0.45);
       if (p) {
         p.value += value;
-        const s = makePopup(`-${Math.round(p.value)}`, color);
+        const s = makePopup(`${p.sign}${Math.round(p.value)}`, color);
         s.position.copy(p.mesh.position);
         s.scale.copy(p.mesh.scale);
         this.root.remove(p.mesh);
@@ -763,7 +763,7 @@ export const ViewMethods = {
     // `drift` is seeded per popup so several numbers on one target fan out instead of stacking into
     // a column nobody can read. `base` is what the pop animates around, because the merge path
     // rewrites the mesh and would otherwise lose the size it was born at.
-    this.popups.push({ mesh: s, t: 0.7, owner, value, base: scale, drift: rand(-1.1, 1.1), pop: 0.12, rise: 0 });
+    this.popups.push({ mesh: s, t: 0.7, owner, value, sign, base: scale, drift: rand(-1.1, 1.1), pop: 0.12, rise: 0 });
   },
 
   // Free GPU resources of a character that left the scene (health-bar texture, skeleton bone texture).

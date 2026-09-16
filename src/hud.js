@@ -3,6 +3,12 @@ import { iconSvg } from './icons.js';
 // #68: how many hearts the King's health is cut into. Five is coarse on purpose -- the exact figure
 // is the bar over his head, and a HUD readout that moved every frame would be a bar with gaps in it.
 const HEARTS = 5;
+// #77: how finely a heart drains. Five whole hearts made each one a 20% step, so at 140 max HP a
+// 27-damage hit took a whole heart or none depending on where in the band it landed, and 81% looked
+// the same as 99%. Eighths give forty steps across full health -- finer than the eye reads at 17px,
+// and coarse enough that regen at 3 hp/s rewrites the row about once a second rather than sixty
+// times, which is what `Hud.set`'s dirty-checking exists to avoid.
+const HEART_STEPS = 8;
 // The circumference of the r=17 circle both rings are drawn on, which is what the stylesheet's dash
 // array is set to. Change one and change the other.
 const RING_C = 106.81;
@@ -121,14 +127,27 @@ export class Hud {
   // health left at all is a heart still showing -- an empty row means dead, and nothing else.
   setHearts(frac) {
     if (!this.heartsEl) return;
-    const n = Math.max(0, Math.min(HEARTS, Math.ceil(frac * HEARTS)));
-    if (n === this.lastHearts) return;
-    this.lastHearts = n;
-    // The whole row, but only when the count has actually changed -- six possible values over a run,
-    // against the sixty writes a second a HUD this size gets if nobody is watching.
-    let html = '';
-    for (let i = 0; i < HEARTS; i++) html += iconSvg(i < n ? 'heart' : 'heartEmpty', 17);
-    this.heartsEl.innerHTML = html;
+    const f = Math.max(0, Math.min(1, frac));
+    let q = Math.round(f * HEARTS * HEART_STEPS) / HEART_STEPS;
+    // Any health at all is a visible heart. An empty row means dead and nothing else -- that was the
+    // point of rounding up before, and it survives the change to partial fills.
+    if (f > 0 && q <= 0) q = 1 / HEART_STEPS;
+    if (q === this.lastHearts) return;
+    this.lastHearts = q;
+    // Built once: an empty heart with a full one clipped over it. The two share an outline, so a
+    // draining row never shifts or changes weight -- only the red inside it moves.
+    if (!this.heartEls) {
+      this.heartsEl.innerHTML = Array.from({ length: HEARTS }, () =>
+        `<span class="heart">${iconSvg('heartEmpty', 17)}<i class="fill">${iconSvg('heart', 17)}</i></span>`).join('');
+      this.heartEls = [...this.heartsEl.querySelectorAll('.fill')];
+    }
+    this.heartEls.forEach((el, i) => {
+      let v = Math.max(0, Math.min(1, q - i));
+      // a sliver rather than a hairline, so the last of the health is something you can see
+      if (v > 0 && v < 0.16) v = 0.16;
+      const pct = `${Math.round(v * 100)}%`;
+      if (el.style.width !== pct) el.style.width = pct;
+    });
   }
 
   // #29: notices queue rather than overwrite. A playtester missed the one telling him a pad wanted

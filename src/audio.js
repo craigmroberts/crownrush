@@ -54,6 +54,7 @@ class Audio {
     this.events = [];
     this.nightOn = false;
     this.active = true;   // does the game want sound right now (see setActive)
+    this.everRan = false; // has the context ever actually started? (see armResume)
     this.loopLen = LEAD.length * 4 * BEAT;
   }
 
@@ -113,6 +114,7 @@ class Audio {
   setActive(on) {
     this.active = on;
     if (!this.ctx) return;
+    if (this.ctx.state === 'running') this.everRan = true;
     const want = on && !document.hidden;
     if (want && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
     else if (!want && this.ctx.state === 'running') this.ctx.suspend().catch(() => {});
@@ -120,9 +122,23 @@ class Audio {
 
   // Keep asking on any gesture until it takes. Cheap when it works first time: the listeners are
   // added once and removed the moment the context reports running.
-  armResume() {
-    if (!this.ctx || this.ctx.state === 'running') return;
-    if (!this.active) return;   // suspended on purpose; do not let a stray click undo it
+  //
+  // #76: the guard here used to be a flat `if (!this.active) return`, which was too broad and shut
+  // off the only escape a stuck context had. `active` is false while the game is paused -- and the
+  // sound toggle lives IN the settings sheet, which pauses the game, so it was false for the whole
+  // time the toggle could be reached. Turning sound on is exactly the gesture that used to rescue a
+  // context iOS had refused to start, and it could no longer do it.
+  //
+  // A context that has never run is stuck, not deliberately silenced, so the guard only applies once
+  // one has genuinely started. `force` is for the explicit ask -- a player reaching into settings and
+  // turning sound on means it.
+  armResume(force = false) {
+    if (!this.ctx) return;
+    if (this.ctx.state === 'running') {
+      this.everRan = true;
+      return;
+    }
+    if (!force && !this.active && this.everRan) return;
     this.ctx.resume().catch(() => {});
     if (this.resumeArmed) return;
     this.resumeArmed = true;
@@ -132,17 +148,33 @@ class Audio {
       if (this.ctx.state !== 'running') return;
       for (const ev of ['pointerdown', 'touchstart', 'keydown', 'click']) window.removeEventListener(ev, tryIt, true);
       this.resumeArmed = false;
+      this.everRan = true;
       // the loop was scheduled against a clock that was not moving; restart it on the one that is
       if (this.dayBus) this.startMusic();
+      // Unlocked -- but that is a different question from whether it should be making a noise right
+      // now. The unlock sticks; the pause does not have to be undone by it.
+      if (!this.active) this.ctx.suspend().catch(() => {});
     };
     for (const ev of ['pointerdown', 'touchstart', 'keydown', 'click']) window.addEventListener(ev, tryIt, true);
   }
 
   setMuted(m) {
     this.muted = m;
-    localStorage.setItem('crownrush-muted', m ? '1' : '0');
-    if (this.master && this.ctx) this.master.gain.setTargetAtTime(m ? 0 : 0.6, this.ctx.currentTime, 0.05);
-    if (!m) this.armResume();   // turning sound back on is a gesture: use it to retry a stuck context
+    try { localStorage.setItem('crownrush-muted', m ? '1' : '0'); } catch (e) { /* private mode */ }
+    this.setMasterGain(m ? 0 : 0.6);
+    // Turning sound back on is a gesture, and an explicit one: retry a stuck context even though the
+    // settings sheet that holds this toggle has the game paused.
+    if (!m) this.armResume(true);
+  }
+
+  // A ramp needs a clock. `setTargetAtTime` schedules against `ctx.currentTime`, which is FROZEN
+  // while the context is suspended -- and it is suspended for the whole time the settings sheet is
+  // open, which is the only place this is reachable from. Set the value outright when there is no
+  // clock to ramp along, and ramp only when there is.
+  setMasterGain(v) {
+    if (!this.master || !this.ctx) return;
+    if (this.ctx.state === 'running') this.master.gain.setTargetAtTime(v, this.ctx.currentTime, 0.05);
+    else this.master.gain.value = v;
   }
 
   // ---- synth helpers ----

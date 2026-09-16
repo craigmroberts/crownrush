@@ -38,7 +38,8 @@ No storyline, just the loop:
 - Red arrows at the screen edge point at raiders you can't see, with a count and a skull for bosses.
 - The HUD floats on the scene: no plaque, no capsule, no panel behind any of it. Left is two short
   rows -- a crescent and the night beside a castle and the Keep level, with the King's health as five
-  hearts under them. Right is the coin count and the bag, whose ring is how full it is -- one continuous
+  hearts under them -- five hearts, each draining by eighths, so losing a little shows as losing a
+  little. Right is the coin count and the bag, whose ring is how full it is -- one continuous
   arc running green to yellow to orange to red, so the cap is never a number anyone has to read. The
   middle is left empty on purpose. Every bar and pip is out of it; the only precise health readout is
   the one over the King's head, and that shows only when he is hurt, so no shape is drawn twice.
@@ -263,7 +264,8 @@ A material's nodes do not exist on the map until the Keep can use it, so each ag
 stone quarries, then the iron seams at the foot of the north-west mesas, then diamond in the deep rock
 across the river. Each band of Keep levels asks mainly for its newest material, so levelling always
 sends you somewhere new instead of back to the same trees. Straw sits outside the chain as a light
-binder needed in small amounts all the way up. The Keep also hardens in a real step at each boundary
+binder needed in small amounts all the way up; every wheat field on the map can be cut, and the two
+inside the walls carry the least, so the far ones stay worth the walk. The Keep also hardens in a real step at each boundary
 rather than drifting up level by level.
 
 ## The Keep is the base

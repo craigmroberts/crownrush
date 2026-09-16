@@ -227,6 +227,13 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .hud-row { display: flex; align-items: center; gap: 14px; }
 .hearts { gap: 3px; }
 .hearts .icon { display: block; }
+/* #77: a heart is an empty one with a full one clipped over it, so only the red moves as it drains
+   and the outline stays put. The clip is an overflow box rather than a clip-path or a gradient stop,
+   because both of those want an id per heart and the icon set is a plain string template. */
+.hearts .heart { position: relative; display: block; width: 17px; height: 17px; }
+.hearts .heart > .icon { display: block; }
+.hearts .heart .fill { position: absolute; left: 0; top: 0; height: 100%; overflow: hidden; display: block; }
+.hearts .heart .fill .icon { display: block; width: 17px; height: 17px; }
 /* the bag's ring: one continuous arc, never segmented. r=17 in a 40-box, so the circumference is
    2*PI*17 = 106.81, which is what the dash array below is set to and what hud.js offsets against. */
 .bagring { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; }

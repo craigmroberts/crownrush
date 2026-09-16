@@ -409,6 +409,7 @@ export const NODES = [
   { type: 'wood', pos: [-44, 28], stock: 10 }, { type: 'wood', pos: [-47, 31], stock: 10 }, { type: 'wood', pos: [-42, 32], stock: 10 },
   // straw: the light binder, needed in small amounts all the way up
   { type: 'straw', pos: [45, -6], stock: 16 }, { type: 'straw', pos: [-24, 12], stock: 14 }, { type: 'straw', pos: [14, 62], stock: 20 },
+  { type: 'straw', pos: [-20, 38], stock: 10 }, { type: 'straw', pos: [-24, 20], stock: 6 },
   // stone: a walk out to the quarries
   { type: 'stone', pos: [-8, -23], stock: 14 }, { type: 'stone', pos: [-26, -29], stock: 16 }, { type: 'stone', pos: [-40, -20], stock: 16 },
   { type: 'stone', pos: [66, 12], stock: 24 }, { type: 'stone', pos: [24, 66], stock: 24 },
