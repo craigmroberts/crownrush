@@ -146,6 +146,21 @@ async function measure(url, { mobile }) {
     await cdp.send('Network.enable');
     await cdp.send('Network.emulateNetworkConditions', { offline: false, ...THROTTLE });
   }
+  // #53: the moment Play becomes clickable, recorded INSIDE the page. Snapshotting the byte counter
+  // from here instead was wrong and looked right: waitForFunction polls, main.js starts fetching the
+  // heavy models the instant the button enables, and whatever lands in the gap gets counted as load.
+  // It is not a small error and it is not a constant one -- the same build measured 3666 kB on desktop
+  // and 4511 kB on phone in one run, the difference being nothing but how busy the machine was.
+  await page.addInitScript(() => {
+    window.__playAt = new Promise((res) => {
+      const tick = () => {
+        const b = document.getElementById('start-btn');
+        if (b && !b.disabled) return res(performance.now());
+        setTimeout(tick, 8);
+      };
+      tick();
+    });
+  });
   await page.goto(url, { waitUntil: 'load', timeout: 120000 });
 
   // Play is disabled until the rigs, the icons and the fonts are all in.
@@ -160,8 +175,23 @@ async function measure(url, { mobile }) {
   // models behind the title screen, which is the whole point of LATER_RIGS -- so the running total is
   // nearly double this and asserting the README's 3 MB against it would fail a build that is well
   // inside budget. Both numbers are worth having; only one of them is the budget.
-  const bytesToPlay = transfer.bytes;
-  const requestsToPlay = transfer.requests;
+  // Resource Timing, filtered to what had finished by then, so the answer does not depend on when a
+  // poll happened to fire. Same-origin, so decodedBodySize is populated.
+  const played = await page.evaluate(async () => {
+    const at = await window.__playAt;
+    let bytes = 0;
+    let n = 0;
+    for (const e of performance.getEntriesByType('resource')) {
+      if (!e.responseEnd || e.responseEnd > at) continue;
+      bytes += e.decodedBodySize || e.transferSize || 0;
+      n++;
+    }
+    const nav = performance.getEntriesByType('navigation')[0];
+    if (nav) { bytes += nav.decodedBodySize || nav.transferSize || 0; n++; }
+    return { bytes, n };
+  });
+  const bytesToPlay = played.bytes;
+  const requestsToPlay = played.n;
 
   const errorScreen = await page.evaluate(() => {
     const el = document.getElementById('error-screen');
