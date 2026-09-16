@@ -288,8 +288,13 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
    already uses everywhere for the same problem: a tight dark rim and a soft drop, the box-shadow
    version of `.hud-cell`'s text-shadow. The inner highlight is what keeps the top edge from
    disappearing into the vignette on the darker late-game ground. */
+/* #123: top-right, in the corner the carry rail vacated. It was bottom-left, which is where a left
+   thumb rests -- and the map is `pointer-events: auto` sitting over the canvas the drag listener is
+   bound to, so a drag started there opened the map instead of moving the King, against the game's own
+   "drag anywhere to move". Up here it needs the top inset it never had while it was anchored to the
+   bottom: on a phone this corner is the busiest part of the status bar. */
 #minimap {
-  position: fixed; left: 12px; bottom: max(12px, env(safe-area-inset-bottom)); width: 78px; height: 78px;
+  position: fixed; right: 12px; top: max(12px, env(safe-area-inset-top)); width: 78px; height: 78px;
   border-radius: 50%; border: 0; background: none; pointer-events: auto; z-index: 5;
   transition: width 0.2s, height 0.2s; image-rendering: pixelated;
 }
@@ -313,7 +318,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   opacity: 0.85;
 }
 /* opened up it becomes a rounded square again: a circle would crop the corners of the map */
-#minimap.big { width: min(70vw, 70vh); height: min(70vw, 70vh); left: 50%; bottom: 50%; transform: translate(-50%, 50%); z-index: 6; border-radius: 18px; }
+/* #123: opened up it centres itself, and the offsets that do that have to be the ones the resting
+   rule set -- `left`/`bottom` are `auto` now, so neutralising them would leave the map pinned to the
+   corner it came from and the expansion would land off-centre. Anchor and translate both flip. */
+#minimap.big { width: min(70vw, 70vh); height: min(70vw, 70vh); right: 50%; top: 50%; transform: translate(50%, -50%); z-index: 6; border-radius: 18px; }
 
 #vignette { position: fixed; inset: 0; pointer-events: none; z-index: 1;
   background: radial-gradient(ellipse at center, rgba(0,0,0,0) 58%, rgba(20,30,10,0.32) 100%); }
@@ -359,10 +367,17 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
    player and the field except the marks themselves. Which means every mark has to carry its own
    legibility, because it can land on pale grass, dark water or a white wall: hence the drawn outline
    on every icon and the two-stop shadow under every number. */
+/* #123: one group now, hanging from the top-left. `space-between` went with the second group.
+   The right padding is a GUTTER, not spacing: the minimap is `position: fixed` in that corner and so
+   is outside this flex line entirely, and the left stack is not a fixed width -- "22 archers, 10
+   swordsmen" is not the widest thing the HUD can say. Reserving the map's own box plus its offsets
+   here is what stops a wide line running underneath it, and it is why the narrow-screen override
+   below has to restate it rather than shorthand the padding away. */
 #topbar {
-  position: relative; display: flex; align-items: flex-start; justify-content: space-between;
+  position: relative; display: flex; align-items: flex-start; justify-content: flex-start;
   gap: 16px; padding: 0 12px; padding-top: max(8px, env(safe-area-inset-top));
-  padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right));
+  padding-left: max(12px, env(safe-area-inset-left));
+  padding-right: calc(102px + env(safe-area-inset-right));
   color: #fff; background: none; pointer-events: none;
 }
 /* Both groups are still buttons onto the Keep sheet. A transparent button is easy to make
@@ -452,7 +467,12 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 @media (max-width: 430px) {
   /* A phone has no room for generous spacing, so the groups tighten rather than wrap: #119 left one
      cell on the top row instead of two, so the width this was fighting over is mostly back. */
-  #topbar { gap: 8px; padding: 0 8px; padding-top: max(6px, env(safe-area-inset-top)); }
+  /* the map's gutter has to survive this, so the padding is set per side rather than shorthanded */
+  #topbar {
+    gap: 8px; padding-top: max(6px, env(safe-area-inset-top));
+    padding-left: max(8px, env(safe-area-inset-left));
+    padding-right: calc(98px + env(safe-area-inset-right));
+  }
   #topbar .hud-group { gap: 8px; }
   .hud-row { gap: 10px; }
   .hud-stack { gap: 4px; }

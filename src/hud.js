@@ -92,7 +92,6 @@ export class Hud {
     this.heartsEl = document.getElementById('king-hearts');
     this.ringEl = document.getElementById('load-ring');
     this.raidRingEl = document.getElementById('raid-ring');
-    this.carryRail = document.getElementById('carry-rail');
     this.bagCell = document.getElementById('bag-cell');
     this.flying = [];          // #88: armfuls in the air between the world and the bag
     // #90: how tall whatever is on the notice line is, so the alarm above it knows what to clear.
@@ -197,7 +196,10 @@ export class Hud {
     this.lastLoad = key;
     this.loadNow.textContent = total;
     this.setBagRing(cap > 0 ? total / cap : 0);
-    this.carryRail.classList.toggle('full', cap > 0 && total >= cap);
+    // #123: a `full` class used to be toggled here and there has never been a rule for it -- the bag
+    // being full is already said by the ring, which runs the traffic lights to red at the cap. Gone
+    // rather than given a meaning: inventing a second signal for the same fact is how two of them
+    // end up disagreeing.
   }
   // One continuous arc, never segmented: `frac` of the circle is drawn, and the colour runs the
   // traffic lights across it. The stops are interpolated rather than switched at thresholds, so a

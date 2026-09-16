@@ -69,49 +69,59 @@
            and numbers on their own, spaced apart, so the play area underneath is never covered by
            furniture. Both groups are still buttons that open the Keep sheet. -->
       <div id="topbar">
-        <button class="hud-group" id="keep-plaque" title="Keep progress (K)">
+        <!-- #123: one stack down the left, three lines, one button. It was two groups held apart by
+             `space-between` -- the royals on the left, what you carry on the right -- and splitting
+             status across two corners meant reading two places to answer one question. Stacked, the
+             right-hand corner is emptied by exactly the thing that fills it: the minimap moves up
+             there from the bottom-left, which also takes it out of the drag zone a left thumb sits
+             in (the map is `pointer-events: auto` over a canvas that listens for drags, so a drag
+             started down there opened the map instead of moving the King).
+             One button now, not two: the same sheet behind the whole stack, so one label. -->
+        <button class="hud-group" id="keep-plaque" title="Keep progress and your bag (K)">
           <span class="hud-stack">
-            <!-- #119: one number, not two. Night and Keep were the same clock printed twice -- on a
-                 run at the pace the finale expects, the night half never once changes what spawns
-                 (config.js, rankFloor). The day cycle is untouched; what went is the counter.
-                 The castle stays: this is still the button that opens the Keep, and feeding the Keep
-                 is still how the number goes up. Hidden until the Keep stands, because the rescue is
-                 a prologue with no level and `Lv. 0` is not a thing to look at for two minutes. -->
+            <!-- line 1: coin is what you spend; the bag is what you are still carrying to the trade
+                 post. The ring around the bag is how full it is, so the cap never has to be read as a
+                 number. Keeps its `carry-rail` id: it is still the row #87's centring rule is about. -->
+            <span class="hud-row" id="carry-rail">
+              <span class="hud-cell"><i id="coin-icon" data-icon="gold" data-size="24"></i><b id="coin-count">0</b></span>
+              <span class="hud-cell bagcell" id="bag-cell">
+                <span class="bagring">
+                  <svg class="ring" viewBox="0 0 40 40" aria-hidden="true"><circle class="ring-bg" cx="20" cy="20" r="17"/><circle id="load-ring" class="ring-fill" cx="20" cy="20" r="17"/></svg>
+                  <i data-icon="sack" data-size="21"></i>
+                </span>
+                <b id="load-now">0</b>
+              </span>
+              <b id="army-count" hidden>0</b>
+              <i id="load-track" hidden></i>
+            </span>
+            <!-- line 2: health at a glance, on its own line -- it is the one row that grows, and
+                 putting it beside the text is what made a phone cramped. The precise number is the bar
+                 over his head, which only shows when he is hurt, so the two never draw the same shape
+                 twice. -->
+            <span class="hud-cell hearts" id="king-hearts" aria-label="King's health"></span>
+            <!-- line 3: what is happening right now. #119: one number, not two -- night and Keep were
+                 the same clock printed twice, and on a run at the pace the finale expects the night
+                 half never once changes what spawns (config.js, rankFloor). The day cycle is
+                 untouched; what went is the counter. The castle stays: this is still the button that
+                 opens the Keep, and feeding the Keep is still how the number goes up. Hidden until the
+                 Keep stands, because the rescue is a prologue with no level.
+                 #123: and the countdown and the raid meter SHARE the slot beside it. They are driven
+                 from the same `raid` snapshot in the same frame of `update` -- the meter on
+                 `count > 0`, the clock on `count === 0` -- so the exclusivity is exact rather than
+                 incidental and there is no frame in which both could be up. Both sit after `Lv.`, so
+                 whichever is showing, and the stretch where neither is, nothing to their left moves. -->
             <span class="hud-row">
               <span class="hud-cell hidden" id="level-cell"><i data-icon="castle" data-size="19"></i><b id="keep-level">Lv. 1</b></span>
+              <span class="hud-cell clock hidden" id="next-wave"><i data-icon="hourglass" data-size="16"></i><b id="next-wave-t">0:00</b></span>
+              <span class="hud-cell bagcell hidden" id="raid-meter" title="What is left of tonight's raid">
+                <span class="bagring">
+                  <svg class="ring" viewBox="0 0 40 40" aria-hidden="true"><circle class="ring-bg" cx="20" cy="20" r="17"/><circle id="raid-ring" class="ring-fill raid" cx="20" cy="20" r="17"/></svg>
+                  <i data-icon="skull" data-size="19"></i>
+                </span>
+                <b id="raid-left">0</b>
+              </span>
             </span>
-            <!-- health at a glance, on its own line: it is the one row that grows, and putting it
-                 beside the text is what made a phone cramped. The precise number is the bar over his
-                 head, which only shows when he is hurt, so the two never draw the same shape twice. -->
-            <span class="hud-cell hearts" id="king-hearts" aria-label="King's health"></span>
-            <!-- #72: how long until nightfall. "Night 2 in" was four words introducing a number that
-                 sits beside a night counter; the clock is the part anyone reads. -->
-            <span class="hud-cell clock hidden" id="next-wave"><i data-icon="hourglass" data-size="16"></i><b id="next-wave-t">0:00</b></span>
           </span>
-        </button>
-        <!-- coin is what you spend; the bag is what you are still carrying to the trade post. The
-             ring around the bag is how full it is, so the cap never has to be read as a number. -->
-        <button class="hud-group" id="carry-rail" title="Your coin and your bag (K)">
-          <!-- #71: what is left of tonight's raid, in the same shape as the bag. First in the group
-               because the group is right-anchored: appended last it would shove the coin and the bag
-               sideways every time a raid started and ended. -->
-          <span class="hud-cell bagcell hidden" id="raid-meter" title="What is left of tonight's raid">
-            <span class="bagring">
-              <svg class="ring" viewBox="0 0 40 40" aria-hidden="true"><circle class="ring-bg" cx="20" cy="20" r="17"/><circle id="raid-ring" class="ring-fill raid" cx="20" cy="20" r="17"/></svg>
-              <i data-icon="skull" data-size="19"></i>
-            </span>
-            <b id="raid-left">0</b>
-          </span>
-          <span class="hud-cell"><i id="coin-icon" data-icon="gold" data-size="24"></i><b id="coin-count">0</b></span>
-          <span class="hud-cell bagcell" id="bag-cell">
-            <span class="bagring">
-              <svg class="ring" viewBox="0 0 40 40" aria-hidden="true"><circle class="ring-bg" cx="20" cy="20" r="17"/><circle id="load-ring" class="ring-fill" cx="20" cy="20" r="17"/></svg>
-              <i data-icon="sack" data-size="21"></i>
-            </span>
-            <b id="load-now">0</b>
-          </span>
-          <b id="army-count" hidden>0</b>
-          <i id="load-track" hidden></i>
         </button>
       </div>
       <!-- The countdown and the raid meter share a band under the plaques: the countdown is only up

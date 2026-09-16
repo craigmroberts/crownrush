@@ -25,7 +25,7 @@ loop underneath it:
   and wheat fields. Materials feed the Keep and nothing else; everything on a build pad costs coins.
 - Roads grow out of the gates as you wall the village, and bridges over the river are built from pads at the
   crossings. Until a bridge exists, raiders only come from your side of the river.
-- Unexplored land is hidden under fog that clears as the King travels; the minimap in the corner (tap to
+- Unexplored land is hidden under fog that clears as the King travels; the minimap in the top-right (tap to
   enlarge) shows what you have discovered. After each wave there is a breather before the next, or press
   "Send next wave" for bonus points.
 - A blue arrow points home whenever the village is off-screen, and a score tracks kills, coins, materials,
@@ -50,22 +50,35 @@ loop underneath it:
 - Watchtowers are built empty. A "Man the Tower" pad next to each one takes archers from your army
   (the price is people, not coins). Gate guards work the same way.
 - Red arrows at the screen edge point at raiders you can't see, with a count and a skull for bosses.
-- The HUD floats on the scene: no plaque, no capsule, no panel behind any of it. Left is two short
-  rows -- **one** number, `Lv. 6` beside a castle, with the King's health as five hearts under it --
-  five hearts, each draining by eighths, so losing a little shows as losing a little. The night used
-  to sit up there too, and it was the same clock printed twice: on a run at the pace the finale
-  expects, the night half never once changes what spawns. The nights still fall and the raids still
-  come at night; what went is the counter. The one thing a single number could hide is a player
-  falling behind, so it says that itself -- `Lv.` turns amber whenever the raid is being fought above
-  the level the Keep stands at. Right is the coin count and the bag, whose ring is how full it is -- one continuous
-  arc running green to yellow to orange to red, so the cap is never a number anyone has to read. The
-  middle is left empty on purpose. Every bar and pip is out of it; the only precise health readout is
-  the one over the King's head, and that shows only when he is hurt, so no shape is drawn twice.
-- A meter under the hearts says what is left of tonight's raid: a bar of the health it arrived
-  with, and the number still standing. Raiders who have not walked on yet are already counted, so it
-  only falls, and it goes when the last one does -- which is the answer to "is that all of them?"
-  without sweeping the map. The Warlord calling reinforcements is the one thing that puts it back up.
-  The King has no bar in the corner: his own is over his head, where everyone else's is.
+- The HUD floats on the scene: no plaque, no capsule, no panel behind any of it. Everything that reads
+  as *status* stacks down the top-left in three lines -- what you carry, then the King's health, then
+  what is happening right now -- and the minimap takes the top-right corner that leaves. It used to be
+  two groups held apart across the top, and splitting status across two corners meant reading two
+  places to answer one question.
+  - **Coin and bag.** The bag's ring is how full it is: one continuous arc running green to yellow to
+    orange to red, so the cap is never a number anyone has to read.
+  - **Five hearts**, each draining by eighths, so losing a little shows as losing a little.
+  - **`Lv. 6`**, and beside it either the countdown to nightfall or the raid meter. The night used to
+    have a counter of its own up here and it was the same clock printed twice: on a run at the pace
+    the finale expects, the night half never once changes what spawns. The nights still fall and the
+    raids still come at night; what went is the counter. The one thing a single number could hide is a
+    player falling behind, so it says that itself -- `Lv.` turns amber whenever the raid is being
+    fought above the level the Keep stands at.
+
+  The countdown and the raid meter **share** that slot rather than each having one. They are driven
+  from the same `raid` snapshot in the same frame of `update` -- the meter on `count > 0`, the clock
+  on `count === 0` -- so the exclusivity is exact rather than incidental, and there is no frame in
+  which both could be up. Both sit after `Lv.`, so whichever is showing, and the stretch where neither
+  is, nothing to their left moves.
+
+  The middle of the screen is left empty on purpose. Every bar and pip is out of it; the only precise
+  health readout is the one over the King's head, and that shows only when he is hurt, so no shape is
+  drawn twice.
+- The raid meter is a bar of the health the night arrived with and the number still standing. Raiders
+  who have not walked on yet are already counted, so it only falls, and it goes when the last one does
+  -- which is the answer to "is that all of them?" without sweeping the map. The Warlord calling
+  reinforcements is the one thing that puts it back up. The King has no bar in the corner: his own is
+  over his head, where everyone else's is.
 - Nothing on the field carries a frame. The minimap and the settings gear both used to wear a gold
   ring; the gear is just a gear now, which is what let it grow to fill the space the border was using,
   and the map has no edge at all -- it fades out into the grass and is slightly see-through, so it
