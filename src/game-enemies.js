@@ -76,19 +76,20 @@ export const EnemiesMethods = {
     const elites = L >= CFG.waves.eliteAt.level || w >= CFG.waves.eliteAt.wave;
     if (brutes && w >= 3) for (let i = 0; i < Math.floor((w - 2) * 1.3); i++) list.push('brute');
     if (elites && w >= 8) for (let i = 0; i < Math.floor((w - 6) * 0.8); i++) list.push('elite');
-    // the rule-breakers, each once the Keep has reached its level
-    if (L >= CFG.enemy.sapper.fromLevel && w >= 3) for (let i = 0; i < Math.min(4, 1 + Math.floor((w - 3) * 0.5)); i++) list.push('sapper');
-    if (L >= CFG.enemy.archer.fromLevel && w >= 4) for (let i = 0; i < Math.min(5, 1 + Math.floor((w - 4) * 0.4)); i++) list.push('archer');
-    if (L >= CFG.enemy.shield.fromLevel && w >= 5) for (let i = 0; i < Math.min(5, 1 + Math.floor((w - 5) * 0.4)); i++) list.push('shield');
+    // the rule-breakers, each once the RAID has reached its level -- the Keep's if it is ahead, the
+    // night count's if the Keep has stalled, so declining to level no longer skips them entirely
+    const RL = this.raidLevel();
+    if (RL >= CFG.enemy.sapper.fromLevel && w >= 3) for (let i = 0; i < Math.min(4, 1 + Math.floor((w - 3) * 0.5)); i++) list.push('sapper');
+    if (RL >= CFG.enemy.archer.fromLevel && w >= 4) for (let i = 0; i < Math.min(5, 1 + Math.floor((w - 4) * 0.4)); i++) list.push('archer');
+    if (RL >= CFG.enemy.shield.fromLevel && w >= 5) for (let i = 0; i < Math.min(5, 1 + Math.floor((w - 5) * 0.4)); i++) list.push('shield');
     if (w % CFG.waves.bossEvery === 0) for (let i = 0; i < Math.floor(w / 10) + 1; i++) list.push('boss');
     for (let i = list.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [list[i], list[j]] = [list[j], list[i]];
     }
-    // ranks follow the Keep: mostly the current rank, some lower ranks, and at most a couple of
-    // scouts from the next rank up so the player can see what is coming
-    let top = 0;
-    CFG.ranks.forEach((r, i) => { if (r.fromLevel <= L) top = i; });
+    // mostly the current rank, some lower ranks, and at most a couple of scouts from the next rank
+    // up so the player can see what is coming
+    const top = this.topRank();
     const scoutSet = new Set();
     if (top < CFG.ranks.length - 1 && w >= CFG.waves.scouts.from) {
       const n = randInt(0, CFG.waves.scouts.max);
@@ -139,9 +140,15 @@ export const EnemiesMethods = {
     this.hud.toast(boss ? `Blood moon! Night ${w} brings a boss.` : `Night ${w} falls.`, 2200);
   },
 
+  // The level the RAID is fought at, as opposed to the level the Keep stands at. The higher of the
+  // two, so the Keep can carry the player ahead of the nights but never behind them (#49).
+  raidLevel() {
+    return Math.max(this.baseLevel, Math.floor(this.wave / CFG.waves.rankFloor));
+  },
+
   topRank() {
     let top = 0;
-    CFG.ranks.forEach((r, i) => { if (r.fromLevel <= this.baseLevel) top = i; });
+    CFG.ranks.forEach((r, i) => { if (r.fromLevel <= this.raidLevel()) top = i; });
     return top;
   },
 

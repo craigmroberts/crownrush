@@ -173,6 +173,36 @@ export const CFG = {
     // enemy types also wait for the Keep (with a late wave fallback so a stalled game still varies)
     bruteAt: { level: 2, wave: 10 },
     eliteAt: { level: 5, wave: 18 },
+    // #49: nights per level of the floor under the raid's difficulty.
+    //
+    // Rank is the biggest multiplier in the game -- a Warlord has 3.6x a Bandit's health -- and it
+    // used to be chosen from the Keep level and nothing else. The Keep is levelled only when the
+    // player decides to carry materials to it, so that made the difficulty a dial they operated
+    // themselves, and the best move was to leave it alone: stall at Keep 6 and Marauders and
+    // Warlords never come, while the army, the towers and the walls all keep growing. The same gate
+    // held back the sappers, the enemy archers and the shieldbearers, so turtling also skipped the
+    // three most interesting enemies in the game.
+    //
+    // The raid now reads `max(keep level, night / rankFloor)`. Feeding the Keep is how you keep UP
+    // with the raids rather than how you summon them. Brutes and elites have had a fallback like
+    // this all along (`bruteAt`, `eliteAt` above); this is the same idea for everything else.
+    //
+    // 2.6 is pinned at both ends. Below it, the floor starts overtaking honest play; above 2.72 the
+    // Warlords (rank 3, from level 11) never arrive at all before night 30, and a turtling run would
+    // still finish without meeting them. 2.6 puts them on night 29, just inside the finale.
+    //
+    // Checked against three play styles, counting nights where the floor changes what actually
+    // spawns rather than nights where it merely raises a number:
+    //
+    //     steady    (Keep 13 by night 30)    0 of 30 nights     <- the floor is invisible
+    //     slow      (Keep 13 by night 40)   10 of 30
+    //     very slow (Keep  8 by night 30)   20 of 30
+    //
+    // So a player levelling at the pace the finale expects never sees this at all, and it leans on
+    // someone well behind that pace. Whether it should lean that hard on a player who is struggling
+    // rather than stalling is the open question, and it is this one number: raise it and the game
+    // is gentler on a slow run but a turtling one meets less; lower it and the reverse.
+    rankFloor: 2.6,
   },
 
   regen: { delay: 4, perSecond: 3 },
