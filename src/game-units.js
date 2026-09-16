@@ -131,7 +131,6 @@ export const UnitsMethods = {
     }
     this.regen(k, dt);
     this.flashHurt(k);
-    k.bar.visible = true;
     this.updateMining(dt);
     this.ring.position.set(p.x, 0.04, p.z);
     const followers = this.countFollowers();

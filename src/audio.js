@@ -53,6 +53,7 @@ class Audio {
     this.lastHurt = 0;
     this.events = [];
     this.nightOn = false;
+    this.active = true;   // does the game want sound right now (see setActive)
     this.loopLen = LEAD.length * 4 * BEAT;
   }
 
@@ -91,18 +92,37 @@ class Audio {
     this.sfx.connect(this.master);
     this.buildLoop();
     this.startMusic();
+    // Hiding the page has to suspend from here, because requestAnimationFrame stops with it and
+    // setActive cannot run. Coming BACK does not resume here: the game is paused when the page
+    // returns, and resuming on the event put music over the pause screen. setActive picks it up on
+    // the first frame instead, and only if the game is actually running.
     document.addEventListener('visibilitychange', () => {
-      if (!this.ctx) return;
-      if (document.hidden) this.ctx.suspend();
-      else this.ctx.resume().catch(() => {});
+      if (this.ctx && document.hidden) this.ctx.suspend();
     });
     this.armResume();
+  }
+
+  // Whether the game wants sound at all: true while it is running, false while anything has stopped
+  // it -- the pause screen, the settings or info sheets, a reward waiting to be chosen, the end of a
+  // run. Suspending the context stops the music loop and every scheduled sound at once, and
+  // `ctx.currentTime` freezes with it, so the loop comes back in phase rather than desynced.
+  //
+  // Reconciled against the context's real state rather than a remembered flag. A flag goes stale
+  // while the page is hidden -- nothing is running to update it -- and the first thing that happens
+  // on the way back is precisely the case this has to get right.
+  setActive(on) {
+    this.active = on;
+    if (!this.ctx) return;
+    const want = on && !document.hidden;
+    if (want && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+    else if (!want && this.ctx.state === 'running') this.ctx.suspend().catch(() => {});
   }
 
   // Keep asking on any gesture until it takes. Cheap when it works first time: the listeners are
   // added once and removed the moment the context reports running.
   armResume() {
     if (!this.ctx || this.ctx.state === 'running') return;
+    if (!this.active) return;   // suspended on purpose; do not let a stray click undo it
     this.ctx.resume().catch(() => {});
     if (this.resumeArmed) return;
     this.resumeArmed = true;

@@ -305,6 +305,7 @@ export const BuildMethods = {
         u.hp = Math.min(st.hp, u.hp + (st.hp - u.maxHp));
         u.maxHp = st.hp;
         u.stats = st;
+        setHealthBar(u.bar, u.hp / u.maxHp);
       }
     }
     if (def.crew && def.tower) {
@@ -341,6 +342,7 @@ export const BuildMethods = {
     if (def.effect === 'kinghp') {
       this.king.maxHp += 80;
       this.king.hp = this.king.maxHp;
+      setHealthBar(this.king.bar, 1);   // a full heal has to put the bar away, not just fill it
     }
     if (def.effect === 'wallLevel') this.upgradeWalls();
     if (def.feed) this.levelUp();

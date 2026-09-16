@@ -260,14 +260,19 @@ export const EnemiesMethods = {
   //
   // The spawn queue counts. A wave arrives staggered over several seconds, and a meter that ignored
   // what had not landed yet would climb while they walked on and only then start falling -- it would
-  // be measuring the spawner rather than the fight. Her guards and the camp's sleeping garrison are
-  // not tonight's raid and are left out, but a garrison that has woken up is in, because by then it
-  // is fighting you like anything else.
+  // be measuring the spawner rather than the fight.
+  //
+  // The Queen's guards count. They are not a raid, but they are a fight -- the FIRST one, before
+  // anything has been explained -- and "how many are left" is the same question there. Leaving them
+  // out taught a new player that the meter does not apply to fights before they learned it applies
+  // to raids. The camp is different and stays out while it sleeps: its garrison stands across the
+  // map from the opening frame, and counting it would put a meter on screen for a fight nobody is
+  // in. It counts itself in the moment updateCampSleeper wakes it and clears `camp`.
   raidRemaining(out) {
     out.hp = 0;
     out.count = 0;
     for (const e of this.enemies) {
-      if (e.captor || e.camp) continue;
+      if (e.camp) continue;
       out.hp += Math.max(0, e.hp);
       out.count++;
     }

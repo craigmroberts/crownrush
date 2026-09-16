@@ -414,6 +414,7 @@ export class Game {
     this.hud.hidePause();
     this.hud.toast('The Queen has been taken! Follow the pink arrow and free her.', 3600);
     audio.init();
+    audio.setActive(true);
   }
 
   resume() {
@@ -452,6 +453,7 @@ export class Game {
     }
     this.paused = false;
     this.running = true;
+    audio.setActive(true);
     this.hud.hidePause();
     this.hud.hideInfo();
     this.infoOpen = false;
@@ -530,6 +532,7 @@ export class Game {
   update(dt) {
     this.time += dt;
     this.watchStuck(dt);
+    audio.setActive(this.running);
     if (this.running) {
       this.updatePlayer(dt);
       this.updateArmy(dt);
