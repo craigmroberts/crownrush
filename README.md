@@ -62,7 +62,12 @@ same Wi-Fi and open the "Network" URL that Vite prints instead.
 The start panel shows the King and Queen either side of a gold "Crown Rush" lockup. The portraits are
 rendered at load from the real character rigs in a throwaway renderer (`renderPortrait` in
 [src/rig.js](src/rig.js)), so they always match the game and add nothing to the download. A loading
-bar counts the nine character models in and hands over to the Play button when everything is ready.
+bar counts in the eleven models the opening needs and hands over to the Play button once they are in.
+The three heaviest — the mounted King, the Barracks and the villager home — are not among them: none
+can appear for several minutes, so they download behind the title screen instead, and the service
+worker precaches the lot after that. Waiting for all fourteen cost 12.0 s to a clickable Play button
+on a throttled 4 Mbps / 100 ms connection; waiting for eleven, fetched in parallel rather than one
+after another, costs 9.2 s.
 
 ## The intro
 
@@ -315,7 +320,7 @@ rather than argued about — see [tools/probe/README.md](tools/probe/README.md).
 | Draw calls | < 400 late game | each one costs CPU time no matter how small it is |
 | Triangles | < 1M late game | phones slow down past this, especially with shadows |
 | Triangles per character | ~5k (King 6.5k) | 100+ characters can be on screen |
-| Load | < 3 MB total | first play on mobile data |
+| Load | < 3 MB to the Play button | first play on mobile data |
 
 What keeps it fast:
 - The crowd — raiders, archers, swordsmen, elites, brutes, the boss — is ONE instanced draw per model,
@@ -358,8 +363,13 @@ no browser around it and no connection.
 - **Desktop**: Chrome and Edge show an install control in the address bar.
 
 Once it has been opened with a connection, a service worker holds the whole thing — bundle, character
-models and fonts, about two megabytes — so it opens again without one. Verified by loading it, pulling
-the network, and playing.
+models and fonts, about three and a half megabytes — so it opens again without one. Verified by
+loading it, pulling the network, and playing.
+
+It registers last, after the models, rather than on `load`. Its install fetches every file with
+`cache: 'reload'`, which deliberately ignores the browser's own cache, so registering it early put a
+second full copy of every model on the wire beside the ones the game was still waiting on. What the
+opening needs comes first, then what the next few minutes need, then what tomorrow needs.
 
 Two pieces make that work, and both are generated rather than written by hand:
 

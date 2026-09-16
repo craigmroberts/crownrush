@@ -200,7 +200,11 @@ export const EnemiesMethods = {
       e.retarget = 0.6;
       let best = null;
       let bd = Infinity;
-      for (const u of [...this.units, ...this.turrets]) {
+      const shootable = this._shootable || (this._shootable = []);
+      shootable.length = 0;
+      for (const u of this.units) shootable.push(u);
+      for (const t of this.turrets) shootable.push(t);
+      for (const u of shootable) {
         if (u.inKeep || u.captive) continue;
         const d = p.distanceToSquared(u.isTurret ? u.pos : u.mesh.position);
         if (d < bd) {
@@ -239,6 +243,14 @@ export const EnemiesMethods = {
   // enemies out raiding: not the Queen's guards, not the camp's sleeping garrison
   activeEnemies() {
     return this.enemies.filter((e) => !e.captor && !e.camp);
+  },
+
+  // Is anyone out raiding? The callers that ask this only ever compared the list's length to zero,
+  // which built and threw away an array of every enemy on the field to answer a yes or no -- once a
+  // frame, on the list that is longest exactly when the game is busiest.
+  anyActiveEnemy() {
+    for (const e of this.enemies) if (!e.captor && !e.camp) return true;
+    return false;
   },
 
   // #19: the camp wakes when the King comes for it
@@ -571,7 +583,7 @@ export const EnemiesMethods = {
         this.spawnQueue.splice(i, 1);
       }
     }
-    const cleared = this.activeEnemies().length === 0 && this.spawnQueue.length === 0;
+    const cleared = !this.anyActiveEnemy() && this.spawnQueue.length === 0;
     // Nothing attacks the King until he takes the Queen back (#12): the raids ARE the enemy coming
     // for her, so while she is captive the clock stands still and it stays daylight.
     if (this.queen.captive) return;

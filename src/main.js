@@ -27,14 +27,32 @@ const setLoad = (frac, text) => {
   document.getElementById('load-text').textContent = text;
 };
 setLoad(0.05, 'Loading…');
-const RIGS = ['king', 'queen', 'king_mounted', 'archer', 'swordsman', 'raider', 'elite', 'brute', 'boss'];
+// What the opening actually needs in hand. The King and Queen for the title portraits and the rescue,
+// the raider and the brute for her captors, the archer and swordsman for the crowd bake, and the
+// three buildings the first few pads put up.
+const RIGS = ['king', 'queen', 'archer', 'swordsman', 'raider', 'elite', 'brute', 'boss'];
 // Imported buildings. They are loaded here rather than on demand because a pad builds its structure
 // synchronously, and a ghost preview appears before that: both need the model already in hand.
-const PROPS = ['hut', 'keep', 'tower', 'barracks', 'house'];
+const PROPS = ['hut', 'keep', 'tower'];
+// The three heaviest models in the game, and none of them can appear for several minutes: the
+// mounted King waits on a Warhorse bought after the Keep, the Barracks and the villager home on
+// Keep level 3. Holding the Play button until they land cost about a megabyte of the download for
+// nothing, so they come down behind the title screen instead. Every one of them falls back to its
+// built version if it somehow has not arrived (makeStructure, mountKing), and a building that came
+// up built is swapped for the import at the next material boundary anyway.
+const LATER_RIGS = ['king_mounted'];
+const LATER_PROPS = ['barracks', 'house'];
+let loaded = 0;
+const total = RIGS.length + PROPS.length;
+const step = () => {
+  loaded++;
+  setLoad(0.1 + (0.85 * loaded) / total, `Loading ${loaded} of ${total}…`);
+};
 Promise.all([
   preloadIcons(),
   document.fonts ? document.fonts.ready : Promise.resolve(),
-  preloadRigs(RIGS, (n, total) => setLoad(0.1 + (0.85 * n) / total, `Loading ${n} of ${total}…`)).then(() => preloadProps(PROPS)),
+  preloadRigs(RIGS, step),
+  preloadProps(PROPS, step),
 ]).then(() => {
   game.pads.forEach((p) => game.drawPad(p));
   // the title portraits come from the rigs that just loaded
@@ -52,6 +70,11 @@ Promise.all([
   loadBar.classList.add('done');
   startBtn.disabled = false;
   startBtn.classList.remove('hidden');
+  // Play is live; fetch the rest while the title screen and the intro are being read, and only then
+  // let the worker precache the lot for the next visit.
+  Promise.all([preloadRigs(LATER_RIGS), preloadProps(LATER_PROPS)])
+    .catch((e) => console.warn('deferred models unavailable:', e && e.message))
+    .then(registerServiceWorker);
 });
 // #6: the first time through, Play opens a short stepped intro; after that it goes straight in
 const INTRO_KEY = 'crownrush-intro-seen';
@@ -239,14 +262,20 @@ requestAnimationFrame(frame);
 window.game = game;
 window.audio = audio;
 
-// Add to Home Screen. The service worker holds the whole game — two megabytes of bundle, models and
+// Add to Home Screen. The service worker holds the whole game — the bundle, the models and the
 // fonts — so once it has been opened with a connection it opens again without one.
+//
+// Registered LAST, not on window.load. Its install fetches every file with `cache: 'reload'`, which
+// deliberately ignores the browser's own cache — so registering it early put a second, full copy of
+// every model on the wire alongside the ones the game was still waiting on, and the player watched
+// the loading bar pay for a download they would not use until their next visit. The order that
+// matters to someone opening this for the first time is: what the opening needs, then what the next
+// few minutes need, then what tomorrow needs.
 //
 // Only in a built site: in dev a worker caching the bundle would serve yesterday's code back over
 // Vite's own reloading, which is a maddening thing to debug.
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL })
-      .catch((e) => console.warn('offline play unavailable:', e && e.message));
-  });
+function registerServiceWorker() {
+  if (!import.meta.env.PROD || !('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL })
+    .catch((e) => console.warn('offline play unavailable:', e && e.message));
 }

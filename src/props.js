@@ -57,9 +57,11 @@ function merge(scene) {
   return { geometry, material };
 }
 
+// All at once, for the same reason preloadRigs is. A building that fails or has not arrived yet is
+// not fatal: makeStructure falls back to the built version of every one of these.
 export async function preloadProps(names, onProgress = null) {
   let done = 0;
-  for (const n of names) {
+  await Promise.all(names.map(async (n) => {
     try {
       const gltf = await new Promise((res, rej) => loader.load(`${import.meta.env.BASE_URL}models/${PROP_FILE[n] || n}.glb`, res, undefined, rej));
       gltf.scene.updateMatrixWorld(true);
@@ -70,7 +72,7 @@ export async function preloadProps(names, onProgress = null) {
     }
     done++;
     if (onProgress) onProgress(done, names.length);
-  }
+  }));
 }
 
 // Recolour without flattening. Every texel keeps its brightness relative to the building's average,

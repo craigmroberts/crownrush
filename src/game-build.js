@@ -366,10 +366,12 @@ export const BuildMethods = {
     const again = def.repeatable && !(def.maxBuys && this.buyCount[def.id] >= def.maxBuys) && !(def.feed && !this.levelReq());
     if (again) {
       this.root.remove(pad.mesh);
+      this.disposePad(pad);
       this.pads.splice(this.pads.indexOf(pad), 1);
       this.addPad(def);
     } else {
       this.root.remove(pad.mesh);
+      this.disposePad(pad);
       this.pads.splice(this.pads.indexOf(pad), 1);
       const di = this.dynamicPads.indexOf(def);
       if (di >= 0) this.dynamicPads.splice(di, 1);
@@ -930,11 +932,30 @@ export const BuildMethods = {
     }
   },
 
+  // Hands back what a pad owns on the GPU. makePad() builds a fresh 256x256 CanvasTexture, a plane
+  // and a material for every pad, and a run creates far more pads than the board ever holds at once:
+  // every repeatable buy replaces its own pad, every wall that falls raises a repair mat and drops it
+  // again when it is paid. Removing the mesh from the scene graph does not free any of that -- three
+  // .js only releases a texture when it is told to -- so without this a long run quietly hands the
+  // driver tens of megabytes it can never reuse, and a phone answers that by taking the context away.
+  //
+  // Only the three things makePad() itself made. The ghosts are not ours to free: a unit ghost shares
+  // its geometry with the loaded rig and every ghost shares GHOST_MAT, so disposing those would pull
+  // the model out from under every character still standing.
+  disposePad(pad) {
+    if (!pad || pad.disposed) return;
+    pad.disposed = true;
+    pad.tex.dispose();
+    pad.mesh.geometry.dispose();
+    pad.mesh.material.dispose();
+  },
+
   removePadDef(def) {
     const pad = this.pads.find((p) => p.def === def);
     if (pad) {
       for (const g of pad.ghosts) this.root.remove(g);
       this.root.remove(pad.mesh);
+      this.disposePad(pad);
       this.pads.splice(this.pads.indexOf(pad), 1);
     }
     const di = this.dynamicPads.indexOf(def);

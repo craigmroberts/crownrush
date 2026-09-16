@@ -134,16 +134,29 @@ export const UnitsMethods = {
     k.bar.visible = true;
     this.updateMining(dt);
     this.ring.position.set(p.x, 0.04, p.z);
-    const followers = this.units.filter((u) => u !== this.king && u !== this.queen && !u.assign).length;
+    const followers = this.countFollowers();
     const rr = 2.4 + Math.sqrt(followers) * 0.45;
     this.ring.scale.setScalar(rr / 2.4);
     this.ringRadius = rr;
   },
 
+  // Everyone who marches with the King: the army, minus the royals and minus anyone already walking
+  // off to a post. Counted rather than collected where only the number is wanted.
+  countFollowers() {
+    let n = 0;
+    for (const u of this.units) if (u !== this.king && u !== this.queen && !u.assign) n++;
+    return n;
+  },
+
   updateArmy(dt) {
     const kp = this.king.mesh.position;
     this.updateQueen(dt);
-    const followers = this.units.filter((u) => u !== this.king && u !== this.queen && !u.assign);
+    // Scratch lists, refilled in place each frame. The followers are indexed for their formation slot
+    // so this one has to be a list; the assign pass splices `this.units` while it walks, so that one
+    // needs a snapshot. Both used to be a fresh array a frame.
+    const followers = this._followers || (this._followers = []);
+    followers.length = 0;
+    for (const u of this.units) if (u !== this.king && u !== this.queen && !u.assign) followers.push(u);
     followers.forEach((u, i) => {
       u.cooldown -= dt;
       if (u.popT > 0) {
@@ -212,7 +225,10 @@ export const UnitsMethods = {
     });
 
     // archers walking off to man a tower or a gate
-    for (const u of this.units.filter((u) => u.assign)) {
+    const assigned = this._assigned || (this._assigned = []);
+    assigned.length = 0;
+    for (const u of this.units) if (u.assign) assigned.push(u);
+    for (const u of assigned) {
       const [x, z, y] = u.assign;
       const p = u.mesh.position;
       tmp2.set(x - p.x, 0, z - p.z);

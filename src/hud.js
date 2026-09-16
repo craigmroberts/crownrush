@@ -207,10 +207,6 @@ export class Hud {
   showNextWave(show) {
     this.nextBtn.classList.toggle('hidden', !show);
   }
-  // Nothing to do since the five counters became one load bar: which materials are worth gathering
-  // is said by the world -- the nodes appear when the Keep opens them -- not by the status bar.
-  setMaterials() {}
-
   // #18: the warhorn button. `frac` is cooldown remaining 0..1; hidden until the game is running.
   setHorn(show, frac, secs) {
     const b = this.hornBtn || (this.hornBtn = document.getElementById('horn-btn'));
@@ -381,9 +377,21 @@ export class Hud {
         return;
       }
       el.style.display = 'block';
+      // Position and angle move every tick -- that is what an indicator is for -- and both are
+      // compositor-only writes.
       el.style.transform = `translate(${it.x}px, ${it.y}px)`;
       el.firstChild.style.transform = `rotate(${it.angle}rad)`;
-      el.lastChild.innerHTML = it.alarm ? iconSvg('alert', 22) : it.queen ? iconSvg('tiara', 22) : it.home ? iconSvg('home', 22) : it.camp ? iconSvg('swords', 22) : it.boss ? iconSvg('skull', 22) : it.thief ? iconSvg('coin', 22) : it.count > 1 ? it.count : '';
+      // What is INSIDE it almost never changes. This runs ten times a second, and an `innerHTML`
+      // write throws the subtree away and re-parses the markup even when the markup is identical --
+      // during a raid, with an arrow for every direction enemies are coming from, that was a hundred
+      // and more SVG parses a second landing on the busiest frames of the game. Only write when the
+      // thing being shown actually changed.
+      const kind = it.alarm ? 'alert' : it.queen ? 'tiara' : it.home ? 'home' : it.camp ? 'swords'
+        : it.boss ? 'skull' : it.thief ? 'coin' : '';
+      const key = `${kind}|${kind ? '' : it.count > 1 ? it.count : ''}`;
+      if (el.dataset.key === key) return;
+      el.dataset.key = key;
+      el.lastChild.innerHTML = kind ? iconSvg(kind, 22) : it.count > 1 ? it.count : '';
       el.classList.toggle('boss', !!it.boss);
       el.classList.toggle('home', !!it.home);
       el.classList.toggle('alarm', !!it.alarm);

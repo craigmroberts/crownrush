@@ -22,6 +22,9 @@ export class Input {
     `;
     document.head.appendChild(style);
     document.body.appendChild(this.ui);
+    // Looked up once. This used to be a querySelector inside updateKnob, which runs on every
+    // pointermove -- and a phone samples touch at up to 120 Hz while the thumb is down.
+    this.knob = this.ui.querySelector('.knob');
 
     el.addEventListener('pointerdown', (e) => this.onDown(e));
     window.addEventListener('pointermove', (e) => this.onMove(e));
@@ -38,10 +41,20 @@ export class Input {
   onDown(e) {
     if (this.stick) return;
     this.stick = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY };
+    // Without capture, a drag that leaves the window never delivers its pointerup and the stick stays
+    // held: the King walks off on his own until the next tap. Captured events still bubble to the
+    // window listeners below, so nothing else changes.
+    try { this.el.setPointerCapture(e.pointerId); } catch (err) { /* not capturable; window still sees it */ }
     this.ui.style.display = 'block';
-    this.ui.style.left = e.clientX + 'px';
-    this.ui.style.top = e.clientY + 'px';
+    this.place(e.clientX, e.clientY);
     this.updateKnob();
+  }
+
+  // The stick's origin. A transform rather than left/top: both move the same pixels, but left/top are
+  // layout properties, so setting them on a drag invalidates layout at touch sample rate for a thing
+  // that is only ever moved around the screen.
+  place(x, y) {
+    this.ui.style.transform = `translate(${x}px, ${y}px)`;
   }
   onMove(e) {
     if (!this.stick || e.pointerId !== this.stick.id) return;
@@ -54,21 +67,20 @@ export class Input {
     if (d > this.maxR) {
       this.stick.ox = this.stick.x - (dx / d) * this.maxR;
       this.stick.oy = this.stick.y - (dy / d) * this.maxR;
-      this.ui.style.left = this.stick.ox + 'px';
-      this.ui.style.top = this.stick.oy + 'px';
+      this.place(this.stick.ox, this.stick.oy);
     }
     this.updateKnob();
   }
   onUp(e) {
     if (!this.stick || e.pointerId !== this.stick.id) return;
+    try { this.el.releasePointerCapture(e.pointerId); } catch (err) { /* already gone */ }
     this.stick = null;
     this.ui.style.display = 'none';
   }
   updateKnob() {
-    const knob = this.ui.querySelector('.knob');
     const dx = this.stick.x - this.stick.ox;
     const dy = this.stick.y - this.stick.oy;
-    knob.style.transform = `translate(${dx}px, ${dy}px)`;
+    this.knob.style.transform = `translate(${dx}px, ${dy}px)`;
   }
 
   // Returns {x, z, mag}: screen-up maps to world -Z, screen-right to world +X.

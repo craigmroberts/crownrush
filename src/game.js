@@ -157,6 +157,15 @@ export class Game {
   // ---------- lifecycle ----------
   reset() {
     if (this.root) this.scene.remove(this.root);
+    // Dropping the old root unparents everything but frees nothing: the pads standing on the field
+    // still hold a canvas texture each, and a player who restarts five times would be carrying five
+    // runs' worth of them. Hand back what this run allocated before the next one starts.
+    if (this.pads) for (const pad of this.pads) this.disposePad(pad);
+    if (this.tradeMat) {
+      this.tradeMat.geometry.dispose();
+      if (this.tradeMat.material.map) this.tradeMat.material.map.dispose();
+      this.tradeMat.material.dispose();
+    }
     clearHealthBars();
     // The crowd's proxies go with the old root. They are still parented to it, so the renderer cannot
     // tell they are gone by itself and has to be told.
@@ -534,8 +543,8 @@ export class Game {
       this.updateWaves(dt);
       this.updateFog(dt);
       this.updateChips(dt);
-      const army = this.units.filter((u) => u !== this.king && u !== this.queen && !u.assign).length;
-      const between = this.activeEnemies().length === 0 && this.spawnQueue.length === 0 && !this.queen.captive;
+      const army = this.countFollowers();
+      const between = !this.anyActiveEnemy() && this.spawnQueue.length === 0 && !this.queen.captive;
       // #19: the march on the camp opens at a Keep level or a night, whichever comes first
       if (!this.finaleOpen && (this.baseLevel >= CFG.finale.level || this.wave >= CFG.finale.night)) {
         this.finaleOpen = true;
@@ -552,7 +561,6 @@ export class Game {
       this.hornT = Math.max(0, this.hornT - dt);
       this.hud.setHorn(!this.queen.captive || this.queen.taken, this.hornT / CFG.horn.cooldown, this.hornT);
       this.hud.setCoinTier(this.coinTier());
-      this.hud.setMaterials(Object.keys(CFG.base.materialAt).filter((m) => this.baseLevel >= CFG.base.materialAt[m]).concat('straw'));
       this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, this.finaleOpen ? 'camp' : `${this.baseLevel}/${CFG.finale.level}`, this.res, this.score, this.king.hp / this.king.maxHp, this.baseLevel, this.loadCap());
       this.updateIndicators(dt);
     }
@@ -563,7 +571,15 @@ export class Game {
     const kp = this.king.mesh.position;
     this.animFrame = (this.animFrame || 0) + 1;
     let idx = 0;
-    for (const ent of [...this.units, ...this.enemies, ...this.turrets]) {
+    // Scratch, refilled in place. Spreading the three lists into a fresh array here meant allocating
+    // a couple of hundred slots every frame purely to walk them once; `length = 0` keeps the backing
+    // store, so after the first frame this allocates nothing.
+    const ents = this._ents || (this._ents = []);
+    ents.length = 0;
+    for (const u of this.units) ents.push(u);
+    for (const e of this.enemies) ents.push(e);
+    for (const t of this.turrets) ents.push(t);
+    for (const ent of ents) {
       const rig = ent.mesh.userData.rig;
       if (!rig) continue;
       idx++;

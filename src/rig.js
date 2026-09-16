@@ -168,9 +168,14 @@ export function rigReady(name) {
 }
 
 // Preload; call before the game starts so spawns can use the models synchronously.
+//
+// All at once, not one after another. These are separate files on one origin and the server speaks
+// HTTP/2, so awaiting each in turn bought nothing and paid a full round trip per model -- on a phone
+// that is most of a second of doing nothing before the last byte of the first model has arrived.
+// Progress still counts completions, which now land out of order; only the tally is shown.
 export async function preloadRigs(names, onProgress = null) {
   let done = 0;
-  for (const n of names) {
+  await Promise.all(names.map(async (n) => {
     try {
       const gltf = await loadRig(n);
       cache.set(n, Object.assign(Promise.resolve(gltf), { loaded: gltf }));
@@ -182,7 +187,7 @@ export async function preloadRigs(names, onProgress = null) {
     }
     done++;
     if (onProgress) onProgress(done, names.length);
-  }
+  }));
 }
 
 // #5: a portrait of a character for the title screen, rendered from the real rig in a second
