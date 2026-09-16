@@ -82,6 +82,11 @@ export class Game {
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
+    // iOS changes the visible area -- the home indicator band, the status bar -- without reliably
+    // firing a window resize alongside it.
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', () => this.resize());
+    // and the box is not final on the first frame of a standalone launch
+    window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 120));
     this.watchContext(canvas);
 
     this.running = false;
@@ -134,19 +139,33 @@ export class Game {
 
   // The drawing buffer is capped by area as well as by ratio. A big foldable at 1.5x asks for a
   // buffer several times a phone's, and a driver that will not give us one leaves a blank canvas.
+  // #74: the size of the thing actually on screen, which is not what the window reports.
+  //
+  // `#game` is `position: fixed; inset: 0`, so with `viewport-fit=cover` it covers the whole display
+  // -- under the status bar and under the home indicator. `window.innerWidth/innerHeight` do not:
+  // in an iOS home-screen app they exclude area the element covers. Sizing the drawing buffer from
+  // the window therefore left the canvas short at top and bottom, and what showed through was the
+  // body background -- which is the same green as `theme-color`, so it read as two flat bands rather
+  // than as a canvas that had not been stretched far enough.
+  viewSize() {
+    const c = this.canvas;
+    return {
+      w: c.clientWidth || window.innerWidth || 1,
+      h: c.clientHeight || window.innerHeight || 1,
+    };
+  }
+
   setPixelRatio() {
     const dpr = window.devicePixelRatio || 1;
     let r = this.safe ? 1 : Math.min(dpr, this.mobile ? 1.5 : 2);
-    const w = window.innerWidth || 1;
-    const h = window.innerHeight || 1;
+    const { w, h } = this.viewSize();
     const maxPixels = this.safe ? 1.6e6 : this.mobile ? 2.6e6 : 5e6;
     if (w * h * r * r > maxPixels) r = Math.max(1, Math.sqrt(maxPixels / (w * h)));
     this.renderer.setPixelRatio(r);
   }
 
   resize() {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
+    const { w, h } = this.viewSize();
     this.setPixelRatio();
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
@@ -249,6 +268,8 @@ export class Game {
     this.raidPeak = 0;  // the most HP tonight's raid has held, for the raid meter
     this.waveTimer = 0; // seconds until nightfall, recomputed from the cycle each frame
     this.duskWarned = false;
+    this.dawnHeld = 0;      // #73: seconds the sun has been held at the horizon this night
+    this.dawnHolding = false;
     this.spendTimer = 0;
     this.indicatorTimer = 0;
     this.time = 0;

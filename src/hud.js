@@ -235,21 +235,48 @@ export class Hud {
     this.overScreen.classList.add('hidden');
   }
   // readable requirements card floating above the pad the King is near
-  showPadTip({ name, sub, desc, chips, note, progress }) {
+  showPadTip({ icon, name, sub, desc, chips, note, progress }) {
+    if (this.tipKey === null) this.toastEl.classList.add('over-tip');
     this.tip.classList.remove('hidden');
-    const key = name + sub + chips.map((c) => c.text + c.state).join('|') + note;
+    // Called every frame the King is on a mat, so everything below the key check has to be cheap.
+    const key = icon + name + sub + chips.map((c) => c.text + c.state).join('|') + note;
     if (this.tipKey !== key) {
+      const firstPad = this.tipKey === null;
       this.tipKey = key;
-      this.tip.querySelector('.tip-name').textContent = sub ? `${name} · ${sub}` : name;
-      this.tip.querySelector('.tip-desc').textContent = desc || '';
-      this.tip.querySelector('.tip-costs').innerHTML = chips.map((c) => `<span class="chip ${c.state}">${iconSvg(c.icon, 18)}${c.text}</span>`).join('');
-      this.tip.querySelector('.tip-note').textContent = note;
+      if (!this.tipEls) {
+        this.tipEls = {
+          icon: this.tip.querySelector('.tip-icon'),
+          name: this.tip.querySelector('.tip-name'),
+          desc: this.tip.querySelector('.tip-desc'),
+          costs: this.tip.querySelector('.tip-costs'),
+          note: this.tip.querySelector('.tip-note'),
+          more: this.tip.querySelector('.tip-more'),
+          bar: this.tip.querySelector('.tip-bar i'),
+        };
+        this.tipEls.more.innerHTML = iconSvg('chev', 16);
+      }
+      if (icon !== this.tipIcon) {
+        this.tipIcon = icon;
+        this.tipEls.icon.innerHTML = iconSvg(icon || 'star', 26);
+      }
+      this.tipEls.name.textContent = sub ? `${name} · ${sub}` : name;
+      this.tipEls.desc.textContent = desc || '';
+      this.tipEls.costs.innerHTML = chips.map((c) => `<span class="chip ${c.state}">${iconSvg(c.icon, 14)}${c.text}</span>`).join('');
+      this.tipEls.note.textContent = note;
+      // A different mat is a different thing: it comes up closed, so walking down a row of them does
+      // not drag an opened panel along behind you.
+      if (!firstPad) this.tip.classList.remove('open');
     }
-    this.tip.querySelector('.tip-bar i').style.width = `${Math.round(Math.min(1, progress) * 100)}%`;
+    this.tipEls.bar.style.width = `${Math.round(Math.min(1, progress) * 100)}%`;
   }
   hidePadTip() {
     this.tip.classList.add('hidden');
+    this.tip.classList.remove('open');
+    this.toastEl.classList.remove('over-tip');
     this.tipKey = null;
+  }
+  togglePadTip() {
+    this.tip.classList.toggle('open');
   }
   showAlarm(text) {
     const el = this.alarmEl;

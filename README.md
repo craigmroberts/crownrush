@@ -130,10 +130,12 @@ with a coloured rim: blue recruits units or sends a crew, purple upgrades, green
 
 The marker on the ground carries identity only: a big icon, a short name, and a level where the thing
 it points at has one ("Royal Keep · Level 4", "Watchtower · Level 2"). Nobody can read a price off the
-floor at a sharp angle while running past, so costs live in a small panel that appears bottom-right
-when you stop on a pad, showing what it does, what it costs against what you carry, and how far the
-payment has got. Pads only take payment once the King has stopped (or held for a moment, `CFG.spend`),
-so walking across one costs nothing.
+floor at a sharp angle while running past, so the cost lives on a chip that appears above the controls
+when you stop on a pad: what it is, what it costs against what you carry, and a bar for how far the
+payment has got. It used to be a full sheet across the bottom edge, which is a lot of screen to cover
+in a village made of mats -- the description and the fine print are behind a tap now, and what you
+cannot play without stays on the face of it. Pads only take payment once the King has stopped (or held
+for a moment, `CFG.spend`), so walking across one costs nothing.
 
 ## Coins, ranks and towers
 
@@ -188,6 +190,11 @@ capture, or an escort reaching the edge, ends the game.
 The sun is the clock. Daylight is for gathering, building, recruiting and repairing; the raid arrives
 at nightfall and the wave counter is the night counter (`CFG.cycle`). One cycle runs about 75 seconds,
 roughly 45 of day and 30 of night, which is long enough for a round trip to the far mining nodes.
+
+The sun will not rise on a raid that is still standing: dawn waits at the horizon until the last
+raider is down, for up to `CFG.cycle.holdDawn` seconds. The cap is there because plenty can survive
+without being reachable -- one stuck across the river, an archer holding at range, a thief most of the
+way to the map edge -- and a night held open forever is a run that cannot continue.
 
 You get a warning as the sun starts going down, and dawn is the reward beat: hold the night and the
 game says so. Every fifth night is a blood moon, which brings a boss and turns the whole sky red. If

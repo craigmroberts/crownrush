@@ -167,7 +167,16 @@ export const CFG = {
   // comes at nightfall. `length` is one full cycle in seconds and `nightStart` is the point in it the
   // sun goes down, so a day is about 45 seconds and a night about 30: long enough for a round trip to
   // the far mining nodes and back.
-  cycle: { length: 75, nightStart: 0.6, dawn: 0.98, warn: 8 },
+  // #73: `holdDawn` is how long, in seconds, the sun will wait at the horizon while any of tonight's
+  // raid is still standing. A night should be something you survive rather than something you wait
+  // out, and dawn arriving over a Marauder still chewing on the wall said the opposite.
+  //
+  // It is capped rather than indefinite because plenty can survive without being reachable -- one
+  // stuck the wrong side of a river, an archer holding at a range with nothing in range of it, a
+  // thief most of the way to the map edge. Held forever, any of those is a run that cannot continue
+  // and cannot be ended except by reloading. Forty seconds is long enough that clearing up is the
+  // obvious move and short enough that giving up on a straggler is not a punishment.
+  cycle: { length: 75, nightStart: 0.6, dawn: 0.98, warn: 8, holdDawn: 40 },
 
   waves: {
     hpGrowthPerWave: 0.04, // ranks (CFG.ranks) and Keep level (CFG.base) carry most of the scaling now

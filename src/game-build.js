@@ -582,6 +582,7 @@ export const BuildMethods = {
       const total = nearest.cost + nearest.res.reduce((a, r) => a + r.need, 0);
       const paidAll = nearest.paid + nearest.res.reduce((a, r) => a + r.paid, 0);
       this.hud.showPadTip({
+        icon: def.icon,
         name: def.feed ? `Feed the Keep` : def.label,
         sub: this.padSub(def),
         desc: this.padDesc(def),

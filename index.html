@@ -102,7 +102,20 @@
       <button id="settings-btn" title="Settings"><i data-icon="gear" data-size="22"></i></button>
       <button id="next-wave-btn" class="hidden" title="Bring on the night"><i data-icon="swords" data-size="20"></i><b id="next-wave-btn-t">0:00</b><span>skip</span></button>
       <button id="horn-btn" class="hidden" title="Warhorn (Space): rally the army"><span class="ring"></span><i data-icon="horn" data-size="30"></i><b id="horn-cd"></b></button>
-      <div id="pad-tip" class="hidden"><div class="tip-name"></div><div class="tip-desc"></div><div class="tip-costs"></div><div class="tip-bar"><i></i></div><div class="tip-note"></div></div>
+      <!-- #75: a chip, not a sheet. The village is made of mats, so a full panel across the bottom
+           every time the King stops near one was covering the field to say something usually already
+           known. What it costs and how far the payment has got stay on the face of it -- those are
+           the two things you cannot play without -- and the description and the fine print are one
+           tap away. -->
+      <div id="pad-tip" class="hidden">
+        <button class="tip-head" id="tip-toggle">
+          <i class="tip-icon"></i>
+          <span class="tip-lines"><b class="tip-name"></b><span class="tip-costs"></span></span>
+          <i class="tip-more"></i>
+        </button>
+        <div class="tip-bar"><i></i></div>
+        <div class="tip-body"><div class="tip-desc"></div><div class="tip-note"></div></div>
+      </div>
       <canvas id="minimap" width="160" height="160"></canvas>
     </div>
 

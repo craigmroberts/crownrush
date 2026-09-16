@@ -303,6 +303,11 @@ export const EnemiesMethods = {
     return false;
   },
 
+  // Did the day phase pass `mark` between these two readings, wrap included?
+  crossedPhase(from, to, mark) {
+    return (from < mark && to >= mark) || (to < from && (from < mark || to >= mark));
+  },
+
   // #19: the camp wakes when the King comes for it
   updateCampSleeper(e, dt) {
     const F = CFG.finale;
@@ -641,8 +646,21 @@ export const EnemiesMethods = {
     // #15: the sun is the timer. Raids come at nightfall and the wave number is the night number.
     const cy = CFG.cycle;
     const prev = this.dayPhase;
-    this.dayPhase = (this.dayPhase + dt / cy.length) % 1;
-    const crossed = (from, to, mark) => (from < mark && to >= mark) || (to < from && (from < mark || to >= mark));
+    let next = (this.dayPhase + dt / cy.length) % 1;
+    // #73: hold the sun at the horizon while the raid is still standing, up to `holdDawn` seconds.
+    // The clamp sits a hair short of dawn so the crossing test keeps firing every frame it is held;
+    // the moment the field clears -- or the cap runs out -- the clamp lifts and the frame after it
+    // crosses for real.
+    if (this.night && !cleared && this.crossedPhase(prev, next, cy.dawn) && this.dawnHeld < cy.holdDawn) {
+      this.dawnHeld += dt;
+      next = cy.dawn - 1e-4;
+      if (!this.dawnHolding) {
+        this.dawnHolding = true;
+        this.hud.toast('The sun waits. Finish them before it rises.', 3000);
+      }
+    }
+    this.dayPhase = next;
+    const crossed = (from, to, mark) => this.crossedPhase(from, to, mark);
 
     if (!this.night && this.dayPhase >= cy.nightStart - cy.warn / cy.length && this.dayPhase < cy.nightStart && !this.duskWarned) {
       this.duskWarned = true;
@@ -651,6 +669,8 @@ export const EnemiesMethods = {
     if (!this.night && crossed(prev, this.dayPhase, cy.nightStart)) {
       this.night = true;
       this.duskWarned = false;
+      this.dawnHeld = 0;
+      this.dawnHolding = false;
       this.startWave();
       // #32: the music turns cold, and a wolf says so. Every night at first, then now and then, and
       // always under a blood moon: a sound that arrives on schedule forever stops being ominous.
@@ -670,6 +690,7 @@ export const EnemiesMethods = {
 
   // The reward beat: you held the night, here is the day to rebuild in.
   dawnBreaks(cleared) {
+    this.dawnHolding = false;
     if (this.wave <= 0) return;
     // #50: the run is written down here, on the one beat where there is nothing in flight to write.
     this.saveRun();

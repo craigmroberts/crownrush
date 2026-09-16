@@ -119,22 +119,45 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 /* #8: anchored bottom-right, clear of the minimap and the night button, never over the middle */
 /* #31: the pad panel is a sheet across the bottom edge rather than a card floating over the field,
    so it reads in the same place as the settings sheet and leaves the play area clear. */
+/* #75: the mat chip. It sits above the minimap, the warhorn and the skip button rather than beside
+   them, so it can use the width without hard-coded gutters for each control in turn. */
 #pad-tip {
-  position: fixed; left: 0; right: 0; bottom: 0; pointer-events: none;
-  background: var(--parchment); border-top: var(--rim-line) solid var(--rim); border-radius: 18px 18px 0 0;
-  padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
-  padding-left: max(112px, env(safe-area-inset-left));    /* clear of the minimap */
-  padding-right: max(88px, env(safe-area-inset-right));   /* clear of the warhorn */
-  text-align: center; box-shadow: 0 -8px 24px rgba(0,0,0,0.3); z-index: 4;
-  transform: translateY(0); transition: transform 0.18s ease-out;
+  position: fixed; left: 50%; transform: translateX(-50%) translateY(0);
+  bottom: calc(116px + env(safe-area-inset-bottom));
+  width: max-content; max-width: min(400px, calc(100vw - 24px));
+  background: var(--parchment); border: var(--rim-line) solid var(--rim); border-radius: 16px;
+  box-shadow: 0 8px 22px rgba(0,0,0,0.32); z-index: 4; overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.34, 1.4, 0.64, 1), opacity 0.16s ease-out;
 }
-#pad-tip.hidden { display: block; transform: translateY(110%); }
-#pad-tip .tip-name { font-weight: 900; font-size: 19px; color: #2a3a2f; margin-bottom: 2px; }
-#pad-tip .tip-costs { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-#pad-tip .chip { font-weight: 800; font-size: 16px; padding: 2px 8px; border-radius: 999px; background: #eee6c8; color: #4a3a10; white-space: nowrap; }
+#pad-tip.hidden { display: block; opacity: 0; transform: translateX(-50%) translateY(14px) scale(0.96); pointer-events: none; }
+/* the face of it: what this is, what it costs, and that there is more to read */
+#pad-tip .tip-head {
+  display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+  background: none; border: 0; padding: 7px 11px; cursor: pointer; color: inherit; font: inherit;
+  pointer-events: auto; -webkit-tap-highlight-color: transparent;
+}
+#pad-tip .tip-head:active { background: rgba(0,0,0,0.05); }
+#pad-tip .tip-icon { flex: none; display: flex; }
+#pad-tip .tip-lines { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+#pad-tip .tip-name { font-weight: 900; font-size: 16px; color: #2a3a2f; line-height: 1.15; }
+#pad-tip .tip-costs { display: flex; gap: 6px; flex-wrap: wrap; }
+#pad-tip .chip { font-weight: 800; font-size: 13px; padding: 1px 7px; border-radius: 999px; background: #eee6c8; color: #4a3a10; white-space: nowrap; display: inline-flex; align-items: center; gap: 3px; }
 #pad-tip .chip.ok { background: #cdf2d2; color: #1f6b30; }
 #pad-tip .chip.short { background: #ffd9d6; color: #8a1a22; }
-#pad-tip .tip-note { font-size: 13px; color: #6b675c; margin-top: 4px; }
+/* the chevron turns to say which way this goes */
+#pad-tip .tip-more { flex: none; display: flex; color: #8a8372; transition: transform 0.2s ease-out; }
+#pad-tip.open .tip-more { transform: rotate(90deg); }
+/* Payment progress stays on the face of it at all times. Standing on a mat spends coins one at a
+   time and this bar is the only thing that shows it happening; behind a tap it would be useless. */
+#pad-tip .tip-bar { height: 5px; background: rgba(0,0,0,0.14); }
+#pad-tip .tip-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffd76a, #e8a91c); transition: width 0.12s linear; }
+#pad-tip .tip-body { display: none; padding: 8px 12px 10px; border-top: 1px solid rgba(0,0,0,0.08); }
+#pad-tip.open .tip-body { display: block; }
+#pad-tip .tip-desc { font-size: 14px; color: #4a4a3a; line-height: 1.35; }
+#pad-tip .tip-note { font-size: 12px; color: #6b675c; margin-top: 5px; }
+@media (prefers-reduced-motion: reduce) {
+  #pad-tip, #pad-tip.hidden { transition: opacity 0.18s linear; transform: translateX(-50%); }
+}
 #minimap {
   position: fixed; left: 12px; bottom: max(12px, env(safe-area-inset-bottom)); width: 92px; height: 92px;
   border-radius: 50%; border: var(--rim-line) solid var(--rim); background: #2b2f33; pointer-events: auto; z-index: 5;
@@ -294,6 +317,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 /* Arriving overshoots and settles, which is the curve the world already uses on everything that
    appears in it: popIn on a building, and the squash on a unit that has just been recruited. The
    HUD and the world were speaking different languages. */
+#toast.over-tip { bottom: calc(286px + env(safe-area-inset-bottom)); }
 #toast.show {
   opacity: 1; transform: translateX(-50%) translateY(0) scale(1);
   transition: opacity 0.18s ease-out, transform 0.34s cubic-bezier(0.34, 1.56, 0.64, 1);

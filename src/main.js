@@ -134,6 +134,12 @@ document.getElementById('horn-btn').addEventListener('pointerdown', (e) => {
   e.stopPropagation();
   game.useHorn();
 });
+// #75: the mat chip opens to its description rather than showing one unasked.
+document.getElementById('tip-toggle').addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  hud.togglePadTip();
+});
 document.getElementById('info-close').addEventListener('click', () => game.hideInfo());
 // both plaques open the Keep sheet: the left one is the level, the right one is what feeds it
 document.getElementById('keep-plaque').addEventListener('click', () => game.toggleKeep());
