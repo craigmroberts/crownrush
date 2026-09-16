@@ -610,9 +610,16 @@ export class Game {
   // a reward to choose, the info or settings sheets, the end of the run, a lost graphics context).
   // If the world has stopped and none of those hold, something failed to hand the pause back, so
   // take it back here rather than leaving the player looking at a still picture.
+  // Every screen that stops the world has to be named here, and the ones that are easiest to forget
+  // are the ones that pause SILENTLY: `pauseHidden()` speaks for the pause screen, so it can vouch for
+  // a pause the player asked for and for nothing else. The Keep plaque and the scoreboard both stopped
+  // the world without putting that screen up, so neither was excused and neither could be -- and this
+  // took the pause back a second and a half after either was opened. Driven: open the Keep sheet,
+  // step three seconds of game time, and the raid is running again behind a sheet still on screen.
   watchStuck(dt) {
     const excused = this.running || this.over || this.won || this.contextLost
       || this.offer || this.gain || this.infoOpen || this.settingsOpen
+      || this.keepOpen || this.scoresOpen
       || !this.hud.pauseHidden();       // the player's own pause, with its screen up
     if (excused) {
       this.stuckFor = 0;
