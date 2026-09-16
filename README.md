@@ -121,6 +121,12 @@ loop underneath it:
   both, so the alarm keeps a slot directly above. That slot is measured rather than assumed -- it
   clears whatever is on the line, which is the only thing that holds when a notice can be one line or
   four.
+  Everything in that band hides with `visibility` as well as opacity, and that is not tidiness: the
+  drag that moves the King is bound to the canvas, so anything above it that is still hit-testable
+  eats the whole gesture. The chip's head is a button, and `pointer-events: none` on the chip did not
+  stop it -- an ancestor's `none` does not override a descendant's `auto`. That left 206x53 of the
+  bottom-centre dead with nothing drawn in it, sized by whichever mat you last looked at, exactly
+  where a thumb rests (#128).
 - What you scoop off a heap flies to the bag in the corner and the bag bumps when it lands, so the
   armful you picked up and the number that changed are one event. The ledger is credited before the
   flight, not when it arrives: hanging a player's materials on a CSS transition completing would cost
