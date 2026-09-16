@@ -9,10 +9,56 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
+
+// #51: the base colour maps are KTX2/ETC1S, which stays compressed in video memory instead of being
+// unpacked to RGBA on upload. A 1024 JPEG costs 5.59 MB there, 7.5 MB once three.js has built its
+// mipmaps; the same picture as ETC1S costs 0.7 MB with the mips in the file. Five buildings: 37 MB
+// down to 3.3 MB, and they are the only textures in the game that are not a few hundred pixels wide.
+//
+// It is bought with download, and the price is stated rather than hidden: the transcoder is 584 kB
+// of wasm and wrapper, 262 kB gzipped, against models that came out 3 kB larger than the JPEGs they
+// replaced. The Draco decoder was rejected for exactly this shape of trade (docs/performance-backlog
+// .md), and the difference is what the two bought -- Draco saved a fraction of its own size on the
+// wire and nothing at all afterwards, this pays once at load and gives back 34 MB for the whole run.
+let transcoder = null;
+let gl = null;
+
+// KTX2Loader cannot transcode until it knows which compressed formats the device has, and the only
+// thing that can answer is a renderer. main.js hands over the game's own before the first building is
+// fetched: standing up a second WebGL context to ask would spend one of the handful a browser allows,
+// and this game already carries a recovery path for losing the one it needs.
+export function usePropRenderer(renderer) {
+  gl = renderer;
+}
+
+// No setTranscoderPath. KTX2Loader reaches for its own copy with `new URL('../libs/basis/...',
+// import.meta.url)`, which Vite resolves at build time into a hashed asset of the bundle -- so the
+// transcoder is versioned with the three it came from, listed in the service worker's precache, and
+// fetched from this origin. Pointing at a copy under public/ instead emitted BOTH: Vite emits those
+// URLs whether or not the default branch ever runs, which is the same duplicate-decoder trap r186
+// sprang with Draco (docs/performance-backlog.md), caught this time by reading the build output.
+function ktx2() {
+  if (!transcoder && gl) {
+    transcoder = new KTX2Loader().detectSupport(gl);
+    loader.setKTX2Loader(transcoder);
+  }
+  return transcoder;
+}
+
+// The transcoder holds a worker with a copy of the wasm in it. Every building is in hand once the
+// deferred props have landed, so main.js hands it back there, the way it hands back the portrait
+// renderer. Nothing breaks if a load comes later: the next preloadProps stands a fresh one up.
+export function releasePropTranscoder() {
+  if (!transcoder) return;
+  transcoder.dispose();
+  transcoder = null;
+  loader.setKTX2Loader(null);
+}
 
 const PROP_FILE = { hut: 'hut_ai', keep: 'keep_ai', tower: 'tower_ai', barracks: 'barracks_ai', house: 'house_ai' };
 
@@ -61,6 +107,7 @@ function merge(scene) {
 // not fatal: makeStructure falls back to the built version of every one of these.
 export async function preloadProps(names, onProgress = null) {
   let done = 0;
+  ktx2();
   await Promise.all(names.map(async (n) => {
     try {
       const gltf = await new Promise((res, rej) => loader.load(`${import.meta.env.BASE_URL}models/${PROP_FILE[n] || n}.glb`, res, undefined, rej));
@@ -79,45 +126,55 @@ export async function preloadProps(names, onProgress = null) {
 // so the shingle rows, the log shadows and the dark doorway all survive and only the hue moves.
 // Multiplying by a tint instead would just dim it, and the red roof would come out dark red rather
 // than stone. This is the stand-in until each village material has its own generated building.
-function recolour(img, hex, amount) {
-  const c = document.createElement('canvas');
-  c.width = img.width;
-  c.height = img.height;
-  const ctx = c.getContext('2d', { willReadFrequently: true });
-  ctx.drawImage(img, 0, 0);
-  const d = ctx.getImageData(0, 0, c.width, c.height);
-  const a = d.data;
-  const tr = (hex >> 16) & 255;
-  const tg = (hex >> 8) & 255;
-  const tb = hex & 255;
-  const lum = (i) => 0.2126 * a[i] + 0.7152 * a[i + 1] + 0.0722 * a[i + 2];
-  let mean = 0;
-  for (let i = 0; i < a.length; i += 4) mean += lum(i);
-  mean = Math.max(1, mean / (a.length / 4));
-  for (let i = 0; i < a.length; i += 4) {
-    const f = lum(i) / mean;
-    a[i] += (Math.min(255, tr * f) - a[i]) * amount;
-    a[i + 1] += (Math.min(255, tg * f) - a[i + 1]) * amount;
-    a[i + 2] += (Math.min(255, tb * f) - a[i + 2]) * amount;
-  }
-  ctx.putImageData(d, 0, 0);
-  return c;
-}
+//
+// The arithmetic is the same arithmetic it always was, moved from a canvas into the fragment shader.
+// Two reasons, and the second is the one that matters. A compressed texture has no pixels to read
+// back: `getImageData` on a KTX2 map gets nothing, because what arrived is ETC1S blocks the GPU
+// understands and the CPU does not. And the canvas version wrote its result into a 1024x1024
+// CanvasTexture *per tint*, which is another 7.5 MB of RGBA on the GPU each time the village crosses
+// a material boundary -- so a run that reached diamond walls was paying the very cost #51 is about,
+// four times over per building. Tinting in the shader adds no texture at all.
+//
+// The shader wants the texel in the 0-255 sRGB space the canvas worked in, and gets it in linear,
+// because the map is uploaded as sRGB and the hardware decodes on the sample. sRGBTransferOETF and
+// its inverse are always in scope: WebGLProgram puts colorspace_pars_fragment in every fragment
+// prefix. The mean is measured when the texture is compressed and travels in the material's extras
+// (tools/models/compress.mjs) -- there is nowhere else left to get it from.
+const TINT_PARS = `
+uniform vec3 tintColor;
+uniform float tintAmount;
+uniform float tintMean;
+`;
+const TINT_MAP = `
+vec4 sampledDiffuseColor = texture2D( map, vMapUv );
+vec3 tintSrgb = sRGBTransferOETF( sampledDiffuseColor ).rgb;
+float tintF = dot( tintSrgb, vec3( 0.2126, 0.7152, 0.0722 ) ) / tintMean;
+tintSrgb = mix( tintSrgb, min( vec3( 1.0 ), tintColor * tintF ), tintAmount );
+diffuseColor *= sRGBTransferEOTF( vec4( tintSrgb, sampledDiffuseColor.a ) );
+`;
 
 function tintedMaterial(name, src, tint) {
   const key = `${name}|${tint.color}|${tint.amount}`;
   if (tints.has(key)) return tints.get(key);
   const m = src.clone();
-  if (src.map && src.map.image) {
-    const tex = new THREE.CanvasTexture(recolour(src.map.image, tint.color, tint.amount));
-    // glTF textures are not flipped; a CanvasTexture is by default, and getting this wrong turns the
-    // building inside out rather than failing.
-    tex.flipY = src.map.flipY;
-    tex.colorSpace = src.map.colorSpace;
-    tex.wrapS = src.map.wrapS;
-    tex.wrapT = src.map.wrapT;
-    tex.anisotropy = src.map.anisotropy;
-    m.map = tex;
+  if (src.map) {
+    // 0.3 is about where the five buildings sit, and is only ever used by a model that has not been
+    // through the compress step -- which is also the only way a building can still be carrying a JPEG.
+    const mean = Number(src.userData && src.userData.meanLuminance) || 0.3;
+    const rgb = new THREE.Vector3(((tint.color >> 16) & 255) / 255, ((tint.color >> 8) & 255) / 255, (tint.color & 255) / 255);
+    m.onBeforeCompile = (shader) => {
+      shader.uniforms.tintColor = { value: rgb };
+      shader.uniforms.tintAmount = { value: tint.amount };
+      shader.uniforms.tintMean = { value: mean };
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', `#include <common>${TINT_PARS}`)
+        .replace('#include <map_fragment>', TINT_MAP);
+    };
+    // Without a key of its own this material shares a compiled program with the untinted one it was
+    // cloned from -- same type, same defines -- and whichever compiled first decides what both draw.
+    // One key for every tint, not one each: the shader is identical and only the three uniforms
+    // differ, and three.js hands each material its own uniforms while sharing the compiled program.
+    m.customProgramCacheKey = () => 'crownrush-prop-tint';
   } else {
     m.color = new THREE.Color(tint.color);
   }

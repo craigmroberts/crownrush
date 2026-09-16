@@ -2,7 +2,7 @@ import { Game } from './game.js';
 import { Hud, SPEAKERS } from './hud.js';
 import { audio } from './audio.js';
 import { preloadRigs, renderPortrait, renderFace, releasePortraitRenderer } from './rig.js';
-import { preloadProps } from './props.js';
+import { preloadProps, usePropRenderer, releasePropTranscoder } from './props.js';
 import { preloadIcons, mountIcons, iconSvg } from './icons.js';
 import { readScores } from './scores.js';
 
@@ -15,6 +15,10 @@ try {
   window.__showError(err && err.message ? err.message : String(err));
   throw err;
 }
+
+// #51: the buildings' textures are KTX2, and which compressed format they transcode to depends on
+// the device. Only a renderer can say, and this is the one the game will draw them with.
+usePropRenderer(game.renderer);
 
 hud.showStart(game.best, game.savedRun());
 const startBtn = document.getElementById('start-btn');
@@ -84,6 +88,9 @@ Promise.all([
   // let the worker precache the lot for the next visit.
   Promise.all([preloadRigs(LATER_RIGS), preloadProps(LATER_PROPS)])
     .catch((e) => console.warn('deferred models unavailable:', e && e.message))
+    // Every building is in hand, so the Basis transcoder and its worker can go, the same way the
+    // portrait renderer does above. Nothing loads a texture after this point in a normal run.
+    .then(releasePropTranscoder)
     .then(registerServiceWorker);
 });
 // #6: the first time through, Play opens a short stepped intro; after that it goes straight in
