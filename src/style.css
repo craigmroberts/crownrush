@@ -64,6 +64,9 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; font-family: "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
 #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+/* #74: the safe-area insets, so ?perf=1 can report them off a real phone. env() cannot be read from
+   JS directly; a custom property carrying it can. */
+:root { --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px); }
 
 /* the HUD stacks: the plaques, then the controls under them. Both are in the flow, so the controls
    always clear the plaques however tall they end up on a given screen. */
@@ -424,6 +427,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   color: #b8ffb0;
   font: 12px/1.4 ui-monospace, Menlo, monospace;
   pointer-events: none;
+  /* #74: the readout is two lines now -- the second is every size the page can be asked for -- and a
+     phone is narrow, so it has to be allowed to break and to wrap. */
+  white-space: pre-wrap;
+  max-width: calc(100vw - 32px);
 }
 
 

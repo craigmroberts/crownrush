@@ -38,6 +38,11 @@ loop underneath it:
 - Walls are real: raiders are blocked and bash at short sections. A battered section degrades to the
   previous material (iron to stone to brick to wood) before it finally falls and shows a repair pad.
   Walls are rebuilt from wood to brick, stone and iron automatically as the Keep levels up.
+- The Keep has one mat, in one place, all game, and it always offers the Keep's next job: **Raise the
+  Keep** while it stands, **Repair the Keep** while it is rubble, in the green of an upgrade or the
+  brown of a build so you can tell which without reading it. Levelling a Keep that is not standing is
+  not possible, which is the whole reason the repair takes the raise's place rather than sitting
+  somewhere else.
 - Watchtowers are built empty. A "Man the Tower" pad next to each one takes archers from your army
   (the price is people, not coins). Gate guards work the same way.
 - Red arrows at the screen edge point at raiders you can't see, with a count and a skull for bosses.
@@ -447,6 +452,15 @@ no browser around it and no connection.
 - **iOS**: open it in Safari, Share, Add to Home Screen.
 - **Android**: Chrome offers Install, or Add to Home Screen from the menu.
 - **Desktop**: Chrome and Edge show an install control in the address bar.
+
+The drawing buffer is sized from the largest of the canvas's own box, `visualViewport` and
+`window.inner*`, and then asked for again four times over the first second and a half. That is not
+belt and braces for its own sake: under `viewport-fit=cover` iOS answers those three differently, the
+canvas is meant to cover the screen so a short answer is always the wrong one, and there is no event
+for "the standalone box has settled". A buffer that comes up short shows as bands of flat page green
+at the top and bottom with the HUD sitting on them. `?perf=1` prints all of those sizes plus the
+safe-area insets on a second line, because a headless browser has no safe areas and no standalone
+mode and cannot answer which source went short.
 
 Once it has been opened with a connection, a service worker holds the whole thing — bundle, character
 models and fonts, about three and a half megabytes — so it opens again without one. Verified by

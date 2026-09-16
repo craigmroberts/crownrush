@@ -287,6 +287,21 @@ syncSound();
 // browsers only allow sound after a user gesture; catch the first one anywhere
 window.addEventListener('pointerdown', () => audio.init(), { once: true });
 
+// #74: every size the page can be asked for, on one line. The green bands at the top and bottom of
+// the iOS home-screen app are a drawing buffer that does not cover the screen, and which of these
+// comes back short is the whole question -- one that a headless browser cannot answer, because it has
+// no safe areas and no standalone mode. A phone with ?perf=1 can, in one screenshot.
+function sizeReport() {
+  const c = document.getElementById('game');
+  const vv = window.visualViewport;
+  const cs = getComputedStyle(document.documentElement);
+  const inset = (n) => (cs.getPropertyValue(n) || '0px').trim();
+  return `css ${c.clientWidth}x${c.clientHeight} · win ${window.innerWidth}x${window.innerHeight}`
+    + ` · vv ${vv ? `${Math.round(vv.width)}x${Math.round(vv.height)}` : '-'}`
+    + ` · screen ${screen.width}x${screen.height} · safe ${inset('--sat')}/${inset('--sab')}`
+    + ` · standalone ${!!(window.navigator.standalone || matchMedia('(display-mode: standalone)').matches)}`;
+}
+
 // Performance overlay: add ?perf=1 to the URL to see frame time, draw calls and triangles live.
 // Aim for under 16 ms (60 fps) on desktop and under 33 ms (30 fps) on phones.
 let perf = null;
@@ -320,7 +335,8 @@ function frame(now) {
       const crowd = game.crowdStats();
       perf.textContent = `${(perfFrames / perfT).toFixed(0)} fps · ${ms.toFixed(1)} ms cpu · ${info.calls} draws · ${(info.triangles / 1000).toFixed(0)}k tris · ${game.units.length + game.enemies.length} chars`
         + (crowd.characters ? ` (${crowd.drawn}/${crowd.characters} instanced in ${crowd.models} draws)` : '')
-        + ` · ${c.width}x${c.height} buf @${game.renderer.getPixelRatio()}${game.contextLost ? ' · GL CONTEXT LOST' : ''}`;
+        + ` · ${c.width}x${c.height} buf @${game.renderer.getPixelRatio()}${game.contextLost ? ' · GL CONTEXT LOST' : ''}`
+        + `\n${sizeReport()}`;
       perf.style.color = ms > 33 ? '#ff7a7a' : ms > 16 ? '#ffd27a' : '#b8ffb0';
       perfT = 0;
       perfFrames = 0;

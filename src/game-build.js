@@ -122,7 +122,7 @@ export const BuildMethods = {
 
   // the short name on the floor: the full label is often too long to read at a glance
   padName(def) {
-    if (def.feed) return 'Royal Keep';
+    if (def.feed || def.repairKeep) return 'Royal Keep';   // #78: one mat, so one name on the floor
     if (def.towerUp) return 'Watchtower';
     return def.label;
   },
@@ -572,7 +572,7 @@ export const BuildMethods = {
         if (locked) chips.push({ icon: 'keep', text: `Keep level ${locked} needed`, state: 'short' });
         if (def.units) chips.push({ icon: def.units.type, text: `${this.unitCount(def.units.type)} / ${this.unitCap(def.units.type)} ${def.units.type}s`, state: locked ? 'short' : 'ok' });
       }
-      const note = this.keep && this.keep.state !== 'built' && def.repairKeep ? 'The Keep must stand before it can be fed again'
+      const note = this.keep && this.keep.state !== 'built' && def.repairKeep ? 'It has to stand again before it can be raised'
         : this.queen.captive ? (this.queen.taken ? 'Cut off the escort and bring her back' : 'Rescue Wren first') : locked ? 'Feed the Keep to raise the limit' : this.king.moving && (nearest.holdT || 0) < CFG.spend.walkHold ? 'Stop moving to pay' : def.feed ? `Pouring in materials…` : def.crew ? 'Sending archers…' : 'Paying…';
       const total = nearest.cost + nearest.res.reduce((a, r) => a + r.need, 0);
       const paidAll = nearest.paid + nearest.res.reduce((a, r) => a + r.paid, 0);
@@ -724,16 +724,26 @@ export const BuildMethods = {
     } else {
       this.hud.toast('The Keep has fallen! Get Wren behind something.', 2600, 'Keep');
     }
+    // #78: one Keep mat, in one place, all game. This used to drop the feed mat and raise a repair
+    // mat at a different offset with a different icon, so the Keep had two markers doing two halves
+    // of one job and the player had to notice the second one had moved. It stands where the feed mat
+    // stood and wears the Keep's own icon; what changes with the Keep's state is the job it offers
+    // and the colour that says so -- `build` while it is rubble, `feed` once it can be raised again.
     this.dropFeedPad();
-    this.dynamicPads.push({ id: `repair-keep-${this.time.toFixed(0)}`, pos: [k.x - 3.2, k.z + 3.2], cost: 20, res: { stone: 10 }, icon: 'hammer', label: 'Repair Keep', repairKeep: true });
+    this.dynamicPads.push({ id: `repair-keep-${this.time.toFixed(0)}`, pos: [k.x + CFG.keep.padOffset[0], k.z + CFG.keep.padOffset[1]], cost: 20, res: { stone: 10 }, icon: 'keep', label: 'Repair the Keep', repairKeep: true });
     this.refreshPads();
   },
 
   // #34: the feed pad goes with the Keep and comes back with it
   dropFeedPad() {
     if (!this.feedDef) return;
-    const i = this.dynamicPads.indexOf(this.feedDef);
-    if (i >= 0) this.dynamicPads.splice(i, 1);
+    // #78: taking the def out of `dynamicPads` is not taking the mat off the field. refreshPads only
+    // ever ADDS -- nothing walks `pads` looking for one whose def has gone -- so the feed mat stayed
+    // where it was after the Keep fell: still payable, still levelling a Keep that was a heap of
+    // rubble. That is the "I can still upgrade while the Queen is out of the castle" report, and the
+    // guard in addFeedPad was never the problem: the mat it refuses to build was already standing.
+    // It also meant repairing left TWO feed mats, because restoreKeep added one next to the orphan.
+    this.removePadDef(this.feedDef);
     this.feedDef = null;
     this.refreshPads();
   },

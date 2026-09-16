@@ -85,8 +85,13 @@ export class Game {
     // iOS changes the visible area -- the home indicator band, the status bar -- without reliably
     // firing a window resize alongside it.
     if (window.visualViewport) window.visualViewport.addEventListener('resize', () => this.resize());
-    // and the box is not final on the first frame of a standalone launch
-    window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 120));
+    window.addEventListener('orientationchange', () => this.settleSize());
+    // #74: and the box is not final on the first frame of a standalone launch. There is no event for
+    // "iOS has finished deciding how big the screen is", so the only reliable answer is to ask again
+    // a few times over the first second and a half. resize() is cheap and idempotent -- it sets a
+    // buffer size and a camera aspect -- so asking four more times costs nothing and is the
+    // difference between a correct first frame and green bands until something else triggers one.
+    this.settleSize();
     this.watchContext(canvas);
 
     this.running = false;
@@ -147,11 +152,24 @@ export class Game {
   // the window therefore left the canvas short at top and bottom, and what showed through was the
   // body background -- which is the same green as `theme-color`, so it read as two flat bands rather
   // than as a canvas that had not been stretched far enough.
+  // #74: how big the drawing buffer has to be for the canvas to cover the screen.
+  //
+  // Three sources disagree on iOS, and which one is right depends on when you ask. `window.inner*`
+  // excludes the safe areas under `viewport-fit=cover`, which is what caused this in the first place.
+  // `clientWidth/Height` of a `position: fixed; inset: 0` element should include them -- but on a cold
+  // standalone launch iOS has been seen to answer before the box is final, and a short answer there
+  // is the bug: a band of flat page green at top and bottom with the HUD sitting on it.
+  //
+  // So take the LARGEST. The canvas is meant to cover the screen, so a source that comes back short
+  // is the one that is wrong, and one that comes back long cannot exist -- nothing here reports more
+  // than the screen. The one case that reports less on purpose is a pinch-zoom, where visualViewport
+  // shrinks to the zoomed region; the max keeps the layout size, which is what should still be drawn.
   viewSize() {
     const c = this.canvas;
+    const vv = window.visualViewport;
     return {
-      w: c.clientWidth || window.innerWidth || 1,
-      h: c.clientHeight || window.innerHeight || 1,
+      w: Math.max(c.clientWidth || 0, vv ? vv.width : 0, window.innerWidth || 0, 1),
+      h: Math.max(c.clientHeight || 0, vv ? vv.height : 0, window.innerHeight || 0, 1),
     };
   }
 
@@ -162,6 +180,11 @@ export class Game {
     const maxPixels = this.safe ? 1.6e6 : this.mobile ? 2.6e6 : 5e6;
     if (w * h * r * r > maxPixels) r = Math.max(1, Math.sqrt(maxPixels / (w * h)));
     this.renderer.setPixelRatio(r);
+  }
+
+  // Ask again over the next second and a half, because iOS does not say when it has settled.
+  settleSize() {
+    for (const ms of [80, 250, 600, 1500]) setTimeout(() => this.resize(), ms);
   }
 
   resize() {
