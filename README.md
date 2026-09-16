@@ -226,6 +226,18 @@ in a village made of mats -- the description and the fine print are behind a tap
 cannot play without stays on the face of it. Pads only take payment once the King has stopped (or held
 for a moment, `CFG.spend`), so walking across one costs nothing.
 
+Three mats change what you can *do* rather than what stands in the village: Train Archers, the
+Warhorse and the Royal Guard -- the pads carrying an `effect` that is the player's rather than the
+village's. Buying one stops the game and says where you have got to, and waits to be dismissed:
+*Training 3 of 5*, what an arrow hits for now against an untrained archer's, how many are left on the
+mat and what the next one costs (`capabilityGains` in [src/game-view.js](src/game-view.js)). It says
+the state and not the delta, because a per-level percentage is a true sentence that answers nothing on
+the third buy. Both places the game used to say it missed: the mat's own `desc` is behind a tap on
+the chip, and the toast ran for 3.2 seconds over a game that kept playing, at the one moment the
+player was least likely to be standing still and reading. It pauses regardless of what the raid is
+doing, the way a Keep level does -- it can happen nine times in a whole run, and every one of them is
+the player standing still on a mat by his own choice.
+
 ## Coins, ranks and towers
 
 - **One currency that grows with the Keep.** Coins are bronze to start, silver from Keep level 4, gold
