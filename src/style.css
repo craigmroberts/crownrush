@@ -74,7 +74,7 @@
   --bar-h: 56px;                        /* the top bar's height; the controls sit below it */
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { width: 100%; height: 100%; overflow: hidden; background: #241c10; font-family: "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; font-family: "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
 /* #74: the canvas has to be told its size in a unit that means THE SCREEN.
    `inset: 0` is not enough on its own and never was -- a canvas is a replaced element, so with
    `width: auto` its used size is its INTRINSIC size, which is the drawing buffer. Driven: dropping the

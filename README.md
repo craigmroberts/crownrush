@@ -627,7 +627,13 @@ unreliably for a legacy home-screen app) because in a browser the large viewport
 URL bar hidden, and using it there would push the bottom of the world behind a toolbar that is on
 screen.
 
-If the box does come up short, what shows in the gap is the page background.
+The same phone afterwards, which is the proof:
+
+    box 0,0 440x956 · win 440x894 · screen 440x956 · units lvh 956 dvh 894 svh 894 vh 956
+
+`lvh` reaches the glass where `dvh` does not, and the canvas now covers the screen while still being
+handed a viewport 62px shorter than it. If the box ever does come up short again, what shows in the
+gap is the page background.
 
 **The drawing buffer** is how much detail is drawn into that box, sized from the largest of the
 canvas's own box, `visualViewport` and `window.inner*`, then asked for again four times over the
@@ -646,12 +652,13 @@ The shortcut launches at the manifest's `start_url`, so the one place these bugs
 place the numbers could not be read. It says the canvas's box, and the viewport too when the two
 disagree; tapping it copies the whole line.
 
-One thing in here is a control rather than a colour. The bands reported on the iPhone are exactly
-`#3f9a5b`, and that is three things at once: the page background, `theme-color`, and the manifest's
-`background_color` — which is why two rounds of guessing could not tell a canvas coming up short from
-iOS painting its own chrome over the safe areas. The page background is `#241c10` now and
-`theme-color` is still green, so a band that is still green is iOS and a band that is dark is the
-page. Nothing sees that colour while the canvas is covering, which is what makes it free to set.
+Getting there took one trick worth remembering. The bands were exactly `#3f9a5b`, and that colour is
+three things at once — the page background, `theme-color`, and the manifest's `background_color` — so
+no amount of looking could tell *a canvas coming up short* from *iOS painting its own chrome over the
+safe areas*. Making the page background a different colour for one release split them: the bands went
+dark, so it was the page, and the reading that came back with it had the numbers that finished the
+job. Nothing can see the page background while the canvas is covering, which is what made it free to
+change and free to change back.
 
 Once it has been opened with a connection, a service worker holds the whole thing — bundle, character
 models and fonts, about three and a half megabytes — so it opens again without one. Verified by
