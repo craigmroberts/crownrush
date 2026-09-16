@@ -28,6 +28,32 @@ export const CFG = {
   // than "they are coming to kill her", which is closer to what that number was always for.
   queen: {
     speed: 7.2, follow: 1.9, targetWeight: 0.55,
+    // #106: how near the Keep's WALL she has to be brought before she steps inside.
+    //
+    // It used to be 3.6 from the Keep's CENTRE, which is `CFG.keep.radius` -- the distance a unit that
+    // walks to the Keep under its own steam is held at. She never walks her own paths. She follows the
+    // King at `follow` behind him, and collideKeep holds HIM at `keep.half` plus his own 0.5, so the
+    // nearest she can ever be is 2.9 + 0.5 + 1.9 = 5.3 from the centre. Driven from sixteen directions
+    // after a real rescue: the King floors at 3.40 every time and she floors at 5.30 to 5.40. So 3.6
+    // was unreachable from every side of the building, and a Wren taken from a standing Keep could
+    // never get back into one -- which also meant raiders stopped attacking the Keep for the rest of
+    // the run, because updateEnemies only targets it while she is in it.
+    //
+    // From the wall rather than the centre because the Keep has already been resized once -- the
+    // imported castle is 6.03 x 5.38 where the built one was 3.44 square -- and a rule measured from
+    // the centre breaks silently the next time that happens.
+    //
+    // Measured against the KING rather than against her, which is the second thing the first attempt
+    // got wrong. She is glued 1.9 behind him and that offset points wherever he has just come from, so
+    // a threshold on her position works from some approaches and not others: at 3.0 measured on her,
+    // walking him onto the feed mat put her inside from only 2 of 16 directions. His own gap does not
+    // swing about -- and it is his doing anyway. The rule is "the King brought her home".
+    //
+    // 4.8 is the far edge of the Keep's own mat. The mat sits at `keep.padOffset` and its centre is
+    // 2.97 from the wall, but `spend.padRadius` is 1.7 and paying works anywhere on it, so the far
+    // corner is 4.67 -- and standing at the door is exactly when she should go in. Nothing else is
+    // swallowed: the next nearest mat is the recruit one at 7.34 from the wall.
+    doorReach: 4.8,
     // grip: how far past its OWN size a raider still has hold of her. updateEnemy stops an enemy at
     // `e.radius + 0.7`, so 1.2 leaves half a unit of slack for the shoving that goes on when several
     // of them stack up. It has to scale with the enemy rather than be flat: a flat 1.7 was right for

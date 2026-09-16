@@ -774,6 +774,16 @@ export const BuildMethods = {
     this.hud.toast('The Keep stands again. You can raise its level once more.', 3200, 'Keep');
   },
 
+  // #106: how far a point is from the Keep's WALL rather than from its centre -- 0 anywhere inside the
+  // footprint. The same box collideKeep pushes out of, read instead of written.
+  keepWallGap(p) {
+    const k = this.keep;
+    if (!k) return Infinity;
+    const dx = Math.max(0, Math.abs(p.x - k.x) - CFG.keep.half);
+    const dz = Math.max(0, Math.abs(p.z - k.z) - CFG.keep.half);
+    return Math.hypot(dx, dz);
+  },
+
   // Solid keep footprint: pushes a position out of the box. Returns the keep when it blocked.
   collideKeep(p, r) {
     const k = this.keep;

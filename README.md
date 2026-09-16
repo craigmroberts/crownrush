@@ -208,7 +208,9 @@ hearts, with the odd one drifting up between the two of them afterwards on a qui
 take, and no build pad will accept payment: pads stay visible but shut, marked "Free the Queen". The
 raids are the enemy coming to take her back, so the rescue is what starts the war. Clear her guards,
 reach her, and the first raid is on its way (`CFG.rescue.firstRaid`). She follows the King from then
-on; passing an intact Keep she steps inside.
+on, and steps inside when he brings her to an intact Keep -- measured from the Keep's wall, against
+*his* position rather than hers (`CFG.queen.doorReach`). Both of those are the point: she never walks
+her own paths, so a radius she has to reach herself is one she never will.
 
 ## Reading the pads
 

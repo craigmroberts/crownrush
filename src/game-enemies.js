@@ -924,8 +924,9 @@ export const EnemiesMethods = {
         this.heartFx(tmp, 1, 0.25);
       }
     }
-    // passing an intact Keep, she steps inside
-    if (this.keep && this.keep.state === 'built' && Math.hypot(p.x - this.keep.x, p.z - this.keep.z) < 3.6) return this.queenEnterKeep();
+    // passing an intact Keep, she steps inside (#106: measured to its wall, and a distance she can
+    // actually reach -- see CFG.queen.doorReach)
+    if (this.keep && this.keep.state === 'built' && this.keepWallGap(k.position) < CFG.queen.doorReach) return this.queenEnterKeep();
     q.moving = moving > 0.05;
     this.animateWalk(q, moving, dt);
   },
