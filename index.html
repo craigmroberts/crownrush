@@ -15,7 +15,16 @@
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <link rel="icon" href="./icons/icon-192.png" />
     <title>Crown Rush</title>
-    <style>html, body { margin: 0; background: #3f9a5b; min-height: 100%; }</style>
+    <!-- #74: this colour is a CONTROL, and it is deliberately not the green any more.
+         The bands reported on the iPhone are exactly `#3f9a5b`, which is three things at once: this
+         background, `theme-color` below, and the manifest's `background_color`. That is why two
+         rounds of guessing could not tell whether the page was showing through a canvas that came up
+         short, or whether iOS was painting its own chrome over the safe areas -- the two are the same
+         pixel colour. Splitting them apart answers it in one look: `theme-color` stays green and this
+         goes dark, so a band that is still GREEN is iOS painting, and a band that is now DARK is the
+         page showing through. Nothing should ever see this colour while the canvas is covering, which
+         is what makes it free to change. -->
+    <style>html, body { margin: 0; background: #241c10; min-height: 100%; }</style>
     <!-- Baloo 2 and Nunito are served from this origin; the @font-face rules are at the top of
          style.css. Nothing here talks to a third party, so there is no DNS lookup, handshake and
          round trip to somebody else's CDN in front of the first frame. -->
@@ -263,6 +272,11 @@
         <button class="sheet-row danger" id="set-restart"><i data-icon="restart" data-size="24"></i><span class="sheet-label">Restart</span><em id="set-restart-hint"></em></button>
         <button id="set-close">Back to the game</button>
         <p class="hint hidden" id="set-version"></p>
+        <!-- #74: the numbers a screen bug needs, reachable without a URL. `?perf=1` is how they were
+             read before, and a home-screen app cannot be opened with a query string -- the shortcut
+             launches at the manifest's `start_url`, which is exactly the case this bug lives in.
+             Tap it to copy the full line. -->
+        <button class="hint" id="set-size" aria-label="Copy screen details"></button>
       </div>
     </div>
     <!-- #94: ten finished runs, best first. Two things on the row and the rest under them, because the

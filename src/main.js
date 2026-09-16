@@ -199,6 +199,7 @@ restartRow.addEventListener('click', () => {
 document.getElementById('settings-btn').addEventListener('click', () => {
   disarmRestart();
   syncUpdateRow();     // whether a reload would cost anything depends on where the run is right now
+  syncSizeLine();
   game.hud.setScoreCount(readScores().length);
   game.toggleSettings();
 });
@@ -349,6 +350,41 @@ function sizeReport() {
     + ` · screen ${screen.width}x${screen.height} · safe ${inset('--sat')}/${inset('--sab')}`
     + ` · standalone ${!!(window.navigator.standalone || matchMedia('(display-mode: standalone)').matches)}`;
 }
+
+// #74: the same numbers `?perf=1` prints, in the settings sheet, where a home-screen app can reach
+// them. The overlay needs a query string and a shortcut launches at the manifest's `start_url`, so
+// the one place the screen bugs actually happen is the one place the numbers could not be read.
+//
+// Short enough to be read off the screen, and the whole of `sizeReport()` on a tap, because "send me
+// that line" is what this is for and retyping a wall of numbers off a phone is how a digit gets lost.
+// The clipboard write is inside the tap handler because iOS grants it only to a gesture, and it is
+// allowed to fail: the line is on screen either way and a screenshot is a fine second best.
+const sizeLine = document.getElementById('set-size');
+function syncSizeLine() {
+  if (!sizeLine) return;
+  const c = document.getElementById('game');
+  const cs = getComputedStyle(document.documentElement);
+  const inset = (n) => parseInt(cs.getPropertyValue(n), 10) || 0;
+  const standalone = !!(window.navigator.standalone || matchMedia('(display-mode: standalone)').matches);
+  const r = c.getBoundingClientRect();
+  const short = Math.round(window.innerHeight - r.height);
+  // The viewport is only worth printing when the canvas has failed to match it. Quiet when it is
+  // right, loud when it is not, which is the whole job of a line somebody is asked to read out.
+  sizeLine.textContent = `${Math.round(r.width)}\u00D7${Math.round(r.height)}`
+    + (short ? ` of ${window.innerWidth}\u00D7${window.innerHeight} · SHORT BY ${short}` : '')
+    + ` · safe ${inset('--sat')}/${inset('--sab')}`
+    + (standalone ? ' · installed' : ' · browser')
+    + ' · tap to copy';
+}
+sizeLine?.addEventListener('click', async () => {
+  const text = sizeReport();
+  try {
+    await navigator.clipboard.writeText(text);
+    sizeLine.textContent = 'Copied. Paste it into the bug report.';
+  } catch (e) {
+    sizeLine.textContent = text;     // no clipboard: put the whole thing on screen to be screenshotted
+  }
+});
 
 // Performance overlay: add ?perf=1 to the URL to see frame time, draw calls and triangles live.
 // Aim for under 16 ms (60 fps) on desktop and under 33 ms (30 fps) on phones.

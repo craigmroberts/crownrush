@@ -629,7 +629,18 @@ green one.
 
 `?perf=1` prints both, plus the canvas's actual rectangle, `documentElement`, `visualViewport`,
 `screen` and the safe-area insets. A headless browser has no safe areas and no standalone mode, so
-that line is the only way to find out which of them went short on a real phone.
+that line is the only way to find out which of them went short on a real phone — and **the settings
+sheet carries a short version of it**, because a home-screen app cannot be opened with a query string.
+The shortcut launches at the manifest's `start_url`, so the one place these bugs happen was the one
+place the numbers could not be read. It says the canvas's box, and the viewport too when the two
+disagree; tapping it copies the whole line.
+
+One thing in here is a control rather than a colour. The bands reported on the iPhone are exactly
+`#3f9a5b`, and that is three things at once: the page background, `theme-color`, and the manifest's
+`background_color` — which is why two rounds of guessing could not tell a canvas coming up short from
+iOS painting its own chrome over the safe areas. The page background is `#241c10` now and
+`theme-color` is still green, so a band that is still green is iOS and a band that is dark is the
+page. Nothing sees that colour while the canvas is covering, which is what makes it free to set.
 
 Once it has been opened with a connection, a service worker holds the whole thing — bundle, character
 models and fonts, about three and a half megabytes — so it opens again without one. Verified by

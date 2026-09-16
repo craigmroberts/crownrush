@@ -74,7 +74,7 @@
   --bar-h: 56px;                        /* the top bar's height; the controls sit below it */
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; font-family: "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #241c10; font-family: "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
 /* #74: the canvas has to be told its size in a unit that means THE SCREEN.
    `inset: 0` is not enough on its own and never was -- a canvas is a replaced element, so with
    `width: auto` its used size is its INTRINSIC size, which is the drawing buffer. Driven: dropping the
@@ -494,6 +494,17 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .panel.sheet #set-update.hidden { display: none; }
 .panel.sheet #set-version { margin: 6px 0 0; font-size: 12px; opacity: 0.6; }
 .panel.sheet #set-version.hidden { display: none; }
+/* #74: a diagnostic, dressed as the version line beside it rather than as a control. It is not a
+   thing to press on purpose -- it is a thing to press once, when somebody is asked for it -- so it
+   takes none of the button treatment the rows above it have. */
+.panel.sheet #set-size {
+  display: block; margin: 2px auto 0; padding: 4px 8px; width: auto;
+  background: none; border: 0; box-shadow: none; border-radius: 8px;
+  font-family: inherit; font-size: 11px; line-height: 1.35; opacity: 0.55; letter-spacing: 0;
+  color: #a9bb96; text-shadow: none; -webkit-text-stroke: 0; font-weight: 600;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.panel.sheet #set-size:active { opacity: 0.9; background: rgba(255,255,255,0.08); }
 /* Restart: set apart from the two settings above it, and louder once it is asking to be confirmed */
 .panel.sheet .sheet-row.danger { margin-top: 16px; }
 .panel.sheet .sheet-row.danger.armed { background: rgba(216,38,44,0.3); color: #ffc9c4; }
