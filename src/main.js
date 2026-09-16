@@ -349,6 +349,10 @@ function sizeReport() {
     + ` · vv ${vv ? `${Math.round(vv.width)}x${Math.round(vv.height)}` : '-'}`
     + ` · screen ${screen.width}x${screen.height} · safe ${inset('--sat')}/${inset('--sab')}`
     + ` · units lvh ${unitPx('lvh')} dvh ${unitPx('dvh')} svh ${unitPx('svh')} vh ${unitPx('vh')}`
+    // #74: the full-screen layers, because the canvas reaching the glass while one of them does not is
+    // how the strip survived being fixed once already.
+    + ` · layers vig ${Math.round(document.getElementById('vignette').getBoundingClientRect().height)}`
+    + ` hud ${Math.round(document.getElementById('hud').getBoundingClientRect().height)}`
     + ` · standalone ${!!(window.navigator.standalone || matchMedia('(display-mode: standalone)').matches)}`;
 }
 

@@ -105,6 +105,17 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
    `?perf=1` and the settings line now print what each unit actually resolves to, so the next reading
    says whether this reaches the glass or whether no unit can and the answer is in the app config. */
 :root.installed #game { height: 100lvh; }
+/* And everything else that PAINTS across the whole screen, for the same reason and with the same
+   unit. Sizing only the canvas moved the seam rather than closing it: the world reached the glass and
+   the vignette stopped 62px short of it, so the bottom strip was the game rendered with no darkening
+   over it -- a flat, lighter green band with a hard edge, which is exactly what came back from the
+   phone. The overlay scrim has the identical problem the moment any sheet is open.
+   `#hud` and `#indicators` are deliberately NOT here. Neither paints anything, so neither can make a
+   band, and `updateIndicators` places its edge arrows against `window.innerHeight` (game-view.js) --
+   a layer 62px taller than the coordinates being written into it would put every arrow in the wrong
+   place. Anything added to this list has to paint, and has to be positioned in its own box. */
+:root.installed #vignette,
+:root.installed .overlay { height: 100lvh; }
 /* #74: the safe-area insets, so ?perf=1 can report them off a real phone. env() cannot be read from
    JS directly; a custom property carrying it can. */
 :root { --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px); }

@@ -631,9 +631,20 @@ The same phone afterwards, which is the proof:
 
     box 0,0 440x956 · win 440x894 · screen 440x956 · units lvh 956 dvh 894 svh 894 vh 956
 
-`lvh` reaches the glass where `dvh` does not, and the canvas now covers the screen while still being
-handed a viewport 62px shorter than it. If the box ever does come up short again, what shows in the
-gap is the page background.
+`lvh` reaches the glass where `dvh` does not, and the canvas covers the screen while still being
+handed a viewport 62px shorter than it.
+
+**Everything that paints across the whole screen needs the same unit**, which is the part that took
+one more round to learn: sizing only the canvas moved the seam rather than closing it. The world
+reached the glass and the vignette stopped 62px short of it, so the strip along the bottom became the
+game rendered with nothing darkening it — a flat, lighter band with a hard edge. The overlay scrim
+has the identical problem the moment a sheet is open. `#hud` and `#indicators` are deliberately
+excluded: neither paints anything, so neither can make a band, and `updateIndicators` places its edge
+arrows against `window.innerHeight`, so a layer 62px taller than the coordinates written into it
+would put every arrow in the wrong place. Anything added to that rule has to paint, and has to be
+positioned in its own box.
+
+If a box does come up short again, what shows in the gap is the page background.
 
 **The drawing buffer** is how much detail is drawn into that box, sized from the largest of the
 canvas's own box, `visualViewport` and `window.inner*`, then asked for again four times over the
