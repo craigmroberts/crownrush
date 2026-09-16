@@ -423,10 +423,25 @@ Every row that carries a number carries **both** of them -- `Army limit 15 arche
 measure it against is trivia. The new figure takes the HUD's gold and the old one goes small behind
 it, so the panel can be scanned in the second a fast game gives you for it. A row whose number did
 not move is dropped rather than shown unchanged: claiming a gain that did not happen is worse on
-this screen than on any other. `levelGains` returns `{icon, text, now, was}` and the three renderers
-that share it -- the level-up summary, the Keep plaque, the info screen -- compose it through one
-`gainBody` in `hud.js`, which wraps markup around escaped text so a config string can never become
-an HTML channel.
+this screen than on any other. `levelGains` returns `{icon, text, now, was}`; the Keep plaque and the
+info screen compose it through one `gainBody` in `hud.js`, which wraps markup around escaped text so
+a config string can never become an HTML channel.
+
+On the level-up panel the same four fields are a **tile** rather than a sentence (`gainTile`, the same
+escaping rule). A sentence puts the label, the figure and the old figure on one line, so the eye has
+to read the line to find the number; a tile puts them on three, in three sizes, with a green arrow
+against the old one. A row with no figure is an event -- *stone quarries are open* -- and stays a
+sentence across the full width, because padding it out to look like a number it does not have would
+be a lie about its shape. Two columns on a phone, three or four on a desktop, out of one
+`minmax(128px, 1fr)` and no breakpoint.
+
+Level 3 is the fullest level in the game at seven rows, measured across all fifteen, and as tiles that
+is 334px of summary. It is capped at `24dvh` and scrolls, with the bottom of the list faded when there
+is more below it, because the one thing that must never be pushed off the bottom is the choice: the
+panel is 754px on a 390x844 phone against the 748px it was as flat rows, so all three cards stay on
+screen. `dvh` and not `vh` -- an installed iOS PWA answers `vh` with the large viewport (#74 measured
+`vh 956` against the `dvh 894` the overlay actually gets), so a `vh` cap would claim 7% more room than
+exists.
 
 You keep one of three rewards. The pool is in
 [src/upgrades.js](src/upgrades.js) and covers five areas: your army, watchtowers, walls, the economy
@@ -444,6 +459,31 @@ nothing on screen, and since an offer takes one card per pool the three labels a
 different ones: the label alone answers *archers or towers or walls tonight*, which is the decision
 the panel is actually asking about. The names stay flavour behind it; the one that was changed was
 changed for being wrong rather than for being flavour (#115).
+
+The area is the card's **colour** too, so it can be read without being read: crimson, blue, brick,
+green and purple for the five pools, as saturated blocks with the same 5px dark bottom edge the game's
+big gold buttons use. They were cream cards on a beige border before, and the only two things about
+them that said *button* -- a gold border and a lift -- were both on `:hover`, which a touchscreen never
+enters; on a phone the cards had no button cues at all, ever. Everything that says button now is in
+the resting state. White text clears 4.5:1 on all five at the lightest point of the gradient (5.14 to
+5.78, measured), which is why the five are as dark as they are. Gold is deliberately not among them:
+it belongs to the primary button, and a gold card would read as the recommended one.
+
+Rare used to *be* a colour -- a purple card -- and purple is a pool now, so Volley wears a gold **RARE**
+badge and a gold ring instead. A word survives whatever colour is underneath it; a hue does not.
+
+Behind the level number there is a burst of rays and four sparks, in CSS, because this panel is DOM
+and `burstFx` cannot reach it. It is all visible at rest and only *moves* when it animates, so a
+player mid-blink and a player who has asked the system for less motion both still get the moment. The
+animation hangs off `#offer-screen:not(.hidden)` rather than off the element: a hidden overlay is
+opacity and visibility, never `display: none`, so an animation declared on the element itself would
+run itself out while the panel was invisible and open on its own tail.
+
+Turn a phone sideways and the panel goes two columns -- the summary down the left, the question
+answered on the right. Stacked it needs about 500px of height and a 844x390 landscape has 370, so all
+three cards were off the bottom with no way to scroll to them: `.overlay` centred with `place-items`,
+which grows the space above a too-tall panel as well as below it and puts both edges out of reach.
+It centres with `align-content: safe center` now, which spills downward only, and scrolls.
 
 Each reward sets a multiplier or a flag on `game.mods`, and those are the only places gameplay code
 has to read, so adding a new one is a single entry in that file. Rewards apply retroactively where it

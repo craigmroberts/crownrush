@@ -221,12 +221,20 @@
 
     <div id="offer-screen" class="overlay hidden">
       <div class="panel offer">
-        <h1>Level <span id="offer-level">2</span></h1>
+        <!-- #121: the only thing on this screen that is pure celebration. Rays and four sparks behind
+             the number, in CSS -- this panel is DOM, so `burstFx` and `popIn` cannot reach it. It is
+             marked `aria-hidden` and carries no text: it says "something good happened" to the eye
+             and nothing at all to a screen reader, which the rows below are for. -->
+        <div id="offer-burst" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+        <!-- The word is small and the number is the headline, which is the other half of making this
+             read as a reward. It stays "Level" spelt out rather than the HUD's `Lv.` (#119): the
+             abbreviation is there because a status cell is 60px wide, and an h1 is not. -->
+        <h1 class="olevel"><span class="ol-word">Level</span><span id="offer-level">2</span></h1>
         <!-- #99: what the level just did, before it asks what you want. It used to say this in a toast
              fired in the same tick as this panel and four z-index layers beneath it. -->
         <p class="hint" id="offer-gave-h">The Keep is stronger</p>
         <div id="offer-gains"></div>
-        <p class="hint">Choose one reward</p>
+        <p class="hint" id="offer-choose">Choose one reward</p>
         <div id="offer-cards"></div>
         <p class="hint" id="offer-more"></p>
       </div>

@@ -127,8 +127,22 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
    transitioned, which is why there was no animation at all; opacity plus a delayed `visibility` can,
    and it leaves every `classList.contains('hidden')` check in the codebase reading exactly as it did
    -- the state is still correct on the frame it changes, only the paint takes a moment to catch up. */
+/* #121: `align-content` rather than `align-items`, and a scroll.
+   `place-items: center` centres the panel by growing the space above it as well as below, so a panel
+   taller than the overlay hangs off BOTH edges and neither can be reached -- the classic centred-
+   overflow trap, and it was real here before the level-up panel was touched: measured, a 320x568
+   phone and a 844x390 landscape both put all three reward cards off the bottom with no way to scroll
+   to them. `align-content: center` still centres while it fits and spills downward when it does not,
+   which is the direction a scrollbar can follow. */
 .overlay {
-  position: fixed; inset: 0; display: grid; place-items: center; z-index: 10;
+  position: fixed; inset: 0; display: grid; justify-items: center;
+  align-content: center;
+  /* `safe` is the other half of it: plain `center` still overflows in BOTH directions when the panel
+     is taller than the overlay, so the headline goes off the top and the scroll cannot reach back up
+     to it (measured: top -57 on a 320x568). `safe center` falls back to start-alignment exactly when
+     it does not fit, which is the only case that needs it. */
+  align-content: safe center;
+  overflow-y: auto; overscroll-behavior: contain; z-index: 10;
   /* the card used to hold the content off the screen edges; without one the safe area has to */
   padding: max(10px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
            max(10px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
@@ -758,22 +772,113 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 /* the level-up upgrade choice */
 .panel.offer { max-width: 620px; }
 .panel.offer h1 { margin-bottom: 2px; }
+/* #121: the number is the headline and the word is its caption, because this is the game's biggest
+   reward moment and it was being announced in the same 40px line as "Game Over". The h1 keeps the
+   panel's stroke and drop shadow, so it is the same voice at a different size. */
+.olevel { display: flex; flex-direction: column; align-items: center; line-height: 1; gap: 2px; }
+.olevel .ol-word { font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.92; }
+.olevel #offer-level { font-size: 48px; }
+/* The celebration. There is no 3D here to throw a `burstFx` at -- this panel is DOM -- so it is a
+   cone gradient of rays, a warm glow and four sparks, all CSS.
+   Everything is visible AT REST: the rays spin and the sparks twinkle, but a frozen frame of this
+   still looks like a burst. That is deliberate and not only for screenshots -- an animation that
+   carries the whole effect shows nothing to a player who is mid-blink, or to anyone who has asked
+   the system for less motion. */
+#offer-burst {
+  position: absolute; left: 50%; top: 0; width: 290px; height: 290px; max-width: 86vw;
+  transform: translate(-50%, -30%); pointer-events: none; z-index: -1;
+}
+#offer-burst::before, #offer-burst::after { content: ''; position: absolute; inset: 0; border-radius: 50%; }
+#offer-burst::before {
+  background: repeating-conic-gradient(from 0deg, rgba(255,224,138,0.26) 0deg 5deg, rgba(255,224,138,0) 5deg 16deg);
+  -webkit-mask-image: radial-gradient(circle, #000 8%, rgba(0,0,0,0.85) 34%, transparent 66%);
+  mask-image: radial-gradient(circle, #000 8%, rgba(0,0,0,0.85) 34%, transparent 66%);
+}
+#offer-burst::after { background: radial-gradient(circle, rgba(255,183,71,0.34) 0%, rgba(255,183,71,0.13) 34%, rgba(255,183,71,0) 62%); }
+#offer-burst i {
+  position: absolute; left: var(--x); top: var(--y); width: 16px; height: 16px; margin: -8px 0 0 -8px;
+  background: #ffe9a8; opacity: 0.9;
+  clip-path: polygon(50% 0, 59% 41%, 100% 50%, 59% 59%, 50% 100%, 41% 59%, 0 50%, 41% 41%);
+}
+#offer-burst i:nth-child(1) { --x: 20%; --y: 36%; }
+#offer-burst i:nth-child(2) { --x: 82%; --y: 30%; width: 12px; height: 12px; }
+#offer-burst i:nth-child(3) { --x: 32%; --y: 74%; width: 11px; height: 11px; }
+#offer-burst i:nth-child(4) { --x: 72%; --y: 68%; }
+/* The animations hang off `:not(.hidden)` rather than off the element, because `.overlay.hidden` is
+   opacity and visibility -- the panel is never `display: none`, so an animation declared on the
+   element itself would have run itself out while the panel was invisible and the player would open
+   it onto the tail of one. Declared here, applying the rule IS the start. */
+#offer-screen:not(.hidden) #offer-burst::before { animation: burstSpin 34s linear infinite; }
+#offer-screen:not(.hidden) #offer-burst i { animation: burstSpark 2.6s ease-in-out infinite; }
+#offer-screen:not(.hidden) #offer-burst i:nth-child(2) { animation-delay: 0.65s; }
+#offer-screen:not(.hidden) #offer-burst i:nth-child(3) { animation-delay: 1.3s; }
+#offer-screen:not(.hidden) #offer-burst i:nth-child(4) { animation-delay: 1.95s; }
+@keyframes burstSpin { to { transform: rotate(360deg); } }
+@keyframes burstSpark {
+  0%, 100% { transform: scale(0.75) rotate(0deg); opacity: 0.55; }
+  50% { transform: scale(1.15) rotate(45deg); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #offer-screen:not(.hidden) #offer-burst::before,
+  #offer-screen:not(.hidden) #offer-burst i { animation: none; }
+}
 /* #99: what the level gave, above the cards. The rows are the Keep plaque's, one size down, because
    this is the same list and should not read as a different kind of thing.
    The height cap is the point: a late level gives eight or nine rows, and three reward cards already
    fill a phone. Capped, the summary can be scrolled and the choice can never be pushed off the bottom
    -- a modal that looks like it has nothing to choose is worse than a summary you have to scroll. */
-#offer-gains { display: grid; gap: 5px; max-height: 26vh; overflow-y: auto; margin: 8px 0 14px; text-align: left; }
+/* #121: tiles, not rows. Two columns on a phone at `minmax(128px, 1fr)`; wider screens fit three or
+   four out of the same rule, so there is no breakpoint for it.
+   The cap went 26 -> 24 and gained a `dvh` twin. Level 3 is the fullest level in the game -- seven
+   rows, measured across all fifteen -- and as tiles that is 334px of content against a 202px window
+   on a 390x844 phone, so the summary scrolls and the three cards stay on screen, which is the thing
+   this cap exists to protect. Two points of it are the installed phone's safe areas: 62px of notch
+   and 34px of home bar come out of the overlay's own padding, so the panel has 798px to live in on a
+   894px viewport, not 894. `dvh` because an installed iOS PWA answers `vh` with the LARGE viewport:
+   #74 measured `vh 956` against a `dvh 894` that is what the overlay actually gets, so a `vh` cap
+   here would quietly claim 7% more room than exists. The plain `vh` line stays above it for anything
+   that does not know `dvh`. */
+#offer-gains { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 6px; max-height: 24vh; max-height: 24dvh; overflow-y: auto; margin: 8px 0 12px; text-align: left; }
+.og-tile {
+  background: rgba(255,255,255,0.09); border-radius: 11px; padding: 6px 9px 7px;
+  display: grid; grid-template-columns: 22px 1fr; gap: 0 7px; align-items: center; text-shadow: none;
+}
+.og-tile .ot-icon { display: grid; place-items: center; }
+/* the label loses to the figure on purpose: it is what the number is OF, and the number is the news */
+.og-tile .ot-label { font-size: 10.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #a9bb96; line-height: 1.15; }
+.og-tile .ot-now {
+  grid-column: 1 / -1; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+  font-size: 16px; font-weight: 800; color: #ffe08a; line-height: 1.1; margin-top: 2px;
+}
+.og-tile .ot-was { grid-column: 1 / -1; display: flex; align-items: center; gap: 5px; font-style: normal; font-size: 11px; color: #a9bb96; line-height: 1.2; }
+/* the arrow is 8x6 of border and says the direction the figure moved. Every row that carries a `was`
+   goes UP -- there is no level in the game that takes something away -- so it points one way and is
+   not a component with states. */
+.og-tile .ot-was::before {
+  content: ''; flex: 0 0 auto; width: 0; height: 0;
+  border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 6px solid #7fd08c;
+}
+/* #121: the list is longer than the box, and a phone draws no scrollbar to say so. `showOffer` sets
+   the class when it measures one, so the fade is never on a list that fits. */
+#offer-gains.more {
+  -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(180deg, #000 calc(100% - 24px), transparent);
+}
+/* an event has no figure, so it is a sentence across the grid rather than a number-shaped box with
+   nothing in the number */
+.og-tile.wide { grid-column: 1 / -1; }
+.og-tile.wide .ot-text { font-size: 12.5px; line-height: 1.3; color: #dde7cf; }
 .og-row { display: grid; grid-template-columns: 24px 1fr; gap: 8px; align-items: center; font-size: 13px; line-height: 1.28; color: #dde7cf; text-shadow: none; }
 /* #113: what a level gave, in the two weights a glance needs. The new figure takes the HUD's gold --
    the same colour the countdown and the raid meter use for a number worth looking at -- and the old
    one goes small and muted behind it, so the eye lands on "15 archers, 6 swordsmen" and picks up
-   "was 12 and 4" only if it wants it. Reported as a panel of flat rows that could not be scanned at
-   all, on a screen a fast game gives you a second to read.
-   Three renderers share these rows (the level-up summary, the Keep plaque and the info screen), so
-   all three are listed rather than the emphasis being reinvented per panel. */
-.og-row b, .ks-row b, .panel.info ul b { color: #ffe08a; font-weight: 800; }
-.og-row em, .ks-row em, .panel.info ul em { font-style: normal; color: #a9bb96; font-size: 0.88em; }
+   "was 12 and 4" only if it wants it.
+   #121 took `.og-row` off this list rather than leaving it: the level-up summary was the only
+   renderer that ever put a `<b>` inside one, and it emits tiles now, so `.og-row b` could not match
+   anything. The two that remain are the Keep plaque and the info screen, which still call
+   `gainBody`. */
+.ks-row b, .panel.info ul b { color: #ffe08a; font-weight: 800; }
+.ks-row em, .panel.info ul em { font-style: normal; color: #a9bb96; font-size: 0.88em; }
 #offer-gains:empty, #offer-gave-h:empty { display: none; }
 /* #105: the capability panel. The same rows as the level-up summary at a size up, because here they
    are the whole panel rather than the preamble to three cards -- there is nothing below them to be
@@ -788,31 +893,103 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .panel.gain h1 { font-size: 32px; margin-bottom: 2px; text-wrap: balance; }
 #gain-sub:empty { display: none; }
 #offer-cards { display: flex; gap: 10px; margin: 14px 0 4px; }
+/* #121: the cards are the game's own button, in the pool's colour.
+   They used to be cream on a `#cfc8ae` border -- the shape of an information card, not a control --
+   and the only two things that said "button", a gold border and a 3px lift, were both on `:hover`.
+   A touchscreen never enters `:hover`, so on the device this was reported from the cards had no
+   button cues at all, ever. Everything that says button now is in the RESTING state: a saturated
+   fill, the 5px dark bottom edge `.panel button` has always used, and a drop shadow. `:hover` is a
+   brightness nudge on top, for a mouse, and nothing depends on it.
+
+   `--pc` is the fill's foot, `--pc-top` its head (the same colour 10% toward white) and `--pc-edge`
+   the bottom border (40% toward black). White text is checked against `--pc-top`, which is the
+   lightest thing under it: army 5.78, towers 5.56, walls 5.28, economy 5.14, king 5.67 -- all past
+   4.5 with room, which the small description needed and is why the five are this dark rather than
+   the brighter versions they started as. The pool chip is white on the same fill at 22% black
+   behind it, 7.4 or better.
+
+   Five hues for five pools (`upgrades.js` POOL_NAME), far enough apart to tell at a glance on the
+   dark scrim: crimson, blue, brick, green, purple. Gold is deliberately not among them -- it is the
+   primary button's colour and the rare badge's, and a gold card would read as "the recommended one". */
 .panel.offer .offer-card {
-  margin: 0; flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 6px;
-  background: #f7f2df; border: 3px solid #cfc8ae; border-bottom-width: 5px; border-radius: 16px;
-  padding: 14px 10px; cursor: pointer; text-align: center; font-family: inherit;
-  transition: transform 0.08s, border-color 0.08s, background 0.08s;
+  --pc: #6b7280; --pc-top: #79808d; --pc-edge: #404450;
+  margin: 0; flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: linear-gradient(var(--pc-top), var(--pc));
+  border: 0; border-bottom: 5px solid var(--pc-edge); border-radius: 16px;
+  padding: 11px 10px; cursor: pointer; text-align: center; font-family: inherit; color: #fff;
+  position: relative; box-shadow: 0 3px 10px rgba(0,0,0,0.34);
+  /* a card is a `<button>` inside `.panel`, so `.panel button` reaches it -- including the 1px
+     `#8a5a00` stroke that makes the big gold buttons chunky. At 26px it is an outline; at this card's
+     13px description it eats most of the glyph and leaves a thin core, which rendered the whole card
+     gold-brown on its first build. Off here, and the weight comes from the fill instead. */
+  -webkit-text-stroke: 0;
+  transition: transform 0.08s, filter 0.08s;
 }
-.panel.offer .offer-card:hover { background: #fffbe8; border-color: #f5b800; transform: translateY(-3px); }
-.panel.offer .offer-card:active { transform: translateY(0); border-bottom-width: 3px; }
-.panel.offer .offer-card.rare { border-color: #b06cf0; background: #f6eeff; }
-.panel.offer .offer-card.rare:hover { border-color: #8a3fd0; }
-.panel.offer .offer-card b { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 17px; color: #2a3a2f; }
-.panel.offer .offer-card span { font-size: 13px; color: #5a5a4a; line-height: 1.35; }
-.panel.offer .offer-card .oicon { height: 40px; }
-/* #115: what the card touches, above what it is called. Small, upper, and in the card's own brown
-   rather than a new colour -- it is a filing label, not a second headline, and it has to lose to the
-   name beside it or it is just more to read. */
+.panel.offer .offer-card.p-army    { --pc: #a12e3b; --pc-top: #aa434f; --pc-edge: #611c23; }
+.panel.offer .offer-card.p-towers  { --pc: #176079; --pc-top: #2e7086; --pc-edge: #0e3a49; }
+.panel.offer .offer-card.p-walls   { --pc: #845020; --pc-top: #906236; --pc-edge: #4f3013; }
+.panel.offer .offer-card.p-economy { --pc: #256b40; --pc-top: #3b7a53; --pc-edge: #164026; }
+.panel.offer .offer-card.p-king    { --pc: #733ab0; --pc-top: #814eb8; --pc-edge: #45236a; }
+.panel.offer .offer-card:hover { filter: brightness(1.09); transform: translateY(-3px); }
+/* the same ring the top bar's groups use, so a keyboard lands somewhere it can see */
+.panel.offer .offer-card:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+/* the press is the game's press: the button sinks into its own bottom border */
+.panel.offer .offer-card:active { transform: translateY(3px); border-bottom-width: 2px; }
+/* #121: rare said itself in purple, and purple is now a pool. A word survives any card colour under
+   it, which a hue cannot, so Volley wears one -- with the gold ring the cards deliberately do not
+   have, so the two channels agree without either being the only one. */
+.panel.offer .offer-card.rare { box-shadow: 0 0 0 3px #f5b800, 0 3px 12px rgba(0,0,0,0.45); }
+.panel.offer .offer-card .orare {
+  position: absolute; top: -9px; right: 10px; font-style: normal;
+  background: linear-gradient(#ffd54a, #f5a800); color: #5a2a0c;
+  font-size: 10.5px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 999px; line-height: 1.5; box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+.panel.offer .offer-card b { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 17px; color: #fff; text-shadow: 0 1px 0 rgba(0,0,0,0.3); }
+.panel.offer .offer-card span { font-size: 13px; color: rgba(255,255,255,0.93); line-height: 1.3; }
+/* the icons carry their own colours and three of them are gold, so a coin on the economy card would
+   have been gold on green and the crown gold on purple. A pale disc behind it is the mat's own
+   answer to the same problem (`drawPad` draws one), and it doubles as the thing the eye lands on. */
+.panel.offer .offer-card .oicon {
+  width: 44px; height: 44px; flex: 0 0 44px; display: grid; place-items: center;
+  background: rgba(255,255,255,0.93); border-radius: 50%; box-shadow: inset 0 -2px 0 rgba(0,0,0,0.12);
+}
+/* #115: what the card touches, above what it is called. Small, upper, and it has to lose to the name
+   beside it or it is just more to read.
+   #121: it sits in a darker chip now instead of taking a colour of its own -- the card's colour is
+   the pool, so a second colour saying the same thing would be one too many, and white on a knocked-
+   back fill is the one that keeps reading whichever of the five is underneath. */
 .panel.offer .offer-card .otext { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .panel.offer .offer-card .opool {
-  font-style: normal; font-size: 11px; font-weight: 800; letter-spacing: 0.07em;
-  text-transform: uppercase; color: #8a7a52; line-height: 1;
+  font-style: normal; font-size: 10.5px; font-weight: 800; letter-spacing: 0.07em;
+  text-transform: uppercase; color: #fff; line-height: 1.32;
+  background: rgba(0,0,0,0.22); border-radius: 999px; padding: 2px 8px;
+}
+/* #121: a short, wide screen -- a phone turned sideways -- gets two columns instead of one.
+   Measured in portrait terms it cannot work any other way: the panel needs about 500px of height at
+   level 3 and a 844x390 landscape has 370, so stacked it put all three cards off the bottom. The
+   summary reads down the left and the question is answered on the right, which is the same two halves
+   the portrait panel has, turned ninety degrees. 520px of height is the line because a 390-tall phone
+   and a 430-tall one are both under it and every portrait phone is far above. */
+@media (max-height: 520px) and (min-width: 620px) {
+  .panel.offer {
+    max-width: 940px; display: grid; column-gap: 22px; padding-top: 12px; padding-bottom: 8px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: "head choose" "gave cards" "gains cards" "gains more";
+  }
+  .panel.offer .olevel { grid-area: head; }
+  .panel.offer #offer-gave-h { grid-area: gave; }
+  .panel.offer #offer-gains { grid-area: gains; max-height: 54dvh; align-self: start; }
+  .panel.offer #offer-choose { grid-area: choose; margin-bottom: 6px; }
+  .panel.offer #offer-cards { grid-area: cards; margin: 0; align-self: start; }
+  .panel.offer #offer-more { grid-area: more; align-self: start; margin-top: 8px; }
+  /* the burst belongs to the number, and the number has moved into the left column */
+  .panel.offer #offer-burst { left: 25%; width: 240px; }
 }
 @media (max-width: 560px) {
   #offer-cards { flex-direction: column; }
-  .panel.offer .offer-card { flex-direction: row; align-items: center; text-align: left; gap: 10px; padding: 10px 12px; }
-  .panel.offer .offer-card .oicon { flex: 0 0 40px; }
+  .panel.offer .offer-card { flex-direction: row; align-items: center; text-align: left; gap: 10px; padding: 9px 12px; }
+  .panel.offer .offer-card .oicon { width: 40px; height: 40px; flex: 0 0 40px; }
   /* the stack goes left-aligned here, and it is the flex item that takes the leftover width -- without
      the `min-width: 0` a long description refuses to wrap and pushes the card wider than the screen */
   .panel.offer .offer-card .otext { align-items: flex-start; flex: 1 1 auto; min-width: 0; }

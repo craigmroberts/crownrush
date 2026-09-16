@@ -49,6 +49,35 @@ function gainBody(u) {
   if (!u.now) return esc(u.text);
   return `${esc(u.text)} <b>${esc(u.now)}</b>${u.was ? ` <em>was ${esc(u.was)}</em>` : ''}`;
 }
+// #121: the same four fields as a TILE, for the level-up panel and nowhere else. Reported as a panel
+// of flat rows that could not be scanned: "too much text... should be closer to an infographic".
+//
+// A sentence puts the label, the figure and the old figure on one line, so the eye has to read the
+// line to find the number. A tile puts them on three, in three sizes, and the number is the biggest
+// thing in its own box -- which is what lets nine of these be taken in at a glance instead of read.
+//
+// `gainBody` stays and keeps its two callers, the Keep plaque's `.ks-row` and the info screen's
+// `<li>`. Both are narrow lists where a grid of boxes would be wrong, and that is why this is a new
+// component rather than a change to the shared one. The capability panel (#105) keeps `.og-row` too:
+// `capabilityGains` emits no `now` at all, so every one of its rows would be the wide kind, and it is
+// already a panel of nothing but rows.
+//
+// The escaping rule is `gainBody`'s: the strings come from config, markup is composed AROUND escaped
+// text, and a row carries none of its own.
+function gainTile(u) {
+  if (typeof u === 'string') return `<div class="og-tile wide"><span class="ot-text">${esc(u)}</span></div>`;
+  const icon = `<span class="ot-icon">${iconSvg(u.icon, 22)}</span>`;
+  // An event row is a sentence with no figure in it, so it stays a sentence and takes the full width
+  // rather than being padded out to look like a number it does not have.
+  if (!u.now) return `<div class="og-tile wide">${icon}<span class="ot-text">${esc(u.text)}</span></div>`;
+  // `was` is only ever an increase here -- every row `levelGains` gives a `was` to goes up -- so the
+  // arrow beside it can point one way and be honest. It is drawn in CSS rather than added to the icon
+  // set, because it is a 8x6 triangle and the set is for things with a subject.
+  return `<div class="og-tile">${icon}<span class="ot-label">${esc(u.text)}</span>`
+    + `<b class="ot-now">${esc(u.now)}</b>`
+    + (u.was ? `<em class="ot-was">was ${esc(u.was)}</em>` : '')
+    + '</div>';
+}
 // Green when there is room, red when there is not, through yellow and orange on the way. Interpolated
 // rather than stepped, so filling a bag is a colour moving rather than four colours taking turns.
 const TRAFFIC_STOPS = [[0, 63, 212, 85], [0.55, 255, 210, 63], [0.8, 245, 150, 32], [1, 232, 52, 42]];
@@ -813,7 +842,17 @@ export class Hud {
     document.getElementById('offer-level').textContent = level;
     const gv = document.getElementById('offer-gains');
     const gh = document.getElementById('offer-gave-h');
-    if (gv) gv.innerHTML = gains.map((u) => `<div class="og-row">${iconSvg(u.icon, 22)}<div>${gainBody(u)}</div></div>`).join('');
+    if (gv) {
+      gv.innerHTML = gains.map(gainTile).join('');
+      // A second level-up would otherwise open on the first one's scroll position, part way down a
+      // list it has never shown.
+      gv.scrollTop = 0;
+      // #121: say when there is more below. The summary is capped so the cards can never be pushed
+      // off the bottom, which means at a full level it is a window onto a longer list -- and a phone
+      // draws no scrollbar to say so. One forced layout per level-up, on a screen that opens once a
+      // level and pauses the game while it is up; this is not a `Hud.set` frame path.
+      gv.classList.toggle('more', gv.scrollHeight - gv.clientHeight > 2);
+    }
     // #113: "Level 4 gave you" under an h1 that already says Level 4 is the same words twice, on the
     // screen the report asked to make shorter. Two words, and the rows say the rest.
     if (gh) gh.textContent = gains.length ? 'You gained' : '';
@@ -826,9 +865,20 @@ export class Hud {
     // description were siblings in it: the name got a narrow column of its own and wrapped mid-name
     // ("Wider / Decks"), which is its own reason a title cannot be read quickly. Wrapped, the row is
     // icon and then a stack, which is the same shape the desktop card already had.
+    //
+    // #121: the pool is also the card's COLOUR now, which is why the class goes on. `pickOffer` takes
+    // one per pool, so the three cards on screen are always three different colours -- the block of
+    // colour is the label read without reading, and the label under it says which one it is. The five
+    // are listed in the stylesheet with their contrast measured; `p-` is prefixed so a pool named
+    // after an existing class can never collide with one.
+    //
+    // `rare` was a purple border and a purple fill, which is a colour, and colour now means pool. So
+    // it says so in words on a badge instead -- the one channel that survives whatever the card
+    // underneath is coloured.
     document.getElementById('offer-cards').innerHTML = list.map((u) => `
-      <button class="offer-card${u.rare ? ' rare' : ''}" data-id="${esc(u.id)}">
-        <div class="oicon">${iconSvg(u.icon, 40)}</div>
+      <button class="offer-card p-${esc(u.pool)}${u.rare ? ' rare' : ''}" data-id="${esc(u.id)}">
+        ${u.rare ? '<em class="orare">Rare</em>' : ''}
+        <div class="oicon">${iconSvg(u.icon, 34)}</div>
         <div class="otext">
           <em class="opool">${esc(POOL_NAME[u.pool] || '')}</em>
           <b>${esc(u.name)}</b>
