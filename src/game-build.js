@@ -404,7 +404,7 @@ export const BuildMethods = {
     if (kind === 'keep') {
       this.keep = { isKeep: true, x: def.buildAt[0], z: def.buildAt[1], mesh: m, state: 'built', hp: 0, maxHp: 0, radius: CFG.keep.radius, level: this.wallLevel };
       this.keep.maxHp = this.keep.hp = this.keepHp();
-      this.keep.bar = makeHealthBar(3.0);
+      this.keep.bar = makeHealthBar(3.0, false, true);
       this.keep.bar.position.y = KEEP_BAR_Y;
       m.add(this.keep.bar);
       this.queenEnterKeep();
@@ -746,7 +746,7 @@ export const BuildMethods = {
     k.state = 'built';
     k.level = this.wallLevel;
     k.maxHp = k.hp = this.keepHp();
-    k.bar = makeHealthBar(3.0);
+    k.bar = makeHealthBar(3.0, false, true);
     k.bar.position.y = 4.4;
     k.mesh.add(k.bar);
     this.popIn(k.mesh);
@@ -905,7 +905,7 @@ export const BuildMethods = {
     w.level = level;
     w.maxHp = w.hp = this.wallHp(w, level);
     w.mesh = this.makeWallMesh(w, level);
-    w.bar = makeHealthBar(2.2);
+    w.bar = makeHealthBar(2.2, false, true);
     w.bar.position.y = 2.2;
     w.mesh.add(w.bar);
     this.popIn(w.mesh, delay);

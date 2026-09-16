@@ -599,7 +599,7 @@ export class Game {
     this.updateStack(dt);
     this.updateBlobs();
     this.updateCamera(dt);
-    this.bars.update();
+    this.bars.update(this.camera, this.camDist * 1.7, this.camDist * 2.8);
     if (!this.contextLost) {
       this.renderer.render(this.scene, this.camera);
       this.frames = (this.frames || 0) + 1;

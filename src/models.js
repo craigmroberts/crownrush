@@ -1444,12 +1444,27 @@ export function makePad() {
 // makeHealthBar() returns an empty Object3D you parent to a character; HealthBars.update() reads each
 // bar's world position/scale every frame and fills one InstancedMesh, so 300 bars cost one draw call.
 const BAR_LIST = [];
-export function makeHealthBar(width = 1.2, green = false) {
+// How far above its owner a bar floats. Bars used to draw over everything, so nothing made it
+// obvious that they sat down among the heads; with depth testing on, a bar level with a head is a
+// bar the head eats. Applied in the writer rather than at the call sites so the heights already
+// tuned per character keep their relation to each other.
+const BAR_LIFT = 0.42;
+// How much nearer the camera a bar is judged to be than its owner, for depth testing only. It has to
+// beat the owner's own head, which sticks out in front of the point the bar hangs from, and stay
+// under the gap between ranks in a crowd, or nothing in front would ever hide anything. Measured by
+// eye against a press of raiders: 1.15 left too much standing, 0.7 clears a character's own head
+// with a lone figure on open ground and still buries the back of a press.
+const BAR_BIAS = 0.70;
+// `noFade` keeps a bar at full strength however far away it is. The Keep and the walls are the two
+// things you are meant to be able to read from across the map -- a wall going down while you are out
+// at the iron is the whole reason to turn round -- so they never fade. Everything the crowd is made
+// of does.
+export function makeHealthBar(width = 1.2, green = false, noFade = false) {
   const b = new THREE.Object3D();
   b.isHealthBar = true;
   b.scale.set(width, width / 6, 1);
   b.visible = false;
-  b.userData = { green, frac: 1 };
+  b.userData = { green, frac: 1, noFade };
   BAR_LIST.push(b);
   return b;
 }
@@ -1468,22 +1483,36 @@ export function clearHealthBars() {
 const BAR_VS = `
 attribute float aFrac;
 attribute float aGreen;
+attribute float aFade;
 varying vec2 vUv;
 varying float vFrac;
 varying float vGreen;
+varying float vFade;
 void main() {
   vUv = uv;
   vFrac = aFrac;
   vGreen = aGreen;
+  vFade = aFade;
   vec4 center = modelViewMatrix * vec4(instanceMatrix[3].xyz, 1.0);
   float sx = length(instanceMatrix[0].xyz);
   float sy = length(instanceMatrix[1].xyz);
-  gl_Position = projectionMatrix * vec4(center.xyz + vec3(position.x * sx, position.y * sy, 0.0), 1.0);
+  vec3 quad = center.xyz + vec3(position.x * sx, position.y * sy, 0.0);
+  gl_Position = projectionMatrix * vec4(quad, 1.0);
+  // A bar's depth is its OWNER'S depth, and the owner's head sticks out in front of that, so with
+  // depth testing on a character ate its own bar -- the front rank of a press came out bare. The bar
+  // is given the depth of a point a little nearer the camera instead, which clears its own body while
+  // leaving anything genuinely in front of it, more than BAR_BIAS nearer, still able to hide it.
+  //
+  // Depth only. Moving the quad itself would put it nearer the camera in earnest and it would be
+  // drawn bigger, so x, y and w come from where the bar really is and only z is replaced.
+  vec4 biased = projectionMatrix * vec4(quad.x, quad.y, quad.z + ${BAR_BIAS.toFixed(2)}, 1.0);
+  gl_Position.z = biased.z / biased.w * gl_Position.w;
 }`;
 const BAR_FS = `
 varying vec2 vUv;
 varying float vFrac;
 varying float vGreen;
+varying float vFade;
 float box(vec2 p, vec2 b, float r) {
   vec2 q = abs(p) - b + r;
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
@@ -1498,7 +1527,7 @@ void main() {
   float inner = box(vec2(p.x - (x0 + x1) * 0.5, p.y), vec2((x1 - x0) * 0.5, 0.5 - 0.19), 0.2);
   if (vFrac > 0.0 && inner < 0.0) col = vGreen > 0.5 ? vec3(0.29, 0.816, 0.416) : vec3(0.91, 0.204, 0.165);
   if (d > -0.12) col = vec3(0.92);
-  gl_FragColor = vec4(pow(col, vec3(2.2)), 1.0);
+  gl_FragColor = vec4(pow(col, vec3(2.2)), vFade);
   #include <colorspace_fragment>
 }`;
 export class HealthBars {
@@ -1506,9 +1535,16 @@ export class HealthBars {
     const geo = new THREE.PlaneGeometry(1, 1);
     this.frac = new THREE.InstancedBufferAttribute(new Float32Array(max), 1);
     this.green = new THREE.InstancedBufferAttribute(new Float32Array(max), 1);
+    this.fade = new THREE.InstancedBufferAttribute(new Float32Array(max), 1);
     geo.setAttribute('aFrac', this.frac);
     geo.setAttribute('aGreen', this.green);
-    const mat = new THREE.ShaderMaterial({ vertexShader: BAR_VS, fragmentShader: BAR_FS, transparent: true, depthTest: false, depthWrite: false, toneMapped: false });
+    geo.setAttribute('aFade', this.fade);
+    // depthTest was off, which put every bar in front of the whole world: a raider at the back of a
+    // press drew its bar over the raider standing in front of it, and forty of them made a thicket
+    // with the characters somewhere underneath. On, a bar is hidden by anything genuinely nearer
+    // than its owner, so it belongs to someone you can see. depthWrite stays off -- bars must not
+    // occlude each other, only be occluded.
+    const mat = new THREE.ShaderMaterial({ vertexShader: BAR_VS, fragmentShader: BAR_FS, transparent: true, depthTest: true, depthWrite: false, toneMapped: false });
     this.mesh = new THREE.InstancedMesh(geo, mat, max);
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 10;
@@ -1519,7 +1555,11 @@ export class HealthBars {
     this.q = new THREE.Quaternion();
     this.s = new THREE.Vector3();
   }
-  update() {
+  // `camera` turns on the distance fade; `from` and `to` are the world distances it runs between.
+  // Called with no arguments every bar is drawn at full strength, which is the old behaviour.
+  update(camera = null, from = 0, to = 0) {
+    const eye = camera ? camera.position : null;
+    const span = to - from;
     let n = 0;
     for (let i = BAR_LIST.length - 1; i >= 0; i--) {
       const bar = BAR_LIST[i];
@@ -1532,16 +1572,27 @@ export class HealthBars {
       if (!bar.visible || n >= this.max) continue;
       bar.updateWorldMatrix(true, false);
       bar.matrixWorld.decompose(this.p, this.q, this.s);
-      this.m.makeScale(this.s.x, this.s.y, 1).setPosition(this.p);
+      // Far enough away a bar is a speck that still costs a row and still clutters the picture. It
+      // fades out over `from`..`to` and past `to` is not written at all, which also keeps the nearest
+      // bars from being the ones dropped when a big night runs the instance budget out.
+      let fade = 1;
+      if (eye && span > 0 && !bar.userData.noFade) {
+        const dist = this.p.distanceTo(eye);
+        if (dist >= to) continue;
+        if (dist > from) fade = 1 - (dist - from) / span;
+      }
+      this.m.makeScale(this.s.x, this.s.y, 1).setPosition(this.p.x, this.p.y + BAR_LIFT, this.p.z);
       this.mesh.setMatrixAt(n, this.m);
       this.frac.array[n] = bar.userData.frac;
       this.green.array[n] = bar.userData.green ? 1 : 0;
+      this.fade.array[n] = fade;
       n++;
     }
     this.mesh.count = n;
     this.mesh.instanceMatrix.needsUpdate = true;
     this.frac.needsUpdate = true;
     this.green.needsUpdate = true;
+    this.fade.needsUpdate = true;
   }
 }
 
