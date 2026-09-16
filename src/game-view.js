@@ -1084,7 +1084,7 @@ export const ViewMethods = {
   hideKeep() {
     if (!this.keepOpen) return;
     this.keepOpen = false;
-    document.getElementById('keep-screen').classList.add('hidden');
+    this.hud.hideKeep();
     this.unpause();
   },
 

@@ -11,6 +11,60 @@ import { V3, tmp, tmp2, HAIR, rand } from './game-shared.js';
 
 const HURT = new THREE.Color(CFG.hurtFlash.colour);
 
+// #109: the hurt flash is a material SWAP, not a material write.
+//
+// The rule this exists to keep, and the one to reach for the next time something wants to tint one
+// object: NOTHING PER-OBJECT MAY WRITE TO A MATERIAL A MODEL BUILDER HANDED OUT. Every material in
+// this game is shared, by three separate mechanisms, and the King wears one from each depending on
+// what has loaded:
+//
+//   - `RIG_MAT` (rig.js) is ONE material for every imported character in the game. Measured mid-run:
+//     the rigged King wears exactly one material and it is that one. Writing emissive on it reddens
+//     Wren, every raider on the field and the Warlord along with him.
+//   - `BAKED_STD` (models.js) is one material for every baked model, with the colours carried in
+//     vertex colours -- the palisade, the huts, the Keep. The King wears it whenever he falls back to
+//     the code-built figure. Measured on the title screen, which is built that way throughout: the
+//     King wore 6 materials and 171 of the other 226 meshes in the world wore one of them.
+//   - `smat` (characters.js) is colour-keyed, so the built King's leather, gold and skin are the
+//     leather, gold and skin of every code-built character standing near him.
+//
+// That is why this was reported as "the fence was flashing red". A flash that says *something,
+// somewhere, is hurt* is not information.
+//
+// Swapping `o.material` to a clone instead touches nothing anyone else can see: the shared material is
+// read once to make the clone and never written to. The clone is cached in a WeakMap keyed by the
+// source material rather than on its `userData`, so the rule above has no exceptions to remember, and
+// so the cache dies with the material it was made from.
+const hurtMats = new WeakMap();
+function hurtMaterial(m) {
+  if (Array.isArray(m)) {
+    let list = hurtMats.get(m);
+    // The array is memoised too, or every blink would allocate one.
+    if (!list) hurtMats.set(m, list = m.map((x) => hurtMaterial(x)));
+    return list;
+  }
+  if (!m || !m.emissive) return m;     // an outline or a basic material: nothing to tint, so leave it
+  let h = hurtMats.get(m);
+  if (!h) {
+    h = m.clone();
+    // `Material.copy` copies a fixed list of fields, and anything ASSIGNED to a material instance is
+    // not on it. rig.js assigns both of these to RIG_MAT -- the shader rewrite that reads roughness,
+    // metalness and glow off a per-vertex attribute, and the cache key that lets every character share
+    // one compiled program -- so a clone arrives without either and draws the King without his own
+    // surface. Measured: without these two lines the first lit frame compiled a second shader program
+    // (35 -> 36), which is a stall the first time the player is hit. With them the clone reports the
+    // same cache key and reuses the program its source already has: the rig's row went from one user
+    // to two and nothing was added (37 -> 37).
+    h.onBeforeCompile = m.onBeforeCompile;
+    h.customProgramCacheKey = m.customProgramCacheKey;
+    // Emissive rather than base colour, because it has to show on the dark blue tunic and on the gold
+    // alike (#46). Set once here: the tint never changes, so the blink is two references and no maths.
+    h.emissive.lerp(HURT, CFG.hurtFlash.amount);
+    hurtMats.set(m, h);
+  }
+  return h;
+}
+
 export const UnitsMethods = {
   mountKing() {
     if (this.mounted) return;
@@ -308,10 +362,15 @@ export const UnitsMethods = {
     if (u.type === 'king') audio.hurt();
     setHealthBar(u.bar, Math.max(0, u.hp / u.maxHp));
     if (u.hp <= 0) {
-      if (u.type === 'king') {
-        this.gameOver(u.type);
-        return;
-      }
+      // #110: the King leaves the field like anybody else. This branch used to end the run and
+      // `return`, which skipped both lines below -- so a dead King stood exactly where he fell, at
+      // full height, for the 900ms before the verdict and for as long as the player looked at it
+      // afterwards. There is no death animation yet (#55), but toppling out of the world is the
+      // vocabulary every other unit already dies in, and standing there is not a third option.
+      //
+      // `gameOver` runs BEFORE the splice: it records the run, and the army it records is
+      // `units.length - 1` on the understanding that the King is one of them.
+      if (u.type === 'king') this.gameOver(u.type);
       this.units.splice(this.units.indexOf(u), 1);
       u.bar.visible = false;
       this.dying.push({ mesh: u.mesh, t: 0.4 });
@@ -319,23 +378,36 @@ export const UnitsMethods = {
   },
 
   // #46: the King flickers red for a moment after each hit. His bar is one small thing in a scrum of
-  // twenty characters, so the blow itself has to read off the King. Emissive rather than base colour,
-  // because it has to show on the dark blue tunic and on the gold alike, and because putting it back
-  // is one copy rather than a remembered colour per material.
+  // twenty characters, so the blow itself has to read off the King.
   flashHurt(u) {
     const F = CFG.hurtFlash;
     const on = this.time - u.lastHit < F.time;
     if (!on && !u.flashing) return;      // nothing to do, and nothing left to put back
     u.flashing = on;
-    const lit = on && Math.floor((this.time - u.lastHit) / F.blink) % 2 === 0;
+    this.tintHurt(u, on && Math.floor((this.time - u.lastHit) / F.blink) % 2 === 0);
+  },
+
+  // #110: putting the King back on his own materials is part of ENDING a run, not part of running one.
+  // `flashHurt` is only ever called from inside `if (this.running)`, so the frame that kills him is
+  // the last one that could clear the red -- and it cannot, because it stops the sim first. What the
+  // player was left with was a corpse frozen mid-blink, and (before #109) a village frozen with it.
+  // Anything that stands the King down has to call this: `gameOver` and `victory` both do.
+  clearHurt(u) {
+    if (!u || !u.flashing) return;
+    u.flashing = false;
+    this.tintHurt(u, false);
+  },
+
+  // The swap itself. `restMat` is read off the mesh on every frame the mesh is NOT tinted, rather than
+  // remembered once: anything that legitimately re-materialises a character -- mounting, a model
+  // arriving late, a level swapping a build for its imported version (#111) -- would otherwise be
+  // quietly undone the next time a flash ended, and that is a bug nobody would think to look here for.
+  tintHurt(u, lit) {
     u.mesh.traverse((o) => {
       if (!o.isMesh && !o.isSkinnedMesh) return;
-      for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
-        if (!m || !m.emissive) continue;
-        if (!m.userData.restEmissive) m.userData.restEmissive = m.emissive.clone();
-        m.emissive.copy(m.userData.restEmissive);
-        if (lit) m.emissive.lerp(HURT, F.amount);
-      }
+      if (!o.userData.hurtOn) o.userData.restMat = o.material;
+      o.userData.hurtOn = lit;
+      o.material = lit ? hurtMaterial(o.userData.restMat) : o.userData.restMat;
     });
   },
 

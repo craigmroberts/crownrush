@@ -568,6 +568,17 @@ export class Game {
     this.lost = reason;
     this.over = true;
     this.running = false;
+    // #110: stand the King down. `flashHurt` is only called from inside `if (this.running)`, so this
+    // is the last moment anything can put the hurt flash back -- after it the King keeps whichever
+    // half of the blink he was on, for as long as the player looks at him.
+    this.clearHurt(this.king);
+    // #110: the verdict is armed BEFORE the bookkeeping below rather than after it. Three of those
+    // calls reach localStorage, which throws in private mode and on a full quota (#94), and a throw
+    // between here and the old `setTimeout` at the bottom took the game-over screen with it -- leaving
+    // a stopped world, a dead King and no Play Again, which is how "it didn't restart" gets reported.
+    // Arming first costs a line and nothing below can undo it. The 900ms beat is unchanged, so all of
+    // this has long since run by the time it fires.
+    setTimeout(() => this.showVerdict(reason), 900);
     this.clearRun();
     if (this.wave > this.best) {
       this.best = this.wave;
@@ -576,12 +587,34 @@ export class Game {
     this.saveScore();
     this.recordRun(reason);
     audio.gameOver();
-    setTimeout(() => this.hud.showGameOver(this.wave, this.coinsEarned, this.score, this.bestScore, reason), 900);
+  }
+
+  // #110: the end of the run, with every panel that could paint over it taken down first -- `start()`
+  // has done this since #25 and this had never caught up (see `hud.hidePanels`).
+  //
+  // The flags are cleared here rather than by calling `hideKeep`/`hideSettings`/`hideInfo`, because
+  // all three of those hand the pause back on the way out, and handing the pause back after the King
+  // is dead starts the sim again underneath the verdict.
+  showVerdict(reason) {
+    this.offer = null;
+    this.offerQueue = 0;
+    this.offerLevels = [];
+    this.offerPaused = false;
+    this.gain = null;
+    this.gainPaused = false;
+    this.keepOpen = false;
+    this.scoresOpen = false;
+    this.settingsOpen = false;
+    this.settingsPaused = false;
+    this.infoOpen = false;
+    this.hud.hidePanels();
+    this.hud.showGameOver(this.wave, this.coinsEarned, this.score, this.bestScore, reason);
   }
 
   victory() {
     this.won = true;
     this.running = false;
+    this.clearHurt(this.king);   // #110: the same last moment as `gameOver`. A King who won is not red.
     this.clearRun();
     if (this.wave > this.best) {
       this.best = this.wave;

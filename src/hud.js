@@ -722,6 +722,24 @@ export class Hud {
   hideScores() {
     document.getElementById('scores-screen').classList.add('hidden');
   }
+  hideKeep() {
+    document.getElementById('keep-screen').classList.add('hidden');
+  }
+
+  // #110: everything that would paint over the end of a run. Every overlay shares `z-index: 10`
+  // (style.css), so DOM order decides what covers what -- and `gameover-screen` is declared before the
+  // offer, the capability panel and all four sheets, so any of them left up puts the verdict behind
+  // it. A player looking at a panel over a stopped game with no Play Again in reach reports it as a
+  // run that would not restart. Anything added to index.html after `gameover-screen` belongs here.
+  hidePanels() {
+    this.hideOffer();
+    this.hideGain();
+    this.hideKeep();
+    this.hideInfo();
+    this.hideSettings();
+    this.hideScores();
+    this.hidePause();
+  }
   setScoreCount(n) {
     const el = document.getElementById('set-scores-n');
     const t = n ? String(n) : '';
