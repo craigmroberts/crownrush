@@ -156,6 +156,14 @@ export const UnitsMethods = {
     const followers = this._followers || (this._followers = []);
     followers.length = 0;
     for (const u of this.units) if (u !== this.king && u !== this.queen && !u.assign) followers.push(u);
+    // The formation centre trails the King rather than sitting on him, eased in and out so turning
+    // swings the group round behind him instead of snapping it. His mesh rotation is his heading.
+    const rallied = this.rallied();
+    const A = CFG.army;
+    const want = this.king.moving && !rallied ? A.trail : 0;
+    this.armyTrail = (this.armyTrail || 0) + (want - (this.armyTrail || 0)) * (1 - Math.exp(-dt * 3.5));
+    const ax = kp.x - Math.sin(this.king.mesh.rotation.y) * this.armyTrail;
+    const az = kp.z - Math.cos(this.king.mesh.rotation.y) * this.armyTrail;
     followers.forEach((u, i) => {
       u.cooldown -= dt;
       if (u.popT > 0) {
@@ -168,9 +176,11 @@ export const UnitsMethods = {
       const ring = Math.floor(Math.sqrt(i / 6));
       const perRing = 6 + ring * 6;
       const idxInRing = i - ring * ring * 6;
-      const ang = (idxInRing / perRing) * Math.PI * 2 + ring * 0.4 + this.time * 0.15;
+      // No `+ this.time * 0.15` any more: the ring used to rotate on its own, so the army shuffled
+      // sideways even while the King stood still.
+      const ang = (idxInRing / perRing) * Math.PI * 2 + ring * 0.4;
       const rad = 1.7 + ring * 1.3;
-      tmp.set(kp.x + Math.cos(ang) * rad, 0, kp.z + Math.sin(ang) * rad);
+      tmp.set(ax + Math.cos(ang) * rad, 0, az + Math.sin(ang) * rad);
 
       const p = u.mesh.position;
       let target = null;
@@ -183,11 +193,17 @@ export const UnitsMethods = {
       tmp2.subVectors(tmp, p);
       tmp2.y = 0;
       const d = tmp2.length();
-      const stopDist = target ? target.radius + 0.6 : 0.15;
+      // A region, not a point. Stopping only within 15cm of an exact coordinate is what made them
+      // fidget; a slot you are allowed to be near is a formation you are allowed to be loose in.
+      const stopDist = target ? target.radius + 0.6 : rallied ? A.rallySlack : A.slack;
       let moving = 0;
       if (d > stopDist) {
-        const rally = this.rallied() ? CFG.horn.rallySpeed : 1;
-        const sp = Math.min(u.stats.speed * (d > 6 ? 1.6 : 1) * rally, d / dt);
+        const rally = rallied ? CFG.horn.rallySpeed : 1;
+        // Arrive rather than skid: full speed while there is ground to make up, easing down as the
+        // slot comes in. The old `* 1.6` sprint is gone -- archers already outrun the King at 9
+        // against his 7.5, so it only ever served to close the last few metres instantly.
+        const ease = target ? 1 : Math.min(1, (d - stopDist) / A.ease);
+        const sp = Math.min(u.stats.speed * rally * (0.4 + 0.6 * ease), d / dt);
         tmp2.normalize().multiplyScalar(sp * dt);
         p.add(tmp2);
         moving = Math.min(1, d);
@@ -196,7 +212,10 @@ export const UnitsMethods = {
       this.collideWalls(p, 0.3, true);
       this.collideRiver(p, 0.3);
       this.collideKeep(p, 0.3);
-      if (d > 14) p.set(kp.x + rand(-1, 1), 0, kp.z + rand(-1, 1));
+      // Only for the genuinely stuck -- the wrong side of a wall or a river. It used to fire at 14,
+      // which a soldier allowed to trail properly reaches honestly, and a man blinking to the King's
+      // feet reads far worse than one jogging to catch up.
+      if (d > A.lost) p.set(kp.x + rand(-1, 1), 0, kp.z + rand(-1, 1));
       u.moving = moving > 0.05;
       this.animateWalk(u, moving, dt);
 

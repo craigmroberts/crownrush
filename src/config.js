@@ -91,6 +91,18 @@ export const CFG = {
 
   score: { earlyWavePerSecond: 4, kill: { knight: 10, elite: 25, brute: 20, boss: 200, thief: 40, sapper: 15, archer: 20, shield: 30 }, coin: 1, material: 2, buildPerCoin: 2, buildPerMaterial: 3, soldierPerWave: 2, waveClear: 50, levelUp: 60, rescue: 150, recapture: 90, finale: 1500 },
 
+  // #69: the army FOLLOWS the King rather than orbiting him. Each soldier still gets a slot on a
+  // ring -- that is what keeps a hundred of them from standing in each other -- but the slot is a
+  // place to head for rather than a point to stand on, and the rings sit behind him rather than
+  // around him. Before this they chased an exact coordinate on a carousel that rotated whether or
+  // not he moved, at a speed that could always catch him, which is why they looked welded on.
+  army: {
+    trail: 2.4,   // how far behind the King the formation centre sits while he is moving
+    slack: 1.15,  // how near its slot a soldier has to get before it stops walking
+    ease: 4.0,    // the distance over which it eases back up to full speed (arrive, not skid)
+    rallySlack: 0.3, // the horn gathers them tight: the one moment the formation SHOULD be rigid
+    lost: 26,     // how far behind before a soldier counts as stuck and is put back on the King
+  },
   archer: { hp: 30, range: 9.5, fireRate: 0.9, damage: 10, speed: 9 },
   swordsman: { hp: 70, range: 1.4, fireRate: 1.1, damage: 14, speed: 8.5, aggro: 5 },
 
