@@ -607,14 +607,29 @@ no browser around it and no connection.
 - **Android**: Chrome offers Install, or Add to Home Screen from the menu.
 - **Desktop**: Chrome and Edge show an install control in the address bar.
 
-The drawing buffer is sized from the largest of the canvas's own box, `visualViewport` and
-`window.inner*`, and then asked for again four times over the first second and a half. That is not
-belt and braces for its own sake: under `viewport-fit=cover` iOS answers those three differently, the
-canvas is meant to cover the screen so a short answer is always the wrong one, and there is no event
-for "the standalone box has settled". A buffer that comes up short shows as bands of flat page green
-at the top and bottom with the HUD sitting on them. `?perf=1` prints all of those sizes plus the
-safe-area insets on a second line, because a headless browser has no safe areas and no standalone
-mode and cannot answer which source went short.
+Two different things decide whether the world reaches the edges of an iPhone, and only one of them
+can produce the bands of flat page green that #74 is about.
+
+**The CSS box** is what covers the screen. It is `100dvw` / `100dvh`, with `100vw` / `100vh` behind
+them for anything without the dynamic units. An explicit size is required rather than tidy: a
+`<canvas>` is a replaced element, so `inset: 0` with `width: auto` gives it its *intrinsic* size —
+the drawing buffer — and a 390×844 phone ends up with a 1885×2652 canvas box. Measured, by trying it.
+The unit matters too, because a percentage resolves against the containing block and viewport units
+resolve against the viewport the page was told to cover, and under `viewport-fit=cover` iOS does not
+always make those the same box. If the box comes up short, what shows in the gap is the page
+background — which is the same green as `theme-color`, so it reads as two bands rather than as a
+canvas that did not stretch.
+
+**The drawing buffer** is how much detail is drawn into that box, sized from the largest of the
+canvas's own box, `visualViewport` and `window.inner*`, then asked for again four times over the
+first second and a half — iOS answers those three differently under `viewport-fit=cover`, and there
+is no event for "the standalone box has settled". A buffer that comes up short cannot make bands: the
+browser stretches whatever the buffer holds into the CSS box, so it shows as a soft picture, not a
+green one.
+
+`?perf=1` prints both, plus the canvas's actual rectangle, `documentElement`, `visualViewport`,
+`screen` and the safe-area insets. A headless browser has no safe areas and no standalone mode, so
+that line is the only way to find out which of them went short on a real phone.
 
 Once it has been opened with a connection, a service worker holds the whole thing — bundle, character
 models and fonts, about three and a half megabytes — so it opens again without one. Verified by

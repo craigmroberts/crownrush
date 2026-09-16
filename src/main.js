@@ -336,7 +336,15 @@ function sizeReport() {
   const vv = window.visualViewport;
   const cs = getComputedStyle(document.documentElement);
   const inset = (n) => (cs.getPropertyValue(n) || '0px').trim();
-  return `css ${c.clientWidth}x${c.clientHeight} · win ${window.innerWidth}x${window.innerHeight}`
+  // #74: where the canvas ACTUALLY is, not only how big it says it is. The bug this exists to settle
+  // is the canvas failing to reach the top and bottom of the screen, and a size alone cannot show
+  // that -- a box of 390x762 is only wrong once you know the screen is 844 tall and the box starts at
+  // y=0. So the rect goes in, and `doc` beside it, because `documentElement.clientHeight` is the
+  // number a percentage height resolves against and is the one suspected of being short.
+  const r = c.getBoundingClientRect();
+  return `css ${c.clientWidth}x${c.clientHeight} · box ${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.width)}x${Math.round(r.height)}`
+    + ` · buf ${c.width}x${c.height}`
+    + ` · win ${window.innerWidth}x${window.innerHeight} · doc ${document.documentElement.clientWidth}x${document.documentElement.clientHeight}`
     + ` · vv ${vv ? `${Math.round(vv.width)}x${Math.round(vv.height)}` : '-'}`
     + ` · screen ${screen.width}x${screen.height} · safe ${inset('--sat')}/${inset('--sab')}`
     + ` · standalone ${!!(window.navigator.standalone || matchMedia('(display-mode: standalone)').matches)}`;

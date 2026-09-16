@@ -75,7 +75,24 @@
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; font-family: "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
-#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+/* #74: the canvas has to be told its size in a unit that means THE SCREEN.
+   `inset: 0` is not enough on its own and never was -- a canvas is a replaced element, so with
+   `width: auto` its used size is its INTRINSIC size, which is the drawing buffer. Driven: dropping the
+   width and height left a 390x844 phone with a 1885x2652 canvas box. The explicit size is doing real
+   work here; it is not the belt-and-braces it looks like.
+   But `100%` resolves against the containing block, and under `viewport-fit=cover` iOS and the spec do
+   not agree about what that is -- the percentage can come back as the box the document thinks it has,
+   which excludes the safe areas, while `vh`/`vw` are defined against the viewport the page was told to
+   cover. That is the whole shape of this bug: a band of page green top and bottom, with the HUD (which
+   is `inset: 0` and NOT a replaced element, so it is sized by its edges) sitting on it.
+   `dvh`/`dvw` first because they also track a URL bar in Safari; `vh`/`vw` behind them for anything
+   that does not have them. In a standalone app there is no chrome to track, so the two are the same
+   number and the fallback costs nothing. */
+#game {
+  position: fixed; inset: 0; display: block;
+  width: 100vw; height: 100vh;
+  width: 100dvw; height: 100dvh;
+}
 /* #74: the safe-area insets, so ?perf=1 can report them off a real phone. env() cannot be read from
    JS directly; a custom property carrying it can. */
 :root { --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px); }
