@@ -59,10 +59,15 @@ loop underneath it:
   without sweeping the map. The Warlord calling reinforcements is the one thing that puts it back up.
   The King has no bar in the corner: his own is over his head, where everyone else's is.
 - Nothing on the field carries a frame. The minimap and the settings gear both used to wear a gold
-  ring; the map separates itself from the grass with a shadow now, and the gear is just a gear, which
-  is what let it grow to fill the space the border was using.
-- A notice is a caption over the world rather than a card on top of it: no border, a dark translucent
-  panel, light text, and a small label in the corner saying who is speaking or what it is about --
+  ring; the gear is just a gear now, which is what let it grow to fill the space the border was using,
+  and the map has no edge at all -- it fades out into the grass and is slightly see-through, so it
+  sits in the world rather than on top of it. The fade is what separates it; a shadow needs an edge to
+  hug and there is no longer one. The transparency is the element's own opacity rather than an alpha
+  inside the drawing, because thinning the fog pass would thin it *relative to* the ground underneath
+  and leak the shape of land you have not walked yet.
+- A notice is a caption over the world rather than a card on top of it, rising in and then floating
+  gently while it is up: no border, a dark translucent panel, light text, and a small label in the
+  corner saying who is speaking or what it is about --
   **Wren**, **Raid**, **Keep**, **Village**, **Bag**. The few notices that are the game talking about
   itself rather than about the world (a lost graphics context) carry no label at all.
 - What you scoop off a heap flies to the bag in the corner and the bag bumps when it lands, so the

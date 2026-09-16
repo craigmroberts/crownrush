@@ -38,7 +38,12 @@ export const ICONS = {
   castle: `<path d="M6 20.5V8.4h12v12.1z" fill="#f5b800" ${S}/><path d="M5 8.4V4.5h2.6v2.1h2.1V4.5h4.6v2.1h2.1V4.5H19v3.9z" fill="#ffd23f" ${S}/><path d="M10.4 20.5v-3.9a1.6 1.6 0 0 1 3.2 0v3.9z" fill="#7a4a1e"/><path d="M8.2 11.4h2.1v2.1H8.2zM13.7 11.4h2.1v2.1h-2.1z" fill="#c98a00"/>`,
   moon: `<path d="M20.5 15.2A8.6 8.6 0 0 1 9.2 3.9a8.6 8.6 0 1 0 11.3 11.3z" fill="#f5b800" ${S}/><path d="M18.4 13.6A6.6 6.6 0 0 1 10.8 6a6.6 6.6 0 1 0 7.6 7.6z" fill="#ffd23f" stroke="none"/>`,
   heart: `<path d="M12 20.4l-1.5-1.3C5.6 14.7 3 12.3 3 9.2 3 6.7 5 4.7 7.5 4.7c1.5 0 2.9.7 3.8 1.8l.7.9.7-.9c.9-1.1 2.3-1.8 3.8-1.8C19 4.7 21 6.7 21 9.2c0 3.1-2.6 5.5-7.5 9.9z" fill="#e8342a" ${S}/><path d="M7.7 7c-1 0-1.9.8-1.9 1.9 0 .5.1 1 .4 1.4" fill="none" stroke="#ff9a8f" stroke-width="1.8" stroke-linecap="round"/>`,
-  heartEmpty: `<path d="M12 20.4l-1.5-1.3C5.6 14.7 3 12.3 3 9.2 3 6.7 5 4.7 7.5 4.7c1.5 0 2.9.7 3.8 1.8l.7.9.7-.9c.9-1.1 2.3-1.8 3.8-1.8C19 4.7 21 6.7 21 9.2c0 3.1-2.6 5.5-7.5 9.9z" fill="rgba(0,0,0,0.30)" ${S}/>`,
+  // #93: no fill. This was a flat 30% black wash -- the only one in the set -- and because a heart is
+  // an empty one with a full one clipped over it (#77), it sat behind the whole row all the time: as
+  // the drained part of a partial heart, and around the edge of a full one wherever the red did not
+  // quite cover. Five of them read as a smear under the health. The drawn outline is what makes every
+  // other icon legible on grass and on snow alike, and it is enough here too.
+  heartEmpty: `<path d="M12 20.4l-1.5-1.3C5.6 14.7 3 12.3 3 9.2 3 6.7 5 4.7 7.5 4.7c1.5 0 2.9.7 3.8 1.8l.7.9.7-.9c.9-1.1 2.3-1.8 3.8-1.8C19 4.7 21 6.7 21 9.2c0 3.1-2.6 5.5-7.5 9.9z" fill="none" ${S}/>`,
   info: `<circle cx="12" cy="12" r="10" fill="#5aa0ff" ${S}/><circle cx="12" cy="7.6" r="1.6" fill="#fff"/><path d="M10.2 10.6h3.2v6.4h1.4v1.8H9.4V17h1.4v-4.6h-.6z" fill="#fff"/>`,
   horn: `<path d="M3 11l10-5v12L3 13z" fill="#f5b800" ${S}/><path d="M13 7c4 0 7 2 7 5s-3 5-7 5" fill="none" stroke="#c98a00" stroke-width="2.4"/><circle cx="20" cy="12" r="2.2" fill="#ffd23f" stroke="#c98a00" stroke-width="1.2"/><path d="M4 12h4" stroke="#8a5a00" stroke-width="1.4"/>`,
   sack: `<path d="M9.3 3.9h5.4l-.8 4.6h-3.8z" fill="#a9763c" ${S}/><path d="M7.3 8.5h9.4c1.8 1.9 2.8 4.2 2.8 6.4 0 3.6-2.8 5.8-7.5 5.8s-7.5-2.2-7.5-5.8c0-2.2 1-4.5 2.8-6.4z" fill="#c69a5e" ${S}/><path d="M9.6 11.2c-1.1 1.3-1.7 2.9-1.7 4.4" fill="none" stroke="#ecd4a8" stroke-width="1.9" stroke-linecap="round"/><rect x="6.7" y="7.2" width="10.6" height="2.9" rx="1.45" fill="#8a5a2b" stroke="${O}" stroke-width="1.5"/>`,

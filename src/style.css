@@ -169,10 +169,28 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
    version of `.hud-cell`'s text-shadow. The inner highlight is what keeps the top edge from
    disappearing into the vignette on the darker late-game ground. */
 #minimap {
-  position: fixed; left: 12px; bottom: max(12px, env(safe-area-inset-bottom)); width: 92px; height: 92px;
-  border-radius: 50%; border: 0; background: #2b2f33; pointer-events: auto; z-index: 5;
-  box-shadow: 0 0 0 1.5px rgba(0,0,0,0.5), 0 6px 18px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12);
+  position: fixed; left: 12px; bottom: max(12px, env(safe-area-inset-bottom)); width: 78px; height: 78px;
+  border-radius: 50%; border: 0; background: none; pointer-events: auto; z-index: 5;
   transition: width 0.2s, height 0.2s; image-rendering: pixelated;
+}
+/* #101: the edge dissolves instead of stopping. A mask rather than a gradient painted into the canvas,
+   because the canvas is redrawn constantly and this never changes.
+   The shadow #85 put here had to go with it, and that is not a loss: a shadow needs an edge to hug,
+   and there is no longer an edge. The falloff is the separation now -- which works because what the
+   map is mostly showing is fog, and fog is dark. `background` goes too: a solid fill behind a masked
+   canvas is a hard disc showing through a soft one.
+   Only the small state. Opened up it is a rounded square and a circular mask would cut its corners
+   off, which is exactly what the square shape exists to avoid. */
+#minimap:not(.big) {
+  -webkit-mask-image: radial-gradient(circle, #000 58%, rgba(0,0,0,0.55) 82%, transparent 100%);
+  mask-image: radial-gradient(circle, #000 58%, rgba(0,0,0,0.55) 82%, transparent 100%);
+  /* #91: and see-through. Deliberately the element's opacity rather than a globalAlpha inside
+     drawMinimap, which was the obvious route and is the wrong one: the fog is painted OVER the
+     terrain, so thinning the fog pass thins it relative to the ground underneath and leaks the shape
+     of land you have not walked yet. Fading the finished picture keeps every layer's relation to
+     every other exactly as it was -- and keeps the King's dot as findable as the ground it is on.
+     Opened up it stays solid: that one is being read, not glanced at. */
+  opacity: 0.85;
 }
 /* opened up it becomes a rounded square again: a circle would crop the corners of the map */
 #minimap.big { width: min(70vw, 70vh); height: min(70vw, 70vh); left: 50%; bottom: 50%; transform: translate(-50%, 50%); z-index: 6; border-radius: 18px; }
@@ -252,6 +270,12 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .hearts .heart > .icon { display: block; }
 .hearts .heart .fill { position: absolute; left: 0; top: 0; height: 100%; overflow: hidden; display: block; }
 .hearts .heart .fill .icon { display: block; width: 17px; height: 17px; }
+/* #93: the dark blob behind each heart. `.hud-cell .icon` gives every icon in the HUD a drop-shadow,
+   and here that lands on an icon INSIDE the clip box -- so the shadow is cut off square at the box
+   edge instead of following the heart, and two of them stack up per heart. Cast one shadow from the
+   whole heart instead, outside the clip, where it takes the shape of what it is shadowing. */
+.hearts .heart { filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
+.hearts .heart .icon { filter: none; }
 /* the bag's ring: one continuous arc, never segmented. r=17 in a 40-box, so the circumference is
    2*PI*17 = 106.81, which is what the dash array below is set to and what hud.js offsets against. */
 .bagring { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; }
@@ -297,7 +321,11 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   .hud-cell.clock { font-size: 13px; }
   .bagring { width: 30px; height: 30px; }
   .bagcell { gap: 6px; }
-  #settings-btn { width: 42px; height: 42px; bottom: calc(76px + env(safe-area-inset-bottom)); }
+  /* #86: the box is the thumb target and nothing is drawn on it, so it does not shrink with the rest
+     of the HUD -- 42px here was the old plaque's size and is under what a thumb wants. Only the glyph
+     inside it gives ground. */
+  #settings-btn { bottom: calc(76px + env(safe-area-inset-bottom)); }
+  #settings-btn .icon { width: 30px; height: 30px; }
 }
 /* #23: the only control left on the field. It used to hang off the right edge under the coin; with
    the coin in the corner it joins the warhorn instead, so one column holds every button. */
@@ -351,17 +379,15 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
    No backdrop-filter, though the reference has that soft look: blurring a small element over a live
    WebGL canvas costs a composite every frame it is up, which is a price this game does not pay for
    decoration. A darker alpha does the same job for nothing. */
+/* #96: two elements, because the arrival is a transform TRANSITION and the bob is a transform
+   ANIMATION, and an animation overrides a transition outright -- one element would mean the bob
+   killing the settle the instant it started. The outer one places and moves the notice; the inner one
+   is the panel you can see, and it is the one that floats. */
 #toast {
   position: fixed; left: 50%; bottom: calc(124px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(10px);
-  background: rgba(16, 24, 14, 0.62); color: #f4f7ec; padding: 11px 20px; border-radius: 20px;
-  border: 0; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 700; font-size: 17px;
   /* it clears the minimap and the warhorn by sitting above them, so it can have the full width */
-  width: max-content; max-width: min(420px, calc(100vw - 28px)); text-align: center;
-  opacity: 0; pointer-events: none; display: block;
-  /* light text has to hold over pale grass and the near-white late-game walls, so it carries the
-     same two-stop shadow every number in the HUD does */
-  text-shadow: 0 1px 0 rgba(0,0,0,0.45), 0 2px 6px rgba(0,0,0,0.55);
-  box-shadow: 0 8px 22px rgba(0,0,0,0.28); z-index: 4;
+  width: max-content; max-width: min(420px, calc(100vw - 28px));
+  opacity: 0; pointer-events: none; display: block; z-index: 4;
   /* #70: leaving is not arriving played backwards. It goes quickly, downward and shrinking, so a
      notice on its way out is never mistaken for one on its way in -- which mattered, because they
      queue, and two in a row used to look like one that stuttered. */
@@ -371,6 +397,23 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 /* Arriving overshoots and settles, which is the curve the world already uses on everything that
    appears in it: popIn on a building, and the squash on a unit that has just been recruited. The
    HUD and the world were speaking different languages. */
+/* the panel: everything you can see, and the thing that floats */
+.toast-panel {
+  position: relative;
+  background: rgba(16, 24, 14, 0.62); color: #f4f7ec; padding: 11px 20px; border-radius: 20px;
+  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 700; font-size: 17px;
+  text-align: center;
+  /* light text has to hold over pale grass and the near-white late-game walls, so it carries the
+     same two-stop shadow every number in the HUD does */
+  text-shadow: 0 1px 0 rgba(0,0,0,0.45), 0 2px 6px rgba(0,0,0,0.55);
+  box-shadow: 0 8px 22px rgba(0,0,0,0.28);
+}
+/* Small and slow: this is a notice, not a balloon, and the player is usually fighting. The delay lets
+   the arrival's overshoot settle first, so the two never overlap even though they are on different
+   elements. */
+@keyframes toastBob { from { transform: translateY(0); } to { transform: translateY(-4px); } }
+#toast.show .toast-panel { animation: toastBob 2.6s ease-in-out 0.4s infinite alternate; }
+
 /* The label rides above the panel's top edge, the way a speaker's name does, so the message keeps
    the whole width of the bubble. It is outside the background, so its own shadow is all that makes
    it readable -- hence a heavier one than the text inside gets. */
@@ -401,12 +444,12 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
    still goes; it just does it by fading. */
 @media (prefers-reduced-motion: reduce) {
   #toast, #toast.show { transition: opacity 0.2s linear; transform: translateX(-50%); }
+  #toast.show .toast-panel { animation: none; }   /* #96: no bob either */
   .bagring .ring-fill { transition: stroke 0.3s linear; }
   /* #88: no flight and no bump. flyToBag's timer still fires, so nothing is left in the DOM. */
   .fly { display: none; }
   .bagcell.bump .bagring { animation: none; }
 }
-@media (prefers-reduced-motion: reduce) { #toast { transition: opacity 0.25s; transform: translateX(-50%); } }
 #next-wave-btn.hidden { display: none; }
 #pad-tip .tip-name { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; }
 #pad-tip .chip { display: inline-flex; align-items: center; gap: 5px; }
