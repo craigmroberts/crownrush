@@ -3,6 +3,9 @@ import { iconSvg } from './icons.js';
 // #68: how many hearts the King's health is cut into. Five is coarse on purpose -- the exact figure
 // is the bar over his head, and a HUD readout that moved every frame would be a bar with gaps in it.
 const HEARTS = 5;
+// The circumference of the r=17 circle both rings are drawn on, which is what the stylesheet's dash
+// array is set to. Change one and change the other.
+const RING_C = 106.81;
 // Green when there is room, red when there is not, through yellow and orange on the way. Interpolated
 // rather than stepped, so filling a bag is a colour moving rather than four colours taking turns.
 const TRAFFIC_STOPS = [[0, 63, 212, 85], [0.55, 255, 210, 63], [0.8, 245, 150, 32], [1, 232, 52, 42]];
@@ -31,6 +34,7 @@ export class Hud {
     this.overScreen = document.getElementById('gameover-screen');
     this.toastTimer = null;
     this.nextEl = document.getElementById('next-wave');
+    this.nextTimeEl = document.getElementById('next-wave-t');
     this.winScreen = document.getElementById('victory-screen');
     this.indicatorLayer = document.getElementById('indicators');
     this.indicators = [];
@@ -44,6 +48,7 @@ export class Hud {
     this.levelEl = document.getElementById('keep-level');
     this.heartsEl = document.getElementById('king-hearts');
     this.ringEl = document.getElementById('load-ring');
+    this.raidRingEl = document.getElementById('raid-ring');
     this.carryRail = document.getElementById('carry-rail');
     this.btnTimeEl = document.getElementById('next-wave-btn-t');
     this.lastLoad = '';
@@ -63,7 +68,7 @@ export class Hud {
       const clock = `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
       this.nextEl.classList.toggle('hidden', nextIn === null);
       this.nextEl.classList.toggle('soon', nextIn !== null && n <= 10);
-      if (nextIn !== null) this.nextEl.textContent = `Night ${(wave || 0) + 1} in ${clock}`;
+      if (nextIn !== null && this.nextTimeEl) this.nextTimeEl.textContent = clock;
       if (this.btnTimeEl) this.btnTimeEl.textContent = clock;
     }
     if (goal !== this.lastGoal) {
@@ -107,8 +112,7 @@ export class Hud {
   setBagRing(frac) {
     if (!this.ringEl) return;
     const f = Math.max(0, Math.min(1, frac));
-    const C = 106.81;
-    this.ringEl.style.strokeDashoffset = C * (1 - f);
+    this.ringEl.style.strokeDashoffset = RING_C * (1 - f);
     this.ringEl.style.stroke = TRAFFIC(f);
   }
 
@@ -270,7 +274,7 @@ export class Hud {
       const pct = Math.round(Math.max(0, Math.min(1, frac)) * 100);
       if (pct !== this.raidPct) {
         this.raidPct = pct;
-        (this.raidFill || (this.raidFill = document.getElementById('raid-fill'))).style.width = `${pct}%`;
+        if (this.raidRingEl) this.raidRingEl.style.strokeDashoffset = RING_C * (1 - pct / 100);
       }
       if (count !== this.raidCount) {
         this.raidCount = count;

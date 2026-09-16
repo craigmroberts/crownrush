@@ -221,40 +221,21 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .bagcell { gap: 8px; }
 /* lane 2: the countdown, on its own line under the plaques. It used to ride inline on the night
    line, where it fought the health bars for the same row. */
-#lane-countdown, #lane-alarm { display: flex; justify-content: center; pointer-events: none; padding: 6px 12px 0; }
-#lane-alarm { padding-top: 5px; }
-#next-wave {
-  display: inline-flex; align-items: center; gap: 6px; font-family: "Nunito", system-ui, sans-serif;
-  font-size: 13px; font-weight: 800; letter-spacing: 0.01em; color: #ffe08a; font-variant-numeric: tabular-nums;
-  background: rgba(26,32,17,0.82); border: 2px solid var(--rim-dark); border-radius: 999px; padding: 3px 13px;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.3);
-}
-#next-wave.soon { border-color: #f0a020; color: #ffd9a0; }
-#next-wave.hidden { display: none; }
+#lane-alarm { display: flex; justify-content: center; pointer-events: none; padding: 5px 12px 0; }
+/* #72: the countdown sits under the hearts as a clock. `.soon` is the only warning a raid is
+   imminent apart from the dusk toast, so it survives the move -- as a colour now rather than a
+   border, since there is no longer a border to colour. */
+.hud-cell.clock { font-size: 15px; color: #ffe08a; }
+.hud-cell.clock.soon { color: #ffb570; }
+.hud-cell.hidden { display: none; }
 
-/* What is left of tonight's raid, so nobody has to sweep the map to find out whether it is over.
-   Shares the countdown's lane: the countdown is only up between waves, which is exactly when this
-   has nothing to show. */
-#raid-meter {
-  display: inline-flex; align-items: center; gap: 7px; font-family: "Nunito", system-ui, sans-serif;
-  font-size: 13px; font-weight: 800; color: #ffc9c2; font-variant-numeric: tabular-nums;
-  background: rgba(26,32,17,0.82); border: 2px solid var(--rim-dark); border-radius: 999px; padding: 3px 11px 3px 8px;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.3);
-}
-#raid-meter .track {
-  display: block; width: 92px; height: 8px; border-radius: 999px; overflow: hidden;
-  background: rgba(0,0,0,0.5); box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
-}
-#raid-fill {
-  display: block; height: 100%; width: 100%; border-radius: 999px;
-  background: linear-gradient(#f05a4a, #d8262c); transition: width 0.25s ease-out;
-}
-/* The last few. Nothing else on screen says "nearly done", and that is the moment worth reading. */
-#raid-meter.last #raid-fill { background: linear-gradient(#ffd27a, #f0a020); }
-#raid-meter.last { color: #ffe08a; border-color: #f0a020; }
-#raid-meter b { min-width: 1.2em; text-align: right; }
-#raid-meter.hidden { display: none; }
-
+/* #71: the raid ring is the bag's ring in a different colour. Red throughout rather than the bag's
+   green-to-red ramp: the two rings sit side by side and mean opposite things by their fullness, so
+   giving them the same colour language would have been the one way to make them genuinely confusing.
+   Amber at the last few is the one cue, and it is about counting down rather than about danger. */
+.bagring .ring-fill.raid { stroke: #e8342a; }
+#raid-meter.last .ring-fill.raid { stroke: #f0a020; }
+#raid-meter.last b { color: #ffe08a; }
 @media (max-width: 430px) {
   /* A phone has no room for generous spacing, so the groups tighten rather than wrap: the KEEP
      label and the hearts are what a narrow screen can least afford to lose, and they stay. */
@@ -265,9 +246,9 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   .hud-cell { font-size: 15px; gap: 5px; }
   .hud-cell .hud-sub { font-size: 10px; }
   .hearts { gap: 2px; }
+  .hud-cell.clock { font-size: 13px; }
   .bagring { width: 30px; height: 30px; }
   .bagcell { gap: 6px; }
-  #raid-meter .track { width: 68px; }
   #settings-btn { width: 42px; height: 42px; bottom: calc(76px + env(safe-area-inset-bottom)); }
 }
 /* #23: the only control left on the field. It used to hang off the right edge under the coin; with
@@ -302,10 +283,27 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   border: var(--gold-line) solid var(--gold); font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 17px;
   /* it clears the minimap and the warhorn by sitting above them, so it can have the full width */
   width: max-content; max-width: min(400px, calc(100vw - 28px)); text-align: left;
-  opacity: 0; transition: opacity 0.25s, transform 0.25s; pointer-events: none; display: flex; align-items: center; gap: 8px;
+  opacity: 0; pointer-events: none; display: flex; align-items: center; gap: 8px;
   box-shadow: 0 8px 20px rgba(0,0,0,0.3); z-index: 4;
+  /* #70: leaving is not arriving played backwards. It goes quickly, downward and shrinking, so a
+     notice on its way out is never mistaken for one on its way in -- which mattered, because they
+     queue, and two in a row used to look like one that stuttered. */
+  transform: translateX(-50%) translateY(14px) scale(0.92);
+  transition: opacity 0.16s ease-in, transform 0.16s cubic-bezier(0.4, 0, 1, 1);
 }
-#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+/* Arriving overshoots and settles, which is the curve the world already uses on everything that
+   appears in it: popIn on a building, and the squash on a unit that has just been recruited. The
+   HUD and the world were speaking different languages. */
+#toast.show {
+  opacity: 1; transform: translateX(-50%) translateY(0) scale(1);
+  transition: opacity 0.18s ease-out, transform 0.34s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+/* Somebody playing with reduced motion asked not to be thrown about. The notice still arrives and
+   still goes; it just does it by fading. */
+@media (prefers-reduced-motion: reduce) {
+  #toast, #toast.show { transition: opacity 0.2s linear; transform: translateX(-50%); }
+  .bagring .ring-fill { transition: stroke 0.3s linear; }
+}
 @media (prefers-reduced-motion: reduce) { #toast { transition: opacity 0.25s; transform: translateX(-50%); } }
 #next-wave-btn.hidden { display: none; }
 #pad-tip .tip-name { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; }

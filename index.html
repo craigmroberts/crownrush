@@ -62,11 +62,24 @@
                  beside the text is what made a phone cramped. The precise number is the bar over his
                  head, which only shows when he is hurt, so the two never draw the same shape twice. -->
             <span class="hud-cell hearts" id="king-hearts" aria-label="King's health"></span>
+            <!-- #72: how long until nightfall. "Night 2 in" was four words introducing a number that
+                 sits beside a night counter; the clock is the part anyone reads. -->
+            <span class="hud-cell clock hidden" id="next-wave"><i data-icon="hourglass" data-size="16"></i><b id="next-wave-t">0:00</b></span>
           </span>
         </button>
         <!-- coin is what you spend; the bag is what you are still carrying to the trade post. The
              ring around the bag is how full it is, so the cap never has to be read as a number. -->
         <button class="hud-group" id="carry-rail" title="Your coin and your bag (K)">
+          <!-- #71: what is left of tonight's raid, in the same shape as the bag. First in the group
+               because the group is right-anchored: appended last it would shove the coin and the bag
+               sideways every time a raid started and ended. -->
+          <span class="hud-cell bagcell hidden" id="raid-meter" title="What is left of tonight's raid">
+            <span class="bagring">
+              <svg class="ring" viewBox="0 0 40 40" aria-hidden="true"><circle class="ring-bg" cx="20" cy="20" r="17"/><circle id="raid-ring" class="ring-fill raid" cx="20" cy="20" r="17"/></svg>
+              <i data-icon="skull" data-size="19"></i>
+            </span>
+            <b id="raid-left">0</b>
+          </span>
           <span class="hud-cell"><i id="coin-icon" data-icon="gold" data-size="24"></i><b id="coin-count">0</b></span>
           <span class="hud-cell bagcell">
             <span class="bagring">
@@ -83,7 +96,6 @@
            can land on the other the way the inline countdown did. The raid meter shares lane 2 with
            the countdown: the countdown is only up between waves, which is exactly when the meter
            has nothing left to show. -->
-      <div id="lane-countdown"><span id="next-wave" class="hidden"></span><span id="raid-meter" class="hidden" title="What is left of tonight's raid"><i data-icon="swords" data-size="15"></i><span class="track"><i id="raid-fill"></i></span><b id="raid-left">0</b></span></div>
       <div id="lane-alarm"><span id="alarm" class="hidden"><i data-icon="alert" data-size="16"></i>The Keep is under attack</span></div>
       <!-- #23: sound, pause and info live in the settings sheet; the gear sits in the controls corner
            over the warhorn, out of the way of the field and of the coin -->

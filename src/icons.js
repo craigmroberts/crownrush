@@ -34,6 +34,7 @@ export const ICONS = {
   // #68: the HUD's own three. A crescent for the night counter, and a heart in two states -- the
   // empty one keeps the full one's outline so a row of five never shifts or changes weight as it
   // drains, which is the whole reason hearts read faster than a bar.
+  hourglass: `<path d="M6.5 3.4h11v2.2l-4 6.4 4 6.4v2.2h-11v-2.2l4-6.4-4-6.4z" fill="#f6ecc8" ${S}/><path d="M8.6 5.6h6.8l-3.4 5.4z" fill="#f5b800"/><path d="M12 13.4l3 4.4H9z" fill="#ffd23f"/><path d="M5.6 2.6h12.8M5.6 21.4h12.8" stroke="${O}" stroke-width="2" stroke-linecap="round"/>`,
   castle: `<path d="M6 20.5V8.4h12v12.1z" fill="#f5b800" ${S}/><path d="M5 8.4V4.5h2.6v2.1h2.1V4.5h4.6v2.1h2.1V4.5H19v3.9z" fill="#ffd23f" ${S}/><path d="M10.4 20.5v-3.9a1.6 1.6 0 0 1 3.2 0v3.9z" fill="#7a4a1e"/><path d="M8.2 11.4h2.1v2.1H8.2zM13.7 11.4h2.1v2.1h-2.1z" fill="#c98a00"/>`,
   moon: `<path d="M20.5 15.2A8.6 8.6 0 0 1 9.2 3.9a8.6 8.6 0 1 0 11.3 11.3z" fill="#f5b800" ${S}/><path d="M18.4 13.6A6.6 6.6 0 0 1 10.8 6a6.6 6.6 0 1 0 7.6 7.6z" fill="#ffd23f" stroke="none"/>`,
   heart: `<path d="M12 20.4l-1.5-1.3C5.6 14.7 3 12.3 3 9.2 3 6.7 5 4.7 7.5 4.7c1.5 0 2.9.7 3.8 1.8l.7.9.7-.9c.9-1.1 2.3-1.8 3.8-1.8C19 4.7 21 6.7 21 9.2c0 3.1-2.6 5.5-7.5 9.9z" fill="#e8342a" ${S}/><path d="M7.7 7c-1 0-1.9.8-1.9 1.9 0 .5.1 1 .4 1.4" fill="none" stroke="#ff9a8f" stroke-width="1.8" stroke-linecap="round"/>`,

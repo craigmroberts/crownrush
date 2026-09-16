@@ -751,6 +751,7 @@ export const ViewMethods = {
         this.root.add(s);
         p.mesh = s;
         p.t = Math.max(p.t, 0.6);
+        p.pop = 0.12;   // a fresh squash when it grows, so a merged hit still reads as a hit
         return;
       }
     }
@@ -759,7 +760,10 @@ export const ViewMethods = {
     s.position.y += 1.6;
     s.scale.set(scale, scale / 2, 1);
     this.root.add(s);
-    this.popups.push({ mesh: s, t: 0.7, owner, value });
+    // `drift` is seeded per popup so several numbers on one target fan out instead of stacking into
+    // a column nobody can read. `base` is what the pop animates around, because the merge path
+    // rewrites the mesh and would otherwise lose the size it was born at.
+    this.popups.push({ mesh: s, t: 0.7, owner, value, base: scale, drift: rand(-1.1, 1.1), pop: 0.12, rise: 0 });
   },
 
   // Free GPU resources of a character that left the scene (health-bar texture, skeleton bone texture).
@@ -793,8 +797,20 @@ export const ViewMethods = {
     for (let i = this.popups.length - 1; i >= 0; i--) {
       const p = this.popups[i];
       p.t -= dt;
-      p.mesh.position.y += dt * 2.2;
-      p.mesh.material.opacity = Math.min(1, p.t * 3);
+      // Thrown, not driven: quick off the target and slowing as it goes, which is the shape every
+      // other moving thing in this game has.
+      const age = 0.7 - p.t;
+      const speed = 4.4 * Math.exp(-age * 2.6);
+      p.mesh.position.y += dt * speed;
+      p.mesh.position.x += dt * p.drift * Math.exp(-age * 2.2);
+      // a short squash-and-overshoot on birth, the same curve makeRigged's spawn pop uses
+      if (p.pop > 0) {
+        p.pop -= dt;
+        const s = 1 - Math.max(0, p.pop / 0.12);
+        const k = s * (1 + Math.sin(s * Math.PI) * 0.45);
+        p.mesh.scale.set(p.base * k, (p.base / 2) * k, 1);
+      }
+      p.mesh.material.opacity = Math.min(1, p.t * 2.6);
       if (p.t <= 0) {
         this.root.remove(p.mesh);
         p.mesh.material.dispose();
