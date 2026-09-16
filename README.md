@@ -507,7 +507,7 @@ on a CPU. Budgets:
 | Draw calls | < 400 late game | each one costs CPU time no matter how small it is |
 | Triangles | < 1M late game | phones slow down past this, especially with shadows |
 | Triangles per character | ~5k (King 6.5k) | 100+ characters can be on screen |
-| Load | < 3 MB to the Play button | first play on mobile data |
+| Load | < 3 MB to the Play button | first play on mobile data; measured **on the wire**, which is what that reason means |
 
 What keeps it fast:
 - The crowd — raiders, archers, swordsmen, elites, brutes, the boss — is ONE instanced draw per model,

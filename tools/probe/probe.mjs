@@ -153,12 +153,20 @@ async function measure(url, { mobile }) {
   // and 4511 kB on phone in one run, the difference being nothing but how busy the machine was.
   await page.addInitScript(() => {
     window.__playAt = new Promise((res) => {
-      const tick = () => {
+      // Observed, not polled. main.js enables the button and starts fetching the deferred models on
+      // the very next line, and over localhost those 1.2 MB can land inside a poll's own interval:
+      // at 8ms this counted king_mounted, barracks and house as load and reported 4850 kB against a
+      // true 3648. A MutationObserver runs at the microtask checkpoint after the attribute changes,
+      // which is before any of that can come back.
+      const done = () => res(performance.now());
+      const watch = () => {
         const b = document.getElementById('start-btn');
-        if (b && !b.disabled) return res(performance.now());
-        setTimeout(tick, 8);
+        if (!b) return setTimeout(watch, 4);      // only until the parser reaches it
+        if (!b.disabled) return done();
+        new MutationObserver((_, o) => { if (!b.disabled) { o.disconnect(); done(); } })
+          .observe(b, { attributes: true, attributeFilter: ['disabled'] });
       };
-      tick();
+      watch();
     });
   });
   await page.goto(url, { waitUntil: 'load', timeout: 120000 });
@@ -177,20 +185,31 @@ async function measure(url, { mobile }) {
   // inside budget. Both numbers are worth having; only one of them is the budget.
   // Resource Timing, filtered to what had finished by then, so the answer does not depend on when a
   // poll happened to fire. Same-origin, so decodedBodySize is populated.
+  // Both, because they answer different questions and the budget only means one of them. The README
+  // asks for under 3 MB "to the Play button" for "first play on mobile data" -- that is what comes
+  // down the wire, and the 961 kB bundle is 272 kB of it once gzip has had it. Decoded is the honest
+  // number for memory and the one the rest of this report uses; wire is the one the budget is about.
   const played = await page.evaluate(async () => {
     const at = await window.__playAt;
-    let bytes = 0;
+    let decoded = 0;
+    let wire = 0;
     let n = 0;
+    const take = (e) => {
+      decoded += e.decodedBodySize || e.transferSize || 0;
+      // encodedBodySize is the compressed body; transferSize adds headers and is 0 for a cache hit
+      wire += e.encodedBodySize || e.transferSize || 0;
+      n++;
+    };
     for (const e of performance.getEntriesByType('resource')) {
       if (!e.responseEnd || e.responseEnd > at) continue;
-      bytes += e.decodedBodySize || e.transferSize || 0;
-      n++;
+      take(e);
     }
     const nav = performance.getEntriesByType('navigation')[0];
-    if (nav) { bytes += nav.decodedBodySize || nav.transferSize || 0; n++; }
-    return { bytes, n };
+    if (nav) take(nav);
+    return { decoded, wire, n };
   });
-  const bytesToPlay = played.bytes;
+  const bytesToPlay = played.decoded;
+  const wireToPlay = played.wire;
   const requestsToPlay = played.n;
 
   const errorScreen = await page.evaluate(() => {
@@ -336,6 +355,7 @@ async function measure(url, { mobile }) {
     errors: [...new Set(errors)].slice(0, 10),
     throttled: has('throttle'),
     decodedKbToPlay: Math.round(bytesToPlay / 1024),
+    wireKbToPlay: Math.round(wireToPlay / 1024),
     requestsToPlay,
     decodedKb: Math.round(transfer.bytes / 1024),
     requests: transfer.requests,
@@ -364,7 +384,7 @@ async function measure(url, { mobile }) {
 
 const fmt = (r) => [
   `  ${r.device}`,
-  `    load to playable   ${r.loadMs} ms${r.throttled ? ' (4 Mbps / 100ms)' : ''} · ${r.decodedKbToPlay} kB decoded over ${r.requestsToPlay} requests`,
+  `    load to playable   ${r.loadMs} ms${r.throttled ? ' (4 Mbps / 100ms)' : ''} · ${r.wireKbToPlay} kB on the wire (${r.decodedKbToPlay} kB decoded) over ${r.requestsToPlay} requests`,
   `    whole session      ${r.decodedKb} kB over ${r.requests} requests   (the rest arrives behind the title screen)`,
   `    third-party        ${r.thirdParty.length ? r.thirdParty.join(', ') : 'none'}`,
   `    frame time         ${r.frameMsMedian} ms median · ${r.frameMsP95} ms p95   (SwiftShader: compare runs, not budgets)`,
@@ -415,7 +435,9 @@ if (has('compare')) {
 // `crowd` says whether a budget only means anything with a late-game crowd on the field. The README
 // says "late game" for draw calls and triangles, and a plain run never leaves night one.
 const BUDGETS = [
-  { key: 'decodedKbToPlay', limit: 3072, unit: ' kB', label: 'bytes to a clickable Play button' },
+  // wire, not decoded: the budget's reason is "first play on mobile data", which is what is actually
+  // sent. Decoded is in the report beside it and is the number to watch for memory.
+  { key: 'wireKbToPlay', limit: 3072, unit: ' kB', label: 'bytes to a clickable Play button' },
   { key: 'drawCallsPeak', limit: 400, unit: '', label: 'draw calls', crowd: true },
   { key: 'trianglesMedian', limit: 1000000, unit: '', label: 'triangles', crowd: true },
 ];
