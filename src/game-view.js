@@ -485,6 +485,15 @@ export const ViewMethods = {
     }
   },
 
+  // Take every loose coin off the field without collecting it. reset() scatters the starting purse
+  // along the road west to teach the pickup rule without a word; a run being restored has been
+  // taught, and those ten would be a free handful on every reload.
+  clearGroundCoins() {
+    for (const c of this.coins) this.root.remove(c.mesh);
+    this.coins.length = 0;
+    if (this.coinField) this.coinField.update(this.coins);
+  },
+
   dropCoin(pos, tier = this.coinTier()) {
     // An empty Object3D, not a coin: CoinField draws every coin on the field in two instanced calls
     // and reads this for where to put each one. Everything below moves it exactly as it moved a mesh.

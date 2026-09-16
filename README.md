@@ -74,6 +74,25 @@ worker precaches the lot after that. Waiting for all fourteen cost 12.0 s to a c
 on a throttled 4 Mbps / 100 ms connection; waiting for eleven, fetched in parallel rather than one
 after another, costs 9.2 s.
 
+## Picking a run back up
+
+A full run is thirty nights of about seventy-five seconds, and a phone browser throws away a
+backgrounded tab whenever it feels like it. The run is written to `localStorage` at every dawn --
+the one beat where the field is quiet, the spawn queue empty and nothing in flight -- and the title
+screen offers **Continue** above a Play button that now says *New run*, with the night, the Keep
+level and the score under it. At most one cycle is ever lost.
+
+What is stored is state rather than history. Replaying the pads that were bought would mean replaying
+every toast, every coin of score and every reward choice over a game that has not started, so
+everything the player *has* is written down directly and only five builders are replayed on load:
+the buildings, the walls, the expansions, the bridges and the horse -- the ones whose output is a
+mesh in a place rather than a number. Enemies, loose coins, arrows and half-mined piles are not
+stored; at dawn there are none, which is what makes dawn the place to do this. The fog of war is,
+as a 256x256 PNG, because the minimap is most of how the map gets read and coming back blind would
+undo a good part of what the player did. A saved run runs about 17 kB.
+
+Winning or losing clears it, and so does starting a new run. See [src/game-save.js](src/game-save.js).
+
 ## The intro
 
 The first time you press Play, four short steps explain the game one idea at a time (find the Queen,

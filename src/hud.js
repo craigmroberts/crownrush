@@ -93,7 +93,7 @@ export class Hud {
   // stone, because the next notice replaced it before he had read it. Each one now waits its turn,
   // holds long enough to read, and is kept in a short log the info screen can show back.
   toast(text, ms = 3200) {
-    if (!text) return;
+    if (!text || this.mute) return;
     this.toastQueue = this.toastQueue || [];
     this.toastLog = this.toastLog || [];
     if (this.toastLog[0] !== text) this.toastLog.unshift(text);
@@ -159,8 +159,23 @@ export class Hud {
     return !!this.introSteps;
   }
 
-  showStart(best) {
+  // `saved` is the stored run, or null. With one there, Continue is offered above Play and Play
+  // says what it now means -- throwing the run away -- rather than looking like the same button.
+  showStart(best, saved = null) {
     document.getElementById('best-wave').textContent = best;
+    const cont = document.getElementById('continue-run-btn');
+    const note = document.getElementById('continue-note');
+    const start = document.getElementById('start-btn');
+    if (cont && note && start) {
+      cont.classList.toggle('hidden', !saved);
+      note.classList.toggle('hidden', !saved);
+      if (saved) {
+        note.textContent = `Night ${saved.wave}, Keep ${saved.baseLevel} · ${saved.score} points`;
+        start.textContent = 'New run';
+      } else {
+        start.textContent = 'Play';
+      }
+    }
     this.startScreen.classList.remove('hidden');
   }
   hideStart() {

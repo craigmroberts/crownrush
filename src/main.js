@@ -15,7 +15,7 @@ try {
   throw err;
 }
 
-hud.showStart(game.best);
+hud.showStart(game.best, game.savedRun());
 const startBtn = document.getElementById('start-btn');
 startBtn.disabled = true;
 startBtn.classList.add('hidden');
@@ -100,6 +100,13 @@ document.getElementById('intro-next').addEventListener('click', () => hud.introN
 document.getElementById('intro-skip').addEventListener('click', (e) => {
   e.preventDefault();
   hud.finishIntro();
+});
+// #50: pick a run back up. If the save turns out unreadable, restoreRun clears it and starts clean
+// rather than handing back half a village, so this always ends in a playable game.
+document.getElementById('continue-run-btn').addEventListener('click', () => {
+  const saved = game.savedRun();
+  hud.hideStart();
+  game.resumeRun(saved);
 });
 document.getElementById('restart-btn').addEventListener('click', () => game.start());
 document.getElementById('continue-btn').addEventListener('click', () => game.resume());

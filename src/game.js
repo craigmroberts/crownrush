@@ -12,6 +12,7 @@ import { EnemiesMethods } from './game-enemies.js';
 import { UnitsMethods } from './game-units.js';
 import { ViewMethods } from './game-view.js';
 import { VillagerMethods } from './game-villagers.js';
+import { SaveMethods } from './game-save.js';
 
 export class Game {
   constructor(canvas, hud) {
@@ -405,6 +406,7 @@ export class Game {
   }
 
   start() {
+    this.clearRun();
     this.reset();
     this.running = true;
     this.watchRender();
@@ -420,6 +422,21 @@ export class Game {
   resume() {
     this.hud.hideVictory();
     this.running = true;
+  }
+
+  // #50: pick up a stored run. Falls back to a fresh one if the save cannot be applied, so the
+  // button always leads somewhere playable.
+  resumeRun(saved) {
+    const ok = this.restoreRun(saved);
+    if (!ok) return this.start();
+    this.running = true;
+    this.watchRender();
+    this.hud.hideGameOver();
+    this.hud.hideVictory();
+    this.hud.hidePause();
+    this.hud.toast(`Night ${this.wave} again. Your kingdom stands.`, 3000);
+    audio.init();
+    audio.setActive(true);
   }
 
   // Stopping the world and putting the pause screen up are two different things, and conflating them
@@ -469,6 +486,7 @@ export class Game {
     this.lost = reason;
     this.over = true;
     this.running = false;
+    this.clearRun();
     if (this.wave > this.best) {
       this.best = this.wave;
       localStorage.setItem('crownrush-best', String(this.best));
@@ -481,6 +499,7 @@ export class Game {
   victory() {
     this.won = true;
     this.running = false;
+    this.clearRun();
     if (this.wave > this.best) {
       this.best = this.wave;
       localStorage.setItem('crownrush-best', String(this.best));
@@ -491,6 +510,7 @@ export class Game {
   }
 
   addScore(n) {
+    if (this.restoring) return;   // a rebuilt village is not earned a second time
     this.score += Math.round(n);
   }
 
@@ -707,4 +727,4 @@ export class Game {
 
 // The rest of the class. These were cut out of this file to keep it readable; they are ordinary
 // methods of Game and behave exactly as they did when they were written inline.
-Object.assign(Game.prototype, BuildMethods, EnemiesMethods, UnitsMethods, ViewMethods, VillagerMethods);
+Object.assign(Game.prototype, BuildMethods, EnemiesMethods, UnitsMethods, ViewMethods, VillagerMethods, SaveMethods);

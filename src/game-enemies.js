@@ -671,6 +671,8 @@ export const EnemiesMethods = {
   // The reward beat: you held the night, here is the day to rebuild in.
   dawnBreaks(cleared) {
     if (this.wave <= 0) return;
+    // #50: the run is written down here, on the one beat where there is nothing in flight to write.
+    this.saveRun();
     if (cleared) {
       this.addScore(CFG.score.waveClear * this.wave);
       this.hud.toast(`Dawn. You held night ${this.wave}.`, 3000);
@@ -898,6 +900,16 @@ export const EnemiesMethods = {
       this.addScore(CFG.score.finale);
       this.victory();
     } else if (e.type === 'boss') this.hud.toast('Boss defeated!', 1800);
+  },
+
+  // Take an enemy off the board without killing it: no coins, no score, no sound, no death spin.
+  // killEnemy is what happens when the player earns it; this is what happens when an enemy belongs
+  // to a part of the run that is over, which on a restore is the Queen's captors.
+  removeEnemy(e) {
+    const i = this.enemies.indexOf(e);
+    if (i >= 0) this.enemies.splice(i, 1);
+    this.root.remove(e.mesh);
+    this.disposeEntity(e.mesh);
   },
 
   nearestEnemy(pos, range, skip = null) {
