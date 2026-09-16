@@ -1095,7 +1095,9 @@ export const BuildMethods = {
     if (w.state !== 'built') return;
     if (attacker && this.mods.wallThorns) this.damageEnemy(attacker, this.mods.wallThorns, attacker.mesh.position);
     if (w.isKeep) {
-      this.raiseAlarm('The Keep is under attack!');
+      // #104: her home, and her voice -- but not while she is the one being carried off. A woman
+      // shouting about the masonry from the back of a raider's cart is not the moment.
+      this.raiseAlarm('The Keep is under attack!', this.queen.captive ? null : 'call');
       w.hp -= dmg;
       setHealthBar(w.bar, Math.max(0, w.hp / w.maxHp));
       w.mesh.position.y = 0.06;

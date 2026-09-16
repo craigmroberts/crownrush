@@ -1,7 +1,7 @@
 import { Game } from './game.js';
-import { Hud } from './hud.js';
+import { Hud, SPEAKERS } from './hud.js';
 import { audio } from './audio.js';
-import { preloadRigs, renderPortrait, releasePortraitRenderer } from './rig.js';
+import { preloadRigs, renderPortrait, renderFace, releasePortraitRenderer } from './rig.js';
 import { preloadProps } from './props.js';
 import { preloadIcons, mountIcons, iconSvg } from './icons.js';
 import { readScores } from './scores.js';
@@ -62,6 +62,15 @@ Promise.all([
     const q = renderPortrait('queen');
     if (k) document.getElementById('hero-king').src = k;
     if (q) document.getElementById('hero-queen').src = q;
+    // #100: the little faces that go beside a speaker's name, taken here because this is the last
+    // moment the portrait renderer exists. Two more small renders while it is already warm.
+    const faces = {};
+    for (const [who, spec] of Object.entries(SPEAKERS)) {
+      if (!spec.rig) continue;
+      const f = renderFace(spec.rig);
+      if (f) faces[who] = f;
+    }
+    hud.setFaces(faces);
   } catch (e) {
     console.warn('portraits skipped', e);
   } finally {

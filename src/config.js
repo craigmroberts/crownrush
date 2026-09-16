@@ -301,6 +301,12 @@ export const CFG = {
 
   arrow: { speed: 30, life: 2.0 },
 
+  // #104: Wren's voice. `gap` is the least game time between two of her cries, on top of the alarm's
+  // own six-second cooldown that they already sit inside. Fourteen because seven alarms can be raised
+  // and some of them repeat -- thieves, tower crews -- and a character who cries out at every one of
+  // them stops being a character and becomes wallpaper in about a minute.
+  voice: { gap: 14 },
+
   // Wall materials, in upgrade order. Named for what you actually mine, so "stone walls" means the
   // walls are made of the stone you carried to the Keep.
   // Imported buildings are generated in one material (the Archery Range is a log cabin), so until

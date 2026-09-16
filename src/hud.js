@@ -11,6 +11,20 @@ const HEARTS = 5;
 // and coarse enough that regen at 3 hp/s rewrites the row about once a second rather than sixty
 // times, which is what `Hud.set`'s dirty-checking exists to avoid.
 const HEART_STEPS = 8;
+// #100: who is a person and who is a heading. #89 gave every notice a label and they were already two
+// different kinds of thing -- `Wren` and `The King` are someone talking, `Raid` and `Keep` and
+// `Village` and `Bag` are what the game is reporting -- but they all rendered identically, in one
+// colour, which is what flattened the distinction.
+//
+// A table rather than a pair of `if`s: the Warlord is the obvious third and the camp waking is his
+// moment, so when he has a rig to render he is a row here and nothing else changes.
+// `rig` is what renderFace is asked for at load; a speaker with no rig still gets their colour.
+// The colours have to hold over grass and over the near-white late-game walls, which is what the
+// label's heavy shadow is already there for.
+export const SPEAKERS = {
+  Wren: { rig: 'queen', colour: '#ffb0cd' },
+  'The King': { rig: 'king', colour: '#ffd27a' },
+};
 // The circumference of the r=17 circle both rings are drawn on, which is what the stylesheet's dash
 // array is set to. Change one and change the other.
 const RING_C = 106.81;
@@ -73,6 +87,11 @@ export class Hud {
     this.toastMore = document.getElementById('toast-more');
     if (this.toastMore) this.toastMore.innerHTML = iconSvg('chev', 16);
     this.toastRest = '';
+    this.kindEl = document.getElementById('toast-kind');
+    this.kindText = document.getElementById('toast-kind-t');
+    this.faceEl = document.getElementById('toast-face');
+    this.faces = {};            // #100: speaker -> data URL, rendered once at load
+    this.shownKind = null;
     // The panel only takes pointer events while there is another page (see `#toast.more` in the
     // stylesheet), so this cannot steal a drag meant for the King at any other time. Tapping the last
     // page deliberately does nothing: dismissing a notice early is not worth a dead patch of screen
@@ -226,10 +245,41 @@ export class Hud {
     this.toastShowing = next.text;
     this.toastKind = next.kind || '';
     this.toastMs = next.ms;
-    const kindEl = document.getElementById('toast-kind');
-    if (kindEl && kindEl.textContent !== this.toastKind) kindEl.textContent = this.toastKind;
+    this.setKind(this.toastKind);
     this.showPage(next.text, this.toastKind, next.ms);
   }
+  // #100: the label, and whether it is a person. A speaker gets their own colour and their face; a
+  // category keeps the pale green it has always had. The label is never typed out (#95) -- who is
+  // speaking is there before they speak -- and the face belongs with the name, not with the words.
+  //
+  // Dirty-checked on the label itself rather than on each write: this runs once a notice, but the
+  // three writes underneath are an image swap and two style changes, and swapping an `src` for the
+  // same URL still costs a decode on some browsers.
+  setKind(kind) {
+    if (this.shownKind === kind) return;
+    this.shownKind = kind;
+    const el = this.kindEl;
+    if (!el) return;
+    el.classList.toggle('hidden', !kind);
+    if (!kind) return;
+    this.kindText.textContent = kind;
+    const who = SPEAKERS[kind];
+    el.style.color = who ? who.colour : '';
+    el.classList.toggle('speaker', !!who);
+    // A face is not always there: makeRigged returns null until the model has loaded and can hand back
+    // a crowd instance instead, so renderFace returns null and a speaker keeps their colour without
+    // one. It has to look deliberate rather than broken, which is why the img is hidden rather than
+    // left showing a missing image.
+    const src = who && this.faces[kind];
+    this.faceEl.hidden = !src;
+    if (src && this.faceEl.getAttribute('src') !== src) this.faceEl.src = src;
+  }
+  // #100: handed the faces rendered at load, while the portrait renderer was still up.
+  setFaces(faces) {
+    this.faces = faces || {};
+    this.shownKind = null;      // so a label already on screen picks its face up
+  }
+
   // One page: split off what fits, reveal it, and hold for as long as it takes to read what is now on
   // screen rather than the whole message.
   showPage(text, kind, ms) {

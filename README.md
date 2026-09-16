@@ -70,6 +70,14 @@ loop underneath it:
   corner saying who is speaking or what it is about --
   **Wren**, **Raid**, **Keep**, **Village**, **Bag**. The few notices that are the game talking about
   itself rather than about the world (a lost graphics context) carry no label at all.
+  Some of those labels are people and some are headings, and they no longer look the same. A speaker
+  gets their own colour and their face beside their name; a category keeps the pale green it always
+  had. The faces are rendered once at load, in the same block as the title portraits and before the
+  second WebGL context is handed back -- a browser caps how many contexts a page may hold, and this
+  game already carries a safe-mode recovery path for losing the one it needs, so standing another up
+  every time Wren says something would trade that for a decoration. Measured: two extra renders while
+  the renderer is already warm cost 3ms of a 2.36s load, and no context is created after the game
+  starts. Who is a person lives in one table, so the Warlord is a row when he has a rig to render.
 - A notice is one box. Always the same width, never more than three lines: a longer one becomes pages,
   with a bobbing arrow under the text saying there is more, and it turns the page on its own once
   there has been time to read it, or at once if you tap it. Tapping only does anything while there
@@ -103,6 +111,12 @@ loop underneath it:
   dead with nothing able to resume him.
 - Sound is synthesised in the browser (no audio files): a looping background melody, arrow hits, coin
   pickups, the "ching" of coins being spent, build fanfares and wave horns. The speaker button mutes it.
+  Wren has a voice, made the same way -- a sawtooth through two bandpass filters at a vowel's formants,
+  which is a buzz shaped by the mouth around it, the same trick the wolf's howl uses. She calls out
+  when the Keep is attacked and cries differently when raiders get hold of her, and not while she is
+  the one being carried off. `speechSynthesis` would have said real words and was rejected: the voice
+  is whatever the device ships, iOS will not speak without a gesture, and it does not go through the
+  audio graph, so it would have been the only sound in the game the mute button could not reach.
 
 ## Run it locally
 

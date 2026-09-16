@@ -176,7 +176,7 @@ export const EnemiesMethods = {
       e.maxHp = e.hp = e.maxHp * 1.5;
       q.escort.push(e);
     }
-    this.raiseAlarm('They have Wren!');
+    this.raiseAlarm('They have Wren!', 'fear');
     this.hud.toast('They are carrying Wren to the edge of the map. Cut the escort down.', 3800, 'Wren');
     audio.wave(true);
   },
@@ -870,7 +870,7 @@ export const EnemiesMethods = {
     // part-way down (`shaken`), and that is exactly when a second grab must still be announced. The
     // old alarm fired on every point of damage she took, so the warning arrived as a stutter during
     // the emergency rather than at the start of it.
-    if (hands > 0 && !q.held) this.raiseAlarm('They have hold of Wren!');
+    if (hands > 0 && !q.held) this.raiseAlarm('They have hold of Wren!', 'fear');
     q.held = hands > 0;
 
     const was = q.seize;

@@ -207,16 +207,53 @@ export function releasePortraitRenderer() {
   portraitRenderer = null;
 }
 
+// #100: the same idea framed on the head, for the little face beside a speaker's name on a notice.
+// A separate function rather than more parameters on renderPortrait, because almost nothing is shared
+// once the camera moves: a portrait is a figure standing, this is a crop.
+//
+// It has to be called while the portrait renderer is still up -- that is, at load, before main.js
+// releases the second WebGL context. Browsers cap how many contexts a page may hold, and this game
+// already carries a whole safe-mode recovery path for losing the one it needs. Standing a second one
+// back up every time Wren says something would trade that robustness for a decoration.
+export function renderFace(name, size = 112, tints = null) {
+  const rig = makeRigged(name, tints);
+  if (!rig) return null;
+  const r = portraitRenderer || (portraitRenderer = makePortraitRenderer());
+  r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  r.setSize(size, size, false);
+  const scene = new THREE.Scene();
+  scene.add(new THREE.HemisphereLight(0xfff8ea, 0x8fb86a, 1.5));
+  const sun = new THREE.DirectionalLight(0xfff1d6, 1.6);
+  sun.position.set(1.4, 3, 2.6);
+  scene.add(sun);
+  // less of a turn than the portrait takes: at this crop a three-quarter head loses an eye
+  rig.mesh.rotation.y = name === 'queen' ? 0.2 : -0.2;
+  scene.add(rig.mesh);
+  rig.play('Idle');
+  rig.mixer.update(0.4);
+  // the head sits around y = 1.4 (characters.js builds the Queen's at 1.44), so this is the standing
+  // camera moved up to it and brought in until the crown and the chin both just fit
+  const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 20);
+  cam.position.set(0, 1.46, 1.5);
+  cam.lookAt(0, 1.4, 0);
+  r.render(scene, cam);
+  const url = r.domElement.toDataURL('image/png');
+  scene.clear();
+  return url;
+}
+
+function makePortraitRenderer() {
+  const r = new THREE.WebGLRenderer({ canvas: document.createElement('canvas'), alpha: true, antialias: true });
+  r.outputColorSpace = THREE.SRGBColorSpace;
+  r.toneMapping = THREE.ACESFilmicToneMapping;
+  r.toneMappingExposure = 1.15;
+  return r;
+}
+
 export function renderPortrait(name, w = 300, h = 380, tints = null) {
   const rig = makeRigged(name, tints);
   if (!rig) return null;
-  if (!portraitRenderer) {
-    portraitRenderer = new THREE.WebGLRenderer({ canvas: document.createElement('canvas'), alpha: true, antialias: true });
-    portraitRenderer.outputColorSpace = THREE.SRGBColorSpace;
-    portraitRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-    portraitRenderer.toneMappingExposure = 1.15;
-  }
-  const r = portraitRenderer;
+  const r = portraitRenderer || (portraitRenderer = makePortraitRenderer());
   const canvas = r.domElement;
   r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   r.setSize(w, h, false);

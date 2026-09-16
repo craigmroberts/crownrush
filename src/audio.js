@@ -409,6 +409,82 @@ class Audio {
     this.noise({ t: t + 0.15, dur: 1.5, gain: 0.045, type: 'bandpass', f: 500, q: 0.7 });
   }
 
+  // #104: Wren calling out.
+  //
+  // There are no audio files in this game -- everything in here is synthesised at play time, which is
+  // a large part of why it loads in about two and a half seconds -- so a voice has to be a pitch
+  // contour and a pair of formants rather than a recording. It is not speech and is not trying to be;
+  // games have said "someone over there needs you" without words for forty years.
+  //
+  // `speechSynthesis` was the other route and is the wrong one. The voice is whatever the device
+  // happens to ship, so she would sound like a different screen reader on every phone; iOS will not
+  // speak at all without a user gesture; and it does not go through the Web Audio graph, so it would
+  // be the only sound in the game that the mute button and the volume slider cannot touch. `ready()`
+  // already gates on `muted`, which is exactly the argument.
+  //
+  // `kind` is which of her two moments this is. 'call' is her shouting across the village for help,
+  // open and rising before it falls; 'fear' is her being taken -- higher, tighter and dropping away.
+  cry(kind = 'call') {
+    if (!this.ready()) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime + 0.02;
+    const call = kind !== 'fear';
+    const dur = call ? 0.62 : 0.46;
+    // A voice is a buzz shaped by the mouth around it: the sawtooth is the buzz, and two bandpass
+    // filters at a vowel's first two formants are the mouth. Roughly "ah" for the open call and "eh"
+    // for the tighter one -- the second formant is most of what tells a listener they are different.
+    const f0 = call ? 300 : 380;
+    const [f1, f2] = call ? [800, 1180] : [560, 1760];
+    const o = ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f0 * 0.82, t);
+    o.frequency.exponentialRampToValueAtTime(f0 * (call ? 1.16 : 1.3), t + (call ? 0.17 : 0.08));
+    o.frequency.exponentialRampToValueAtTime(f0 * (call ? 0.7 : 0.52), t + dur);
+    // the wobble that stops it reading as a siren
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = call ? 5.6 : 7.8;
+    const lfoDepth = ctx.createGain();
+    lfoDepth.gain.value = call ? 9 : 15;
+    lfo.connect(lfoDepth);
+    lfoDepth.connect(o.frequency);
+    const mix = ctx.createGain();
+    mix.gain.value = 1;
+    const parts = [];
+    for (const [f, q, lvl] of [[f1, 7, 1], [f2, 9, 0.6]]) {
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = f;
+      bp.Q.value = q;
+      const lv = ctx.createGain();
+      lv.gain.value = lvl;
+      o.connect(bp);
+      bp.connect(lv);
+      lv.connect(mix);
+      parts.push(bp, lv);
+    }
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(call ? 0.26 : 0.3, t + 0.07);
+    g.gain.setValueAtTime(call ? 0.26 : 0.3, t + dur * 0.55);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.12);
+    mix.connect(g);
+    g.connect(this.sfx);
+    o.start(t);
+    o.stop(t + dur + 0.16);
+    lfo.start(t);
+    lfo.stop(t + dur + 0.16);
+    // #61: both sources stop on the same tick, so one handler takes the lot -- the vibrato chain
+    // included, because once the oscillator it was bending has ended there is nothing left to bend.
+    o.onended = () => {
+      o.disconnect();
+      lfo.disconnect();
+      lfoDepth.disconnect();
+      for (const n of parts) n.disconnect();
+      mix.disconnect();
+      g.disconnect();
+    };
+  }
+
   // ---- sound effects ----
   get now() {
     return this.ctx ? this.ctx.currentTime : 0;

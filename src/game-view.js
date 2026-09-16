@@ -941,12 +941,19 @@ export const ViewMethods = {
     this.hud.setIndicators(list);
   },
 
-  raiseAlarm(text) {
+  // #104: `voice` is Wren reacting, for the beats that are hers -- null for the ones that are not.
+  // It sits INSIDE the alarm's cooldown rather than beside it, so it can never speak more often than
+  // the alarm it belongs to, and then keeps a longer gap of its own on top.
+  raiseAlarm(text, voice = null) {
     this.alarmT = 3.5;
     this.alarmText = text;
     if (this.time - this.lastAlarm > 6) {
       this.lastAlarm = this.time;
       audio.alarm();
+      if (voice && this.time - (this.lastCry || -99) > CFG.voice.gap) {
+        this.lastCry = this.time;
+        audio.cry(voice);
+      }
     }
   },
 

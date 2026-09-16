@@ -267,6 +267,7 @@ export class Game {
     this._pen = new V3(CFG.rescue.pos[0], 0, CFG.rescue.pos[1]);
     this._penDir = new V3();
     this.lastAlarm = -99;
+    this.lastCry = -99;         // #104: when Wren last said anything out loud
     this.swing = 0;
     this.activePad = null;
     this.nodeRing = null;
