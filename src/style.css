@@ -738,10 +738,21 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .panel.offer .offer-card b { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 17px; color: #2a3a2f; }
 .panel.offer .offer-card span { font-size: 13px; color: #5a5a4a; line-height: 1.35; }
 .panel.offer .offer-card .oicon { height: 40px; }
+/* #115: what the card touches, above what it is called. Small, upper, and in the card's own brown
+   rather than a new colour -- it is a filing label, not a second headline, and it has to lose to the
+   name beside it or it is just more to read. */
+.panel.offer .offer-card .otext { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.panel.offer .offer-card .opool {
+  font-style: normal; font-size: 11px; font-weight: 800; letter-spacing: 0.07em;
+  text-transform: uppercase; color: #8a7a52; line-height: 1;
+}
 @media (max-width: 560px) {
   #offer-cards { flex-direction: column; }
-  .panel.offer .offer-card { flex-direction: row; text-align: left; gap: 10px; padding: 10px 12px; }
-  .panel.offer .offer-card > div:first-child { flex: 0 0 40px; }
+  .panel.offer .offer-card { flex-direction: row; align-items: center; text-align: left; gap: 10px; padding: 10px 12px; }
+  .panel.offer .offer-card .oicon { flex: 0 0 40px; }
+  /* the stack goes left-aligned here, and it is the flex item that takes the leftover width -- without
+     the `min-width: 0` a long description refuses to wrap and pushes the card wider than the screen */
+  .panel.offer .offer-card .otext { align-items: flex-start; flex: 1 1 auto; min-width: 0; }
 }
 
 /* a thief running off with your coins */

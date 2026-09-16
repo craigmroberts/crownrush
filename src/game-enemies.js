@@ -988,11 +988,15 @@ export const EnemiesMethods = {
     this.disposeEntity(e.mesh);
   },
 
+  // #115: `skip` is one enemy or a list of them. A list is what the King's Volley needs -- one arrow
+  // per raider means each shot has to avoid everything the volley has already picked, not just the
+  // first. An array is always short (three at the most), so `includes` costs less than a Set would.
   nearestEnemy(pos, range, skip = null) {
     let best = null;
     let bd = range * range;
+    const skipped = (e) => (Array.isArray(skip) ? skip.includes(e) : e === skip);
     for (const e of this.enemies) {
-      if (e === skip || e.captor) continue;
+      if (skipped(e) || e.captor) continue;
       const d = pos.distanceToSquared(e.mesh.position);
       const r = d - e.radius * e.radius * 2;
       if (r < bd) {

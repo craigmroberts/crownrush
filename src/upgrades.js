@@ -47,6 +47,27 @@ const add = (key, by) => (g) => { g.mods[key] += by; };
 // ground -- so a generated line is the percentage again with a vague word where the number was,
 // which is the thing being removed. The rule is instead that the sentence and the multiplier share a
 // line, and the sentence has to stay true of the number sitting next to it.
+// #115: what a card TOUCHES, in the player's words. Reported from play: "i dont understand the titles
+// quick enough for the options, i feel like they could be clearer."
+//
+// The names are flavour and the descriptions carry all the information, so three cards side by side
+// mid-raid mean three descriptions read or none. The pool was already on every upgrade and reached
+// nothing on screen -- and `pickOffer` takes one card per pool, so the three labels on an offer are
+// always three different ones. That makes this label the actual decision the panel is asking about:
+// archers or towers or walls tonight. It is the one thing that can be read without reading.
+//
+// Kept as a label rather than folded into the names. The names are the game's voice and they scan
+// fine once the area is known -- "Deep Footings" is only opaque until something says "your walls".
+// The alternative, plain functional titles ("Wall Health", "Tower Range"), was considered and is a
+// bigger change to make on a guess; the label is free and reversible.
+export const POOL_NAME = {
+  army: 'Your army',
+  towers: 'Watchtowers',
+  walls: 'Your walls',
+  economy: 'Coin and mining',
+  king: 'The King',
+};
+
 export const UPGRADES = [
   // ---- army ----
   { id: 'keen-eye', pool: 'army', icon: 'arrows', name: 'Keen Eye', desc: 'Your archers hit much harder, and raiders drop sooner.', apply: mul('archerDamage', 1.3) },
@@ -78,7 +99,23 @@ export const UPGRADES = [
 
   // ---- the King ----
   { id: 'swift', pool: 'king', icon: 'horse', name: 'Swift', desc: 'The King covers more ground in a day, on foot and mounted.', max: 3, apply: mul('kingSpeed', 1.2) },
-  { id: 'split-shot', pool: 'king', icon: 'arrows', name: 'Split Shot', desc: 'The King looses an extra arrow with every shot.', max: 2, rare: true, apply: add('kingArrows', 1) },
+  // #115: was "Split Shot", "The King looses an extra arrow with every shot." Two problems in one
+  // line, and it was reported as reading like a drawback -- "ive never understood the King's split
+  // shot, it seems like a negative option".
+  //
+  // "looses" is the correct archery verb and a homophone for "loses". Scanned in the second a raid
+  // gives you, "the King looses an extra arrow" is the King throwing one away. And "split" says one
+  // arrow divided -- the same damage shared out -- when each extra arrow carries his FULL damage at
+  // a raider of its own. Both halves of the card were telling the player the opposite of the truth.
+  //
+  // "at full strength" stays in the sentence rather than being trimmed: the halved-damage reading is
+  // what was actually reported, and one clause kills it.
+  //
+  // The `id` stays `split-shot`. It is a save key: `game-save.js` stores `taken` by id, and a renamed
+  // one would drop off the "rewards you have taken" list AND read as untaken -- so a player mid-run
+  // could take a maxed card twice more and finish with five arrows against the cap of three. The id
+  // is never shown to anybody; the name is the part that had to change.
+  { id: 'split-shot', pool: 'king', icon: 'arrows', name: 'Volley', desc: 'The King fires an extra arrow at another raider, at full strength.', max: 2, rare: true, apply: add('kingArrows', 1) },
   { id: 'field-surgeon', pool: 'king', icon: 'crown', name: 'Field Surgeon', desc: 'Everyone recovers health twice as fast.', apply: mul('regen', 2) },
 ];
 

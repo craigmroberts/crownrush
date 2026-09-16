@@ -1,6 +1,7 @@
 import { iconSvg } from './icons.js';
 import { CFG } from './config.js';
 import { endName } from './scores.js';
+import { POOL_NAME } from './upgrades.js';
 
 // #68: how many hearts the King's health is cut into. Five is coarse on purpose -- the exact figure
 // is the bar over his head, and a HUD readout that moved every frame would be a bar with gaps in it.
@@ -815,11 +816,22 @@ export class Hud {
     // screen the report asked to make shorter. Two words, and the rows say the rest.
     if (gh) gh.textContent = gains.length ? 'You gained' : '';
     document.getElementById('offer-more').textContent = queued > 1 ? `${queued - 1} more choice${queued > 2 ? 's' : ''} after this` : '';
+    // #115: the pool above the name, and the text in a box of its own. The label is the only part of a
+    // card that can be read without reading, and `pickOffer` takes one per pool so the three on screen
+    // are always three different ones -- which is the decision the panel is actually asking about.
+    //
+    // `.otext` exists for the phone. Under 560px the card turns into a row, and the name and the
+    // description were siblings in it: the name got a narrow column of its own and wrapped mid-name
+    // ("Wider / Decks"), which is its own reason a title cannot be read quickly. Wrapped, the row is
+    // icon and then a stack, which is the same shape the desktop card already had.
     document.getElementById('offer-cards').innerHTML = list.map((u) => `
       <button class="offer-card${u.rare ? ' rare' : ''}" data-id="${esc(u.id)}">
         <div class="oicon">${iconSvg(u.icon, 40)}</div>
-        <b>${esc(u.name)}</b>
-        <span>${esc(u.desc)}</span>
+        <div class="otext">
+          <em class="opool">${esc(POOL_NAME[u.pool] || '')}</em>
+          <b>${esc(u.name)}</b>
+          <span>${esc(u.desc)}</span>
+        </div>
       </button>`).join('');
     document.getElementById('offer-screen').classList.remove('hidden');
   }

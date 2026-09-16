@@ -174,8 +174,20 @@ export const UnitsMethods = {
       if (k.cooldown <= 0) {
         k.cooldown = 1 / (k.stats.fireRate * this.fireMul());
         tmp.copy(p).y += 1.6;
+        // #115: each arrow goes at a raider none of the others is already going at. `nearestEnemy`
+        // skips ONE enemy, so the loop used to pass `target` every time and arrows two and three both
+        // picked the same second-nearest raider -- at a full Volley the King never hit a third man,
+        // which is not what the card says and not what a spread is for. `shot` accumulates instead,
+        // and falls back to the main target once the field runs out, so a lone raider still takes all
+        // of them.
+        //
+        // Total damage is unchanged in every case; only which raiders take it moves. Measured against
+        // 1, 2, 3 and 5 raiders in front of the King.
+        const shot = this._shot || (this._shot = []);
+        shot.length = 0;
         for (let i = 0; i < this.mods.kingArrows; i++) {
-          const t2 = i === 0 ? target : this.nearestEnemy(p, k.stats.range, target) || target;
+          const t2 = i === 0 ? target : this.nearestEnemy(p, k.stats.range, shot) || target;
+          shot.push(t2);
           this.fireArrow(tmp, t2, k.stats.damage * this.damageMul);
         }
         if (k.mesh.userData.rig) {

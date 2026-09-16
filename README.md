@@ -414,6 +414,13 @@ A card says what you will see — *"Your walls and gates hold out far longer"* �
 percentage against a number the game never shows you (#107); the multiplier sits on the same line as
 the sentence, and the sentence has to stay true of it.
 
+The area is printed above the name — **YOUR ARMY**, **WATCHTOWERS**, **THE KING** — because the names
+are flavour and a player has a second to choose. `pool` was already on every upgrade and reached
+nothing on screen, and since an offer takes one card per pool the three labels are always three
+different ones: the label alone answers *archers or towers or walls tonight*, which is the decision
+the panel is actually asking about. The names stay flavour behind it; the one that was changed was
+changed for being wrong rather than for being flavour (#115).
+
 Each reward sets a multiplier or a flag on `game.mods`, and those are the only places gameplay code
 has to read, so adding a new one is a single entry in that file. Rewards apply retroactively where it
 matters: taking an archer reward upgrades the archers you already have, and a wall reward re-rates
@@ -464,7 +471,7 @@ rather than drifting up level by level.
 Wood, stone and straw you mine are spent on one thing only: **feeding the Keep**. Stand on the pad at
 its door to pour in materials; when the level's requirement is met the Keep levels up (1 to 15,
 `CFG.base.levels`). Each level raises how many archers and swordsmen the village supports
-(`CFG.base.archers` / `swordsmen`; recruit pads lock with a "Keep Lv N" card when you hit the cap),
+(`CFG.base.archers` / `swordsmen`; recruit pads lock with a "Needs Lv. N" chip when you hit the cap),
 speeds up every bow (1x at level 1, 2x at level 8, 3x at level 15) and rebuilds all walls in the next
 material at levels 4, 8 and 12 (`CFG.base.wallAt`). Some pads only appear at a Keep level
 (`minLevel`: village expansions, barracks). Coins still buy everything else.
