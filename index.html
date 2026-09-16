@@ -52,9 +52,6 @@
         <button class="tb-left" id="keep-plaque" title="Keep progress (K)">
           <div class="keep-top"><span id="wave-hud">Night <span id="wave-num">1</span></span><span id="keep-level">Keep 0</span></div>
           <div class="pips" id="keep-pips"></div>
-          <div class="tb-bars">
-            <div id="king-hp" class="bar-row"><i data-icon="crown" data-size="16"></i><div class="track"><div id="king-hp-fill"></div></div></div>
-          </div>
         </button>
         <!-- Coin is the only currency, so the only counts left are the army and what he is carrying.
              The load is a bar, not five numbers: what matters is how full he is, and the mix shows
@@ -69,8 +66,10 @@
         </button>
       </div>
       <!-- lanes 2 and 3: the countdown and the alarm each own a band under the plaques, so neither
-           can land on the other or squeeze the health bars the way the inline countdown did -->
-      <div id="lane-countdown"><span id="next-wave" class="hidden"></span></div>
+           can land on the other the way the inline countdown did. The raid meter shares lane 2 with
+           the countdown: the countdown is only up between waves, which is exactly when the meter
+           has nothing left to show. -->
+      <div id="lane-countdown"><span id="next-wave" class="hidden"></span><span id="raid-meter" class="hidden" title="What is left of tonight's raid"><i data-icon="swords" data-size="15"></i><span class="track"><i id="raid-fill"></i></span><b id="raid-left">0</b></span></div>
       <div id="lane-alarm"><span id="alarm" class="hidden"><i data-icon="alert" data-size="16"></i>The Keep is under attack</span></div>
       <!-- #23: sound, pause and info live in the settings sheet; the gear sits in the controls corner
            over the warhorn, out of the way of the field and of the coin -->

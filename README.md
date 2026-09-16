@@ -36,6 +36,11 @@ No storyline, just the loop:
 - Watchtowers are built empty. A "Man the Tower" pad next to each one takes archers from your army
   (the price is people, not coins). Gate guards work the same way.
 - Red arrows at the screen edge point at raiders you can't see, with a count and a skull for bosses.
+- A meter under the night plaque says what is left of tonight's raid: a bar of the health it arrived
+  with, and the number still standing. Raiders who have not walked on yet are already counted, so it
+  only falls, and it goes when the last one does -- which is the answer to "is that all of them?"
+  without sweeping the map. The Warlord calling reinforcements is the one thing that puts it back up.
+  The King has no bar in the corner: his own is over his head, where everyone else's is.
 - Sound is synthesised in the browser (no audio files): a looping background melody, arrow hits, coin
   pickups, the "ching" of coins being spent, build fanfares and wave horns. The speaker button mutes it.
 

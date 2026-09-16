@@ -32,7 +32,7 @@ export const EnemiesMethods = {
     const w = Math.max(1, this.wave);
     const L = Math.max(0, this.baseLevel - 1);
     // waves, rank and Keep level all scale the enemy
-    const hpMul = (1 + CFG.waves.hpGrowthPerWave * (w - 1)) * rk.hp * (1 + CFG.base.enemyHpPerLevel * L);
+    const hpMul = this.enemyHpMul(rank);
     const dmgMul = (1 + CFG.waves.dmgGrowthPerWave * (w - 1)) * rk.damage * (1 + CFG.base.enemyDmgPerLevel * L);
     if (!this.rankSeen[rank] && this.running) {
       this.rankSeen[rank] = true;
@@ -238,6 +238,44 @@ export const EnemiesMethods = {
       e.cooldown = 1 / e.stats.attackRate;
       this.damageWall(blocked, e.damage, e);
     }
+  },
+
+  // What a raider of this rank arrives with, as a multiple of its type's base HP. Shared with the
+  // raid meter, which has to price the ones still walking in.
+  enemyHpMul(rank) {
+    const rk = CFG.ranks[Math.min(rank, CFG.ranks.length - 1)];
+    const w = Math.max(1, this.wave);
+    const L = Math.max(0, this.baseLevel - 1);
+    return (1 + CFG.waves.hpGrowthPerWave * (w - 1)) * rk.hp * (1 + CFG.base.enemyHpPerLevel * L);
+  },
+
+  enemyMaxHp(type, rank) {
+    const stats = CFG.enemy[type];
+    return stats ? stats.hp * this.enemyHpMul(rank) : 0;
+  },
+
+  // What is left of tonight's raid: health still standing, plus health still on its way in, and a
+  // head count of both. Written into a scratch object rather than a fresh one, because this runs
+  // every frame.
+  //
+  // The spawn queue counts. A wave arrives staggered over several seconds, and a meter that ignored
+  // what had not landed yet would climb while they walked on and only then start falling -- it would
+  // be measuring the spawner rather than the fight. Her guards and the camp's sleeping garrison are
+  // not tonight's raid and are left out, but a garrison that has woken up is in, because by then it
+  // is fighting you like anything else.
+  raidRemaining(out) {
+    out.hp = 0;
+    out.count = 0;
+    for (const e of this.enemies) {
+      if (e.captor || e.camp) continue;
+      out.hp += Math.max(0, e.hp);
+      out.count++;
+    }
+    for (const s of this.spawnQueue) {
+      out.hp += this.enemyMaxHp(s.type, s.rank || 0);
+      out.count++;
+    }
+    return out;
   },
 
   // enemies out raiding: not the Queen's guards, not the camp's sleeping garrison

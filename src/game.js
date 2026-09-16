@@ -245,6 +245,7 @@ export class Game {
     this.coinCombo = 0;
     this.comboTimer = 0;
     this.wave = 0;
+    this.raidPeak = 0;  // the most HP tonight's raid has held, for the raid meter
     this.waveTimer = 0; // seconds until nightfall, recomputed from the cycle each frame
     this.duskWarned = false;
     this.spendTimer = 0;
@@ -349,7 +350,8 @@ export class Game {
     this.refreshPads();
     this.hud.showNextWave(false);
     this.hud.hidePadTip();
-    this.hud.set(this.coinsCarried, 1, 0, null, `0/${CFG.finale.level}`, this.res, 0, 1, 1, 0, this.loadCap());
+    this.hud.set(this.coinsCarried, 1, 0, null, `0/${CFG.finale.level}`, this.res, 0, this.loadCap());
+    this.hud.setRaid(0, 0);
     this.hud.setCoinTier(this.coinTier());
     this.hud.setIndicators([]);
   }
@@ -544,7 +546,16 @@ export class Game {
       this.updateFog(dt);
       this.updateChips(dt);
       const army = this.countFollowers();
-      const between = !this.anyActiveEnemy() && this.spawnQueue.length === 0 && !this.queen.captive;
+      // One pass answers both questions: how much raid is left, and whether there is any at all.
+      const raid = this.raidRemaining(this._raid || (this._raid = { hp: 0, count: 0 }));
+      const between = raid.count === 0 && !this.queen.captive;
+      // The meter is read against the most the night ever held, so it only ever falls -- except when
+      // the Warlord calls more men in, which is the one time it SHOULD climb, because that is exactly
+      // what is happening. It resets when the field goes quiet, so each night is measured against its
+      // own size rather than against the biggest night so far.
+      if (raid.hp > this.raidPeak) this.raidPeak = raid.hp;
+      if (raid.count === 0) this.raidPeak = 0;
+      this.hud.setRaid(this.raidPeak > 0 ? raid.hp / this.raidPeak : 0, raid.count);
       // #19: the march on the camp opens at a Keep level or a night, whichever comes first
       if (!this.finaleOpen && (this.baseLevel >= CFG.finale.level || this.wave >= CFG.finale.night)) {
         this.finaleOpen = true;
@@ -561,7 +572,7 @@ export class Game {
       this.hornT = Math.max(0, this.hornT - dt);
       this.hud.setHorn(!this.queen.captive || this.queen.taken, this.hornT / CFG.horn.cooldown, this.hornT);
       this.hud.setCoinTier(this.coinTier());
-      this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, this.finaleOpen ? 'camp' : `${this.baseLevel}/${CFG.finale.level}`, this.res, this.score, this.king.hp / this.king.maxHp, this.baseLevel, this.loadCap());
+      this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, this.finaleOpen ? 'camp' : `${this.baseLevel}/${CFG.finale.level}`, this.res, this.score, this.loadCap());
       this.updateIndicators(dt);
     }
     this.world.focus.copy(this.king.mesh.position);

@@ -30,17 +30,15 @@ export class Hud {
     this.btnTimeEl = document.getElementById('next-wave-btn-t');
     this.lastPips = -1;
     this.lastLoad = '';
-    this.kingHpEl = document.getElementById('king-hp-fill');
     this.lastScore = -1;
     this.lastCoins = -1;
     this.lastWave = -1;
     this.lastArmy = -1;
     this.lastNext = -1;
   }
-  set(coins, wave, army, nextIn, goal, res, score, kingFrac, level, cap) {
+  set(coins, wave, army, nextIn, goal, res, score, cap) {
     this.score = score;
     if (res) this.setLoad(res, cap);
-    if (kingFrac !== undefined) this.kingHpEl.style.width = `${Math.max(0, Math.min(1, kingFrac)) * 100}%`;
     const n = Math.max(0, Math.ceil(nextIn));
     if (n !== this.lastNext || (nextIn === null) !== this.lastNextNull) {
       this.lastNext = n;
@@ -201,8 +199,36 @@ export class Hud {
     const on = !!text;
     if (on && el.textContent !== text) el.textContent = text;
     if (on !== !el.classList.contains('hidden')) el.classList.toggle('hidden', !on);
-    // the alarm flashes the bar that does move, which is the King's
-    document.getElementById('king-hp').classList.toggle('hit', on);
+  }
+
+  // What is left of tonight's raid. `frac` is 0..1 of the HP the night arrived with, `count` is how
+  // many raiders are still coming or still standing. The count is the part that answers "is it over"
+  // outright; the bar is there because twelve raiders on their last legs and twelve fresh ones are
+  // not the same news.
+  setRaid(frac, count) {
+    const el = this.raidEl || (this.raidEl = document.getElementById('raid-meter'));
+    const show = count > 0;
+    if (!show && !this.raidShown) return;
+    // Fill and count are written BEFORE the meter is unhidden. A hidden element does not run CSS
+    // transitions, so the new night's bar snaps to full while nobody is looking; setting it after
+    // would show last night's leftover width sliding up to this one's, which reads as the raid
+    // growing at the exact moment it has not started.
+    if (show) {
+      const pct = Math.round(Math.max(0, Math.min(1, frac)) * 100);
+      if (pct !== this.raidPct) {
+        this.raidPct = pct;
+        (this.raidFill || (this.raidFill = document.getElementById('raid-fill'))).style.width = `${pct}%`;
+      }
+      if (count !== this.raidCount) {
+        this.raidCount = count;
+        (this.raidLeft || (this.raidLeft = document.getElementById('raid-left'))).textContent = count;
+        el.classList.toggle('last', count <= 3);
+      }
+    }
+    if (show !== this.raidShown) {
+      this.raidShown = show;
+      el.classList.toggle('hidden', !show);
+    }
   }
   showNextWave(show) {
     this.nextBtn.classList.toggle('hidden', !show);
