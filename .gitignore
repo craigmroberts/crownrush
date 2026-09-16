@@ -7,3 +7,6 @@ design/crown-rush-art-pass.html
 
 # Blender working files written by make_character.py --blend (open these to inspect a character)
 .blend/
+
+# Worktrees the Agent tool creates for parallel work: never part of the repo
+.claude/worktrees/
