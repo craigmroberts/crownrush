@@ -254,6 +254,16 @@ in a village made of mats -- the description and the fine print are behind a tap
 cannot play without stays on the face of it. Pads only take payment once the King has stopped (or held
 for a moment, `CFG.spend`), so walking across one costs nothing.
 
+A pad you can buy from twice puts a fresh one in its own place the moment it is paid, and that
+replacement refuses money for a second before it starts taking coins again (`CFG.spend.bought`).
+Without it the new mat took the next coin a quarter of a second after the purchase landed: the archer
+mat completed a second batch 0.73s after the first, each one dearer than the last, and the Keep -- the
+most expensive mat in the game to fire twice -- went from level 1 to level 4 in 5.3 seconds and 104
+coins while the King stood still. During the second it says so: **Bought** on the mat in green where
+the lock messages go red, and *Bought -- step off, or wait to buy another* in the chip. It runs down
+whether or not you stay on the mat, so buying three batches in a row is still one stand; five archer
+batches in a row cost 2.4s more than they used to, and nothing else changes.
+
 Three mats change what you can *do* rather than what stands in the village: Train Archers, the
 Warhorse and the Royal Guard -- the pads carrying an `effect` that is the player's rather than the
 village's. Buying one stops the game and says where you have got to, and waits to be dismissed:
@@ -270,8 +280,9 @@ the player standing still on a mat by his own choice.
 
 - **One currency that grows with the Keep.** Coins are bronze to start, silver from Keep level 4, gold
   from 8, platinum from 12 (`CFG.coins`); the look and score value change, the count is one number.
-  Enemies of higher ranks drop more coins. Every pad costs coins except crews (archers) and the Keep
-  itself (materials).
+  Enemies of higher ranks drop more coins. Every pad costs coins except crews, which are paid in
+  archers. The Keep is paid in coin too -- `CFG.base.levelCost` is the old material lists priced at
+  `CFG.materials` rates -- though two strings it shows the player still say wood and stone.
 - **Info screen.** The blue **i** button (or the I key) pauses the game and lists what the next Keep
   level needs and gives, your army against its caps, every pad on offer with its cost and what it does,
   what appears at higher levels, and the enemy rank colours.

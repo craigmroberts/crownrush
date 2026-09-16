@@ -1311,7 +1311,7 @@ export function makePadTexture() {
 // #8: the marker carries IDENTITY ONLY - icon, name, and a level where one applies. Costs used to be
 // painted here too, but nobody can read a price off the floor at a sharp angle while running past;
 // they live in the panel that appears when you stop on the pad.
-export function drawPad(canvas, tex, { icon, label, paid, active = false, sub = null, locked = null, lockIcon = 'keep', shape = 'square', rim = '#ffffff', cost = 0, left = 0, blocker = null }) {
+export function drawPad(canvas, tex, { icon, label, paid, active = false, sub = null, locked = null, lockIcon = 'keep', shape = 'square', rim = '#ffffff', cost = 0, left = 0, blocker = null, blockerOk = false }) {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 256, 256);
   const outline = () => {
@@ -1377,7 +1377,11 @@ export function drawPad(canvas, tex, { icon, label, paid, active = false, sub = 
       const bw = Math.min(228, 26 + blocker.length * 13);
       ctx.beginPath();
       ctx.roundRect(128 - bw / 2, 166, bw, 30, 15);
-      ctx.fillStyle = 'rgba(200, 40, 46, 0.92)';
+      // #122: the pill is red because everything that has used it so far is a refusal -- "Needs Lv. 3",
+      // "Free Wren first". The post-purchase hold is the first thing to say through it that is GOOD
+      // news, and a red pill saying "Bought" reads as a mat that has gone wrong. Same pill, the
+      // game's own green.
+      ctx.fillStyle = blockerOk ? 'rgba(48, 150, 72, 0.92)' : 'rgba(200, 40, 46, 0.92)';
       ctx.fill();
       ctx.lineWidth = 3;
       ctx.strokeStyle = 'rgba(255,255,255,0.75)';

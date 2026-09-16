@@ -352,7 +352,42 @@ export const CFG = {
   // showRadius: how close before a build mat fades up out of the grass. The field reads better with
   // them hidden, but a mat nobody can see is a thing nobody builds, so a pad that has only just
   // appeared shows itself for showNew seconds wherever you are.
-  spend: { tick: 0.07, fastTick: 0.022, crewTick: 0.28, padRadius: 1.7, arm: 0.25, walkHold: 0.8, showRadius: 10, showNew: 7 },
+  // #122: `bought` is how long a repeatable mat refuses payment after it has just paid out. It is NOT
+  // `arm`, and reusing `arm` for it was the bug: `arm` answers "how long before walking across a mat
+  // counts as stopping on it", and 0.25s is right for that and far too short for "how long after a
+  // purchase before we start taking money again".
+  //
+  // Measured on the recruit mat, King standing still, driving updateCoins + updatePads at 1/60.
+  // Before: the replacement mat took the next coin 0.25s after the purchase landed and completed the
+  // next batch 0.73s after it (then 0.80, 0.85, 0.90 -- the gap grows because `padCost` is
+  // `cost + growth * buyCount`, so the accident always costs more than the purchase did). After:
+  // 0.98s to the next coin, 1.37s to the next batch (then 1.40, 1.43, 1.47).
+  //
+  // The completion moved 0.63s, not the full 1.0, and that is right rather than a miss: `holdT` goes
+  // on accruing through the hold, so the pour does not start over at `tick` when the hold lifts -- the
+  // rate is lerped on `holdT / 1.5`, which at 1.0s is two thirds of the way to `fastTick`. A player
+  // who MEANT to buy five batches back to back pays 2.4s for the whole run of them, and one who did
+  // not wanted nothing at all.
+  //
+  // Pinned at both ends rather than picked. The floor is the sound: `audio.build()` is four tones at
+  // 0.07s apart with a 0.25s body and a 0.18s release, so the fanfare that says "bought" runs about
+  // 0.64s -- a cooldown shorter than that has the mat taking money while the player is still hearing
+  // the last purchase. 1.0 clears it with a third of a second to spare, and 2.4s across five is the
+  // other end.
+  //
+  // The fixture trap, since the first set of numbers here was wrong because of it: the recruit mat
+  // stands in the Archery Range mat's exact `pos`, so forcing `built.range` without taking the range
+  // mat off the board leaves both under the King -- and `updatePads` pays every mat he is inside out
+  // of one shared `spendTimer`. Everything measured that way is slow, and the range's own `toast` is
+  // what hides the mat's tip.
+  //
+  // Every repeatable mat gets it. Three reach it with the game still running -- `recruit`,
+  // `recruit-sword` and `recruit-vet` -- and those are exactly the mats a player stands on
+  // repeatedly. `train`, `crown` and the feed mat put a panel up that pauses the game, which shields
+  // them only while it is open: they all take coin, and the King is still standing on the mat when it
+  // closes, so the hold is what covers the far side. The feed mat is the one that matters most there
+  // -- see `addPad`, where it went 1 -> 4 in 5.3 seconds.
+  spend: { tick: 0.07, fastTick: 0.022, crewTick: 0.28, padRadius: 1.7, arm: 0.25, bought: 1.0, walkHold: 0.8, showRadius: 10, showNew: 7 },
 
   // #95/#97: how a notice is read out.
   // `lines` is the cap: past three, the rest becomes another page behind a bobbing arrow. Three is

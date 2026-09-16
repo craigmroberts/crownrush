@@ -43,12 +43,24 @@ export const BuildMethods = {
     return def.cost + (def.growth || 0) * n;
   },
 
-  addPad(def) {
+  // #122: `justBought` is set only by the `again` branch of `completePad`, which destroys a finished
+  // mat and puts a fresh one in its place. A mat that has just paid out is a different state from one
+  // the King has wandered onto, and it wants a different answer.
+  //
+  // The feed mat gets it too, and the near miss is worth writing down: it LOOKS like the one mat that
+  // should be left out -- the tip said "Pouring in materials", and the line below used to hold a
+  // fresh one for 0.9s under a name from the resource loop. Both are leftovers from when the Keep took
+  // wood and stone. Measured: a feed pad's cost is `levelReq()` in COIN and its `res` list is empty,
+  // so `resTimer = 0.9` was gating an empty loop and doing nothing at all, and the mat took the next
+  // coin 250ms after a level-up landed like every other one. Standing still on it went 1 -> 4 in 5.3
+  // seconds and 104 coins, two levels of which nobody asked for. It is the most expensive mat in the
+  // game to fire twice.
+  addPad(def, justBought = false) {
     const { mesh, canvas, tex } = makePad();
     mesh.position.set(def.pos[0], 0.03, def.pos[1]);
     mesh.scale.setScalar(0.01);
     this.root.add(mesh);
-    const pad = { def, mesh, canvas, tex, cost: this.padCost(def), paid: 0, ghosts: [], bornAt: this.time, fade: 0, res: Object.entries(def.res || {}).map(([type, need]) => ({ type, need, paid: 0 })) };
+    const pad = { def, mesh, canvas, tex, cost: this.padCost(def), paid: 0, ghosts: [], bornAt: this.time, fade: 0, boughtT: justBought ? CFG.spend.bought : 0, res: Object.entries(def.res || {}).map(([type, need]) => ({ type, need, paid: 0 })) };
     // ghost previews: units on the pad, structures where they'd be built, wall outlines along the edge
     //
     // #62: `mine` is whether this ghost's geometry was made FOR it. A ghost built from a loaded model
@@ -96,8 +108,6 @@ export const BuildMethods = {
       const m = this.makeStructureMesh(def.structure);
       ghost(m, !m.userData.sharedGeometry).position.set(def.buildAt[0], 0, def.buildAt[1]);
     }
-    // a fresh feed pad pauses for a beat so each level-up is a visible moment, not a blur
-    if (def.feed) pad.resTimer = 0.9;
     this.drawPad(pad);
     this.pads.push(pad);
   },
@@ -143,7 +153,19 @@ export const BuildMethods = {
       // the way sitting above the bar so the bar itself never moves.
       cost: pad.def.crew ? 0 : pad.cost,
       left: Math.max(0, pad.cost - pad.paid),
-      blocker: pad.locked === 'rescue' ? 'Free Wren first' : pad.locked ? `Needs Lv. ${pad.locked}` : null,
+      // #122: the hold outranks a lock in the pill, because it is the newer news and the one the
+      // player is owed an explanation for -- a mat that quietly ignores payment reads as the game
+      // being laggy. The tip's note is the channel that is actually READ (measured: it is up and
+      // correct for the whole hold); this is the redundancy, for the case where `showPadTip` has
+      // stood down because a notice is being read (#102) -- a night falling, a thief in the coins,
+      // Wren speaking -- and the note is off screen for the whole second.
+      //
+      // It carries the same legibility the lock messages have always had, which is not perfect: the
+      // King stands on the mat and the ghost previews stand on it too, so at a sharp angle the pill
+      // is half covered. It is the mat's FACE changing that does the work at that distance, the way
+      // the price strip underneath already does.
+      blocker: pad.boughtT > 0 ? 'Bought' : pad.locked === 'rescue' ? 'Free Wren first' : pad.locked ? `Needs Lv. ${pad.locked}` : null,
+      blockerOk: pad.boughtT > 0,
     });
   },
 
@@ -372,7 +394,7 @@ export const BuildMethods = {
       this.root.remove(pad.mesh);
       this.disposePad(pad);
       this.pads.splice(this.pads.indexOf(pad), 1);
-      this.addPad(def);
+      this.addPad(def, true);
     } else {
       this.root.remove(pad.mesh);
       this.disposePad(pad);
@@ -587,8 +609,12 @@ export const BuildMethods = {
         if (locked) chips.push({ icon: 'keep', text: `Level ${locked} needed`, state: 'short' });
         if (def.units) chips.push({ icon: def.units.type, text: `${this.unitCount(def.units.type)} / ${this.unitCap(def.units.type)} ${def.units.type}s`, state: locked ? 'short' : 'ok' });
       }
-      const note = this.keep && this.keep.state !== 'built' && def.repairKeep ? 'It has to stand again before it can be raised'
-        : this.queen.captive ? (this.queen.taken ? 'Cut off the escort and bring her back' : 'Rescue Wren first') : locked ? 'Feed the Keep to raise the limit' : this.king.moving && (nearest.holdT || 0) < CFG.spend.walkHold ? 'Stop moving to pay' : def.feed ? `Pouring in materials…` : def.crew ? 'Sending archers…' : 'Paying…';
+      // #122: the cooldown says so. A mat that quietly ignores payment for a second reads as the game
+      // being laggy, and the note is where the mat already explains itself -- it is what says "stop
+      // moving to pay". It goes above the blockers because it is the newest thing to have happened.
+      const note = nearest.boughtT > 0 ? 'Bought — step off, or wait to buy another'
+        : this.keep && this.keep.state !== 'built' && def.repairKeep ? 'It has to stand again before it can be raised'
+        : this.queen.captive ? (this.queen.taken ? 'Cut off the escort and bring her back' : 'Rescue Wren first') : locked ? 'Feed the Keep to raise the limit' : this.king.moving && (nearest.holdT || 0) < CFG.spend.walkHold ? 'Stop moving to pay' : def.feed ? `Pouring in coin…` : def.crew ? 'Sending archers…' : 'Paying…';
       const total = nearest.cost + nearest.res.reduce((a, r) => a + r.need, 0);
       const paidAll = nearest.paid + nearest.res.reduce((a, r) => a + r.paid, 0);
       this.hud.showPadTip({
@@ -620,9 +646,15 @@ export const BuildMethods = {
       // #9: no pad can be paid until the Queen is free. They stay visible so the player can see what
       // the village will offer, but they are plainly shut.
       const locked = this.queen.captive ? 'rescue' : this.padLocked(pad.def);
-      if (inside !== !!pad.active || locked !== (pad.locked || null)) {
+      // #122: the hold is a third thing the mat's face depends on, and it is edge-triggered like the
+      // other two. `drawPad` repaints a canvas texture, so it runs when something CHANGES and never
+      // per frame; a fresh mat arrives with `held` undefined against a true hold, so the first frame
+      // paints the pill and the frame the hold expires paints it out. Two repaints a purchase.
+      const held = pad.boughtT > 0;
+      if (inside !== !!pad.active || locked !== (pad.locked || null) || held !== !!pad.held) {
         pad.active = inside;
         pad.locked = locked;
+        pad.held = held;
         this.drawPad(pad);
       }
       // #38: a shut mat says what it wants if you stand on it. The strip on the mat has room for
@@ -640,8 +672,13 @@ export const BuildMethods = {
       }
       // coins pour faster the longer the King stands on the pad, so big purchases don't drag
       pad.holdT = inside ? (pad.holdT || 0) + dt : 0;
+      // #122: and a mat that has just paid out holds its hand for a beat first. It runs down whether
+      // or not the King is standing there, so buying three batches in a row is still one stand rather
+      // than a walk away and back -- which is a real and reasonable thing to do, and a
+      // must-step-off rule would have broken it.
+      if (pad.boughtT > 0) pad.boughtT = Math.max(0, pad.boughtT - dt);
       // ...but only once he has actually stopped on it (or held for a moment): walking across is free
-      const paying = inside && pad.holdT > CFG.spend.arm && (!this.king.moving || pad.holdT > CFG.spend.walkHold);
+      const paying = inside && !pad.boughtT && pad.holdT > CFG.spend.arm && (!this.king.moving || pad.holdT > CFG.spend.walkHold);
       if (pad.def.crew) {
         // crew pads take archers from the army instead of coins
         if (paying && !locked && pad.paid < pad.cost && this.spendTimer <= 0) {
