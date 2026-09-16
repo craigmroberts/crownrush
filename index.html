@@ -2,7 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <!-- #74: `height=device-height` is the one lever left that can change the LAYOUT VIEWPORT, and the
+         viewport is the whole of this bug: an installed iPhone hands the page 440x894 of a 440x956
+         screen and paints the 62px left over itself. Everything the page can do was tried and
+         measured -- canvas and vignette both sized to the glass, and the strip did not move. It is
+         the iPhone-X-era workaround for exactly this, largely ignored by modern WebKit, and it is
+         one attribute. If the next reading still says `win 440x894`, no meta tag is going to move it
+         and the strip is iOS's to keep. -->
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <!-- the status bar sits over the game, and the game is dark green up top at night -->
@@ -15,7 +22,10 @@
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <link rel="icon" href="./icons/icon-192.png" />
     <title>Crown Rush</title>
-    <!-- #74: green again, and it should never be seen. It was `#241c10` for one release, as a control:
+    <!-- #74: green for the load, because this is what fills the screen before the first frame is
+         drawn and a dark flash into a green game is a flash. It is swapped for the strip colour in
+         main.js once a frame exists -- see there for why the strip is the root background's problem.
+         It was `#241c10` for one release, as a control:
          the bands reported on the iPhone were exactly this green, which is also `theme-color` and the
          manifest's `background_color`, so two rounds of guessing could not tell a page showing through
          from iOS painting its own chrome. Splitting the two answered it in one look -- the bands went

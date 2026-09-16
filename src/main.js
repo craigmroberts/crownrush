@@ -467,18 +467,27 @@ function frame(now) {
       perfMs = 0;
     }
   }
+  // #74: the root background is the ONLY thing that can paint the strip an installed iPhone leaves at
+  // the bottom of the screen. Measured, with the canvas and the vignette both sized to the glass and
+  // the strip still there: it is outside the layout viewport, and nothing a page paints reaches
+  // outside its own viewport. What the strip DID follow, every time, was this colour -- dark when the
+  // page background was dark, green when it was green.
+  //
+  // So it gets a colour chosen for it: the vignette's own tint, so the strip reads as the darkening
+  // at the edge of the screen carrying on past it rather than as a slab of a colour used nowhere
+  // else. Held until a frame exists, because until then this is the whole screen and the load should
+  // not flash dark on its way into a green game.
+  //
+  // If the viewport ever comes back full-height this is invisible and costs nothing, which is why it
+  // is a colour and not a workaround.
+  if (!strippedBg && game.frames > 0) {
+    strippedBg = true;
+    document.documentElement.style.backgroundColor = '#16210c';
+  }
   requestAnimationFrame(frame);
 }
+let strippedBg = false;
 requestAnimationFrame(frame);
-
-// #74: installed apps get a different viewport from browsers, and CSS has to be able to tell.
-// `(display-mode: standalone)` alone is not enough: iOS serves home-screen apps added the legacy way
-// -- `apple-mobile-web-app-capable`, which is how this one is installed -- and answers that query
-// unreliably, while `navigator.standalone` is the one it has always answered. Set once at boot,
-// because an app cannot become a browser tab while it is running.
-if (window.navigator.standalone || matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches) {
-  document.documentElement.classList.add('installed');
-}
 
 // expose for poking around in the console
 window.game = game;

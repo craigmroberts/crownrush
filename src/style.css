@@ -93,29 +93,21 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   width: 100vw; height: 100vh;
   width: 100dvw; height: 100dvh;
 }
-/* #74: installed on iOS, the layout viewport is a status bar SHORT of the glass. Measured off the
-   phone: canvas 440x894, viewport 440x894, screen 440x956, safe 62/34 -- the canvas matched the
-   viewport exactly and both were 62px (one `safe-area-inset-top`) shy of the screen, which is where
-   the strip along the bottom comes from. Nothing in the page can paint outside its own viewport, so
-   no amount of sizing the canvas against the viewport was ever going to close it.
-   `dvh` is the CURRENT viewport, which is the short one. `lvh` is the LARGE viewport -- the one with
-   no chrome subtracted -- and is the only unit that can be bigger than what the page is handed.
-   Scoped to installed apps on purpose: in a browser the large viewport is the one with the URL bar
-   hidden, so using it there would push the bottom of the world behind a toolbar that is on screen.
-   `?perf=1` and the settings line now print what each unit actually resolves to, so the next reading
-   says whether this reaches the glass or whether no unit can and the answer is in the app config. */
-:root.installed #game { height: 100lvh; }
-/* And everything else that PAINTS across the whole screen, for the same reason and with the same
-   unit. Sizing only the canvas moved the seam rather than closing it: the world reached the glass and
-   the vignette stopped 62px short of it, so the bottom strip was the game rendered with no darkening
-   over it -- a flat, lighter green band with a hard edge, which is exactly what came back from the
-   phone. The overlay scrim has the identical problem the moment any sheet is open.
-   `#hud` and `#indicators` are deliberately NOT here. Neither paints anything, so neither can make a
-   band, and `updateIndicators` places its edge arrows against `window.innerHeight` (game-view.js) --
-   a layer 62px taller than the coordinates being written into it would put every arrow in the wrong
-   place. Anything added to this list has to paint, and has to be positioned in its own box. */
-:root.installed #vignette,
-:root.installed .overlay { height: 100lvh; }
+/* #74: this is where `:root.installed { height: 100lvh }` was, on the canvas and then on every layer
+   that paints, and it is gone because the phone proved it cannot work. Measured with all of them at
+   the large viewport:
+
+     box 0,0 440x956 · vig 956 · win/doc/vv 440x894 · screen 440x956   -- and the strip was STILL there
+
+   The canvas covered the glass, the vignette covered the glass, and the bar did not move. What did
+   move, both times it was tested, was its COLOUR: dark when the page background was dark, green when
+   it was green. The geometry never mattered and the background always did.
+
+   So the strip is outside the layout viewport, and nothing a page paints can reach outside its own
+   viewport -- the only thing that paints there is the browser, with the root element's background.
+   Sizing layers to `lvh` therefore bought nothing and cost something: the canvas rendered 62px that
+   is never displayed and took its camera aspect from a height 7% taller than what shows, and
+   `.overlay` centred its panels against 956 while 894 was visible, which is 31px too low. */
 /* #74: the safe-area insets, so ?perf=1 can report them off a real phone. env() cannot be read from
    JS directly; a custom property carrying it can. */
 :root { --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px); }

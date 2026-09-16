@@ -611,40 +611,31 @@ Two different things decide whether the world reaches the edges of an iPhone, an
 can produce the bands of flat page green that #74 is about.
 
 **The CSS box** is what covers the screen. It is `100dvw` / `100dvh`, with `100vw` / `100vh` behind
-them for anything without the dynamic units, and `100lvh` instead once the app is installed. An
-explicit size is required rather than tidy: a `<canvas>` is a replaced element, so `inset: 0` with
-`width: auto` gives it its *intrinsic* size — the drawing buffer — and a 390×844 phone ends up with a
-1885×2652 canvas box. Measured, by trying it.
+them for anything without the dynamic units. An explicit size is required rather than tidy: a
+`<canvas>` is a replaced element, so `inset: 0` with `width: auto` gives it its *intrinsic* size — the
+drawing buffer — and a 390×844 phone ends up with a 1885×2652 canvas box. Measured, by trying it.
 
-The unit is the interesting part, and it is what #74 came down to. Read off an installed iPhone: the
-canvas box was 440×894, the layout viewport was 440×894, and the screen was 440×956. The canvas
-matched its viewport perfectly and **the viewport was one `safe-area-inset-top` short of the glass** —
-which is where the strip along the bottom came from, and why sizing the canvas against the viewport
-could never close it. `dvh` is the *current* viewport, the short one. `lvh` is the *large* viewport,
-the only unit that can come back bigger than what the page was handed. It is scoped to installed apps
-(`:root.installed`, set from `navigator.standalone` because iOS answers the `display-mode` query
-unreliably for a legacy home-screen app) because in a browser the large viewport is the one with the
-URL bar hidden, and using it there would push the bottom of the world behind a toolbar that is on
-screen.
+On an installed iPhone the page is handed a viewport smaller than the screen, and that turned out to
+be the whole of #74. Read off the device:
 
-The same phone afterwards, which is the proof:
+    box 0,0 440x956 · vig 956 · win 440x894 · doc 440x894 · screen 440x956 · safe 62px/34px
+    units lvh 956 dvh 894 svh 894 vh 956
 
-    box 0,0 440x956 · win 440x894 · screen 440x956 · units lvh 956 dvh 894 svh 894 vh 956
+The screen is 956 and the viewport is 894 — short by exactly one `safe-area-inset-top` — and iOS
+paints the 62px left over itself. Both painting layers were sized to the glass with `100lvh`, which
+`lvh` genuinely reaches, and **the strip did not move**. What it moved with, every time it was
+tested, was the *root background*: dark when that was dark, green when it was green. Nothing a page
+paints can reach outside its own viewport, and the only thing that paints there is the browser, with
+the root element's background.
 
-`lvh` reaches the glass where `dvh` does not, and the canvas covers the screen while still being
-handed a viewport 62px shorter than it.
-
-**Everything that paints across the whole screen needs the same unit**, which is the part that took
-one more round to learn: sizing only the canvas moved the seam rather than closing it. The world
-reached the glass and the vignette stopped 62px short of it, so the strip along the bottom became the
-game rendered with nothing darkening it — a flat, lighter band with a hard edge. The overlay scrim
-has the identical problem the moment a sheet is open. `#hud` and `#indicators` are deliberately
-excluded: neither paints anything, so neither can make a band, and `updateIndicators` places its edge
-arrows against `window.innerHeight`, so a layer 62px taller than the coordinates written into it
-would put every arrow in the wrong place. Anything added to that rule has to paint, and has to be
-positioned in its own box.
-
-If a box does come up short again, what shows in the gap is the page background.
+So the `lvh` sizing came back out — it bought nothing and cost something, since the canvas rendered
+62px that was never displayed and `.overlay` centred its panels 31px low — and the strip is given a
+colour instead, in `main.js`: the vignette's own tint, so it reads as the darkening at the edge of
+the screen carrying on past it. It is held at the page green until the first frame exists, because
+until then it is the whole screen and the load should not flash dark on its way into a green game.
+`height=device-height` is on the viewport meta as the last lever that could change the viewport
+itself. If the viewport ever comes back full-height, none of this is visible and none of it costs
+anything.
 
 **The drawing buffer** is how much detail is drawn into that box, sized from the largest of the
 canvas's own box, `visualViewport` and `window.inner*`, then asked for again four times over the
