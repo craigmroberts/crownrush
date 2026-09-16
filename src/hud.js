@@ -695,6 +695,11 @@ export class Hud {
   pauseHidden() {
     return document.getElementById('pause-screen').classList.contains('hidden');
   }
+  // #118: is the title screen down? Before the first Play there is no run to recover, and the
+  // stuck-game guard cannot tell that from a run that stopped unless it can see this screen.
+  startHidden() {
+    return this.startScreen.classList.contains('hidden');
+  }
   showSettings() {
     document.getElementById('settings-screen').classList.remove('hidden');
   }

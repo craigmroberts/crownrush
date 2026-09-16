@@ -659,10 +659,22 @@ export class Game {
   // the world without putting that screen up, so neither was excused and neither could be -- and this
   // took the pause back a second and a half after either was opened. Driven: open the Keep sheet,
   // step three seconds of game time, and the raid is running again behind a sheet still on screen.
+  //
+  // #118: the two screens that are up before a run exists were missing from the list, and they are the
+  // two a new player sees first. Measured: 1.5s after the page loaded this declared the title screen a
+  // stopped game and started the raid behind it, and it kept running behind the tutorial after that --
+  // sixteen raiders on the field while the player read card one, and `recovered a stopped game` in the
+  // console on every single load, which is how the one line that would report a real stuck game got
+  // taught to everybody as noise.
+  //
+  // Named rather than tested for. `pause()` recognises the same state with `!running && !paused`, and
+  // borrowing that here would be shorter -- but it would also quietly excuse any FUTURE path that
+  // stops the world without setting `paused`, which is exactly the kind of stop this exists to catch.
   watchStuck(dt) {
     const excused = this.running || this.over || this.won || this.contextLost
       || this.offer || this.gain || this.infoOpen || this.settingsOpen
       || this.keepOpen || this.scoresOpen
+      || !this.hud.startHidden() || this.hud.introOpen()   // #118: no run has started yet
       || !this.hud.pauseHidden();       // the player's own pause, with its screen up
     if (excused) {
       this.stuckFor = 0;
