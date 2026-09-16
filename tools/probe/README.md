@@ -9,10 +9,42 @@ From anywhere inside this repository:
     node tools/probe/probe.mjs --crowd 120        # hold 120 raiders on the field the whole time
     node tools/probe/probe.mjs --json before.json # keep the report
     node tools/probe/probe.mjs --json after.json --compare before.json
+    node tools/probe/probe.mjs --assert --crowd 120   # fail if a README budget is exceeded
+    node tools/probe/probe.mjs --throttle         # load the game over 4 Mbps / 100 ms
 
 It builds the site, serves the build, drives it in headless Chromium at desktop and phone sizes, and
 reports draw calls, triangles, characters, GPU objects, bytes and frame time for each. Screenshots
 land in `.shots/`.
+
+## `--assert`, and what CI checks
+
+`--assert` measures the run against the budget table in the main README and exits non-zero when one is
+exceeded, naming it. `.github/workflows/budgets.yml` runs it on every pull request. It does **not**
+run on pushes to `main`: a budget that fails after merge is a red deploy, and the thing it was meant
+to stop has already happened.
+
+The budgets live in `BUDGETS` at the bottom of `probe.mjs` and they are the README's, not a second
+opinion. Frame time is deliberately not among them — see below. Draw calls and triangles are marked
+`crowd`, because the README says "late game" and a plain run never leaves night one; without
+`--crowd N` they are skipped rather than passed.
+
+`WAIVED` is for a budget the game does not meet yet, with the ticket that will fix it. A waived budget
+is reported loudly and does not fail the build, because a CI that is red for a reason everyone already
+knows teaches everyone to stop reading CI. Deleting a line from `WAIVED` is how a budget comes back
+under guard.
+
+## Bytes to the Play button are not bytes for the session
+
+The README's load budget is "to the Play button", and the report gives two numbers because they are
+very different. `main.js` deliberately fetches the three heaviest models *behind* the title screen
+(`LATER_RIGS`, `LATER_PROPS`), so the session total is nearly double the figure the budget is about.
+Asserting the README's 3 MB against the running total would fail a build that is comfortably inside
+it — which is what the report used to invite, by labelling the total "load to playable".
+
+`--throttle` loads the game over an emulated 4 Mbps / 100 ms link, which is what the load work was
+measured against (12.0 s before, 9.2 s after) and the number a player on mobile data actually feels.
+It is emulated in the browser, so read it as one build against another rather than as a promise about
+anybody's train.
 
 ## Which numbers to trust
 

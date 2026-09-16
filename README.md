@@ -483,7 +483,11 @@ exceptions the frame loop has swallowed and the last one's message. The `try/cat
 is also how a crash in the river foam went unnoticed for as long as it did (#54), so the overlay says
 when it has happened. `npm run probe -- --crowd 120` collects the rest without you, on a fixed scene,
 so a change can be measured rather than argued about --
-see [tools/probe/README.md](tools/probe/README.md). Budgets:
+see [tools/probe/README.md](tools/probe/README.md).
+
+`probe.mjs --assert` measures a run against the table below and exits non-zero naming whatever it
+broke. Frame time is not among the asserted ones and cannot be: the probe renders through SwiftShader
+on a CPU. Budgets:
 
 | Metric | Aim for | Why |
 | --- | --- | --- |
