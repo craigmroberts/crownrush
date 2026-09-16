@@ -56,17 +56,20 @@ export const UnitsMethods = {
       stats = CFG.swordsman;
     }
     mesh.position.set(x, 0, z);
-    // #44: every bar hides itself at full health, and the Queen's used to be forced back on each
-    // frame, so hers was the one that hung over a character nothing was trying to kill. She keeps it
-    // -- an area attack can still catch her on the walk home, and losing her that way ends the run --
-    // but it now appears only when that actually happens.
+    // #44: every bar hides itself at full, so a bar is only ever over someone in trouble.
+    // #83: the Queen's is not a health bar at all any more -- it is how much of her the raiders have
+    // (`updateSeize`). It runs down the same way, which is the whole reason for showing it there.
     const bar = makeHealthBar(type === 'king' || type === 'queen' ? 1.6 : 1.0, true);
     bar.position.y = type === 'king' ? (this.mounted ? 3.2 : 2.4) : type === 'queen' ? 2.5 : 1.8;
     mesh.add(bar);
     this.root.add(mesh);
     const royal = type === 'king' || type === 'queen';
+    // #83: the Queen has no health, so there is no number here to take off. The nominal 1/1 is only
+    // so that everything which asks a unit whether it is still standing -- enemy targeting, the
+    // arrow's check on its mark -- keeps getting told yes. Nothing ever moves it.
+    const hp = type === 'queen' ? 1 : stats.hp;
     const u = {
-      type, mesh, bar, hp: stats.hp, maxHp: stats.hp, stats, cooldown: rand(0, 0.5), lastHit: -99,
+      type, mesh, bar, hp, maxHp: hp, stats, cooldown: rand(0, 0.5), lastHit: -99,
       melee: type === 'swordsman', vel: new V3(), popT: royal ? 0 : 0.5, assign: null, veteran,
       scale: royal ? 1.15 : mesh.userData.rig ? 1.05 : 1.2,
     };
@@ -284,15 +287,19 @@ export const UnitsMethods = {
   },
 
   damageUnit(u, dmg) {
+    // #83: nothing hurts the Queen. She used to be worn down like anyone else and her health
+    // reaching zero was a capture wearing a health bar -- so she flinched, flashed red and cried out
+    // on the way to a thing that was never a death. Raiders take her by getting hold of her instead
+    // (`updateSeize`), which is also why this sits above everything rather than inside it: an arrow
+    // or a sapper's blast cannot kidnap anybody, so they do not touch her at all.
+    if (u.type === 'queen') return;
     if (u.hp <= 0) return;
     if (u.inKeep || u.captive) return;
     u.hp -= dmg;
     u.lastHit = this.time;
-    if (u.type === 'king' || u.type === 'queen') audio.hurt();
-    if (u.type === 'queen') this.raiseAlarm('The Queen is under attack!');
+    if (u.type === 'king') audio.hurt();
     setHealthBar(u.bar, Math.max(0, u.hp / u.maxHp));
     if (u.hp <= 0) {
-      if (u.type === 'queen') return this.captureQueen();
       if (u.type === 'king') {
         this.gameOver(u.type);
         return;

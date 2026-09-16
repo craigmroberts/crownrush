@@ -207,11 +207,17 @@
         <h1>Settings</h1>
         <button class="sheet-row" id="set-sound"><i data-icon="speaker" data-size="24"></i><span class="sheet-label">Sound</span><em id="set-sound-state">On</em></button>
         <button class="sheet-row" id="set-info"><i data-icon="info" data-size="24"></i><span class="sheet-label">How to play</span></button>
+        <!-- #84: a phone that keeps the game on its homescreen is RESUMED rather than navigated, so
+             the browser never re-checks the worker and the build it has can sit there for weeks.
+             This is the row somebody can be told to press. Hidden outright where there is no
+             worker to ask. -->
+        <button class="sheet-row hidden" id="set-update"><i data-icon="download" data-size="24"></i><span class="sheet-label">Check for updates</span><em id="set-update-state"></em></button>
         <!-- Restart lives here now, and asks twice: the sheet is opened casually, and one stray tap
              should not be able to throw away a run. The Pause row it replaces was redundant — the
              sheet already pauses the game the whole time it is open. -->
         <button class="sheet-row danger" id="set-restart"><i data-icon="restart" data-size="24"></i><span class="sheet-label">Restart</span><em id="set-restart-hint"></em></button>
         <button id="set-close">Back to the game</button>
+        <p class="hint hidden" id="set-version"></p>
       </div>
     </div>
     <div id="pause-screen" class="overlay hidden">

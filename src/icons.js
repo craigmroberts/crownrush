@@ -55,6 +55,7 @@ export const ICONS = {
   // An arrow round three quarters of a circle. Drawn as a dark arc with a gold one laid over it,
   // because a stroked path takes no outline of its own and the sheet rows it sits on are near-white.
   restart: `<path d="M12 4.5a7.5 7.5 0 1 0 7.5 7.5" fill="none" stroke="${O}" stroke-width="5.2" stroke-linecap="round"/><path d="M12 4.5a7.5 7.5 0 1 0 7.5 7.5" fill="none" stroke="#f5b800" stroke-width="2.6" stroke-linecap="round"/><path d="M10.6 0.4l5.2 4.1-5.2 4.1z" fill="#f5b800" ${S}/>`,
+  download: `<path d="M3.5 14.5V20h17v-5.5" fill="#8a5a2b" ${S}/><path d="M12 3v9" fill="none" stroke="${O}" stroke-width="5.4" stroke-linecap="round"/><path d="M12 3.4v8.2" fill="none" stroke="#3fd455" stroke-width="2.6" stroke-linecap="round"/><path d="M6.8 10.2L12 16l5.2-5.8z" fill="#3fd455" ${S}/>`,
 };
 
 export function iconSvg(name, size = 20, cls = '') {

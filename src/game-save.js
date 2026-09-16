@@ -4,10 +4,14 @@
 // held a best-night and a best-score and that was all, and mobile browsers discard backgrounded tabs
 // as a matter of routine. A player who took a phone call on night 25 lost half an hour.
 //
-// WHEN. At dawn, and only at dawn. The field is quiet, the spawn queue is empty, nothing is in
-// flight, and it is already a beat in the day/night cycle rather than an invented one. That is what
-// makes this tractable: a save taken mid-raid would have to capture arrows, spawn timers, thieves
-// carrying stolen coins and half-finished payments on a build pad.
+// WHEN. At dawn. The field is quiet, the spawn queue is empty, nothing is in flight, and it is
+// already a beat in the day/night cycle rather than an invented one. That is what makes this
+// tractable: a save taken mid-raid would have to capture arrows, spawn timers, thieves carrying
+// stolen coins and half-finished payments on a build pad.
+//
+// One other caller asks for one (#84: installing an update reloads the page), and it may only have
+// it when the field LOOKS like dawn -- see `quietEnoughToSave`. Otherwise it is refused and the
+// player comes back to the last real dawn, which is the honest answer rather than a broken save.
 //
 // WHAT. State, not history. It would be tempting to store the list of pads bought and replay them on
 // load, but `completePad` awards score, fires toasts and audio, and `levelUp` stops the game to offer
@@ -26,15 +30,38 @@ import { setHealthBar } from './models.js';
 const KEY = 'crownrush-run';
 // Bumped when the shape below changes, or when a balance change would make an old save unfair or
 // broken. An unreadable save is discarded rather than half-applied.
-const VERSION = 2;
+const VERSION = 3;
 
 export const SaveMethods = {
   // ---------- writing ----------
 
+  // A run that could still be picked up. `running` on its own is not that: pause() clears it, and a
+  // save asked for from inside the settings sheet -- which pauses -- is exactly the case #84 needs.
+  inRun() {
+    return (this.running || this.paused) && !this.over && !this.won;
+  },
+
+  // #84: what dawn LOOKS like, for the one caller that wants a save at a moment nobody chose --
+  // installing an update, which reloads the page. Daylight, an empty field, nothing queued to walk
+  // on, and the opening over. Everywhere else it declines, and the player comes back to the last
+  // real dawn: the stored shape has no room for arrows, spawn timers or a thief halfway to the edge,
+  // and restoring half a raid would be worse than losing the minute.
+  quietEnoughToSave() {
+    return this.inRun() && !this.night && !this.queen.captive
+      && !this.anyActiveEnemy() && this.spawnQueue.length === 0;
+  },
+
+  // Returns whether it took one, so the caller can say which run the player is coming back to.
+  saveBeforeReload() {
+    if (!this.quietEnoughToSave()) return false;
+    this.saveRun();
+    return true;
+  },
+
   // Called at dawn. Cheap enough to do on the beat and small enough for localStorage: the fog canvas
   // is the only part with any size to it, and it is a 256x256 PNG.
   saveRun() {
-    if (!this.running || this.over || this.won) return;
+    if (!this.inRun()) return;
     try {
       localStorage.setItem(KEY, JSON.stringify(this.runState()));
     } catch (e) {
@@ -76,7 +103,10 @@ export const SaveMethods = {
       typeSeen: { ...this.typeSeen },
       // the royals
       king: { hp: round(k.hp), maxHp: round(k.maxHp), at: pos(k.mesh) },
-      queen: { hp: round(q.hp), maxHp: round(q.maxHp), at: pos(q.mesh), inKeep: !!q.inKeep, captive: !!q.captive },
+      // #83: no health, and `seize` is not stored either -- a save is taken with the field quiet, so
+      // nobody has hold of her, and a restore that started with raiders' hands already on her would
+      // be restoring a moment that cannot happen.
+      queen: { at: pos(q.mesh), inKeep: !!q.inKeep, captive: !!q.captive },
       // the army. Anyone walking to a post is stored where they are going rather than where they got
       // to: they arrive on the next frame instead of the one after, and nobody is left mid-errand.
       units: this.units.filter((u) => u !== k && u !== q).map((u) => ({
@@ -185,13 +215,14 @@ export const SaveMethods = {
     if (s.mounted && !this.mounted) this.mountKing();
 
     const q = this.queen;
-    q.captive = false;   // a run is only saved at dawn, and dawn cannot arrive while she is taken
+    q.captive = false;   // a run is never saved with her taken: dawn cannot arrive while she is, and
+                         // the one other caller refuses unless the field is empty (quietEnoughToSave)
     q.taken = false;
     q.escort = null;
-    q.maxHp = s.queen.maxHp;
-    q.hp = Math.min(s.queen.hp, q.maxHp);
+    q.seize = 0;
+    q.held = false;
     q.mesh.position.set(s.queen.at[0], 0, s.queen.at[1]);
-    setHealthBar(q.bar, q.hp / q.maxHp);
+    setHealthBar(q.bar, 1);
     // Her guards belong to an opening that is over.
     for (const e of [...this.enemies]) if (e.captor) this.removeEnemy(e);
     if (s.queen.inKeep) this.queenEnterKeep();

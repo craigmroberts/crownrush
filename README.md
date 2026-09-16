@@ -13,9 +13,10 @@ No storyline, just the loop:
 
 **Goal:** survive 30 waves to secure the kingdom. After that the raids keep coming for a high score.
 
-- The Queen follows the King and raiders go for her first. Build the Royal Keep and she shelters inside;
-  raiders then bash the keep instead, and if it falls she is thrown out until you repair it. Keep HP grows
-  with your wall upgrades.
+- The Queen follows the King and raiders go for her first. She cannot be hurt -- only carried off, by
+  raiders who reach her and hold on. Build the Royal Keep and she shelters inside; raiders then bash the
+  keep instead, and if it falls she is thrown out until you repair it. Keep HP grows with your wall
+  upgrades.
 - The King starts on foot and gathers wood, stone and straw by standing next to lumber groves, ore outcrops
   and wheat fields. Materials feed the Keep and nothing else; everything on a build pad costs coins.
 - Roads grow out of the gates as you wall the village, and bridges over the river are built from pads at the
@@ -98,6 +99,10 @@ stored; at dawn there are none, which is what makes dawn the place to do this. T
 as a 256x256 PNG, because the minimap is most of how the map gets read and coming back blind would
 undo a good part of what the player did. A saved run runs about 17 kB.
 
+One other thing asks for a save, since installing an update reloads the page. It only gets one when
+the field *looks* like dawn -- daylight, nothing standing, nothing queued, the opening over -- and is
+refused otherwise, which the Settings row says out loud before you tap it.
+
 Winning or losing clears it, and so does starting a new run. See [src/game-save.js](src/game-save.js).
 
 ## The intro
@@ -178,13 +183,30 @@ the army: every soldier runs to the King and fights faster and harder for a few 
 blast shoves nearby raiders back and stuns them. It recharges over about twenty seconds, shown as a
 ring filling around the button, so using it at the right moment matters more than using it often.
 
-## Losing the Queen is a chase
+## The Queen is taken, never hurt
 
-If the Queen's health hits zero she is not killed: raiders pick her up and march her toward the map
-edge at a pace the King can catch (`CFG.rescue.escort`, `escortSpeed`). The pink arrow points to her
-and nothing can be built until she is back. Cut down the whole escort and she is freed, shaken, and
-the Keep loses a chunk of its health for it. It can happen once per run (`recaptures`); a second
-capture, or an escort reaching the edge, ends the game.
+Nothing in the game takes health off the Queen, because she has none. Arrows and a sapper's blast go
+straight through her -- neither can kidnap anybody -- and a raider that reaches her gets hold of her
+instead. The bar over her head is that grip, not her health: it runs down while they have her and
+climbs back the moment they do not, so it appears only when she is actually in trouble.
+
+Only raiders that have *chosen* her count, which is what `CFG.queen.targetWeight` decides. She
+follows the King closely enough that a scrum around him happens within arm's reach of her, so the
+rule is that they came for her, not that they happen to be standing there: he faces the fight, and
+they come round the back for her.
+
+One raider takes her in 3.4 seconds, two in 2.2, three in 1.6 (`CFG.queen.seize`). That is time
+enough for four of the King's arrows, or the horn, or simply running -- she moves at almost his
+speed. Getting her through the Keep door clears the grip outright, which is the best save in the
+game. Higher enemy ranks carry more health, so the arrows stop being an answer before the horn and
+the door do.
+
+Then it is a chase. Raiders pick her up and march her toward the map edge at a pace the King can
+catch (`CFG.rescue.escort`, `escortSpeed`). The pink arrow points to her and nothing can be built
+until she is back. Cut down the whole escort and she is freed, shaken -- they still half have her,
+and it takes a couple of seconds to shake off -- and the Keep loses a chunk of its health for it. It
+can happen once per run (`recaptures`); a second capture, or an escort reaching the edge, ends the
+game.
 
 ## Day and night
 
@@ -418,10 +440,28 @@ stay on-brand, including the separate maskable one that Android crops to a circl
 
 The service worker is written at build time by a plugin in `vite.config.js`, because the list of files
 to cache cannot be written by hand: Vite hashes the bundle's names on every build. The cache is named
-after a hash of that list, and a new worker deletes every cache that is not its own, so a deploy
-replaces the lot rather than serving half of one version and half of another. That costs a full
-re-download per deploy, which is the price of the files under `public/` — the character models — being
-unhashed and otherwise uncacheable-safely.
+after a hash of every file's name *and contents*, and a new worker deletes every cache that is not its
+own, so a deploy replaces the lot rather than serving half of one version and half of another. That
+costs a full re-download per deploy, which is the price of the files under `public/` — the character
+models — being unhashed and otherwise uncacheable-safely. Hashing the contents is what makes a deploy
+that only redraws a model count as a deploy: the names alone were identical, so the worker came out
+byte-for-byte the same and nothing told the browser anything had changed.
+
+A new worker installs and then **waits**. It used to call `skipWaiting()` and take over the page it
+found, which is what made the row below impossible: an update that swaps itself in cannot be offered,
+declined, or saved before. It also sat oddly with `activate` deleting every cache that is not the new
+one — nothing breaks from that today only because the worker is registered *after* the last model has
+been fetched, so a run in progress asks the cache for nothing. That is the current load order rather
+than a guarantee. Now the page decides when to swap.
+
+Settings has a **Check for updates** row for that, with the build the worker is answering with printed
+underneath it, so "Up to date" can be checked rather than believed. The row says so plainly when there
+is no connection instead of reporting good news it does not have. Installing reloads the page, so it
+takes a fresh save first when the field happens to be quiet enough for one — daylight, nothing on the
+field, nothing queued — and warns that the run picks up from the last dawn when it is not. The game
+also checks by itself when it comes back to the foreground, at most every fifteen minutes: that is the
+only moment a homescreen app reliably gives you, because iOS *resumes* it to the page it was already on
+rather than navigating, so nothing re-checks the worker and a phone can sit on one build for weeks.
 
 Cache lookups pass `ignoreVary`. Without it the shell loads offline and the bundle does not: a server
 answering `Vary: Accept-Encoding` makes the browser compare request headers against the ones that

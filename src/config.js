@@ -5,7 +5,41 @@ export const CFG = {
   cliffs: { x: -14, z: -33 },
 
   king: { speed: 7.5, footSpeed: 5.6, hp: 140, range: 8.5, fireRate: 1.2, damage: 10, pickupRadius: 3.0 },
-  queen: { hp: 90, speed: 7.2, follow: 1.9, targetWeight: 0.55 },
+  // #83: the Queen cannot be hurt. She has no health at all -- nothing in the game takes any off
+  // her, because raiders take her by getting hold of her rather than by wearing her down. `seize` is
+  // that grip, and the bar over her head shows it the same way round as a health bar: full is safe,
+  // empty is gone. Every other bar in the game reads that way and this is not the one to be clever
+  // with.
+  //
+  // `targetWeight` still makes raiders prefer her over the King -- it scales squared distance, so
+  // below 1 she looks nearer to them than she is. It now means "they are coming to take her" rather
+  // than "they are coming to kill her", which is closer to what that number was always for.
+  queen: {
+    speed: 7.2, follow: 1.9, targetWeight: 0.55,
+    // grip: how far past its OWN size a raider still has hold of her. updateEnemy stops an enemy at
+    // `e.radius + 0.7`, so 1.2 leaves half a unit of slack for the shoving that goes on when several
+    // of them stack up. It has to scale with the enemy rather than be flat: a flat 1.7 was right for
+    // a knight (radius 0.5) and quietly excused the boss, which stops 2.9 away and would have stood
+    // there all night unable to touch her.
+    //
+    // grab: seconds for a single raider to take her outright -- measured at 3.42. perExtra: what
+    // each further pair of hands adds to that rate; two take her in 2.20s, three in 1.63s, four in
+    // 1.28s. slip: 2.00s to get the whole bar back once nobody has her, which is what replaced her
+    // regen. shaken: how much of the bar an escort rescue costs, and what is left of "she comes back
+    // wounded" now that there are no wounds to come back with.
+    //
+    // 3.42s is three answers to one raider rather than four. The King fires at 1.2/s for 10, so that
+    // is four arrows -- two rank-0 knights; the horn shoves and stuns; and she moves at 7.2 with
+    // him, so running works. Two raiders at 2.20s is two and a half arrows, which leaves the horn
+    // and the Keep. Higher ranks carry more health, so the arrows stop being an answer first while
+    // the horn and a closed door go on working, which is the right way round.
+    //
+    // perExtra is deliberately not capped. Driving two dozen raiders at him put eight hands on her
+    // at once, which takes her in about 0.7s -- but eight raiders standing on the Queen is a rout
+    // whatever the number says, and a cap would mean a horde could not take her faster than a pair,
+    // which reads wrong. The range that was tuned is one to four, which is where a fight lives.
+    seize: { grip: 1.2, grab: 3.4, perExtra: 0.55, slip: 2.0, shaken: 0.45 },
+  },
   // Opening: the Queen has been carried off. Find her, clear her captors, and she follows you home.
   // Nobody attacks the King until he takes the Queen back: the raids are the enemy coming to get
   // her, so nothing spawns while she is captive and `firstRaid` is the grace period after the rescue.
@@ -20,7 +54,7 @@ export const CFG = {
     queenSpeed: 2.2,
     guardSpeed: 2.6,
     // #16: losing her is a chase, not a lose screen. `escort` raiders carry her toward the map edge
-    // at `escortSpeed`; catch them and she is back, wounded, and the Keep pays. `recaptures` times.
+    // at `escortSpeed`; catch them and she is back, shaken, and the Keep pays. `recaptures` times.
     escort: 2,
     escortSpeed: 4.0,
     // #33: losing the Keep with her inside now spends one of these, so a run gets two chances

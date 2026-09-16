@@ -182,6 +182,7 @@ restartRow.addEventListener('click', () => {
 
 document.getElementById('settings-btn').addEventListener('click', () => {
   disarmRestart();
+  syncUpdateRow();     // whether a reload would cost anything depends on where the run is right now
   game.toggleSettings();
 });
 document.getElementById('set-close').addEventListener('click', () => {
@@ -202,6 +203,65 @@ document.getElementById('set-info').addEventListener('click', () => {
   game.hideSettings(true);
   game.showInfo();
 });
+
+// #84: the update row. Everything it talks to lives at the bottom of this file with the worker.
+//
+// It has one job the rest of the sheet does not: to be believable. "Up to date" is unfalsifiable on
+// its own, and the whole reason this exists is somebody unable to tell which build their phone was
+// running -- so the build the worker is actually answering with goes underneath, and the row says
+// plainly when it could not reach the network rather than reporting good news it does not have.
+const updateRow = document.getElementById('set-update');
+const updateState = document.getElementById('set-update-state');
+const updateLabel = updateRow.querySelector('.sheet-label');
+const versionLine = document.getElementById('set-version');
+let updateBusy = false;
+let updateResult = '';    // '' | 'current' | 'failed'
+
+function syncUpdateRow() {
+  if (!swState.reg) return;                  // no worker to ask: the row stays hidden
+  updateRow.classList.remove('hidden');
+  const ready = !!swState.waiting;
+  updateRow.classList.toggle('ready', ready);
+  updateLabel.textContent = ready ? 'Update ready' : 'Check for updates';
+  updateState.textContent = updateBusy ? 'Checking…'
+    : ready ? 'Install'
+    : updateResult === 'failed' ? 'No connection'
+    : updateResult === 'current' ? 'Up to date'
+    : '';
+  // The warning goes where it is read: under the row, before the tap, and only when there is
+  // something to lose. Installing reloads, and a run only survives a reload through a save.
+  const warn = ready && game.inRun() && !game.quietEnoughToSave();
+  versionLine.textContent = warn
+    ? 'Installing reloads the game. Your run picks up from the last dawn.'
+    : swState.version ? `Build ${swState.version}` : '';
+  versionLine.classList.toggle('hidden', !versionLine.textContent);
+}
+
+updateRow.addEventListener('click', () => {
+  if (updateBusy) return;
+  if (swState.waiting) {
+    // Take a fresh save first if the field happens to be quiet enough for one, then hand over. The
+    // page reloads itself the moment the new worker takes control.
+    game.saveBeforeReload();
+    updateBusy = true;                  // the page is on its way out; a second tap does nothing
+    updateState.textContent = 'Installing…';
+    applyUpdate();
+    return;
+  }
+  updateBusy = true;
+  updateResult = '';
+  syncUpdateRow();
+  checkForUpdate().then((found) => {
+    updateBusy = false;
+    updateResult = found ? '' : 'current';
+    syncUpdateRow();
+  }).catch(() => {
+    updateBusy = false;
+    updateResult = 'failed';
+    syncUpdateRow();
+  });
+});
+
 window.addEventListener('keydown', (e) => {
   if (hud.introOpen()) {
     if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') hud.introNext();
@@ -290,5 +350,124 @@ window.audio = audio;
 function registerServiceWorker() {
   if (!import.meta.env.PROD || !('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL })
+    .then((reg) => {
+      swState.reg = reg;
+      watchForUpdate(reg);
+      askVersion();
+      syncUpdateRow();
+    })
     .catch((e) => console.warn('offline play unavailable:', e && e.message));
 }
+
+// #84: keeping the game up to date, and being able to say that it is.
+//
+// The worker installs and waits rather than taking over (see vite.config.js), so everything below is
+// about the gap between "a new build exists" and "this page is running it".
+//
+// Opening the site in a browser tab was never the problem: a navigation re-checks sw.js and the
+// worker serves the page network-first, so a deploy arrives on its own. A homescreen PWA is the case
+// that breaks, because iOS RESUMES it to the page it was already on -- no navigation, no check, and
+// the phone can sit on one build for as long as the app stays in the switcher.
+const swState = {
+  reg: null,
+  waiting: null,    // an installed worker holding for permission to take over
+  version: '',      // the cache name of the build actually answering, e.g. crownrush-4f1c...
+  lastCheck: 0,
+};
+
+function watchForUpdate(reg) {
+  const offer = (worker) => {
+    if (!worker || swState.waiting === worker) return;
+    // An installed worker with nobody controlling the page is a FIRST install, not an update: there
+    // is no older build to replace and nothing to tell anyone about.
+    if (!navigator.serviceWorker.controller) return;
+    swState.waiting = worker;
+    syncUpdateRow();
+  };
+  if (reg.waiting) offer(reg.waiting);      // one was already holding from a previous visit
+  reg.addEventListener('updatefound', () => {
+    const w = reg.installing;
+    if (!w) return;
+    w.addEventListener('statechange', () => { if (w.state === 'installed') offer(w); });
+  });
+}
+
+// Resolves with whether one is now waiting. Rejects if the check could not be made at all, which is
+// the case the row has to report honestly rather than as good news.
+function checkForUpdate() {
+  if (!swState.reg) return Promise.reject(new Error('no worker'));
+  // update() can resolve without having reached anything, and "Up to date" told to a phone with no
+  // signal is the exact lie this row exists to stop telling. onLine being true is no promise that
+  // the network works, but onLine being false is a promise that it does not.
+  if (navigator.onLine === false) return Promise.reject(new Error('offline'));
+  swState.lastCheck = Date.now();
+  return swState.reg.update()
+    .then(() => settled(swState.reg))
+    .then(() => !!swState.waiting);
+}
+
+// update() can resolve while the new worker is still installing, and a row that says "up to date"
+// half a second before one appears is worse than a row that takes half a second longer. The timeout
+// is there because a worker that never finishes installing must not leave it spinning for good.
+function settled(reg) {
+  const w = reg.installing;
+  if (!w) return Promise.resolve();
+  return new Promise((done) => {
+    const check = () => { if (w.state !== 'installing') done(); };
+    w.addEventListener('statechange', check);
+    setTimeout(done, 8000);
+    check();
+  });
+}
+
+function applyUpdate() {
+  const w = swState.waiting;
+  if (!w) return false;
+  // The page reloads as soon as the new worker takes control, so that everything in memory and
+  // everything it has yet to import come from the same build. `controllerchange` can fire for other
+  // reasons, hence the latch: reload once, or not at all.
+  let reloaded = false;
+  const go = () => {
+    if (reloaded) return;
+    reloaded = true;
+    window.location.reload();
+  };
+  navigator.serviceWorker.addEventListener('controllerchange', go);
+  // If it never takes over, reload anyway rather than leaving the row saying "Installing…" for good.
+  // A reload is a navigation, and the worker serves the page network-first, so the player ends up on
+  // the new build either way -- the handover only decides whether the old cache is cleaned up now or
+  // on the visit after.
+  setTimeout(go, 6000);
+  w.postMessage({ type: 'SKIP_WAITING' });
+  return true;
+}
+
+// Which build is serving this page. Asked of the worker rather than baked in at build time, because
+// the cache name is a hash of the file list and is only known once the bundle has been written --
+// and because what matters is the build that is ANSWERING, not the one the page was compiled from.
+function askVersion() {
+  const c = navigator.serviceWorker.controller;
+  // Nothing controls the page on a first visit until the worker has activated and claimed it, which
+  // happens a moment after registering. Ask again when it does, rather than leaving the build line
+  // blank until the next time the game is opened.
+  if (!c) {
+    navigator.serviceWorker.addEventListener('controllerchange', askVersion, { once: true });
+    return;
+  }
+  const ch = new MessageChannel();
+  ch.port1.onmessage = (e) => {
+    swState.version = String(e.data || '').replace(/^crownrush-/, '');
+    syncUpdateRow();
+  };
+  c.postMessage({ type: 'VERSION' }, [ch.port2]);
+}
+
+// Coming back to the foreground is the only moment a resumed homescreen app reliably gives us, so it
+// is when to look. Throttled hard: an app is foregrounded dozens of times a session and this is a
+// network request. The row is still worth having on top of it -- it is the thing somebody can be
+// TOLD to press when their phone is being stubborn.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !swState.reg) return;
+  if (Date.now() - swState.lastCheck < 15 * 60 * 1000) return;
+  checkForUpdate().then(() => syncUpdateRow()).catch(() => { /* offline; the row says so when asked */ });
+});

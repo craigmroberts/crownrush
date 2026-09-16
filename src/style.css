@@ -302,6 +302,15 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .panel.sheet .sheet-row:active { transform: translateY(2px); border-bottom-width: 2px; }
 .panel.sheet .sheet-row .sheet-label { flex: 1; text-align: left; }
 .panel.sheet .sheet-row em { font-style: normal; font-size: 15px; color: #7a6a3a; }
+/* #84: an update waiting is good news, not a warning -- it gets the green the game uses for a thing
+   you want rather than the red the restart row below uses for a thing you might regret. Both the row
+   and the build line are hidden where there is no worker to ask; there is no blanket .hidden rule in
+   this stylesheet, so everything that hides itself says so. */
+.panel.sheet .sheet-row.ready { background: #eaffe8; border-color: #3fa03a; border-bottom-color: #26701f; color: #256b22; }
+.panel.sheet .sheet-row.ready em { color: #256b22; font-weight: 800; }
+.panel.sheet #set-update.hidden { display: none; }
+.panel.sheet #set-version { margin: 6px 0 0; font-size: 12px; opacity: 0.6; }
+.panel.sheet #set-version.hidden { display: none; }
 /* Restart: set apart from the two settings above it, and louder once it is asking to be confirmed */
 .panel.sheet .sheet-row.danger { margin-top: 16px; }
 .panel.sheet .sheet-row.danger.armed { background: #ffece8; border-color: #d8262c; border-bottom-color: #8a1a22; color: #a3201f; }

@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
-import { writeFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { writeFileSync, readFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, relative } from 'node:path';
 
@@ -63,7 +63,21 @@ function serviceWorkerPlugin() {
       const files = ['./', ...new Set([...fromBundle, ...fromPublic])]
         .filter((f) => f !== 'sw.js')
         .sort();
-      const version = createHash('sha256').update(files.join('\n')).digest('hex').slice(0, 12);
+      // Hash the CONTENTS as well as the names. Vite hashes the bundle's names, so for JS and CSS
+      // the names alone were enough -- but the files under public/ keep the names they have, and a
+      // deploy that only redraws a character model produced the same list, the same cache name and a
+      // byte-identical sw.js. Nothing would have told the browser anything had changed, the old cache
+      // would have gone on serving the old model, and the Check for updates row (#84) would have said
+      // "Up to date" and meant it. Read from the bundle rather than off disk: public/ is copied by a
+      // plugin of Vite's own and there is no promise it has landed by the time this runs.
+      const h = createHash('sha256');
+      for (const f of files) {
+        h.update(f);
+        const out = bundle[f];
+        if (out) h.update(out.type === 'asset' ? out.source : out.code);
+        else if (f !== './') h.update(readFileSync(join('public', f)));
+      }
+      const version = h.digest('hex').slice(0, 12);
       const sw = SERVICE_WORKER.replace('__VERSION__', version).replace('__FILES__', JSON.stringify(files, null, 2));
       writeFileSync(join(options.dir, 'sw.js'), sw);
       console.log(`  service worker: ${files.length} files precached, cache crownrush-${version}`);
@@ -85,12 +99,33 @@ const HIT = { ignoreVary: true };
 // Take everything at once. The game is about two megabytes and is no use with pieces missing.
 // \`cache: 'reload'\` keeps the browser's own HTTP cache out of it, so a deploy cannot precache the
 // version it happens to be holding from the last one.
+//
+// #84: it installs and then WAITS. \`skipWaiting()\` used to be on the end of that chain, so a new
+// worker took over a page that was already running, and the activate handler below deletes every
+// cache that is not its own.
+//
+// Nothing breaks from that today, and it is worth being exact about why: registerServiceWorker is
+// called only after the last model has been fetched, so a run holds everything it needs in memory
+// and asks the cache for nothing. That is the current load order rather than a promise -- the first
+// thing this game fetches lazily would be looking in a cache that had just been emptied, from a page
+// still running the build that expected it.
+//
+// The reason it changed now is the other half: a worker that swaps itself in cannot be offered,
+// declined, or saved before. The page asks for the handover when it is ready to reload instead.
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE)
-      .then((c) => c.addAll(FILES.map((f) => new Request(f, { cache: 'reload' }))))
-      .then(() => self.skipWaiting()),
+      .then((c) => c.addAll(FILES.map((f) => new Request(f, { cache: 'reload' })))),
   );
+});
+
+// #84: the two things the page needs to be able to ask. SKIP_WAITING is "I have saved what I can and
+// I am about to reload, take over"; VERSION is which build is actually answering, which is the only
+// way anybody can tell two of them apart from inside a game with no version number on screen.
+self.addEventListener('message', (e) => {
+  if (!e.data) return;
+  if (e.data.type === 'SKIP_WAITING') self.skipWaiting();
+  if (e.data.type === 'VERSION' && e.ports && e.ports[0]) e.ports[0].postMessage(CACHE);
 });
 
 // A new build means a new cache name, so every older one is rubbish and goes. This is what keeps the

@@ -285,6 +285,10 @@ export class Game {
     this.queen = this.spawnUnit('queen', CFG.rescue.pos[0], CFG.rescue.pos[1]);
     this.queen.inKeep = false;
     this.queen.captive = true;
+    // #83: how much of her the raiders have. Hers alone -- nothing else in the game is taken this
+    // way -- so it lives here rather than on every unit spawnUnit makes.
+    this.queen.seize = 0;
+    this.queen.held = false;
     for (let i = 0; i < CFG.rescue.captors; i++) {
       const a = (i / CFG.rescue.captors) * Math.PI * 2 + 0.6;
       const e = this.spawnEnemy('knight', CFG.rescue.pos[0] + Math.cos(a) * 2.3, CFG.rescue.pos[1] + Math.sin(a) * 2.3, CFG.rescue.captorRank || 0);
@@ -683,8 +687,12 @@ export class Game {
     q.taken = false;
     q.captive = false;
     q.escort = null;
-    q.hp = q.maxHp * 0.4;
-    setHealthBar(q.bar, q.hp / q.maxHp);
+    // #83: she has no wounds to come back with, so the cost of a rescue is that they still half have
+    // her -- the bar comes back down and climbs out of it over the next couple of seconds. The Keep
+    // paying below is the part that lasts.
+    q.seize = CFG.queen.seize.shaken;
+    q.held = false;
+    setHealthBar(q.bar, 1 - q.seize);
     tmp.copy(q.mesh.position).setY(1.0);
     this.heartFx(tmp, 8, 0.9);
     this.addScore(CFG.score.recapture);

@@ -691,7 +691,10 @@ export const BuildMethods = {
     const q = this.queen;
     if (!this.keep || this.keep.state !== 'built' || q.inKeep || q.captive) return;
     q.inKeep = true;
-    q.hp = q.maxHp;
+    // #83: a door closed between her and them is the whole of the answer. Getting her to the Keep
+    // with raiders already on her is the best save in the game, so it has to be a clean one.
+    q.seize = 0;
+    q.held = false;
     setHealthBar(q.bar, 1);
     const b = this.keep.mesh.userData.balcony;
     q.mesh.position.set(this.keep.x + b.x, b.y, this.keep.z + b.z);

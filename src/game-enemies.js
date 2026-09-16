@@ -162,7 +162,8 @@ export const EnemiesMethods = {
     q.captive = true;
     q.taken = true;
     q.inKeep = false;
-    q.hp = q.maxHp * 0.25;
+    q.seize = 0;
+    q.held = false;
     q.bar.visible = false;
     const p = q.mesh.position;
     const exit = this.edgeExit(p);
@@ -213,6 +214,10 @@ export const EnemiesMethods = {
       for (const t of this.turrets) shootable.push(t);
       for (const u of shootable) {
         if (u.inKeep || u.captive) continue;
+        // #83: she cannot be hurt, and an archer holding at 15 units cannot get hold of her either,
+        // so one that picked her would stand there shooting a target it can never affect for the
+        // rest of the night. Let it find something it can actually do something about.
+        if (u.type === 'queen') continue;
         const d = p.distanceToSquared(u.isTurret ? u.pos : u.mesh.position);
         if (d < bd) {
           bd = d;
@@ -820,7 +825,8 @@ export const EnemiesMethods = {
     const q = this.queen;
     q.captive = false;
     this.refreshPads();          // pads held back until the rescue can appear now
-    q.hp = q.maxHp;
+    q.seize = 0;
+    q.held = false;
     setHealthBar(q.bar, 1);
     tmp.copy(q.mesh.position).setY(1.0);
     this.heartFx(tmp, 14, 1.2);
@@ -835,10 +841,59 @@ export const EnemiesMethods = {
     this.refreshPads();
   },
 
+  // #83: how the Queen is lost now. Raiders that have chosen her and reached her get hold of her,
+  // and enough of them holding on for long enough carry her off. She is never hurt on the way.
+  //
+  // Only raiders that are actually AFTER her count, not every body standing near her. She follows
+  // the King at 1.9 (CFG.queen.follow) and a knight's grip reaches 1.7, so anyone fighting HIM from
+  // her side of the scrum is already inside it: counting bodies would have handed her over in the
+  // middle of a fight he was winning, with nothing on screen to explain why. Requiring that they
+  // chose her is what turns `targetWeight` into the rule it always looked like -- he faces the
+  // fight, and they come round the back for her.
+  //
+  // Returns true if they got her, because the rest of updateQueen would then be walking a Queen who
+  // is already halfway to the map edge.
+  updateSeize(dt) {
+    const q = this.queen;
+    const S = CFG.queen.seize;
+    const p = q.mesh.position;
+    let hands = 0;
+    for (const e of this.enemies) {
+      if (e.target !== q) continue;
+      // Measured off its own size, because that is what updateEnemy stops it at. A boss halts 2.9
+      // away and a knight 1.2, so one number for both would have let the biggest thing in the game
+      // stand next to her doing nothing at all.
+      const r = e.radius + S.grip;
+      if (e.mesh.position.distanceToSquared(p) < r * r) hands++;
+    }
+    // On hands going from none to some, not on the meter leaving zero: after a rescue she starts
+    // part-way down (`shaken`), and that is exactly when a second grab must still be announced. The
+    // old alarm fired on every point of damage she took, so the warning arrived as a stutter during
+    // the emergency rather than at the start of it.
+    if (hands > 0 && !q.held) this.raiseAlarm('Raiders have hold of the Queen!');
+    q.held = hands > 0;
+
+    const was = q.seize;
+    q.seize = hands > 0
+      ? Math.min(1, was + dt * (1 + (hands - 1) * S.perExtra) / S.grab)
+      : Math.max(0, was - dt / S.slip);
+    if (q.seize === was) return false;     // at rest, which is most frames: nothing to redraw
+    // `1 - seize` rather than `seize`: this is the bar the player has spent the whole run reading as
+    // "how much of them is left", and setHealthBar hides itself at full -- so she carries nothing
+    // over her head until somebody has her, which is the only moment it has anything to say.
+    setHealthBar(q.bar, 1 - q.seize);
+    if (q.seize >= 1) {
+      this.captureQueen();
+      return true;
+    }
+    return false;
+  },
+
   updateQueen(dt) {
     const q = this.queen;
     if (!q || q.inKeep) return;
     if (q.captive) return this.updateCaptive(dt);
+    if (this.updateSeize(dt)) return;
     const k = this.king.mesh;
     const fx = Math.sin(k.rotation.y);
     const fz = Math.cos(k.rotation.y);
@@ -873,7 +928,6 @@ export const EnemiesMethods = {
     if (this.keep && this.keep.state === 'built' && Math.hypot(p.x - this.keep.x, p.z - this.keep.z) < 3.6) return this.queenEnterKeep();
     q.moving = moving > 0.05;
     this.animateWalk(q, moving, dt);
-    this.regen(q, dt);
   },
 
   damageEnemy(e, dmg, hitPos, from = null) {
