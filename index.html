@@ -53,13 +53,16 @@
            furniture. Both groups are still buttons that open the Keep sheet. -->
       <div id="topbar">
         <button class="hud-group" id="keep-plaque" title="Keep progress (K)">
-          <span class="hud-cell"><i data-icon="moon" data-size="20"></i><b id="wave-hud">Night <span id="wave-num">1</span></b></span>
-          <i class="hud-rule" aria-hidden="true"></i>
-          <span class="hud-cell"><i data-icon="castle" data-size="19"></i><b id="keep-level" class="hud-sub">Keep 0</b></span>
-          <i class="hud-rule" aria-hidden="true"></i>
-          <!-- health at a glance. The precise number is the bar over his head, which only shows when
-               he is hurt, so the two never draw the same shape twice. -->
-          <span class="hud-cell hearts" id="king-hearts" aria-label="King's health"></span>
+          <span class="hud-stack">
+            <span class="hud-row">
+              <span class="hud-cell"><i data-icon="moon" data-size="20"></i><b id="wave-hud">Night <span id="wave-num">1</span></b></span>
+              <span class="hud-cell"><i data-icon="castle" data-size="19"></i><b id="keep-level" class="hud-sub">Keep 0</b></span>
+            </span>
+            <!-- health at a glance, on its own line: it is the one row that grows, and putting it
+                 beside the text is what made a phone cramped. The precise number is the bar over his
+                 head, which only shows when he is hurt, so the two never draw the same shape twice. -->
+            <span class="hud-cell hearts" id="king-hearts" aria-label="King's health"></span>
+          </span>
         </button>
         <!-- coin is what you spend; the bag is what you are still carrying to the trade post. The
              ring around the bag is how full it is, so the cap never has to be read as a number. -->
@@ -67,7 +70,7 @@
           <span class="hud-cell"><i id="coin-icon" data-icon="gold" data-size="24"></i><b id="coin-count">0</b></span>
           <span class="hud-cell bagcell">
             <span class="bagring">
-              <svg viewBox="0 0 40 40" aria-hidden="true"><circle class="ring-bg" cx="20" cy="20" r="17"/><circle id="load-ring" class="ring-fill" cx="20" cy="20" r="17"/></svg>
+              <svg class="ring" viewBox="0 0 40 40" aria-hidden="true"><circle class="ring-bg" cx="20" cy="20" r="17"/><circle id="load-ring" class="ring-fill" cx="20" cy="20" r="17"/></svg>
               <i data-icon="sack" data-size="21"></i>
             </span>
             <b id="load-now">0</b>
