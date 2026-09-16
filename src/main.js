@@ -141,6 +141,10 @@ document.getElementById('tip-toggle').addEventListener('click', (e) => {
   hud.togglePadTip();
 });
 document.getElementById('info-close').addEventListener('click', () => game.hideInfo());
+// #92: the corner close does exactly what the button at the bottom does -- same handler, not a copy
+document.getElementById('info-x').addEventListener('click', () => game.hideInfo());
+document.getElementById('ks-x').addEventListener('click', () => game.hideKeep());
+document.getElementById('pause-x').addEventListener('click', () => game.unpause());
 // both plaques open the Keep sheet: the left one is the level, the right one is what feeds it
 document.getElementById('keep-plaque').addEventListener('click', () => game.toggleKeep());
 document.getElementById('carry-rail').addEventListener('click', () => game.toggleKeep());
@@ -185,10 +189,12 @@ document.getElementById('settings-btn').addEventListener('click', () => {
   syncUpdateRow();     // whether a reload would cost anything depends on where the run is right now
   game.toggleSettings();
 });
-document.getElementById('set-close').addEventListener('click', () => {
+const closeSettings = () => {
   disarmRestart();
   game.hideSettings();
-});
+};
+document.getElementById('set-close').addEventListener('click', closeSettings);
+document.getElementById('set-x').addEventListener('click', closeSettings);
 settingsScreen.addEventListener('click', (e) => {
   if (e.target !== settingsScreen) return;   // tapping outside the sheet closes it
   disarmRestart();

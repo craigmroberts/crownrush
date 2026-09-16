@@ -74,6 +74,15 @@ loop underneath it:
   armful you picked up and the number that changed are one event. The ledger is credited before the
   flight, not when it arrives: hanging a player's materials on a CSS transition completing would cost
   them the pickup on a backgrounded tab, and no animation is worth that.
+- A sheet that takes the screen -- settings, how to play, the Keep, pause, a reward to choose -- is its
+  content on a gaussian-blurred world rather than a card sitting on one: no panel, no border, light
+  text. It rises in and settles on the way up and leaves quicker and downward, the curve everything
+  else in the game uses. The blur is affordable there in a way it is not for a notice, because every
+  one of these pauses the game: the canvas behind is a still picture, so it is computed once rather
+  than sixty times a second.
+  The four you open by choice have a close in the corner as well as at the bottom. The reward choice
+  deliberately has neither -- a pending choice that could be dismissed once left the King stopped
+  dead with nothing able to resume him.
 - Sound is synthesised in the browser (no audio files): a looping background melody, arrow hits, coin
   pickups, the "ching" of coins being spent, build fanfares and wave horns. The speaker button mutes it.
 

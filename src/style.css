@@ -74,13 +74,73 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 
 #toast.show { opacity: 1; }
 
-.overlay { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(10, 30, 20, 0.6); backdrop-filter: blur(4px); z-index: 10; }
-.overlay.hidden { display: none; }
-.panel { background: var(--parchment); border-radius: 24px; padding: 32px 28px; max-width: 360px; width: calc(100% - 40px); text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.35); border: 4px solid var(--gold); }
-.panel h1 { font-size: 40px; color: #c9432b; -webkit-text-stroke: 1px #6a1c10; text-shadow: 0 3px 0 #f5b800; margin-bottom: 12px; }
-.panel p { color: #4a4a3a; margin-bottom: 14px; line-height: 1.4; }
-.panel .hint { font-size: 13px; color: #7a7a6a; }
-.panel .best { font-size: 14px; color: #7a7a6a; margin-top: 14px; margin-bottom: 0; }
+/* #98: a sheet is its content on a blurred world, not a card sitting on one.
+   The blur is affordable here in a way it was not for the notices (#89): every one of these pauses
+   the game, so the canvas behind is a still picture and the blur is computed once instead of sixty
+   times a second. The same effect has a completely different price depending on whether the thing
+   behind it is moving.
+   #92: and it arrives and leaves rather than being switched on and off. `display: none` cannot be
+   transitioned, which is why there was no animation at all; opacity plus a delayed `visibility` can,
+   and it leaves every `classList.contains('hidden')` check in the codebase reading exactly as it did
+   -- the state is still correct on the frame it changes, only the paint takes a moment to catch up. */
+.overlay {
+  position: fixed; inset: 0; display: grid; place-items: center; z-index: 10;
+  /* the card used to hold the content off the screen edges; without one the safe area has to */
+  padding: max(10px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+           max(10px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  /* 0.66 rather than something lighter because of the worst case, not the usual one: a diamond-age
+     village blurs to near-white, and a blur preserves average brightness, so the scrim is the only
+     thing standing between light text and a pale background. At this alpha a full screen of white
+     composites to about a mid-grey, which the panel text clears comfortably -- and every line on a
+     panel carries a two-stop shadow on top of that. */
+  background: rgba(8, 18, 12, 0.66);
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+  opacity: 1; visibility: visible;
+  transition: opacity 0.2s ease-out;
+}
+.overlay.hidden {
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity 0.16s ease-in, visibility 0s linear 0.16s;
+}
+/* Arriving overshoots and settles, the curve #70 gave the notices and popIn gives a building.
+   Leaving is quicker and downward, deliberately not the arrival played backwards. */
+.overlay .panel { transform: translateY(0) scale(1); transition: transform 0.34s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.overlay.hidden .panel { transform: translateY(20px) scale(0.96); transition: transform 0.16s cubic-bezier(0.4, 0, 1, 1); }
+
+/* #92: the close. Every sheet you open by choice has one in the same corner, so it can be found
+   without reading the button at the bottom of a scroll. It is a big touch target with a small glyph,
+   the way the gear is (#86), and it sits inside the panel's own box rather than the overlay's so it
+   lands where the content does on every screen width. */
+.panel .offer-card, .panel .offer-card *,
+.panel .irow, .panel .irow *,
+.panel .ichip, .panel .info-note, .panel .ks-need, .panel .ks-track { text-shadow: none; }
+
+.panel .panel-x {
+  position: absolute; top: -4px; right: -2px; width: 44px; height: 44px;
+  border-radius: 50%; border-bottom: 0; margin: 0;
+  display: grid; place-items: center; border: 0; background: none; cursor: pointer; padding: 0;
+  color: #dde7cf; font-size: 30px; line-height: 1; font-weight: 700;
+  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6); -webkit-text-stroke: 0;
+  -webkit-tap-highlight-color: transparent; transition: transform 0.12s ease-out, color 0.12s ease-out;
+}
+.panel .panel-x:active { transform: scale(0.85); color: #fff; border-bottom-width: 0; }
+.panel.info .panel-x, .panel.keep-sheet .panel-x { position: sticky; float: right; top: 0; margin: -8px -8px 0 0; }
+
+/* No background, no border, no box. The width caps that remain are not a card -- they are line
+   length, which is the one thing a full-width paragraph on a desktop monitor genuinely loses. */
+.panel {
+  background: none; border: 0; box-shadow: none; border-radius: 0;
+  padding: 28px 24px; max-width: 30rem; width: calc(100% - 36px); text-align: center;
+  position: relative; color: #eef4e4;
+  /* light text on a blurred photograph of the game, not on a flat panel: the world behind moves
+     between runs and materials, and a diamond-age village blurs much lighter than grass */
+  text-shadow: 0 1px 0 rgba(0,0,0,0.55), 0 2px 10px rgba(0,0,0,0.65);
+}
+.panel h1 { font-size: 40px; color: #ffb347; -webkit-text-stroke: 1px #5a2a0c; text-shadow: 0 3px 0 #b07a00, 0 4px 14px rgba(0,0,0,0.6); margin-bottom: 12px; }
+.panel p { color: #dde7cf; margin-bottom: 14px; line-height: 1.4; }
+.panel .hint { font-size: 13px; color: #a9bb96; }
+.panel .best { font-size: 14px; color: #a9bb96; margin-top: 14px; margin-bottom: 0; }
 .panel button {
   background: linear-gradient(#ffd54a, #f5a800); border: 0; border-bottom: 5px solid #b07a00; color: #fff;
   font-size: 26px; font-weight: 900; padding: 12px 40px; border-radius: 14px; cursor: pointer;
@@ -101,10 +161,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   color: #fff; font-weight: 900; font-size: 15px; text-shadow: 0 2px 3px rgba(0,0,0,0.6);
 }
 .indicator.boss .arrow { background: #ffffff; width: 40px; height: 40px; left: -20px; top: -20px; }
-.panel a { color: #c9432b; font-weight: 700; }
+.panel a { color: #ffd166; font-weight: 700; }
 
 
-.panel .score { font-size: 20px; color: #2a3a2f; }
+.panel .score { font-size: 20px; color: #f2f6ea; }
 .indicator.home .arrow { background: #2f6fd6; }
 .indicator.home .count { font-size: 18px; }
 
@@ -351,26 +411,28 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 /* scoped past `.panel button`, which would otherwise paint these as big gold play buttons */
 .panel.sheet .sheet-row {
   display: flex; align-items: center; gap: 12px; width: 100%; margin-bottom: 10px;
-  background: #fffdf2; border: var(--gold-line) solid var(--gold); border-bottom: 4px solid var(--gold-dark); border-radius: var(--radius);
-  padding: 12px 16px; cursor: pointer; font-size: 19px; font-weight: 800; color: var(--ink);
-  -webkit-text-stroke: 0; text-shadow: none;
+  background: rgba(255,255,255,0.09); border: 0; border-radius: 14px;
+  padding: 13px 16px; cursor: pointer; font-size: 19px; font-weight: 800; color: #eef4e4;
+  -webkit-text-stroke: 0; text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  transition: background 0.12s ease-out, transform 0.12s ease-out;
 }
-.panel.sheet .sheet-row:active { transform: translateY(2px); border-bottom-width: 2px; }
+/* the press was a button sinking into its own bottom border; there is no border to sink into now */
+.panel.sheet .sheet-row:active { transform: scale(0.985); background: rgba(255,255,255,0.17); }
 .panel.sheet .sheet-row .sheet-label { flex: 1; text-align: left; }
-.panel.sheet .sheet-row em { font-style: normal; font-size: 15px; color: #7a6a3a; }
+.panel.sheet .sheet-row em { font-style: normal; font-size: 15px; color: #a9bb96; }
 /* #84: an update waiting is good news, not a warning -- it gets the green the game uses for a thing
    you want rather than the red the restart row below uses for a thing you might regret. Both the row
    and the build line are hidden where there is no worker to ask; there is no blanket .hidden rule in
    this stylesheet, so everything that hides itself says so. */
-.panel.sheet .sheet-row.ready { background: #eaffe8; border-color: #3fa03a; border-bottom-color: #26701f; color: #256b22; }
-.panel.sheet .sheet-row.ready em { color: #256b22; font-weight: 800; }
+.panel.sheet .sheet-row.ready { background: rgba(63,212,85,0.22); color: #c6f7c8; }
+.panel.sheet .sheet-row.ready em { color: #c6f7c8; font-weight: 800; }
 .panel.sheet #set-update.hidden { display: none; }
 .panel.sheet #set-version { margin: 6px 0 0; font-size: 12px; opacity: 0.6; }
 .panel.sheet #set-version.hidden { display: none; }
 /* Restart: set apart from the two settings above it, and louder once it is asking to be confirmed */
 .panel.sheet .sheet-row.danger { margin-top: 16px; }
-.panel.sheet .sheet-row.danger.armed { background: #ffece8; border-color: #d8262c; border-bottom-color: #8a1a22; color: #a3201f; }
-.panel.sheet .sheet-row.danger.armed em { color: #a3201f; font-weight: 800; }
+.panel.sheet .sheet-row.danger.armed { background: rgba(216,38,44,0.3); color: #ffc9c4; }
+.panel.sheet .sheet-row.danger.armed em { color: #ffc9c4; font-weight: 800; }
 .panel.sheet #set-close { font-size: 20px; padding: 10px 24px; margin-top: 4px; }
 /* #89: a caption over the world rather than a dialog box on top of it. Parchment and a gold border
    are what the settings sheet and the victory panel are made of -- things that stop the game and wait
@@ -445,6 +507,8 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 @media (prefers-reduced-motion: reduce) {
   #toast, #toast.show { transition: opacity 0.2s linear; transform: translateX(-50%); }
   #toast.show .toast-panel { animation: none; }   /* #96: no bob either */
+  /* #92: the sheets still fade, they just do not rise or scale. */
+  .overlay .panel, .overlay.hidden .panel { transition: none; transform: none; }
   .bagring .ring-fill { transition: stroke 0.3s linear; }
   /* #88: no flight and no bump. flyToBag's timer still fires, so nothing is left in the DOM. */
   .fly { display: none; }
@@ -484,11 +548,11 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 /* the info screen */
 .panel.info { max-width: 640px; max-height: 88vh; overflow-y: auto; text-align: left; padding: 22px 24px; }
 .panel.info h1 { text-align: center; font-size: 34px; }
-.panel.info h2 { display: flex; align-items: center; gap: 8px; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 21px; color: #2a3a2f; margin: 18px 0 6px; }
+.panel.info h2 { display: flex; align-items: center; gap: 8px; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 21px; color: #f2f6ea; margin: 18px 0 6px; }
 .panel.info p { margin-bottom: 8px; font-size: 15px; }
-.panel.info p.sub { color: #7a7a6a; font-size: 13px; margin-bottom: 6px; }
+.panel.info p.sub { color: #a9bb96; font-size: 13px; margin-bottom: 6px; }
 .panel.info .info-note { background: #ffe0ec; border: 2px solid #f07aa8; border-radius: 12px; padding: 8px 12px; color: #7a2b4a; font-weight: 700; }
-.panel.info ul { margin: 0 0 8px 20px; color: #4a4a3a; font-size: 15px; line-height: 1.45; }
+.panel.info ul { margin: 0 0 8px 20px; color: #dde7cf; font-size: 15px; line-height: 1.45; }
 .panel.info .ichip { display: inline-flex; align-items: center; gap: 5px; background: #f1ecd8; border-radius: 999px; padding: 3px 10px 3px 6px; font-size: 13px; font-weight: 700; color: #4a4a3a; margin: 2px 0; }
 .panel.info .ichip.ok { background: #d9f5dc; color: #23613a; }
 .panel.info .ichip.short { background: #fde0dc; color: #8a2a20; }
@@ -541,8 +605,8 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 /* the stepped intro */
 .panel.intro { max-width: 380px; padding: 26px 26px 20px; }
 .panel.intro .intro-icon { height: 60px; display: grid; place-items: center; margin-bottom: 4px; }
-.panel.intro h2 { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 28px; color: #c9432b; margin: 0 0 8px; }
-.panel.intro p { font-size: 16px; line-height: 1.45; color: #4a4a3a; min-height: 4.4em; margin-bottom: 10px; }
+.panel.intro h2 { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 28px; color: #ffb347; margin: 0 0 8px; }
+.panel.intro p { font-size: 16px; line-height: 1.45; color: #dde7cf; min-height: 4.4em; margin-bottom: 10px; }
 .panel.intro .intro-dots { display: flex; justify-content: center; gap: 7px; margin-bottom: 14px; }
 .panel.intro .intro-dots i { width: 9px; height: 9px; border-radius: 50%; background: #d9d0b0; display: inline-block; }
 .panel.intro .intro-dots i.on { background: #f5a800; }
@@ -611,10 +675,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .panel.keep-sheet { max-width: 400px; text-align: left; padding: 26px 24px 22px; }
 .panel.keep-sheet h1 { font-size: 30px; margin-bottom: 2px; text-align: left; }
 .panel.keep-sheet .hint { text-align: left; }
-.ks-track { height: 12px; border-radius: 999px; background: #e2d5a8; overflow: hidden; margin: 14px 0 5px; box-shadow: inset 0 1px 2px rgba(0,0,0,0.18); }
+.ks-track { height: 12px; border-radius: 999px; background: rgba(0,0,0,0.35); overflow: hidden; margin: 14px 0 5px; box-shadow: inset 0 1px 2px rgba(0,0,0,0.3); }
 .ks-track i { display: block; height: 100%; background: linear-gradient(90deg, #ffd76a, #f5a800); border-radius: 999px; transition: width 0.2s; }
-.ks-of { font-size: 11px; font-weight: 800; letter-spacing: 0.1em; color: #8a8a72; margin-bottom: 14px; }
-.ks-h { font-size: 13px; font-weight: 800; color: #5f5f4c; margin: 14px 0 8px; }
+.ks-of { font-size: 11px; font-weight: 800; letter-spacing: 0.1em; color: #a9bb96; margin-bottom: 14px; }
+.ks-h { font-size: 13px; font-weight: 800; color: #b6c4a6; margin: 14px 0 8px; }
 .ks-needs { display: flex; gap: 7px; flex-wrap: wrap; }
 .ks-need {
   display: inline-flex; align-items: center; gap: 6px; background: #efe2b4; border: 2px solid #d8c88c;
@@ -624,8 +688,8 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .ks-need.done { background: #d8efc0; border-color: #8fc86a; color: #3c6a22; }
 .ks-need.short { background: #f6d9cf; border-color: #e2937c; color: #93341c; }
 .ks-list { display: grid; gap: 7px; }
-.ks-row { display: grid; grid-template-columns: 26px 1fr; gap: 9px; align-items: center; font-size: 14px; color: #4a4a3a; line-height: 1.3; }
-.ks-row .at { font-size: 11px; font-weight: 800; color: #8a8a72; white-space: nowrap; }
+.ks-row { display: grid; grid-template-columns: 26px 1fr; gap: 9px; align-items: center; font-size: 14px; color: #dde7cf; line-height: 1.3; }
+.ks-row .at { font-size: 11px; font-weight: 800; color: #a9bb96; white-space: nowrap; }
 .ks-list.later { opacity: 0.62; }
 .panel.keep-sheet hr { border: 0; border-top: 2px dashed #ddd0a0; margin: 16px 0 0; }
 .panel.keep-sheet #ks-close { display: block; margin: 20px auto 0; font-size: 20px; padding: 10px 24px; }

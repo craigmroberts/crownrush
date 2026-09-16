@@ -185,6 +185,7 @@
          two levels past that so there is a reason to come back to it -->
     <div id="keep-screen" class="overlay hidden">
       <div class="panel keep-sheet">
+        <button class="panel-x" id="ks-x" aria-label="Close" title="Close">&times;</button>
         <h1 id="ks-title">Keep level 0</h1>
         <p class="hint" id="ks-goal"></p>
         <div class="ks-track"><i id="ks-fill"></i></div>
@@ -197,6 +198,7 @@
 
     <div id="info-screen" class="overlay hidden">
       <div class="panel info">
+        <button class="panel-x" id="info-x" aria-label="Close" title="Close">&times;</button>
         <h1>Your Kingdom</h1>
         <div id="info-body"></div>
         <button id="info-close">Back to the game</button>
@@ -206,6 +208,7 @@
     <!-- #23: one sheet for sound, pause and how to play -->
     <div id="settings-screen" class="overlay hidden">
       <div class="panel sheet">
+        <button class="panel-x" id="set-x" aria-label="Close" title="Close">&times;</button>
         <h1>Settings</h1>
         <button class="sheet-row" id="set-sound"><i data-icon="speaker" data-size="24"></i><span class="sheet-label">Sound</span><em id="set-sound-state">On</em></button>
         <button class="sheet-row" id="set-info"><i data-icon="info" data-size="24"></i><span class="sheet-label">How to play</span></button>
@@ -224,6 +227,7 @@
     </div>
     <div id="pause-screen" class="overlay hidden">
       <div class="panel">
+        <button class="panel-x" id="pause-x" aria-label="Close" title="Close">&times;</button>
         <h1>Paused</h1>
         <p class="hint">Press P or Esc to resume</p>
         <p class="score">Score <strong id="pause-score">0</strong> <span class="hint">· night <span id="pause-wave">1</span></span></p>
