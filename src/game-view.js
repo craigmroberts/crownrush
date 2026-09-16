@@ -342,6 +342,23 @@ export const ViewMethods = {
     }
   },
 
+  // #88: where a point in the world sits on the screen, for a HUD animation that has to start at a
+  // thing the player is looking at. The same projection the edge indicators use, in absolute pixels
+  // rather than as an offset from the centre -- the canvas is `position: fixed; inset: 0`, so canvas
+  // pixels and viewport pixels are the same pixels.
+  screenPoint(v) {
+    const { w, h } = this.viewSize();
+    const p = this._proj || (this._proj = v.clone());
+    p.copy(v).project(this.camera);
+    if (p.z >= 1) return null;          // behind the camera: nothing on screen to fly from
+    return { x: (p.x * 0.5 + 0.5) * w, y: (-p.y * 0.5 + 0.5) * h };
+  },
+
+  flyToBag(worldPos, type) {
+    const s = this.screenPoint(worldPos);
+    if (s) this.hud.flyToBag(s.x, s.y, type);
+  },
+
   // The count only shows when he is close enough to care, which is the whole reason the numbers came
   // off the status bar: the information is at the heap, where you are looking.
   updatePiles(dt) {
@@ -380,7 +397,7 @@ export const ViewMethods = {
           if (this.time - (this.fullAt || 0) > 4) {
             this.fullAt = this.time;
             this.hud.toast(this.tradePost ? 'Your bag is full. Sell at the trade post.'
-              : 'Your bag is full. Build the Trade Post to sell what you have mined.', 2800);
+              : 'Your bag is full. Build the Trade Post to sell what you have mined.', 2800, 'Bag');
           }
           continue;
         }
@@ -390,6 +407,7 @@ export const ViewMethods = {
         audio.coin(0);
         tmp.copy(p.mesh.position).setY(1.1);
         this.popup(`+${take}`, tmp, '#e8d9a0', 0.9, p, take, '+');
+        this.flyToBag(tmp, p.type);      // #88: and it visibly goes somewhere
       }
       if (p.count <= 0 && !this.pileFlies.some((f) => f.pile === p)) {
         if (p.label) {
@@ -449,7 +467,7 @@ export const ViewMethods = {
     }
     for (const type of opened) {
       const where = { stone: 'Stone quarries', iron: 'Iron seams', diamond: 'Diamond in the deep rock' }[type] || cap(type);
-      this.hud.toast(`${where} are open. Look for them on the map.`, 3200);
+      this.hud.toast(`${where} are open. Look for them on the map.`, 3200, 'Bag');
     }
     return opened.size > 0;
   },

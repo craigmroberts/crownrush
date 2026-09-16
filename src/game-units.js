@@ -362,7 +362,7 @@ export const UnitsMethods = {
       e.flash = Math.max(e.flash || 0, 0.25);
     }
     for (const u of this.units) if (!u.assign && u !== this.king && u !== this.queen) u.rallyT = this.time;
-    this.hud.toast('To me!', 900);
+    this.hud.toast('To me!', 900, 'The King');
   },
 
   rallied() {

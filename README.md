@@ -53,6 +53,17 @@ loop underneath it:
   only falls, and it goes when the last one does -- which is the answer to "is that all of them?"
   without sweeping the map. The Warlord calling reinforcements is the one thing that puts it back up.
   The King has no bar in the corner: his own is over his head, where everyone else's is.
+- Nothing on the field carries a frame. The minimap and the settings gear both used to wear a gold
+  ring; the map separates itself from the grass with a shadow now, and the gear is just a gear, which
+  is what let it grow to fill the space the border was using.
+- A notice is a caption over the world rather than a card on top of it: no border, a dark translucent
+  panel, light text, and a small label in the corner saying who is speaking or what it is about --
+  **Wren**, **Raid**, **Keep**, **Village**, **Bag**. The few notices that are the game talking about
+  itself rather than about the world (a lost graphics context) carry no label at all.
+- What you scoop off a heap flies to the bag in the corner and the bag bumps when it lands, so the
+  armful you picked up and the number that changed are one event. The ledger is credited before the
+  flight, not when it arrives: hanging a player's materials on a CSS transition completing would cost
+  them the pickup on a backgrounded tab, and no animation is worth that.
 - Sound is synthesised in the browser (no audio files): a looping background melody, arrow hits, coin
   pickups, the "ching" of coins being spent, build fanfares and wave horns. The speaker button mutes it.
 

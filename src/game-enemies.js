@@ -36,12 +36,12 @@ export const EnemiesMethods = {
     const dmgMul = (1 + CFG.waves.dmgGrowthPerWave * (w - 1)) * rk.damage * (1 + CFG.base.enemyDmgPerLevel * L);
     if (!this.rankSeen[rank] && this.running) {
       this.rankSeen[rank] = true;
-      if (rank > 0) this.hud.toast(`${rk.name}s have arrived! Watch for their colours.`, 2800);
+      if (rank > 0) this.hud.toast(`${rk.name}s have arrived! Watch for their colours.`, 2800, 'Raid');
     }
     const intro = { sapper: 'Sappers! They ignore your army and go for the walls.', archer: 'Enemy archers! They outrange a new tower and shoot the crews: go out and get them, or build the towers up.', shield: 'Shieldbearers! Arrows bounce off the front. Hit them from behind.' }[type];
     if (intro && !this.typeSeen[type] && this.running) {
       this.typeSeen[type] = true;
-      this.hud.toast(intro, 3600);
+      this.hud.toast(intro, 3600, 'Raid');
     }
     const bar = makeHealthBar(type === 'boss' ? 3.4 : type === 'brute' ? 1.5 : 1.0);
     bar.position.y = type === 'boss' ? 5.0 : type === 'brute' ? 2.7 : 1.9;
@@ -137,7 +137,7 @@ export const EnemiesMethods = {
     this.thiefTimer = CFG.waves.thieves.every * 0.6;   // #35: first chance shortly into the night
     const boss = list.includes('boss');
     audio.wave(boss);
-    this.hud.toast(boss ? `Blood moon! Night ${w} brings a boss.` : `Night ${w} falls.`, 2200);
+    this.hud.toast(boss ? `Blood moon! Night ${w} brings a boss.` : `Night ${w} falls.`, 2200, 'Raid');
   },
 
   // The level the RAID is fought at, as opposed to the level the Keep stands at. The higher of the
@@ -177,7 +177,7 @@ export const EnemiesMethods = {
       q.escort.push(e);
     }
     this.raiseAlarm('They have Wren!');
-    this.hud.toast('They are carrying Wren to the edge of the map. Cut the escort down.', 3800);
+    this.hud.toast('They are carrying Wren to the edge of the map. Cut the escort down.', 3800, 'Wren');
     audio.wave(true);
   },
 
@@ -324,7 +324,7 @@ export const EnemiesMethods = {
         x.post = { x: x.mesh.position.x, z: x.mesh.position.z };
       }
       this.raiseAlarm('The camp is awake!');
-      this.hud.toast(this.finaleOpen ? 'The Warlord stands. He has been waiting for this.' : 'The whole camp is up and you are one man. Run.', 3000);
+      this.hud.toast(this.finaleOpen ? 'The Warlord stands. He has been waiting for this.' : 'The whole camp is up and you are one man. Run.', 3000, 'Raid');
       audio.wave(true);
       return;
     }
@@ -343,7 +343,7 @@ export const EnemiesMethods = {
       if (!this.campCalm) {
         this.campCalm = true;
         this.raiseAlarm('');
-        this.hud.toast('The camp breaks off the chase and falls back.', 3200);
+        this.hud.toast('The camp breaks off the chase and falls back.', 3200, 'Raid');
       }
     }
     if (!kingFar && e.returning && Math.hypot(kp.x - F.pos[0], kp.z - F.pos[1]) < F.leash * 0.7) {
@@ -382,7 +382,7 @@ export const EnemiesMethods = {
       const a = rand(0, Math.PI * 2);
       this.spawnEnemy(i === 0 ? 'shield' : 'knight', F.pos[0] + Math.cos(a) * F.radius * 0.8, F.pos[1] + Math.sin(a) * F.radius * 0.8, top);
     }
-    this.hud.toast('The Warlord calls his men from the tents!', 2200);
+    this.hud.toast('The Warlord calls his men from the tents!', 2200, 'Raid');
     audio.alarm();
   },
 
@@ -448,7 +448,7 @@ export const EnemiesMethods = {
       e.state = 'flee';
       this.attachLoot(e);
       this.raiseAlarm(`A thief took ${take} coins!`);
-      this.hud.toast(`A thief has your coins! Cut them down before they reach the edge.`, 3000);
+      this.hud.toast(`A thief has your coins! Cut them down before they reach the edge.`, 3000, 'Raid');
       this.popup(`-${take}`, p, '#ff9a9a', 1.8);
       audio.hurt();
     }
@@ -474,7 +474,7 @@ export const EnemiesMethods = {
     this.enemies.splice(this.enemies.indexOf(e), 1);
     this.root.remove(e.mesh);
     this.disposeEntity(e.mesh);
-    this.hud.toast(`The thief escaped with ${e.carrying} coins.`, 2600);
+    this.hud.toast(`The thief escaped with ${e.carrying} coins.`, 2600, 'Raid');
     audio.wallHit();
   },
 
@@ -661,7 +661,7 @@ export const EnemiesMethods = {
       next = cy.dawn - 1e-4;
       if (!this.dawnHolding) {
         this.dawnHolding = true;
-        this.hud.toast('The sun waits. Finish them before it rises.', 3000);
+        this.hud.toast('The sun waits. Finish them before it rises.', 3000, 'Raid');
       }
     }
     this.dayPhase = next;
@@ -669,7 +669,7 @@ export const EnemiesMethods = {
 
     if (!this.night && this.dayPhase >= cy.nightStart - cy.warn / cy.length && this.dayPhase < cy.nightStart && !this.duskWarned) {
       this.duskWarned = true;
-      this.hud.toast('The sun is going down. Get behind your walls.', 2600);
+      this.hud.toast('The sun is going down. Get behind your walls.', 2600, 'Raid');
     }
     if (!this.night && crossed(prev, this.dayPhase, cy.nightStart)) {
       this.night = true;
@@ -701,10 +701,10 @@ export const EnemiesMethods = {
     this.saveRun();
     if (cleared) {
       this.addScore(CFG.score.waveClear * this.wave);
-      this.hud.toast(`Dawn. You held night ${this.wave}.`, 3000);
+      this.hud.toast(`Dawn. You held night ${this.wave}.`, 3000, 'Raid');
       audio.unlock();
     } else {
-      this.hud.toast('Dawn, but raiders are still inside the walls.', 2800);
+      this.hud.toast('Dawn, but raiders are still inside the walls.', 2800, 'Raid');
     }
   },
 
@@ -714,7 +714,7 @@ export const EnemiesMethods = {
     const bonus = Math.floor(this.waveTimer) * CFG.score.earlyWavePerSecond;
     if (bonus > 0) {
       this.addScore(bonus);
-      this.hud.toast(`Night called early: +${bonus} points`, 1400);
+      this.hud.toast(`Night called early: +${bonus} points`, 1400, 'Raid');
     }
     this.dayPhase = CFG.cycle.nightStart - 1e-4;
     this.duskWarned = false;
@@ -836,7 +836,7 @@ export const EnemiesMethods = {
     // taking her back is what brings the raiders: wind the sun to just before dusk
     this.dayPhase = (CFG.cycle.nightStart - CFG.rescue.firstRaid / CFG.cycle.length + 1) % 1;
     this.duskWarned = false;
-    this.hud.toast('Wren is on her feet. "Get me home -- then we settle this."', 3400);
+    this.hud.toast('Wren is on her feet. "Get me home -- then we settle this."', 3400, 'Wren');
     this.raidWarning = this.time + 3.6;
     this.refreshPads();
   },
@@ -963,7 +963,7 @@ export const EnemiesMethods = {
     if (e.carrying) {
       // everything it stole spills back out
       for (let i = 0; i < e.carrying; i++) this.dropCoin(e.mesh.position);
-      this.hud.toast(`Thief cut down! ${e.carrying} coins recovered.`, 2400);
+      this.hud.toast(`Thief cut down! ${e.carrying} coins recovered.`, 2400, 'Raid');
     }
     const rk = CFG.ranks[Math.min(e.rank || 0, CFG.ranks.length - 1)];
     const mult = e.type === 'boss' ? 4 : e.type === 'brute' || e.type === 'elite' || e.type === 'shield' ? 2 : 1;
@@ -974,7 +974,7 @@ export const EnemiesMethods = {
     if (e.chief) {
       this.addScore(CFG.score.finale);
       this.victory();
-    } else if (e.type === 'boss') this.hud.toast('Boss defeated!', 1800);
+    } else if (e.type === 'boss') this.hud.toast('Boss defeated!', 1800, 'Raid');
   },
 
   // Take an enemy off the board without killing it: no coins, no score, no sound, no death spin.

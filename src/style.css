@@ -158,10 +158,18 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 @media (prefers-reduced-motion: reduce) {
   #pad-tip, #pad-tip.hidden { transition: opacity 0.18s linear; transform: translateX(-50%); }
 }
+/* #85: no gold ring. It was the last piece of furniture left on the field after #68 took the rest of
+   the HUD down to glyphs and numbers.
+   The ring was doing real work, though -- it is what stopped a near-black disc reading as a hole
+   punched in the grass -- so the separation moved into the shadow instead, in the shape the HUD
+   already uses everywhere for the same problem: a tight dark rim and a soft drop, the box-shadow
+   version of `.hud-cell`'s text-shadow. The inner highlight is what keeps the top edge from
+   disappearing into the vignette on the darker late-game ground. */
 #minimap {
   position: fixed; left: 12px; bottom: max(12px, env(safe-area-inset-bottom)); width: 92px; height: 92px;
-  border-radius: 50%; border: var(--rim-line) solid var(--rim); background: #2b2f33; pointer-events: auto; z-index: 5;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.3); transition: width 0.2s, height 0.2s; image-rendering: pixelated;
+  border-radius: 50%; border: 0; background: #2b2f33; pointer-events: auto; z-index: 5;
+  box-shadow: 0 0 0 1.5px rgba(0,0,0,0.5), 0 6px 18px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12);
+  transition: width 0.2s, height 0.2s; image-rendering: pixelated;
 }
 /* opened up it becomes a rounded square again: a circle would crop the corners of the map */
 #minimap.big { width: min(70vw, 70vh); height: min(70vw, 70vh); left: 50%; bottom: 50%; transform: translate(-50%, 50%); z-index: 6; border-radius: 18px; }
@@ -207,6 +215,13 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   color: #fff; font: inherit; cursor: pointer; pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
 }
+/* #87: the coin sat three pixels above the skull and the bag. Not a baseline inside the cell -- all
+   three cells centre their own contents correctly -- but `align-items: flex-start` above, which
+   lines up their TOPS. The skull and the bag are 30px ring boxes and the coin is a bare 24px glyph,
+   so equal tops put the shorter one's centre 3px high, which is exactly half the difference.
+   Only the right-hand group wants centres. The left one keeps flex-start: it is a column of rows
+   that has to hang from the top edge, and centring it would float the whole stack. */
+#topbar #carry-rail { align-items: center; }
 #topbar .hud-group:active { filter: brightness(1.15); }
 #topbar .hud-group:focus-visible { outline: 3px solid #fff; outline-offset: 2px; border-radius: 12px; }
 .hud-cell {
@@ -283,12 +298,22 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 }
 /* #23: the only control left on the field. It used to hang off the right edge under the coin; with
    the coin in the corner it joins the warhorn instead, so one column holds every button. */
+/* #86: a gear, not a plaque with a gear in it. Better than half the old 46px disc was border and
+   background, so the only part carrying meaning was the small bit in the middle. With the chrome
+   gone the same footprint holds a 34px glyph.
+   The box stays 48px and keeps its pointer events: that is the thumb target, and it is now an
+   invisible box around the glyph rather than something drawn. The drop-shadow is what every other
+   icon in the HUD wears (`.hud-cell .icon`) and is the only reason gold reads on green.
+   The press had to change with it. translateY(2px) is a button being pushed into its own shadow,
+   which is a lie once there is no button; a glyph answers by shrinking. */
 #settings-btn {
   position: fixed; right: 12px; bottom: calc(86px + env(safe-area-inset-bottom)); z-index: 5;
-  pointer-events: auto; width: 46px; height: 46px; border-radius: 50%; border: var(--rim-line) solid var(--rim); cursor: pointer;
-  background: var(--plaque); display: grid; place-items: center; box-shadow: 0 5px 14px rgba(0,0,0,0.3);
+  pointer-events: auto; width: 48px; height: 48px; border: 0; background: none; cursor: pointer;
+  display: grid; place-items: center; -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s ease-out, filter 0.12s ease-out;
 }
-#settings-btn:active { transform: translateY(2px); }
+#settings-btn .icon { filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5)) drop-shadow(0 0 3px rgba(0,0,0,0.35)); }
+#settings-btn:active { transform: scale(0.88); filter: brightness(1.15); }
 /* the settings sheet: the same parchment and gold as every other dialog */
 .panel.sheet { max-width: 320px; }
 .panel.sheet h1 { font-size: 30px; }
@@ -316,14 +341,24 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .panel.sheet .sheet-row.danger.armed { background: #ffece8; border-color: #d8262c; border-bottom-color: #8a1a22; color: #a3201f; }
 .panel.sheet .sheet-row.danger.armed em { color: #a3201f; font-weight: 800; }
 .panel.sheet #set-close { font-size: 20px; padding: 10px 24px; margin-top: 4px; }
+/* #89: a caption over the world rather than a dialog box on top of it. Parchment and a gold border
+   are what the settings sheet and the victory panel are made of -- things that stop the game and wait
+   for an answer. A notice that arrives mid-fight and leaves on its own should not look like one, and
+   the rest of the HUD went transparent in #68 without it.
+   No backdrop-filter, though the reference has that soft look: blurring a small element over a live
+   WebGL canvas costs a composite every frame it is up, which is a price this game does not pay for
+   decoration. A darker alpha does the same job for nothing. */
 #toast {
   position: fixed; left: 50%; bottom: calc(124px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(10px);
-  background: var(--parchment); color: var(--ink); padding: 8px 18px 8px 13px; border-radius: var(--radius);
-  border: var(--gold-line) solid var(--gold); font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 17px;
+  background: rgba(16, 24, 14, 0.62); color: #f4f7ec; padding: 11px 20px; border-radius: 20px;
+  border: 0; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 700; font-size: 17px;
   /* it clears the minimap and the warhorn by sitting above them, so it can have the full width */
-  width: max-content; max-width: min(400px, calc(100vw - 28px)); text-align: left;
-  opacity: 0; pointer-events: none; display: flex; align-items: center; gap: 8px;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.3); z-index: 4;
+  width: max-content; max-width: min(420px, calc(100vw - 28px)); text-align: center;
+  opacity: 0; pointer-events: none; display: block;
+  /* light text has to hold over pale grass and the near-white late-game walls, so it carries the
+     same two-stop shadow every number in the HUD does */
+  text-shadow: 0 1px 0 rgba(0,0,0,0.45), 0 2px 6px rgba(0,0,0,0.55);
+  box-shadow: 0 8px 22px rgba(0,0,0,0.28); z-index: 4;
   /* #70: leaving is not arriving played backwards. It goes quickly, downward and shrinking, so a
      notice on its way out is never mistaken for one on its way in -- which mattered, because they
      queue, and two in a row used to look like one that stuttered. */
@@ -333,6 +368,27 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 /* Arriving overshoots and settles, which is the curve the world already uses on everything that
    appears in it: popIn on a building, and the squash on a unit that has just been recruited. The
    HUD and the world were speaking different languages. */
+/* The label rides above the panel's top edge, the way a speaker's name does, so the message keeps
+   the whole width of the bubble. It is outside the background, so its own shadow is all that makes
+   it readable -- hence a heavier one than the text inside gets. */
+#toast-kind {
+  position: absolute; left: 16px; top: -10px;
+  font-size: 12px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase;
+  color: #d7e8bd; text-shadow: 0 1px 2px rgba(0,0,0,0.85), 0 2px 8px rgba(0,0,0,0.7);
+}
+#toast-kind:empty { display: none; }
+
+/* #88: a picked-up armful on its way to the bag. Fixed and moved with `transform`, never left/top,
+   so the flight is a compositor job rather than a layout one at sixty frames a second. */
+.fly {
+  position: fixed; left: 0; top: 0; z-index: 6; pointer-events: none; opacity: 1;
+  transition: transform 0.5s cubic-bezier(0.5, 0, 0.7, 0.3), opacity 0.22s ease-in 0.28s;
+  will-change: transform, opacity; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.45));
+}
+/* and the bag answers when something lands in it, so the arrival is the beat rather than the number
+   quietly being different */
+@keyframes bagBump { 0% { transform: scale(1); } 38% { transform: scale(1.22); } 100% { transform: scale(1); } }
+.bagcell.bump .bagring { animation: bagBump 0.32s ease-out; }
 #toast.over-tip { bottom: calc(286px + env(safe-area-inset-bottom)); }
 #toast.show {
   opacity: 1; transform: translateX(-50%) translateY(0) scale(1);
@@ -343,6 +399,9 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 @media (prefers-reduced-motion: reduce) {
   #toast, #toast.show { transition: opacity 0.2s linear; transform: translateX(-50%); }
   .bagring .ring-fill { transition: stroke 0.3s linear; }
+  /* #88: no flight and no bump. flyToBag's timer still fires, so nothing is left in the DOM. */
+  .fly { display: none; }
+  .bagcell.bump .bagring { animation: none; }
 }
 @media (prefers-reduced-motion: reduce) { #toast { transition: opacity 0.25s; transform: translateX(-50%); } }
 #next-wave-btn.hidden { display: none; }

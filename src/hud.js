@@ -56,6 +56,8 @@ export class Hud {
     this.ringEl = document.getElementById('load-ring');
     this.raidRingEl = document.getElementById('raid-ring');
     this.carryRail = document.getElementById('carry-rail');
+    this.bagCell = document.getElementById('bag-cell');
+    this.flying = [];          // #88: armfuls in the air between the world and the bag
     this.btnTimeEl = document.getElementById('next-wave-btn-t');
     this.lastLoad = '';
     this.lastScore = -1;
@@ -153,11 +155,15 @@ export class Hud {
   // #29: notices queue rather than overwrite. A playtester missed the one telling him a pad wanted
   // stone, because the next notice replaced it before he had read it. Each one now waits its turn,
   // holds long enough to read, and is kept in a short log the info screen can show back.
-  toast(text, ms = 3200) {
+  // #89: `kind` is the label over the notice -- who is speaking, or what part of the game this is
+  // about. Wren's lines carry her name, which is the whole point of the pattern; everything else
+  // says which of the game's concerns it belongs to. Empty means no label, which is right for the
+  // few notices that are the game talking about itself rather than about the world.
+  toast(text, ms = 3200, kind = '') {
     if (!text || this.mute) return;
     this.toastQueue = this.toastQueue || [];
     this.toastLog = this.toastLog || [];
-    if (this.toastLog[0] !== text) this.toastLog.unshift(text);
+    if (!this.toastLog[0] || this.toastLog[0].text !== text) this.toastLog.unshift({ text, kind });
     this.toastLog.length = Math.min(this.toastLog.length, 8);
     // the same notice arriving twice in a row just extends it; it does not queue behind itself
     if (this.toastShowing === text) {
@@ -165,7 +171,7 @@ export class Hud {
       this.toastTimer = setTimeout(() => this.nextToast(), ms);
       return;
     }
-    this.toastQueue.push({ text, ms: Math.max(ms, Math.min(7000, 1400 + text.length * 55)) });
+    this.toastQueue.push({ text, kind, ms: Math.max(ms, Math.min(7000, 1400 + text.length * 55)) });
     if (!this.toastShowing) this.nextToast();
   }
   nextToast() {
@@ -178,11 +184,68 @@ export class Hud {
     }
     this.toastShowing = next.text;
     (document.getElementById('toast-text') || this.toastEl).textContent = next.text;
+    const kindEl = document.getElementById('toast-kind');
+    if (kindEl) kindEl.textContent = next.kind || '';
     this.toastEl.classList.add('show');
     this.toastTimer = setTimeout(() => this.nextToast(), next.ms);
   }
   recentNotices() {
     return this.toastLog || [];
+  }
+
+  // #88: an armful flies from where it was picked up to the bag in the corner, so the thing you took
+  // and the number that moved are visibly the same event. The game already does this everywhere else
+  // -- a mined chunk is thrown from the rock to the heap, a coin arcs into the King's stack -- and
+  // the hop into the HUD was the only one missing.
+  //
+  // The tween is a CSS transition rather than anything driven per frame. `set` runs every frame and
+  // dirty-checks every value it writes; animating this from JS would put real work back into that
+  // path for pure decoration. This makes an element, points it at the bag, and lets the compositor
+  // do the rest.
+  //
+  // The ledger is credited by the caller BEFORE this runs, not when it lands. Hanging a player's
+  // materials on a CSS transition completing means a backgrounded tab or a dropped `transitionend`
+  // costs them the pickup, and no animation is worth that. The arrival still pays off -- the bag
+  // bumps when it gets there.
+  flyToBag(x, y, icon) {
+    if (this.mute || !this.bagCell || document.hidden) return;
+    if (this.flying.length >= 8) return;      // an armful, never a storm
+    const r = this.bagCell.getBoundingClientRect();
+    if (!r.width) return;                     // the HUD is not laid out yet
+    const el = document.createElement('i');
+    el.className = 'fly';
+    el.innerHTML = iconSvg(icon, 20);
+    el.style.transform = `translate(${Math.round(x - 10)}px, ${Math.round(y - 10)}px)`;
+    document.body.appendChild(el);
+    this.flying.push(el);
+    const land = () => {
+      if (!el.isConnected) return;
+      el.remove();
+      const i = this.flying.indexOf(el);
+      if (i >= 0) this.flying.splice(i, 1);
+      this.bumpBag();
+    };
+    el.addEventListener('transitionend', land, { once: true });
+    // A transition that never starts never ends -- a hidden tab, or reduced motion taking it away
+    // altogether. The timer is what guarantees the element goes either way.
+    setTimeout(land, 900);
+    requestAnimationFrame(() => {
+      el.style.transform = `translate(${Math.round(r.left + r.width / 2 - 10)}px, ${Math.round(r.top + r.height / 2 - 10)}px) scale(0.5)`;
+      el.style.opacity = '0';
+    });
+  }
+
+  bumpBag() {
+    if (!this.bagCell || this.bagCell.classList.contains('bump')) return;   // one bump at a time
+    this.bagCell.classList.add('bump');
+    this.bagCell.addEventListener('animationend', () => this.bagCell.classList.remove('bump'), { once: true });
+  }
+
+  // A run that ends mid-flight must not leave anything behind.
+  clearFlights() {
+    for (const el of this.flying) el.remove();
+    this.flying.length = 0;
+    if (this.bagCell) this.bagCell.classList.remove('bump');
   }
   // #6: a stepped intro. `steps` = [{icon, title, text}], `onDone` runs after the last step or Skip.
   showIntro(steps, onDone) {

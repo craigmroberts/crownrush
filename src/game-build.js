@@ -227,7 +227,7 @@ export const BuildMethods = {
       this.popIn(m, i * 0.08);
       s.mesh = m;
     });
-    if (this.structures.length) this.hud.toast(`The village is rebuilt in ${this.materialName()}.`, 2600);
+    if (this.structures.length) this.hud.toast(`The village is rebuilt in ${this.materialName()}.`, 2600, 'Village');
   },
 
   // where a crew pad sends its archers: gate posts, or the next free spots around a tower top
@@ -358,7 +358,7 @@ export const BuildMethods = {
     }
     if (!def.crew) this.addScore(pad.cost * CFG.score.buildPerCoin + pad.res.reduce((a, r) => a + r.need, 0) * CFG.score.buildPerMaterial);
     audio.build();
-    if (def.toast) this.hud.toast(def.toast);
+    if (def.toast) this.hud.toast(def.toast, 3200, 'Village');
 
     const again = def.repeatable && !(def.maxBuys && this.buyCount[def.id] >= def.maxBuys) && !(def.feed && !this.levelReq());
     if (again) {
@@ -475,11 +475,11 @@ export const BuildMethods = {
     const newRank = CFG.ranks.find((r) => r.fromLevel === L);
     const coinNote = CFG.coins.valueAt.includes(L) && L > 0 ? `each coin is now worth ${this.coinValue()} score` : null;
     const notes = [CFG.base.unlocks[L], coinNote, newRank ? `${newRank.name}s now join the raids` : null, `${CFG.base.archers[L]} archers`, `${CFG.base.swordsmen[L]} swordsmen`, `arrows ${this.fireMul().toFixed(1)}x`].filter(Boolean);
-    this.hud.toast(`Keep level ${L}! ${notes.join(' · ')}`, 4200);
+    this.hud.toast(`Keep level ${L}! ${notes.join(' · ')}`, 4200, 'Keep');
     // #29: a playtester never worked out that raising the Keep is what opens new materials, so the
     // level that opens one says so on its own, after the rest of the level's news.
     const opened = Object.keys(CFG.base.materialAt).find((m) => CFG.base.materialAt[m] === L);
-    if (opened) this.hud.toast(`${opened[0].toUpperCase() + opened.slice(1)} can now be gathered: look for new nodes out in the world.`, 5200);
+    if (opened) this.hud.toast(`${opened[0].toUpperCase() + opened.slice(1)} can now be gathered: look for new nodes out in the world.`, 5200, 'Bag');
     this.spawnFx(this.keep.x, this.keep.z, 0xffd23d);
     this.addScore(CFG.score.levelUp * L);
     audio.unlock();
@@ -617,7 +617,7 @@ export const BuildMethods = {
         pad.lockT = (pad.lockT || 0) + dt;
         if (pad.lockT > 1.1 && !pad.lockSaid) {
           pad.lockSaid = true;
-          this.hud.toast(this.lockReason(pad, locked), 4200);
+          this.hud.toast(this.lockReason(pad, locked), 4200, 'Village');
         }
       } else {
         pad.lockT = 0;
@@ -695,7 +695,7 @@ export const BuildMethods = {
     q.mesh.position.set(this.keep.x + b.x, b.y, this.keep.z + b.z);
     q.mesh.rotation.y = 0;
     q.moving = false;
-    this.hud.toast('Wren is inside the Keep.', 1500);
+    this.hud.toast('Wren is inside the Keep.', 1500, 'Wren');
   },
 
   queenLeaveKeep() {
@@ -719,10 +719,10 @@ export const BuildMethods = {
     // an ordinary unit made the worst moment in the game a non-event; the raiders carry her off
     // instead, and the chase that already existed starts from here.
     if (sheltering) {
-      this.hud.toast('The Keep is down and Wren with it. Cut the escort off!', 3600);
+      this.hud.toast('The Keep is down and Wren with it. Cut the escort off!', 3600, 'Wren');
       this.captureQueen();
     } else {
-      this.hud.toast('The Keep has fallen! Get Wren behind something.', 2600);
+      this.hud.toast('The Keep has fallen! Get Wren behind something.', 2600, 'Keep');
     }
     this.dropFeedPad();
     this.dynamicPads.push({ id: `repair-keep-${this.time.toFixed(0)}`, pos: [k.x - 3.2, k.z + 3.2], cost: 20, res: { stone: 10 }, icon: 'hammer', label: 'Repair Keep', repairKeep: true });
@@ -754,7 +754,7 @@ export const BuildMethods = {
     this.root.add(k.mesh);
     this.queenEnterKeep();
     this.addFeedPad();          // #34: standing again, so it can be fed again
-    this.hud.toast('The Keep stands again. You can raise its level once more.', 3200);
+    this.hud.toast('The Keep stands again. You can raise its level once more.', 3200, 'Keep');
   },
 
   // Solid keep footprint: pushes a position out of the box. Returns the keep when it blocked.
@@ -929,7 +929,7 @@ export const BuildMethods = {
       for (const w of this.walls.filter(spent)) this.root.remove(w.mesh);
       this.walls = this.walls.filter((w) => !spent(w));
       for (const def of [...this.dynamicPads]) if (def.repair && spent(def.repair)) this.removePadDef(def);
-      this.hud.toast('The old outer wall is torn down for materials.', 1600);
+      this.hud.toast('The old outer wall is torn down for materials.', 1600, 'Village');
     }
   },
 
@@ -1094,7 +1094,7 @@ export const BuildMethods = {
       const from = CFG.wallLevels[w.level].name;
       this.rebuildWall(w, w.level - 1);
       const to = CFG.wallLevels[w.level].name;
-      this.hud.toast(`${from} ${w.gate ? 'gate' : 'wall'} battered down to ${to.toLowerCase()}!`, 1500);
+      this.hud.toast(`${from} ${w.gate ? 'gate' : 'wall'} battered down to ${to.toLowerCase()}!`, 1500, 'Keep');
     } else this.breakWall(w);
   },
 
@@ -1105,7 +1105,7 @@ export const BuildMethods = {
     w.mesh.position.set(w.mx, 0, w.mz);
     w.mesh.rotation.y = -w.ang;
     this.root.add(w.mesh);
-    this.hud.toast(w.gate ? 'The gate is down!' : 'A wall section has fallen!', 1600);
+    this.hud.toast(w.gate ? 'The gate is down!' : 'A wall section has fallen!', 1600, 'Keep');
     // a repair pad appears just inside the gap, on the line back to the middle of the ring
     const T = TIERS[w.tier];
     const c = T.ring || { x: (T.bounds.x0 + T.bounds.x1) / 2, z: (T.bounds.z0 + T.bounds.z1) / 2 };
@@ -1154,7 +1154,7 @@ export const BuildMethods = {
     this.offerQueue = Math.max(0, this.offerQueue - 1);
     this.hud.hideOffer();
     audio.build();
-    this.hud.toast(`${u.name}: ${u.desc}`, 3000);
+    this.hud.toast(`${u.name}: ${u.desc}`, 3000, 'Village');
     if (this.offerQueue > 0) this.showOffer();
     else this.endOfferPause();
   },

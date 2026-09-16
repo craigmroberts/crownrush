@@ -376,6 +376,7 @@ export class Game {
     this.refreshPads();
     this.hud.showNextWave(false);
     this.hud.hidePadTip();
+    this.hud.clearFlights();     // #88: nothing from the last run still in the air
     this.hud.set(this.coinsCarried, 1, 0, null, `0/${CFG.finale.level}`, this.res, 0, this.loadCap());
     this.hud.setRaid(0, 0);
     this.hud.setHearts(1);
@@ -440,7 +441,7 @@ export class Game {
     this.hud.hideGameOver();
     this.hud.hideVictory();
     this.hud.hidePause();
-    this.hud.toast('Raiders have taken Wren. Follow the pink arrow and free her.', 3600);
+    this.hud.toast('Raiders have taken Wren. Follow the pink arrow and free her.', 3600, 'Wren');
     audio.init();
     audio.setActive(true);
   }
@@ -460,7 +461,7 @@ export class Game {
     this.hud.hideGameOver();
     this.hud.hideVictory();
     this.hud.hidePause();
-    this.hud.toast(`Night ${this.wave} again. Your kingdom stands.`, 3000);
+    this.hud.toast(`Night ${this.wave} again. Your kingdom stands.`, 3000, 'Raid');
     audio.init();
     audio.setActive(true);
   }
@@ -608,13 +609,13 @@ export class Game {
       // #19: the march on the camp opens at a Keep level or a night, whichever comes first
       if (!this.finaleOpen && (this.baseLevel >= CFG.finale.level || this.wave >= CFG.finale.night)) {
         this.finaleOpen = true;
-        this.hud.toast('The raiders\' camp lies to the north. March on it and end the war!', 4200);
+        this.hud.toast('The raiders\' camp lies to the north. March on it and end the war!', 4200, 'Raid');
         audio.wave(true);
       }
       this.hud.showNextWave(between && this.wave > 0 && this.waveTimer > 3 && !this.won);
       if (this.raidWarning && this.time >= this.raidWarning) {
         this.raidWarning = 0;
-        this.hud.toast('They want her back. Raiders are coming!', 3000);
+        this.hud.toast('They want her back. Raiders are coming!', 3000, 'Raid');
       }
       this.alarmT -= dt;
       this.hud.showAlarm(this.alarmT > 0 ? this.alarmText : null);
@@ -699,8 +700,8 @@ export class Game {
     if (this.keep && this.keep.state === 'built') {
       this.keep.hp = Math.max(1, this.keep.hp - this.keep.maxHp * CFG.rescue.keepCost);
       setHealthBar(this.keep.bar, this.keep.hp / this.keep.maxHp);
-      this.hud.toast('Wren is back. "I am not hurt. The Keep took that for me."', 3400);
-    } else this.hud.toast('Wren is back, and furious. "Find me a door."', 3200);
+      this.hud.toast('Wren is back. "I am not hurt. The Keep took that for me."', 3400, 'Wren');
+    } else this.hud.toast('Wren is back, and furious. "Find me a door."', 3200, 'Wren');
     audio.unlock();
   }
 

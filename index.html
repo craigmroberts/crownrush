@@ -81,7 +81,7 @@
             <b id="raid-left">0</b>
           </span>
           <span class="hud-cell"><i id="coin-icon" data-icon="gold" data-size="24"></i><b id="coin-count">0</b></span>
-          <span class="hud-cell bagcell">
+          <span class="hud-cell bagcell" id="bag-cell">
             <span class="bagring">
               <svg class="ring" viewBox="0 0 40 40" aria-hidden="true"><circle class="ring-bg" cx="20" cy="20" r="17"/><circle id="load-ring" class="ring-fill" cx="20" cy="20" r="17"/></svg>
               <i data-icon="sack" data-size="21"></i>
@@ -99,7 +99,7 @@
       <div id="lane-alarm"><span id="alarm" class="hidden"><i data-icon="alert" data-size="16"></i>The Keep is under attack</span></div>
       <!-- #23: sound, pause and info live in the settings sheet; the gear sits in the controls corner
            over the warhorn, out of the way of the field and of the coin -->
-      <button id="settings-btn" title="Settings"><i data-icon="gear" data-size="22"></i></button>
+      <button id="settings-btn" title="Settings"><i data-icon="gear" data-size="34"></i></button>
       <button id="next-wave-btn" class="hidden" title="Bring on the night"><i data-icon="swords" data-size="20"></i><b id="next-wave-btn-t">0:00</b><span>skip</span></button>
       <button id="horn-btn" class="hidden" title="Warhorn (Space): rally the army"><span class="ring"></span><i data-icon="horn" data-size="30"></i><b id="horn-cd"></b></button>
       <!-- #75: a chip, not a sheet. The village is made of mats, so a full panel across the bottom
@@ -120,7 +120,9 @@
     </div>
 
     <div id="indicators"></div>
-    <div id="toast"><i data-icon="crown" data-size="22"></i><span id="toast-text"></span></div>
+    <!-- #89: a caption over the world, not a card on top of it. The label sits above the panel and
+         says what kind of notice this is -- the crown that used to be here wanted the same corner. -->
+    <div id="toast"><b id="toast-kind"></b><span id="toast-text"></span></div>
 
     <div id="start-screen" class="overlay">
       <div class="panel title">
