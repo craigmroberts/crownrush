@@ -650,6 +650,22 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .panel.info .desc { font-size: 13px; color: #5a5a4a; line-height: 1.35; }
 .panel.info button { margin-top: 12px; }
 
+/* #94: the scoreboard. Two things on the row -- the score and what it cost -- with the night, how it
+   ended and when underneath, because the sheet is 320px and five columns of anything is not readable
+   on a phone. */
+#sc-body { display: grid; gap: 6px; margin: 10px 0 4px; max-height: 54vh; overflow-y: auto; }
+.sc-row { display: grid; grid-template-columns: 22px 1fr auto; gap: 9px; align-items: center; text-align: left; }
+.sc-rank { font-size: 14px; color: #a9bb96; text-align: right; }
+.sc-mid { min-width: 0; }
+.sc-score { display: block; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 19px; color: #f4f7ec; line-height: 1.1; }
+.sc-sub { display: block; font-size: 11.5px; color: #a9bb96; line-height: 1.25; }
+.sc-army { font-size: 14px; color: #dde7cf; text-align: right; white-space: nowrap; }
+.sc-u { display: block; font-size: 10px; font-style: normal; color: #a9bb96; letter-spacing: 0.06em; text-transform: uppercase; }
+/* a run that ended the war is a different achievement from a high-scoring loss, and sorting by score
+   alone flattens that -- so the row says so rather than trying to rank it */
+.sc-row.won .sc-score { color: #ffd76a; }
+.sc-row.won .sc-sub { color: #d6b96a; }
+
 /* the level-up upgrade choice */
 .panel.offer { max-width: 620px; }
 .panel.offer h1 { margin-bottom: 2px; }

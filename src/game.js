@@ -3,6 +3,7 @@ import { CFG, TIERS, NODES } from './config.js';
 import { audio } from './audio.js';
 import { setRigShadows, enableCrowd, updateCrowd, clearCrowd, crowdStats } from './rig.js';
 import { MODS } from './upgrades.js';
+import { recordRun, readNumber, writeNumber } from './scores.js';
 import { buildWorld, setupLights } from './world.js';
 import { Input } from './input.js';
 import { setHealthBar, HealthBars, CoinField, clearHealthBars, makeRing, makeCoinStack, makeCamp } from './models.js';
@@ -96,7 +97,7 @@ export class Game {
 
     this.running = false;
     this.time = 0;
-    this.best = Number(localStorage.getItem('crownrush-best') || 1);
+    this.best = readNumber('crownrush-best', 1);
     this.reset();
   }
 
@@ -242,7 +243,7 @@ export class Game {
     this.res = { wood: 0, stone: 0, straw: 0, iron: 0, diamond: 0 };
     this.flyRes = [];
     this.score = 0;
-    this.bestScore = Number(localStorage.getItem('crownrush-best-score') || 0);
+    this.bestScore = readNumber('crownrush-best-score', 0);
     this.mineTimer = 0;
     this.nodes = [];
     this.villagers = [];    // #48: one gatherer per villager home, working on their own
@@ -545,9 +546,10 @@ export class Game {
     this.clearRun();
     if (this.wave > this.best) {
       this.best = this.wave;
-      localStorage.setItem('crownrush-best', String(this.best));
+      writeNumber('crownrush-best', this.best);
     }
     this.saveScore();
+    this.recordRun(reason);
     audio.gameOver();
     setTimeout(() => this.hud.showGameOver(this.wave, this.coinsEarned, this.score, this.bestScore, reason), 900);
   }
@@ -558,9 +560,10 @@ export class Game {
     this.clearRun();
     if (this.wave > this.best) {
       this.best = this.wave;
-      localStorage.setItem('crownrush-best', String(this.best));
+      writeNumber('crownrush-best', this.best);
     }
     this.saveScore();
+    this.recordRun('won');
     audio.build();
     setTimeout(() => this.hud.showVictory(this.coinsEarned, this.units.length - 1 + this.turrets.length, this.score), 600);
   }
@@ -573,8 +576,17 @@ export class Game {
   saveScore() {
     if (this.score > this.bestScore) {
       this.bestScore = this.score;
-      localStorage.setItem('crownrush-best-score', String(this.bestScore));
+      writeNumber('crownrush-best-score', this.bestScore);
     }
+  }
+
+  // #94: the run itself, not just whether it beat the maximum. Called from both endings, which is
+  // every way a run can finish -- `gameOver` covers three of the four and `victory` is the fourth.
+  recordRun(end) {
+    recordRun({
+      score: this.score, wave: this.wave, end, coins: this.coinsEarned,
+      army: Math.max(0, this.units.length - 1 + this.turrets.length),
+    });
   }
 
   // Reported twice: once mid-run, once on night 14. A stopped game with nothing on screen to explain

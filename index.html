@@ -220,6 +220,9 @@
         <h1>Settings</h1>
         <button class="sheet-row" id="set-sound"><i data-icon="speaker" data-size="24"></i><span class="sheet-label">Sound</span><em id="set-sound-state">On</em></button>
         <button class="sheet-row" id="set-info"><i data-icon="info" data-size="24"></i><span class="sheet-label">How to play</span></button>
+        <!-- #94: opened the same way How to Play is, through hideSettings(true), so closing it does not
+             resume a game the player meant to leave paused. -->
+        <button class="sheet-row" id="set-scores"><i data-icon="crown" data-size="24"></i><span class="sheet-label">Best runs</span><em id="set-scores-n"></em></button>
         <!-- #84: a phone that keeps the game on its homescreen is RESUMED rather than navigated, so
              the browser never re-checks the worker and the build it has can sit there for weeks.
              This is the row somebody can be told to press. Hidden outright where there is no
@@ -231,6 +234,16 @@
         <button class="sheet-row danger" id="set-restart"><i data-icon="restart" data-size="24"></i><span class="sheet-label">Restart</span><em id="set-restart-hint"></em></button>
         <button id="set-close">Back to the game</button>
         <p class="hint hidden" id="set-version"></p>
+      </div>
+    </div>
+    <!-- #94: ten finished runs, best first. Two things on the row and the rest under them, because the
+         sheet is 320px and five columns of anything does not fit a phone. -->
+    <div id="scores-screen" class="overlay hidden">
+      <div class="panel sheet">
+        <button class="panel-x" id="sc-x" aria-label="Close" title="Close">&times;</button>
+        <h1>Best runs</h1>
+        <div id="sc-body"></div>
+        <button id="sc-close">Back</button>
       </div>
     </div>
     <div id="pause-screen" class="overlay hidden">

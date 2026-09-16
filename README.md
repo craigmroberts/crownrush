@@ -157,6 +157,14 @@ refused otherwise, which the Settings row says out loud before you tap it.
 
 Winning or losing clears it, and so does starting a new run. See [src/game-save.js](src/game-save.js).
 
+Finished runs are kept separately, in [src/scores.js](src/scores.js), under their own key and their own
+version -- a save-format bump throws the run save away, and that is no reason to lose somebody's best
+night. Ten are kept, by score rather than by recency: a board that forgets your best run because you
+played ten bad ones afterwards is not a board. Every ending writes one, and the row says which of the
+four it was, because a victory and a high-scoring loss are different achievements and sorting by score
+alone flattens that. **Settings › Best runs** shows them. Every read and write is wrapped: a browser
+that refuses storage still plays the game, and still ends a run.
+
 ## The intro
 
 The first time you press Play, four short steps explain the game one idea at a time (find the Queen,

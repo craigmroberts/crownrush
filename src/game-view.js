@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { CFG, PADS, TIERS } from './config.js';
 import { audio } from './audio.js';
 import { UPGRADES } from './upgrades.js';
+import { readScores } from './scores.js';
 import {
   makeLumberTree, makeOreRock, makeIronSeam, makeGemNode, makeResourceCube, RES_MATS, CHIP_GEO, makeTool, drawPad, disposeHealthBar, makePopup, makeTag, makeHeap, makeSpawnFx, makeBurst, makeHeart, COIN_TIER_COLORS,
 } from './models.js';
@@ -980,7 +981,30 @@ export const ViewMethods = {
     this.hud.hideSettings();
     const wasPaused = this.settingsPaused;
     this.settingsPaused = false;
+    // #94: a pause handed to a screen the sheet opens and expects back. Only the scoreboard returns.
+    this.sheetPause = keepPaused && wasPaused;
     if (wasPaused && !keepPaused) this.unpause();
+  },
+
+  // #94: opened through hideSettings(true), the way How to Play goes, so the sheet's pause survives
+  // the handover.
+  //
+  // Closing it puts the sheet back, and the pause has to go back with it. `showSettings` decides
+  // whether the pause is its own with `settingsPaused = this.running`, and by the time the board
+  // closes the game is already stopped -- so re-opening the sheet would conclude the pause was not
+  // its doing and close without resuming. Measured: the game sat paused with nothing on screen.
+  // `sheetPause` is what hideSettings put down when it handed over, picked back up here.
+  showScores() {
+    if (this.over || this.won || this.scoresOpen || this.offer) return;
+    this.scoresOpen = true;
+    this.hud.showScores(readScores());
+  },
+  hideScores() {
+    if (!this.scoresOpen) return;
+    this.scoresOpen = false;
+    this.hud.hideScores();
+    this.showSettings();
+    this.settingsPaused = this.sheetPause;
   },
 
   toggleSettings() {

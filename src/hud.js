@@ -1,5 +1,6 @@
 import { iconSvg } from './icons.js';
 import { CFG } from './config.js';
+import { endName } from './scores.js';
 
 // #68: how many hearts the King's health is cut into. Five is coarse on purpose -- the exact figure
 // is the bar over his head, and a HUD readout that moved every frame would be a bar with gaps in it.
@@ -646,6 +647,35 @@ export class Hud {
   }
   showSettings() {
     document.getElementById('settings-screen').classList.remove('hidden');
+  }
+  // #94: the board, best first. Rebuilt on open rather than kept in sync -- it changes once a run, and
+  // the only way to see it is to open it.
+  showScores(runs) {
+    const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    const body = document.getElementById('sc-body');
+    if (!runs.length) {
+      body.innerHTML = '<p class="hint">No finished runs yet. However a run ends, it lands here.</p>';
+    } else {
+      const when = (t) => new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+      body.innerHTML = runs.map((r, i) => `
+        <div class="sc-row${r.end === 'won' ? ' won' : ''}">
+          <b class="sc-rank">${i + 1}</b>
+          <div class="sc-mid">
+            <b class="sc-score">${r.score.toLocaleString()}</b>
+            <span class="sc-sub">night ${r.wave} · ${esc(endName(r.end))} · ${esc(when(r.at))}</span>
+          </div>
+          <span class="sc-army">${r.coins}<i class="sc-u">coins</i></span>
+        </div>`).join('');
+    }
+    document.getElementById('scores-screen').classList.remove('hidden');
+  }
+  hideScores() {
+    document.getElementById('scores-screen').classList.add('hidden');
+  }
+  setScoreCount(n) {
+    const el = document.getElementById('set-scores-n');
+    const t = n ? String(n) : '';
+    if (el && el.textContent !== t) el.textContent = t;
   }
   hideSettings() {
     document.getElementById('settings-screen').classList.add('hidden');

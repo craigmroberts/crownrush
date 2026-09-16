@@ -4,6 +4,7 @@ import { audio } from './audio.js';
 import { preloadRigs, renderPortrait, releasePortraitRenderer } from './rig.js';
 import { preloadProps } from './props.js';
 import { preloadIcons, mountIcons, iconSvg } from './icons.js';
+import { readScores } from './scores.js';
 
 const canvas = document.getElementById('game');
 const hud = new Hud();
@@ -187,6 +188,7 @@ restartRow.addEventListener('click', () => {
 document.getElementById('settings-btn').addEventListener('click', () => {
   disarmRestart();
   syncUpdateRow();     // whether a reload would cost anything depends on where the run is right now
+  game.hud.setScoreCount(readScores().length);
   game.toggleSettings();
 });
 const closeSettings = () => {
@@ -208,6 +210,18 @@ document.getElementById('set-sound').addEventListener('click', () => {
 document.getElementById('set-info').addEventListener('click', () => {
   game.hideSettings(true);
   game.showInfo();
+});
+// #94: the board. Same shape as How to Play -- the sheet's pause is kept, and closing the board puts
+// the sheet back rather than dropping the player into a game they did not ask to resume.
+document.getElementById('set-scores').addEventListener('click', () => {
+  game.hideSettings(true);
+  game.showScores();
+});
+const closeScores = () => game.hideScores();
+document.getElementById('sc-close').addEventListener('click', closeScores);
+document.getElementById('sc-x').addEventListener('click', closeScores);
+document.getElementById('scores-screen').addEventListener('click', (e) => {
+  if (e.target.id === 'scores-screen') closeScores();
 });
 
 // #84: the update row. Everything it talks to lives at the bottom of this file with the worker.
