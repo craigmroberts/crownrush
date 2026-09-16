@@ -469,9 +469,13 @@ of the sum and decodes faster, so the Draco decoder that used to sit in `public/
 ## Performance
 
 Open the game with `?perf=1` on the end of the URL (works on the live site and on a phone) to see a
-live readout: fps, CPU ms per frame, draw calls, triangles and character count. `npm run probe --
---crowd 120` collects the same numbers without you, on a fixed scene, so a change can be measured
-rather than argued about — see [tools/probe/README.md](tools/probe/README.md). Budgets:
+live readout: fps, CPU ms per frame, draw calls, triangles and character count, plus a count of
+exceptions the frame loop has swallowed and the last one's message. The `try/catch` around
+`game.update` is the right call for shipping -- a throw costs one frame rather than the run -- and it
+is also how a crash in the river foam went unnoticed for as long as it did (#54), so the overlay says
+when it has happened. `npm run probe -- --crowd 120` collects the rest without you, on a fixed scene,
+so a change can be measured rather than argued about --
+see [tools/probe/README.md](tools/probe/README.md). Budgets:
 
 | Metric | Aim for | Why |
 | --- | --- | --- |

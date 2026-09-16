@@ -645,12 +645,27 @@ export function buildWorld(scene) {
       for (const m of r.meshes) if (!m.userData.noDrawRange) m.geometry.setDrawRange(0, count);
     }
     const s = riverSamples;
-    world.foam.forEach((f, i) => {
+    // #54: `TypeError: Cannot read properties of undefined (reading 'x')`, about one headless run in
+    // six. `b` was clamped at the top and `a` was not clamped at all -- and the end that actually bit
+    // was the BOTTOM, which neither of them guarded.
+    //
+    // What drove it there: a negative dt (see main.js), one frame of it, against a fleck whose `t` had
+    // just wrapped and was sitting a hair above zero. `f.t -= 1` leaves a fleck at something like
+    // 0.0002, and with seventy of them going round about once a minute there is nearly always one in
+    // that window. One step backwards from there is negative, `Math.floor` of a negative is negative,
+    // and `s[-1]` is undefined. Reproduced exactly: t = 0.0004, one update at dt = -0.05, same error.
+    //
+    // main.js now stops the negative dt at source, which is the cause. This is the second lock: `t` is
+    // wrapped rather than decremented once, so no value of it can leave the range, and both ends are
+    // clamped so no value of `t` could index off the array even if one did. The whole frame's update
+    // is skipped when this throws -- camera, effects, HUD, render -- so it is worth two locks.
+    if (s.length > 1) world.foam.forEach((f, i) => {
       f.t += f.speed * dt;
-      if (f.t > 1) f.t -= 1;
+      f.t -= Math.floor(f.t);          // wraps from anywhere, including below zero and above two
       const fi2 = f.t * (s.length - 1);
-      const a = s[Math.floor(fi2)];
-      const b = s[Math.min(s.length - 1, Math.floor(fi2) + 1)];
+      const lo = Math.min(s.length - 1, Math.max(0, Math.floor(fi2)));
+      const a = s[lo];
+      const b = s[Math.min(s.length - 1, lo + 1)];
       const tx = b.x - a.x;
       const tz = b.z - a.z;
       const l = Math.hypot(tx, tz) || 1;

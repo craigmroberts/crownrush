@@ -342,15 +342,28 @@ if (/[?&]perf=1/.test(location.search)) {
 let perfT = 0;
 let perfFrames = 0;
 let perfMs = 0;
+// #54: the try/catch around game.update is the right call for shipping -- a throw costs one frame
+// rather than the run -- and it is also exactly why a crash in the river foam sat unnoticed through
+// however many sessions. Counting them changes nothing about the shipping behaviour and makes the
+// next one visible to anyone holding a phone with ?perf=1 on it.
+let caught = 0;
+let lastError = '';
 
 let last = performance.now();
 function frame(now) {
-  const dt = Math.min(0.05, (now - last) / 1000);
+  // #54: clamped at BOTH ends. `last` is set when this module is evaluated and the first rAF callback
+  // is handed the timestamp of the frame that was already in flight -- which can predate it, so the
+  // very first dt of a run can be negative. Measured across six cold loads here: one came back at
+  // -0.002s. `Math.min(0.05, ...)` let that straight through, and a frame of negative time runs every
+  // system in the game a little way backwards.
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
   last = now;
   const t0 = perf ? performance.now() : 0;
   try {
     game.update(dt);
   } catch (err) {
+    caught++;
+    lastError = (err && err.message) || String(err);
     console.error(err);
   }
   if (perf) {
@@ -365,6 +378,7 @@ function frame(now) {
       perf.textContent = `${(perfFrames / perfT).toFixed(0)} fps · ${ms.toFixed(1)} ms cpu · ${info.calls} draws · ${(info.triangles / 1000).toFixed(0)}k tris · ${game.units.length + game.enemies.length} chars`
         + (crowd.characters ? ` (${crowd.drawn}/${crowd.characters} instanced in ${crowd.models} draws)` : '')
         + ` · ${c.width}x${c.height} buf @${game.renderer.getPixelRatio()}${game.contextLost ? ' · GL CONTEXT LOST' : ''}`
+        + (caught ? `\n${caught} caught error${caught > 1 ? 's' : ''}: ${lastError}` : '')
         + `\n${sizeReport()}`;
       perf.style.color = ms > 33 ? '#ff7a7a' : ms > 16 ? '#ffd27a' : '#b8ffb0';
       perfT = 0;
