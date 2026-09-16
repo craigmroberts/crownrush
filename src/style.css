@@ -93,6 +93,18 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #241c10; f
   width: 100vw; height: 100vh;
   width: 100dvw; height: 100dvh;
 }
+/* #74: installed on iOS, the layout viewport is a status bar SHORT of the glass. Measured off the
+   phone: canvas 440x894, viewport 440x894, screen 440x956, safe 62/34 -- the canvas matched the
+   viewport exactly and both were 62px (one `safe-area-inset-top`) shy of the screen, which is where
+   the strip along the bottom comes from. Nothing in the page can paint outside its own viewport, so
+   no amount of sizing the canvas against the viewport was ever going to close it.
+   `dvh` is the CURRENT viewport, which is the short one. `lvh` is the LARGE viewport -- the one with
+   no chrome subtracted -- and is the only unit that can be bigger than what the page is handed.
+   Scoped to installed apps on purpose: in a browser the large viewport is the one with the URL bar
+   hidden, so using it there would push the bottom of the world behind a toolbar that is on screen.
+   `?perf=1` and the settings line now print what each unit actually resolves to, so the next reading
+   says whether this reaches the glass or whether no unit can and the answer is in the app config. */
+:root.installed #game { height: 100lvh; }
 /* #74: the safe-area insets, so ?perf=1 can report them off a real phone. env() cannot be read from
    JS directly; a custom property carrying it can. */
 :root { --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px); }

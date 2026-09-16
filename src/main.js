@@ -348,6 +348,7 @@ function sizeReport() {
     + ` · win ${window.innerWidth}x${window.innerHeight} · doc ${document.documentElement.clientWidth}x${document.documentElement.clientHeight}`
     + ` · vv ${vv ? `${Math.round(vv.width)}x${Math.round(vv.height)}` : '-'}`
     + ` · screen ${screen.width}x${screen.height} · safe ${inset('--sat')}/${inset('--sab')}`
+    + ` · units lvh ${unitPx('lvh')} dvh ${unitPx('dvh')} svh ${unitPx('svh')} vh ${unitPx('vh')}`
     + ` · standalone ${!!(window.navigator.standalone || matchMedia('(display-mode: standalone)').matches)}`;
 }
 
@@ -359,6 +360,24 @@ function sizeReport() {
 // that line" is what this is for and retyping a wall of numbers off a phone is how a digit gets lost.
 // The clipboard write is inside the tap handler because iOS grants it only to a gesture, and it is
 // allowed to fail: the line is on screen either way and a screenshot is a fine second best.
+// #74: what each viewport unit actually resolves to on this device. The reading from the iPhone says
+// the layout viewport is 440x894 against a 440x956 screen -- the canvas fills the viewport exactly and
+// the viewport is a status bar short of the glass -- so the question is no longer "is the canvas
+// right" but "is there a unit that reaches the screen at all". `lvh` is the large viewport and should;
+// `dvh` is the current one and demonstrably does not. Measured rather than assumed, because the whole
+// history of this bug is iOS answering differently from the spec.
+//
+// An unsupported unit makes the declaration invalid, the div falls back to `height: auto` on an empty
+// box, and this returns 0 -- which is how a browser without the unit tells us so.
+function unitPx(unit) {
+  const d = document.createElement('div');
+  d.style.cssText = `position:fixed;top:0;left:0;width:1px;height:100${unit};visibility:hidden;pointer-events:none`;
+  document.body.appendChild(d);
+  const h = Math.round(d.getBoundingClientRect().height);
+  d.remove();
+  return h;
+}
+
 const sizeLine = document.getElementById('set-size');
 function syncSizeLine() {
   if (!sizeLine) return;
@@ -367,11 +386,14 @@ function syncSizeLine() {
   const inset = (n) => parseInt(cs.getPropertyValue(n), 10) || 0;
   const standalone = !!(window.navigator.standalone || matchMedia('(display-mode: standalone)').matches);
   const r = c.getBoundingClientRect();
-  const short = Math.round(window.innerHeight - r.height);
-  // The viewport is only worth printing when the canvas has failed to match it. Quiet when it is
-  // right, loud when it is not, which is the whole job of a line somebody is asked to read out.
+  // #74: the shortfall that matters is the canvas against the SCREEN, not against the viewport. The
+  // iPhone reading had the canvas matching the viewport perfectly and both of them 62px short of the
+  // glass, so a line that only compared those two reported everything was fine. Only in portrait:
+  // iOS reports `screen` in portrait terms whichever way round the phone is.
+  const portrait = window.innerHeight > window.innerWidth;
+  const short = portrait ? Math.round(screen.height - r.height) : 0;
   sizeLine.textContent = `${Math.round(r.width)}\u00D7${Math.round(r.height)}`
-    + (short ? ` of ${window.innerWidth}\u00D7${window.innerHeight} · SHORT BY ${short}` : '')
+    + (short > 1 ? ` of ${screen.width}\u00D7${screen.height} · SHORT BY ${short}` : '')
     + ` · safe ${inset('--sat')}/${inset('--sab')}`
     + (standalone ? ' · installed' : ' · browser')
     + ' · tap to copy';
@@ -444,6 +466,15 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+
+// #74: installed apps get a different viewport from browsers, and CSS has to be able to tell.
+// `(display-mode: standalone)` alone is not enough: iOS serves home-screen apps added the legacy way
+// -- `apple-mobile-web-app-capable`, which is how this one is installed -- and answers that query
+// unreliably, while `navigator.standalone` is the one it has always answered. Set once at boot,
+// because an app cannot become a browser tab while it is running.
+if (window.navigator.standalone || matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches) {
+  document.documentElement.classList.add('installed');
+}
 
 // expose for poking around in the console
 window.game = game;
