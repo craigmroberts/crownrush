@@ -244,7 +244,9 @@ for a moment, `CFG.spend`), so walking across one costs nothing.
   man the new slots, up to level 3 (3 / 5 / 7 archers, sharper and longer-ranged arrows, `CFG.tower`).
   Gate Guards stand on small posts flanking each gate.
 - **Train Archers** at the range: +25% damage and +20% health per level for every archer, including
-  ones already recruited (`CFG.archerTraining`).
+  ones already recruited (`CFG.archerTraining`). It is additive and capped at five buys, so a fully
+  trained archer has twice the health and 2.25x the damage — which is what the mat itself promises,
+  in words rather than in percentages (#107).
 
 ## Enemies that break a rule
 
@@ -344,6 +346,10 @@ You keep one of three rewards. The pool is in
 and the King himself. Offers draw from different areas where they can, so a choice is never three
 flavours of the same idea, and a few rewards are rare and change how a run plays rather than how fast
 it goes.
+
+A card says what you will see — *"Your walls and gates hold out far longer"* — rather than a
+percentage against a number the game never shows you (#107); the multiplier sits on the same line as
+the sentence, and the sentence has to stay true of it.
 
 Each reward sets a multiplier or a flag on `game.mods`, and those are the only places gameplay code
 has to read, so adding a new one is a single entry in that file. Rewards apply retroactively where it
