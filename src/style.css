@@ -481,7 +481,11 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 #toast {
   position: fixed; left: 50%; bottom: var(--notice-bottom); transform: translateX(-50%) translateY(10px);
   /* it clears the minimap and the warhorn by sitting above them, so it can have the full width */
-  width: max-content; max-width: min(420px, calc(100vw - 28px));
+  /* #97: one width, not `max-content`. A box sized by its own text made a two-word notice a small pill
+     and a long one a wide block, so a queue of them changed shape as it went -- and it is what made
+     #95 impossible, because text revealed a letter at a time would have re-laid the box out on every
+     letter. Height still follows the text; it is capped at three lines by paging, not by CSS. */
+  width: min(420px, calc(100vw - 28px));
   opacity: 0; pointer-events: none; display: block; z-index: 4;
   /* #70: leaving is not arriving played backwards. It goes quickly, downward and shrinking, so a
      notice on its way out is never mistaken for one on its way in -- which mattered, because they
@@ -497,6 +501,9 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   position: relative;
   background: rgba(16, 24, 14, 0.62); color: #f4f7ec; padding: 11px 20px; border-radius: 20px;
   font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 700; font-size: 17px;
+  /* #97: stated rather than left to the font, because the page split divides by it -- `normal` reads
+     back from getComputedStyle as the string "normal", not a number of pixels. */
+  line-height: 1.32;
   text-align: center;
   /* light text has to hold over pale grass and the near-white late-game walls, so it carries the
      same two-stop shadow every number in the HUD does */
@@ -518,6 +525,39 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   color: #d7e8bd; text-shadow: 0 1px 2px rgba(0,0,0,0.85), 0 2px 8px rgba(0,0,0,0.7);
 }
 #toast-kind:empty { display: none; }
+/* #97: a block, because the page split measures its height -- and `offsetHeight` on an inline span is
+   the height of one line box, not of the wrapped run, so the split would have put every notice on one
+   page no matter how long it was. */
+#toast-text { display: block; }
+
+/* #97: there is more, and it is coming. The bob is the same idea as the notice's own -- small and
+   slow, because the player is usually fighting -- and it points down because that is where the rest
+   of the message is going to appear from. */
+#toast-more {
+  display: none; position: absolute; left: 50%; bottom: 0; color: #d7e8bd; opacity: 0.85;
+  transform: translateX(-50%);
+  animation: moreBob 0.9s ease-in-out infinite alternate;
+}
+/* the chevron the mat chip already uses, turned to point down. The turn is on the svg and the bob is
+   on the element around it, because one element cannot hold a rotation and an animated translate on
+   the same property. */
+#toast-more svg { display: block; transform: rotate(90deg); }
+#toast.more #toast-more { display: block; }
+/* the arrow needs a line of its own to sit in, or it lands on the last line of text */
+#toast.more .toast-panel { padding-bottom: 18px; }
+@keyframes moreBob { from { transform: translateX(-50%) translateY(-2px); } to { transform: translateX(-50%) translateY(2px); } }
+/* #97: the panel is the tap target and only while there is another page. Anything more than that
+   takes a patch of the bottom-centre of the screen away from the thumb that drives the King. */
+#toast.more .toast-panel { pointer-events: auto; cursor: pointer; }
+
+/* #95: laid out once, then revealed. Every letter is already in the box at full size and only its
+   opacity is staggered, so the box cannot re-wrap or re-centre while it types -- which is exactly
+   what appending to textContent a letter at a time would have done.
+   The word span is what stops the browser breaking a line in the middle of a word: with a span per
+   letter and nothing holding the word together, every letter is its own break opportunity. */
+.tw-w { display: inline-block; white-space: pre; }
+.tw-w > span { opacity: 0; animation: twIn 0.09s linear forwards; }
+@keyframes twIn { from { opacity: 0; } to { opacity: 1; } }
 
 /* #88: a picked-up armful on its way to the bag. Fixed and moved with `transform`, never left/top,
    so the flight is a compositor job rather than a layout one at sixty frames a second. */
@@ -543,6 +583,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
      gliding there, and stops pulsing. */
   #alarm-lane { transition: none; }
   #alarm { animation: none; opacity: 1; }
+  /* #95: the words are there the moment the notice is. Paging still works -- it is how you read a
+     long one, not decoration -- but the arrow stops bobbing. */
+  .tw-w > span { opacity: 1; animation: none; }
+  #toast-more { animation: none; }
   /* #92: the sheets still fade, they just do not rise or scale. */
   .overlay .panel, .overlay.hidden .panel { transition: none; transform: none; }
   .bagring .ring-fill { transition: stroke 0.3s linear; }

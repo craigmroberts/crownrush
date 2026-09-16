@@ -1,4 +1,5 @@
 import { iconSvg } from './icons.js';
+import { CFG } from './config.js';
 
 // #68: how many hearts the King's health is cut into. Five is coarse on purpose -- the exact figure
 // is the bar over his head, and a HUD readout that moved every frame would be a bar with gaps in it.
@@ -65,6 +66,22 @@ export class Hud {
     // notice really changes shape (longer text, the chip opening, a font swapping in, the phone
     // turning), not once a frame, so no layout is read on a frame where nothing moved.
     this.noticeStack = -1;
+    // #95/#97: looked up once. nextToast runs on a timer, not a frame, but a querySelector per page
+    // for the life of a run is still a querySelector nobody needs.
+    this.toastText = document.getElementById('toast-text');
+    this.toastMore = document.getElementById('toast-more');
+    if (this.toastMore) this.toastMore.innerHTML = iconSvg('chev', 16);
+    this.toastRest = '';
+    // The panel only takes pointer events while there is another page (see `#toast.more` in the
+    // stylesheet), so this cannot steal a drag meant for the King at any other time. Tapping the last
+    // page deliberately does nothing: dismissing a notice early is not worth a dead patch of screen
+    // where a thumb lives.
+    const panel = document.getElementById('toast-panel');
+    if (panel) panel.addEventListener('pointerdown', (e) => {
+      if (!this.toastRest) return;
+      e.preventDefault();
+      this.nextToast();
+    });
     if (typeof ResizeObserver !== 'undefined') {
       const ro = new ResizeObserver(() => this.syncNoticeStack());
       ro.observe(this.toastEl);
@@ -183,26 +200,95 @@ export class Hud {
       this.toastTimer = setTimeout(() => this.nextToast(), ms);
       return;
     }
-    this.toastQueue.push({ text, kind, ms: Math.max(ms, Math.min(7000, 1400 + text.length * 55)) });
+    this.toastQueue.push({ text, kind, ms });
     if (!this.toastShowing) this.nextToast();
   }
+  // #97: a notice is pages now, not a string. This advances within the current one before it advances
+  // to the next, so a long message finishes being read before the queue moves on. The tap on the panel
+  // and the timer both come through here, which is what makes "tap to skip ahead" nothing more than
+  // the timer firing early.
   nextToast() {
-    const next = (this.toastQueue || []).shift();
     clearTimeout(this.toastTimer);
+    if (this.toastRest) {
+      this.showPage(this.toastRest, this.toastKind, this.toastMs);
+      return;
+    }
+    const next = (this.toastQueue || []).shift();
     if (!next) {
       this.toastShowing = null;
-      this.toastEl.classList.remove('show');
+      this.toastEl.classList.remove('show', 'more');
       this.syncNoticeStack();
       return;
     }
+    // `toastShowing` stays the WHOLE message, not the page on screen: it is what the repeat check in
+    // toast() compares against, and what showPadTip asks to know whether to stand down.
     this.toastShowing = next.text;
-    (document.getElementById('toast-text') || this.toastEl).textContent = next.text;
+    this.toastKind = next.kind || '';
+    this.toastMs = next.ms;
     const kindEl = document.getElementById('toast-kind');
-    if (kindEl) kindEl.textContent = next.kind || '';
+    if (kindEl && kindEl.textContent !== this.toastKind) kindEl.textContent = this.toastKind;
+    this.showPage(next.text, this.toastKind, next.ms);
+  }
+  // One page: split off what fits, reveal it, and hold for as long as it takes to read what is now on
+  // screen rather than the whole message.
+  showPage(text, kind, ms) {
+    const { page, rest } = this.fitPage(text);
+    this.toastRest = rest;
+    const revealMs = this.typeInto(this.toastText, page);
+    this.toastEl.classList.toggle('more', !!rest);
     this.toastEl.classList.add('show');
     this.syncNoticeStack();
-    this.toastTimer = setTimeout(() => this.nextToast(), next.ms);
+    const n = CFG.notice;
+    const read = Math.max(ms, Math.min(n.readMax, n.readBase + page.length * n.readPerChar));
+    // #95: the hold starts when the last letter lands, not when the notice appears -- otherwise a long
+    // one spends the first fifth of its life still arriving and the rest being read in a hurry.
+    this.toastTimer = setTimeout(() => this.nextToast(), revealMs + read);
   }
+  // #97: how much of `text` fits in three lines, at the width the notice is actually being shown at.
+  // Measured rather than counted -- the font is proportional and the box is one of two widths
+  // depending on the screen, so the only honest answer is to lay it out and look. A binary search over
+  // words costs about six layout reads, once per page. Nothing here runs on a frame.
+  //
+  // Measuring in the live element rather than an off-screen clone is deliberate: a clone has to be
+  // given the same width, font, weight and padding, and the first of those to drift makes the split
+  // wrong in a way nothing would catch. The reads all happen inside one task, so the browser never
+  // paints the intermediate text.
+  fitPage(text) {
+    const el = this.toastText;
+    const words = text.split(' ');
+    const lh = parseFloat(getComputedStyle(el).lineHeight) || 22;
+    const max = lh * CFG.notice.lines + 1;
+    el.textContent = text;
+    if (words.length < 2 || el.offsetHeight <= max) return { page: text, rest: '' };
+    let lo = 1;
+    let hi = words.length - 1;
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      el.textContent = words.slice(0, mid).join(' ');
+      if (el.offsetHeight <= max) lo = mid;
+      else hi = mid - 1;
+    }
+    return { page: words.slice(0, lo).join(' '), rest: words.slice(lo).join(' ') };
+  }
+
+  // #95: put the whole page in the box at full size, then stagger each letter's opacity. Appending to
+  // textContent a letter at a time was the obvious way and is the wrong one: the box would re-wrap and
+  // re-centre on every letter. Here the layout is final before the first letter appears, and the
+  // reveal itself is a CSS animation -- the game's frame path never sees it.
+  // Returns how long the reveal takes, so the hold can start when it ends.
+  typeInto(el, text) {
+    const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+    const ms = CFG.notice.letterMs;
+    let i = 0;
+    const html = text.split(' ').map((w, wi) => {
+      const lead = wi ? ` ` : '';
+      if (wi) i++;            // the space counts, or the pacing stutters at every word break
+      return lead + `<span class="tw-w">${[...w].map((ch) => `<span style="animation-delay:${i++ * ms}ms">${esc(ch)}</span>`).join('')}</span>`;
+    }).join('');
+    el.innerHTML = html;
+    return i * ms;
+  }
+
   // #90: the tallest thing currently on the notice line, handed to CSS. Both notices stay in the
   // layout while they are down -- they have to, or they could not transition out -- so an element's
   // height is only its own to give while it is actually up.

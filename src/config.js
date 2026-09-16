@@ -283,6 +283,16 @@ export const CFG = {
   // appeared shows itself for showNew seconds wherever you are.
   spend: { tick: 0.07, fastTick: 0.022, crewTick: 0.28, padRadius: 1.7, arm: 0.25, walkHold: 0.8, showRadius: 10, showNew: 7 },
 
+  // #95/#97: how a notice is read out.
+  // `lines` is the cap: past three, the rest becomes another page behind a bobbing arrow. Three is
+  // what fits over the world at phone width without the notice becoming the screen.
+  // `letterMs` is the typing speed. 18ms is about 55 characters a second -- quick enough to read as
+  // speech rather than as a stutter, and slow enough to see. A full three-line page at phone width is
+  // around 115 characters, so the reveal costs ~2.1s of a hold that is 7s at that length.
+  // `readBase` + `readPerChar` is the hold AFTER the typing finishes, capped by `readMax`. It used to
+  // start when the notice appeared, which meant a long one spent a third of its life still arriving.
+  notice: { lines: 3, letterMs: 18, readBase: 1400, readPerChar: 55, readMax: 7000 },
+
   arrow: { speed: 30, life: 2.0 },
 
   // Wall materials, in upgrade order. Named for what you actually mine, so "stone walls" means the

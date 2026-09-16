@@ -124,7 +124,9 @@
     <div id="alarm-lane"><span id="alarm" class="hidden"><i data-icon="alert" data-size="16"></i><span id="alarm-text">The Keep is under attack</span></span></div>
     <!-- #89: a caption over the world, not a card on top of it. The label sits above the panel and
          says what kind of notice this is -- the crown that used to be here wanted the same corner. -->
-    <div id="toast"><div class="toast-panel"><b id="toast-kind"></b><span id="toast-text"></span></div></div>
+    <!-- #97: the arrow is inside the panel and outside the text, so a page that ends mid-sentence has
+         something under it saying there is more, and the text's own wrapping never has to make room. -->
+    <div id="toast"><div class="toast-panel" id="toast-panel"><b id="toast-kind"></b><span id="toast-text"></span><i id="toast-more"></i></div></div>
 
     <div id="start-screen" class="overlay">
       <div class="panel title">

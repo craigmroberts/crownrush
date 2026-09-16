@@ -28,6 +28,22 @@ field for the whole sample and is counted as though it were permanent. An earlie
 paced by wall-clock and reported 660 draw calls of spawn effect where a real device would have had
 four; a ticket was written against that number before the mistake was found.
 
+The same trap catches the HUD, and it is worth knowing because it does not look like the one above.
+**A CSS animation or transition advances on rendered frames, not on `performance.now()`.** At about a
+frame a second, `getComputedStyle` on something mid-animation reads the value from the last frame, so
+a reveal that is meant to take two seconds reports as not started for one second and then most of the
+way through. Measured directly: a typewriter reveal's first letter sat at `currentTime: 0` with
+`playState: "running"` for 1.2 seconds of `performance.now()` and then jumped past 1.4 seconds in one
+step.
+
+So a rect or a computed style read partway through an animation is a frame, not a moment. Two ways
+out, and both are better than waiting longer:
+
+- Run the context with `reducedMotion: 'reduce'`. Every transition is off, so a rect read straight
+  after a change is the settled layout. This is how #90's notice clearances were measured after a
+  first attempt reported 27px of overlap that was really a notice still on its way up.
+- Believe the screenshot. It is the browser's own rendering and it cannot be out of date.
+
 What is exact, and what a change should be judged on:
 
 | Number | Why it is trustworthy |

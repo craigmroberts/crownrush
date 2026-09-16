@@ -70,6 +70,14 @@ loop underneath it:
   corner saying who is speaking or what it is about --
   **Wren**, **Raid**, **Keep**, **Village**, **Bag**. The few notices that are the game talking about
   itself rather than about the world (a lost graphics context) carry no label at all.
+- A notice is one box. Always the same width, never more than three lines: a longer one becomes pages,
+  with a bobbing arrow under the text saying there is more, and it turns the page on its own once
+  there has been time to read it, or at once if you tap it. Tapping only does anything while there
+  *is* another page -- the bottom centre of the screen is where a thumb already lives, and a notice
+  is not worth taking a patch of that away permanently.
+  The words type themselves out. They are all laid out at full size first and only their opacity is
+  staggered, so the box cannot re-wrap or re-centre partway through; the hold starts when the last
+  letter lands rather than when the notice appears. Reduced motion gets the whole line at once.
 - Everything that speaks does it in the same place, at the bottom: the notice, the mat chip that says
   what the pad under the King costs, and the attack alarm, which used to be a solid red pill at the
   top of the screen and is now the same dark caption with the urgency in the colour of the words.
