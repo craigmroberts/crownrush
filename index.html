@@ -140,7 +140,12 @@
         <div id="load-bar"><i></i><span id="load-text">Loading…</span></div>
         <button id="continue-run-btn" class="hidden">Continue</button>
         <p id="continue-note" class="hint hidden"></p>
-        <button id="start-btn">Play</button>
+        <!-- #53: `disabled` and `hidden` belong here, not only in main.js. main.js sets both, but a
+             module script runs after the document is parsed, so between the parser reaching this line
+             and that assignment there is a window in which Play is a live, enabled button on a game
+             that has loaded nothing. A fast finger loses; a probe measuring "bytes to a clickable Play
+             button" measured 17 kB. -->
+        <button id="start-btn" class="hidden" disabled>Play</button>
         <p class="best">Best: night <span id="best-wave">1</span></p>
       </div>
     </div>
@@ -187,6 +192,20 @@
         <p class="hint">Choose one reward</p>
         <div id="offer-cards"></div>
         <p class="hint" id="offer-more"></p>
+      </div>
+    </div>
+
+    <!-- #105: a mat that changed what the player can do stops the game and says where he has got to,
+         and waits to be dismissed. The chip's `desc` said it behind a tap on `.tip-body` and the toast
+         said it for 3.2s over a running game, so neither reached him at the one moment he was looking:
+         just after paying for it. No corner close, the way the sheets you open by choice have one:
+         this one was not asked for, so it gets one deliberate button (Escape or Enter on a keyboard). -->
+    <div id="gain-screen" class="overlay hidden">
+      <div class="panel gain">
+        <h1 id="gain-title">Training 1 of 5</h1>
+        <p class="hint" id="gain-sub"></p>
+        <div id="gain-rows"></div>
+        <button id="gain-close">Back to the game</button>
       </div>
     </div>
     <!-- what the Keep plaque opens: where you are, what the next level costs, what it gives, and

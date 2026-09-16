@@ -226,6 +226,18 @@ in a village made of mats -- the description and the fine print are behind a tap
 cannot play without stays on the face of it. Pads only take payment once the King has stopped (or held
 for a moment, `CFG.spend`), so walking across one costs nothing.
 
+Three mats change what you can *do* rather than what stands in the village: Train Archers, the
+Warhorse and the Royal Guard -- the pads carrying an `effect` that is the player's rather than the
+village's. Buying one stops the game and says where you have got to, and waits to be dismissed:
+*Training 3 of 5*, what an arrow hits for now against an untrained archer's, how many are left on the
+mat and what the next one costs (`capabilityGains` in [src/game-view.js](src/game-view.js)). It says
+the state and not the delta, because a per-level percentage is a true sentence that answers nothing on
+the third buy. Both places the game used to say it missed: the mat's own `desc` is behind a tap on
+the chip, and the toast ran for 3.2 seconds over a game that kept playing, at the one moment the
+player was least likely to be standing still and reading. It pauses regardless of what the raid is
+doing, the way a Keep level does -- it can happen nine times in a whole run, and every one of them is
+the player standing still on a mat by his own choice.
+
 ## Coins, ranks and towers
 
 - **One currency that grows with the Keep.** Coins are bronze to start, silver from Keep level 4, gold
@@ -244,7 +256,9 @@ for a moment, `CFG.spend`), so walking across one costs nothing.
   man the new slots, up to level 3 (3 / 5 / 7 archers, sharper and longer-ranged arrows, `CFG.tower`).
   Gate Guards stand on small posts flanking each gate.
 - **Train Archers** at the range: +25% damage and +20% health per level for every archer, including
-  ones already recruited (`CFG.archerTraining`).
+  ones already recruited (`CFG.archerTraining`). It is additive and capped at five buys, so a fully
+  trained archer has twice the health and 2.25x the damage — which is what the mat itself promises,
+  in words rather than in percentages (#107).
 
 ## Enemies that break a rule
 
@@ -344,6 +358,10 @@ You keep one of three rewards. The pool is in
 and the King himself. Offers draw from different areas where they can, so a choice is never three
 flavours of the same idea, and a few rewards are rare and change how a run plays rather than how fast
 it goes.
+
+A card says what you will see — *"Your walls and gates hold out far longer"* — rather than a
+percentage against a number the game never shows you (#107); the multiplier sits on the same line as
+the sentence, and the sentence has to stay true of it.
 
 Each reward sets a multiplier or a flag on `game.mods`, and those are the only places gameplay code
 has to read, so adding a new one is a single entry in that file. Rewards apply retroactively where it
@@ -477,7 +495,11 @@ exceptions the frame loop has swallowed and the last one's message. The `try/cat
 is also how a crash in the river foam went unnoticed for as long as it did (#54), so the overlay says
 when it has happened. `npm run probe -- --crowd 120` collects the rest without you, on a fixed scene,
 so a change can be measured rather than argued about --
-see [tools/probe/README.md](tools/probe/README.md). Budgets:
+see [tools/probe/README.md](tools/probe/README.md).
+
+`probe.mjs --assert` measures a run against the table below and exits non-zero naming whatever it
+broke. Frame time is not among the asserted ones and cannot be: the probe renders through SwiftShader
+on a CPU. Budgets:
 
 | Metric | Aim for | Why |
 | --- | --- | --- |
@@ -485,7 +507,7 @@ see [tools/probe/README.md](tools/probe/README.md). Budgets:
 | Draw calls | < 400 late game | each one costs CPU time no matter how small it is |
 | Triangles | < 1M late game | phones slow down past this, especially with shadows |
 | Triangles per character | ~5k (King 6.5k) | 100+ characters can be on screen |
-| Load | < 3 MB to the Play button | first play on mobile data |
+| Load | < 3 MB to the Play button | first play on mobile data; measured **on the wire**, which is what that reason means |
 
 What keeps it fast:
 - The crowd — raiders, archers, swordsmen, elites, brutes, the boss — is ONE instanced draw per model,

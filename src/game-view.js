@@ -1091,6 +1091,81 @@ export const ViewMethods = {
     return out;
   },
 
+  // #105: what a mat that changed a CAPABILITY leaves the player able to do, read off the state after
+  // the purchase landed. Deltas are the thing it is replacing: "+25% damage and +20% health per level"
+  // is true and answers nothing on the third buy, and it was only ever reachable behind a tap on the
+  // chip (`.tip-body` is display:none until opened) or in a 3.2s toast fired while the game ran on.
+  // So every line here is a number the player now HAS: where the training has got to, what an arrow
+  // hits for, how much the King can take. Same `{icon, text}` rows as `levelGains`, because it is the
+  // same kind of news and should not read as a different kind of thing.
+  //
+  // Only the three `effect` mats that change what the PLAYER can do get one. Expand Village has an
+  // `effect` too and does not: it changes the village, which is already the largest visible thing on
+  // the screen and needs no panel to point at it. Returning null is what leaves those to their toast.
+  capabilityGains(def) {
+    const pct = (x) => `${Math.round(x * 100)}%`;
+    // one decimal, and none when there is nothing after the point: arrows hit for 17.5 at training 3
+    // and for 10 untrained, and "17.5" reading as "18" would be a number the game does not use
+    const num = (x) => String(Math.round(x * 10) / 10);
+    const bought = this.buyCount[def.id] || 0;
+    const left = def.maxBuys ? def.maxBuys - bought : 0;
+    // "N of M" is one word as far as wrapping goes. "Royal Guard 1 of 3" does not fit one line of the
+    // panel's h1 on a 390px phone, and the greedy break left the 3 alone on a line of its own; with
+    // the spaces non-breaking the only break left is the one before the number, so it reads
+    // "Royal Guard / 1 of 3". Measured at 390, 844 and 320 wide.
+    const soFar = (a, b) => `${a}\u00A0of\u00A0${b}`;
+    // the mat is still standing with its next price on it, so the panel can say what the next one
+    // costs rather than leaving the player to walk back and look
+    const more = left > 0
+      ? { icon: 'coin', text: `${left} more on the mat, the next for ${this.padCost(def)} coins` }
+      : null;
+
+    if (def.effect === 'archerPower') {
+      const n = this.archerPower;
+      const st = this.archerStats();
+      // the same archer with the same reward mods and no training, so the two figures on each row
+      // differ by the training and by nothing else
+      const rawDmg = CFG.archer.damage * this.mods.archerDamage;
+      const rawHp = CFG.archer.hp * this.mods.archerHp;
+      return {
+        title: `Training ${soFar(n, def.maxBuys)}`,
+        sub: 'Your archers',
+        rows: [
+          { icon: 'arrows', text: `Every arrow hits for ${num(st.damage)} instead of ${num(rawDmg)}: ${pct(n * CFG.archerTraining.damage)} more damage than an untrained archer` },
+          { icon: 'heart', text: `Every archer has ${Math.round(st.hp)} health instead of ${Math.round(rawHp)}: ${pct(n * CFG.archerTraining.hp)} more` },
+          { icon: 'archer', text: 'Archers already on the wall were trained too, and so is every one you recruit from now on' },
+          more || { icon: 'star', text: 'Your archers are trained as far as training goes' },
+        ],
+      };
+    }
+
+    if (def.effect === 'horse') {
+      const faster = CFG.king.speed / CFG.king.footSpeed - 1;
+      return {
+        title: 'The King rides',
+        sub: 'You are on horseback for the rest of the run',
+        rows: [
+          { icon: 'horse', text: `You move ${pct(faster)} faster everywhere: to the mines, back to the mats, and away from a fight you would lose` },
+          { icon: 'sack', text: 'A full bag reaches the Keep in a fraction of the time, so a run out to the far nodes is worth making' },
+          { icon: 'crown', text: 'It changes nothing about how hard you hit or how much you can take' },
+        ],
+      };
+    }
+
+    if (def.effect === 'kinghp') {
+      return {
+        title: `Royal Guard ${soFar(bought, def.maxBuys)}`,
+        sub: 'The King himself',
+        rows: [
+          { icon: 'crown', text: `You can take ${this.king.maxHp} damage before the run ends, up from ${CFG.king.hp} at the start` },
+          { icon: 'heart', text: 'And you are back to full health right now' },
+          more || { icon: 'star', text: 'The guard is at full strength: there is no more to raise' },
+        ],
+      };
+    }
+    return null;
+  },
+
   infoData() {
     const L = this.baseLevel;
     const N = L + 1;

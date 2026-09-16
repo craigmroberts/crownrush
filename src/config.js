@@ -432,7 +432,13 @@ export const PADS = [
   { id: 'exchange', tier: 0, pos: [9.8, -6], cost: 8, afterRescue: true, icon: 'gold', label: 'Trade Post', structure: 'bank', buildAt: [9.8, -9.8], desc: 'Sell what you have mined. Until it stands there is nowhere to turn a heap into coin.', toast: 'Trade Post built! Bring your bag here to sell.' },
   { id: 'range', tier: 0, pos: [-9.8, -5.4], cost: 5, icon: 'bow', label: 'Archery Range', structure: 'hut', buildAt: [-9.8, -9.8], desc: 'Lets you recruit archers.', toast: 'Archery Range built! Recruit archers.' },
   { id: 'recruit', tier: 0, pos: [-9.8, -5.4], cost: 5, growth: 1, icon: 'archer', label: '+2 Archers', requires: ['range'], repeatable: true, units: { type: 'archer', count: 2 }, desc: 'Two archers join the King. The Keep level caps how many you can have.' },
-  { id: 'train', tier: 0, pos: [-13.8, -5.4], cost: 12, growth: 8, maxBuys: 5, icon: 'arrows', label: 'Train Archers', requires: ['recruit'], repeatable: true, effect: 'archerPower', desc: 'Every archer, now and later: +25% damage and +20% health per level.', toast: 'Archers trained: +25% damage, +20% health' },
+  // #107/#105: no percentage, and the mat says where the five levels get to rather than only what one
+  // of them adds. "+25% damage per level" is a delta the player has to compound five times in his
+  // head against an archer's damage, which is on no screen; `archerTraining` is additive, so the
+  // fifth buy leaves an archer on exactly twice the health and 2.25x the damage, and those are round
+  // enough to say out loud. The pad already counts itself ("2 of 5"), so "all five levels" is a state
+  // the player can see he is walking towards.
+  { id: 'train', tier: 0, pos: [-13.8, -5.4], cost: 12, growth: 8, maxBuys: 5, icon: 'arrows', label: 'Train Archers', requires: ['recruit'], repeatable: true, effect: 'archerPower', desc: 'Every archer, now and later, hits harder and stands longer. All five levels: twice the health, better than twice the damage.', toast: 'Archers trained: they all hit harder and stand longer.' },
   { id: 'keep', tier: 0, pos: [-5, 5], cost: 25, icon: 'keep', label: 'Royal Keep', requires: ['range'], structure: 'keep', buildAt: [0, 0], desc: 'A door for Wren, and the heart of the village. Feed it materials to level up your whole kingdom.', toast: 'Wren has a door at last. Feed it wood and stone to level up!' },
   // The citadel's towers stand on the ring itself, on its four diagonals -- a round wall has no
   // corners, and its gateways are taken by the roads. Their pads sit in the half of each quarter the

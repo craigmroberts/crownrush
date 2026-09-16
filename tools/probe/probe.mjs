@@ -12,6 +12,7 @@
 //                                                # to compare one rendering path against another
 //     node tools/probe/probe.mjs --json out.json # also write the report where another run can diff it
 //     node tools/probe/probe.mjs --compare a.json
+//     node tools/probe/probe.mjs --assert --crowd 120   # #53: fail if a README budget is exceeded
 //
 // Everything is resolved from this file's own location, so the directory you run it from is free.
 import { chromium } from 'playwright';
@@ -107,6 +108,11 @@ async function measure(url, { mobile }) {
     executablePath: findChromium(),
     args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox'],
   });
+  // #53: the load number a player actually feels, which nothing captured before. 4 Mbps down and
+  // 100ms RTT is what the load work was measured against (12.0s before, 9.2s after), so it is the
+  // figure those numbers can be compared to. It is emulated in the browser rather than being a real
+  // slow link, so treat it as one build against another, not as a promise about anyone's train.
+  const THROTTLE = { downloadThroughput: (4 * 1000 * 1000) / 8, uploadThroughput: (1000 * 1000) / 8, latency: 100 };
   const context = await browser.newContext(
     mobile
       ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' }
@@ -135,7 +141,35 @@ async function measure(url, { mobile }) {
     } catch { /* redirects and aborted requests have no body */ }
   });
 
-  await page.goto(url, { waitUntil: 'load', timeout: 60000 });
+  if (has('throttle')) {
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('Network.enable');
+    await cdp.send('Network.emulateNetworkConditions', { offline: false, ...THROTTLE });
+  }
+  // #53: the moment Play becomes clickable, recorded INSIDE the page. Snapshotting the byte counter
+  // from here instead was wrong and looked right: waitForFunction polls, main.js starts fetching the
+  // heavy models the instant the button enables, and whatever lands in the gap gets counted as load.
+  // It is not a small error and it is not a constant one -- the same build measured 3666 kB on desktop
+  // and 4511 kB on phone in one run, the difference being nothing but how busy the machine was.
+  await page.addInitScript(() => {
+    window.__playAt = new Promise((res) => {
+      // Observed, not polled. main.js enables the button and starts fetching the deferred models on
+      // the very next line, and over localhost those 1.2 MB can land inside a poll's own interval:
+      // at 8ms this counted king_mounted, barracks and house as load and reported 4850 kB against a
+      // true 3648. A MutationObserver runs at the microtask checkpoint after the attribute changes,
+      // which is before any of that can come back.
+      const done = () => res(performance.now());
+      const watch = () => {
+        const b = document.getElementById('start-btn');
+        if (!b) return setTimeout(watch, 4);      // only until the parser reaches it
+        if (!b.disabled) return done();
+        new MutationObserver((_, o) => { if (!b.disabled) { o.disconnect(); done(); } })
+          .observe(b, { attributes: true, attributeFilter: ['disabled'] });
+      };
+      watch();
+    });
+  });
+  await page.goto(url, { waitUntil: 'load', timeout: 120000 });
 
   // Play is disabled until the rigs, the icons and the fonts are all in.
   const readyAt = Date.now();
@@ -144,6 +178,39 @@ async function measure(url, { mobile }) {
     return b && !b.disabled;
   }, null, { timeout: 120000 });
   const loadMs = Date.now() - readyAt;
+  // #53: the bytes budget in the README is "to the Play button", and this is the moment it means.
+  // `transfer.bytes` keeps climbing all session -- main.js deliberately fetches the three heaviest
+  // models behind the title screen, which is the whole point of LATER_RIGS -- so the running total is
+  // nearly double this and asserting the README's 3 MB against it would fail a build that is well
+  // inside budget. Both numbers are worth having; only one of them is the budget.
+  // Resource Timing, filtered to what had finished by then, so the answer does not depend on when a
+  // poll happened to fire. Same-origin, so decodedBodySize is populated.
+  // Both, because they answer different questions and the budget only means one of them. The README
+  // asks for under 3 MB "to the Play button" for "first play on mobile data" -- that is what comes
+  // down the wire, and the 961 kB bundle is 272 kB of it once gzip has had it. Decoded is the honest
+  // number for memory and the one the rest of this report uses; wire is the one the budget is about.
+  const played = await page.evaluate(async () => {
+    const at = await window.__playAt;
+    let decoded = 0;
+    let wire = 0;
+    let n = 0;
+    const take = (e) => {
+      decoded += e.decodedBodySize || e.transferSize || 0;
+      // encodedBodySize is the compressed body; transferSize adds headers and is 0 for a cache hit
+      wire += e.encodedBodySize || e.transferSize || 0;
+      n++;
+    };
+    for (const e of performance.getEntriesByType('resource')) {
+      if (!e.responseEnd || e.responseEnd > at) continue;
+      take(e);
+    }
+    const nav = performance.getEntriesByType('navigation')[0];
+    if (nav) take(nav);
+    return { decoded, wire, n };
+  });
+  const bytesToPlay = played.decoded;
+  const wireToPlay = played.wire;
+  const requestsToPlay = played.n;
 
   const errorScreen = await page.evaluate(() => {
     const el = document.getElementById('error-screen');
@@ -286,6 +353,10 @@ async function measure(url, { mobile }) {
     loadMs,
     errorScreen,
     errors: [...new Set(errors)].slice(0, 10),
+    throttled: has('throttle'),
+    decodedKbToPlay: Math.round(bytesToPlay / 1024),
+    wireKbToPlay: Math.round(wireToPlay / 1024),
+    requestsToPlay,
     decodedKb: Math.round(transfer.bytes / 1024),
     requests: transfer.requests,
     thirdParty: [...new Set(transfer.thirdParty)],
@@ -313,7 +384,8 @@ async function measure(url, { mobile }) {
 
 const fmt = (r) => [
   `  ${r.device}`,
-  `    load to playable   ${r.loadMs} ms · ${r.decodedKb} kB decoded over ${r.requests} requests`,
+  `    load to playable   ${r.loadMs} ms${r.throttled ? ' (4 Mbps / 100ms)' : ''} · ${r.wireKbToPlay} kB on the wire (${r.decodedKbToPlay} kB decoded) over ${r.requestsToPlay} requests`,
+  `    whole session      ${r.decodedKb} kB over ${r.requests} requests   (the rest arrives behind the title screen)`,
   `    third-party        ${r.thirdParty.length ? r.thirdParty.join(', ') : 'none'}`,
   `    frame time         ${r.frameMsMedian} ms median · ${r.frameMsP95} ms p95   (SwiftShader: compare runs, not budgets)`,
   `    draw calls         ${r.drawCallsMedian} median · ${r.drawCallsPeak} peak`,
@@ -352,6 +424,59 @@ if (has('compare')) {
   process.exit(0);
 }
 
+// #53: the README's budget table, in code, so a change that breaks one fails the build instead of
+// being noticed months later. Two budgets had already drifted out of compliance unnoticed, and both
+// were measurable at any point by this tool.
+//
+// Frame time is deliberately absent. This renders through SwiftShader, on the CPU, and frame time
+// means nothing here -- tools/probe/README.md says so at length. Every number below is counted by
+// three.js or by the network rather than by a driver, which is what makes it worth asserting at all.
+//
+// `crowd` says whether a budget only means anything with a late-game crowd on the field. The README
+// says "late game" for draw calls and triangles, and a plain run never leaves night one.
+const BUDGETS = [
+  // wire, not decoded: the budget's reason is "first play on mobile data", which is what is actually
+  // sent. Decoded is in the report beside it and is the number to watch for memory.
+  { key: 'wireKbToPlay', limit: 3072, unit: ' kB', label: 'bytes to a clickable Play button' },
+  { key: 'drawCallsPeak', limit: 400, unit: '', label: 'draw calls', crowd: true },
+  { key: 'trianglesMedian', limit: 1000000, unit: '', label: 'triangles', crowd: true },
+];
+
+// A budget the game does not meet yet, and the ticket that will. It is reported loudly and does NOT
+// fail the build, because a CI that is red for a reason everyone already knows teaches everyone to
+// stop reading CI. Deleting the line here is how a budget comes back under guard.
+const WAIVED = {};
+
+function assertBudgets(results) {
+  const rows = [];
+  let failed = 0;
+  let waived = 0;
+  for (const r of results) {
+    rows.push(`  ${r.device}`);
+    for (const b of BUDGETS) {
+      if (b.crowd && !CROWD) {
+        rows.push(`    ${b.label.padEnd(34)} skipped -- needs --crowd N to mean anything`);
+        continue;
+      }
+      const v = r[b.key];
+      const ok = v <= b.limit;
+      const note = WAIVED[b.key];
+      if (!ok && note) waived++;
+      else if (!ok) failed++;
+      rows.push(`    ${b.label.padEnd(34)} ${String(v) + b.unit} against ${b.limit}${b.unit}   ${ok ? 'ok' : note ? `OVER, waived: ${note}` : 'OVER BUDGET'}`);
+    }
+    rows.push('');
+  }
+  console.log('\nBudgets\n');
+  console.log(rows.join('\n'));
+  if (waived) console.log(`  ${waived} budget${waived > 1 ? 's are' : ' is'} over and waived. That is a promise, not a pass.\n`);
+  if (failed) {
+    console.error(`  ${failed} budget${failed > 1 ? 's' : ''} over. The table in README.md is the contract; either the change comes back under it or the table changes with the reason why.\n`);
+    return false;
+  }
+  return true;
+}
+
 if (!has('no-build')) await run('npx', ['vite', 'build']);
 const port = await freePort(PORT);
 const server = await serve(port);
@@ -371,6 +496,7 @@ try {
     console.error('The game reported errors. See above.');
     process.exitCode = 1;
   }
+  if (has('assert') && !assertBudgets(results)) process.exitCode = 1;
 } finally {
   server.kill();
 }

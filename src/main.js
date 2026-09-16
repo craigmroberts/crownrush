@@ -146,6 +146,8 @@ document.getElementById('offer-cards').addEventListener('click', (e) => {
   const card = e.target.closest('.offer-card');
   if (card) game.takeUpgrade(card.dataset.id);
 });
+// #105: the button on the capability panel. Every way off it runs through `dismissGain`.
+document.getElementById('gain-close').addEventListener('click', () => game.dismissGain());
 document.getElementById('horn-btn').addEventListener('pointerdown', (e) => {
   e.preventDefault();
   e.stopPropagation();
@@ -304,6 +306,15 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (game.offer) return; // an upgrade choice must be made before anything else
+  // #105: and the capability panel is read before anything else. It swallows the rest of the keyboard
+  // rather than sitting over a game that answers keys -- Escape would otherwise reach `togglePause`
+  // and resume the game behind it. Space is deliberately NOT one of the two that close it: it is the
+  // horn key, and a player holding it as the raid comes over the wall would blow the panel away in the
+  // frame it appeared without ever seeing it.
+  if (game.gain) {
+    if (e.key === 'Escape' || e.key === 'Enter') game.dismissGain();
+    return;
+  }
   if (e.key === ' ' || e.key === 'e' || e.key === 'E') return game.useHorn();
   if (e.key === 'i' || e.key === 'I') game.toggleInfo();
   else if (e.key === 'k' || e.key === 'K') game.toggleKeep();
