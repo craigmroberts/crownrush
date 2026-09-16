@@ -31,6 +31,13 @@ export const ICONS = {
   tiara: `<path d="M4 16c2-3 3-8 4-8s1 3 4 3 3-3 4-3 2 5 4 8z" fill="#f5b800" ${S}/><rect x="4" y="15" width="16" height="3" rx="1.5" fill="#c98a00" ${S}/><circle cx="12" cy="10.5" r="1.6" fill="#9ad4ff"/>`,
   hammer: `<path d="M13 9l-8 8 2 2 8-8z" fill="#8a5a2b" ${S}/><path d="M11 4h7l2 2-1 5-4 1-3-3z" fill="#7d848e" ${S}/>`,
   expand: `<path d="M4 21v-8h9v8z" fill="#8d9096" ${S}/><path d="M4 13V10h2v2h2v-2h2v2h3v-2" fill="#7d848e" ${S}/><path d="M15 9l5-5M20 4h-4M20 4v4" fill="none" stroke="#3fd455" stroke-width="2.2" stroke-linecap="round"/>`,
+  // #68: the HUD's own three. A crescent for the night counter, and a heart in two states -- the
+  // empty one keeps the full one's outline so a row of five never shifts or changes weight as it
+  // drains, which is the whole reason hearts read faster than a bar.
+  castle: `<path d="M6 20.5V8.4h12v12.1z" fill="#f5b800" ${S}/><path d="M5 8.4V4.5h2.6v2.1h2.1V4.5h4.6v2.1h2.1V4.5H19v3.9z" fill="#ffd23f" ${S}/><path d="M10.4 20.5v-3.9a1.6 1.6 0 0 1 3.2 0v3.9z" fill="#7a4a1e"/><path d="M8.2 11.4h2.1v2.1H8.2zM13.7 11.4h2.1v2.1h-2.1z" fill="#c98a00"/>`,
+  moon: `<path d="M20.5 15.2A8.6 8.6 0 0 1 9.2 3.9a8.6 8.6 0 1 0 11.3 11.3z" fill="#f5b800" ${S}/><path d="M18.4 13.6A6.6 6.6 0 0 1 10.8 6a6.6 6.6 0 1 0 7.6 7.6z" fill="#ffd23f" stroke="none"/>`,
+  heart: `<path d="M12 20.4l-1.5-1.3C5.6 14.7 3 12.3 3 9.2 3 6.7 5 4.7 7.5 4.7c1.5 0 2.9.7 3.8 1.8l.7.9.7-.9c.9-1.1 2.3-1.8 3.8-1.8C19 4.7 21 6.7 21 9.2c0 3.1-2.6 5.5-7.5 9.9z" fill="#e8342a" ${S}/><path d="M7.7 7c-1 0-1.9.8-1.9 1.9 0 .5.1 1 .4 1.4" fill="none" stroke="#ff9a8f" stroke-width="1.8" stroke-linecap="round"/>`,
+  heartEmpty: `<path d="M12 20.4l-1.5-1.3C5.6 14.7 3 12.3 3 9.2 3 6.7 5 4.7 7.5 4.7c1.5 0 2.9.7 3.8 1.8l.7.9.7-.9c.9-1.1 2.3-1.8 3.8-1.8C19 4.7 21 6.7 21 9.2c0 3.1-2.6 5.5-7.5 9.9z" fill="rgba(0,0,0,0.30)" ${S}/>`,
   info: `<circle cx="12" cy="12" r="10" fill="#5aa0ff" ${S}/><circle cx="12" cy="7.6" r="1.6" fill="#fff"/><path d="M10.2 10.6h3.2v6.4h1.4v1.8H9.4V17h1.4v-4.6h-.6z" fill="#fff"/>`,
   horn: `<path d="M3 11l10-5v12L3 13z" fill="#f5b800" ${S}/><path d="M13 7c4 0 7 2 7 5s-3 5-7 5" fill="none" stroke="#c98a00" stroke-width="2.4"/><circle cx="20" cy="12" r="2.2" fill="#ffd23f" stroke="#c98a00" stroke-width="1.2"/><path d="M4 12h4" stroke="#8a5a00" stroke-width="1.4"/>`,
   sack: `<path d="M8.5 8.5h7c2.2 1.6 3.5 4.2 3.5 7 0 3-2.4 5-7 5s-7-2-7-5c0-2.8 1.3-5.4 3.5-7z" fill="#c69a5e" ${S}/><path d="M9.5 9.5h5c1.4 1.2 2.2 2.9 2.2 4.6" fill="none" stroke="#e0bd88" stroke-width="1.6" stroke-linecap="round"/><path d="M8 8.5c0-1.6 1.8-2.5 4-2.5s4 .9 4 2.5z" fill="#8a5a2b" ${S}/><path d="M6.6 11.2c3.6 1.5 7.2 1.5 10.8 0" fill="none" stroke="#8a5a2b" stroke-width="1.5"/>`,

@@ -353,6 +353,7 @@ export class Game {
     this.hud.hidePadTip();
     this.hud.set(this.coinsCarried, 1, 0, null, `0/${CFG.finale.level}`, this.res, 0, this.loadCap());
     this.hud.setRaid(0, 0);
+    this.hud.setHearts(1);
     this.hud.setCoinTier(this.coinTier());
     this.hud.setIndicators([]);
   }
@@ -595,6 +596,7 @@ export class Game {
       this.hornT = Math.max(0, this.hornT - dt);
       this.hud.setHorn(!this.queen.captive || this.queen.taken, this.hornT / CFG.horn.cooldown, this.hornT);
       this.hud.setCoinTier(this.coinTier());
+      this.hud.setHearts(this.king.hp / this.king.maxHp);
       this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, this.finaleOpen ? 'camp' : `${this.baseLevel}/${CFG.finale.level}`, this.res, this.score, this.loadCap());
       this.updateIndicators(dt);
     }

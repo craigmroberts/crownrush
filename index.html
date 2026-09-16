@@ -48,19 +48,30 @@
       <!-- #22: one slim bar instead of the corner plaque, so the playfield is clear -->
       <!-- lane 1. The left plaque IS the Keep: tapping it opens the level sheet, which is where the
            "what do I need next" detail lives instead of being crammed in beside it. -->
+      <!-- #68: the HUD floats on the scene. No plaque, no capsule, no panel -- every group is icons
+           and numbers on their own, spaced apart, so the play area underneath is never covered by
+           furniture. Both groups are still buttons that open the Keep sheet. -->
       <div id="topbar">
-        <button class="tb-left" id="keep-plaque" title="Keep progress (K)">
-          <div class="keep-top"><span id="wave-hud">Night <span id="wave-num">1</span></span><span id="keep-level">Keep 0</span></div>
-          <div class="pips" id="keep-pips"></div>
+        <button class="hud-group" id="keep-plaque" title="Keep progress (K)">
+          <span class="hud-cell"><i data-icon="moon" data-size="20"></i><b id="wave-hud">Night <span id="wave-num">1</span></b></span>
+          <i class="hud-rule" aria-hidden="true"></i>
+          <span class="hud-cell"><i data-icon="castle" data-size="19"></i><b id="keep-level" class="hud-sub">Keep 0</b></span>
+          <i class="hud-rule" aria-hidden="true"></i>
+          <!-- health at a glance. The precise number is the bar over his head, which only shows when
+               he is hurt, so the two never draw the same shape twice. -->
+          <span class="hud-cell hearts" id="king-hearts" aria-label="King's health"></span>
         </button>
-        <!-- Coin is the only currency, so the only counts left are the army and what he is carrying.
-             The load is a bar, not five numbers: what matters is how full he is, and the mix shows
-             as coloured segments without asking anyone to read them. -->
-        <!-- two badges, not one plaque: coin is what you spend, the bag is what you are still carrying
-             to the trade post. They are different things, so they read as different things. -->
-        <button class="tb-right" id="carry-rail" title="Your coin and your bag (K)">
-          <span class="badge coin"><i id="coin-icon" data-icon="gold" data-size="30"></i><b id="coin-count">0</b></span>
-          <span class="badge bag"><i data-icon="sack" data-size="26"></i><b id="load-now">0</b><span id="load-cap">/18</span></span>
+        <!-- coin is what you spend; the bag is what you are still carrying to the trade post. The
+             ring around the bag is how full it is, so the cap never has to be read as a number. -->
+        <button class="hud-group" id="carry-rail" title="Your coin and your bag (K)">
+          <span class="hud-cell"><i id="coin-icon" data-icon="gold" data-size="24"></i><b id="coin-count">0</b></span>
+          <span class="hud-cell bagcell">
+            <span class="bagring">
+              <svg viewBox="0 0 40 40" aria-hidden="true"><circle class="ring-bg" cx="20" cy="20" r="17"/><circle id="load-ring" class="ring-fill" cx="20" cy="20" r="17"/></svg>
+              <i data-icon="sack" data-size="21"></i>
+            </span>
+            <b id="load-now">0</b>
+          </span>
           <b id="army-count" hidden>0</b>
           <i id="load-track" hidden></i>
         </button>

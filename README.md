@@ -36,7 +36,13 @@ No storyline, just the loop:
 - Watchtowers are built empty. A "Man the Tower" pad next to each one takes archers from your army
   (the price is people, not coins). Gate guards work the same way.
 - Red arrows at the screen edge point at raiders you can't see, with a count and a skull for bosses.
-- A meter under the night plaque says what is left of tonight's raid: a bar of the health it arrived
+- The HUD floats on the scene: no plaque, no capsule, no panel behind any of it. Left is a crescent
+  and the night, a gold divider, a castle and the Keep level, another divider, and the King's health
+  as five hearts. Right is the coin count and the bag, whose ring is how full it is -- one continuous
+  arc running green to yellow to orange to red, so the cap is never a number anyone has to read. The
+  middle is left empty on purpose. Every bar and pip is out of it; the only precise health readout is
+  the one over the King's head, and that shows only when he is hurt, so no shape is drawn twice.
+- A meter under the night line says what is left of tonight's raid: a bar of the health it arrived
   with, and the number still standing. Raiders who have not walked on yet are already counted, so it
   only falls, and it goes when the last one does -- which is the answer to "is that all of them?"
   without sweeping the map. The Warlord calling reinforcements is the one thing that puts it back up.

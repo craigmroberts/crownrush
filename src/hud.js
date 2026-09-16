@@ -1,5 +1,23 @@
 import { iconSvg } from './icons.js';
 
+// #68: how many hearts the King's health is cut into. Five is coarse on purpose -- the exact figure
+// is the bar over his head, and a HUD readout that moved every frame would be a bar with gaps in it.
+const HEARTS = 5;
+// Green when there is room, red when there is not, through yellow and orange on the way. Interpolated
+// rather than stepped, so filling a bag is a colour moving rather than four colours taking turns.
+const TRAFFIC_STOPS = [[0, 63, 212, 85], [0.55, 255, 210, 63], [0.8, 245, 150, 32], [1, 232, 52, 42]];
+function TRAFFIC(f) {
+  let a = TRAFFIC_STOPS[0];
+  let b = TRAFFIC_STOPS[TRAFFIC_STOPS.length - 1];
+  for (let i = 0; i < TRAFFIC_STOPS.length - 1; i++) {
+    if (f >= TRAFFIC_STOPS[i][0] && f <= TRAFFIC_STOPS[i + 1][0]) { a = TRAFFIC_STOPS[i]; b = TRAFFIC_STOPS[i + 1]; break; }
+  }
+  const span = b[0] - a[0] || 1;
+  const t = Math.max(0, Math.min(1, (f - a[0]) / span));
+  const mix = (i) => Math.round(a[i] + (b[i] - a[i]) * t);
+  return `rgb(${mix(1)}, ${mix(2)}, ${mix(3)})`;
+}
+
 
 export class Hud {
   constructor() {
@@ -23,12 +41,11 @@ export class Hud {
     this.matKey = '';
     this.loadTrack = document.getElementById('load-track');
     this.loadNow = document.getElementById('load-now');
-    this.loadCapEl = document.getElementById('load-cap');
     this.levelEl = document.getElementById('keep-level');
-    this.pipsEl = document.getElementById('keep-pips');
+    this.heartsEl = document.getElementById('king-hearts');
+    this.ringEl = document.getElementById('load-ring');
     this.carryRail = document.getElementById('carry-rail');
     this.btnTimeEl = document.getElementById('next-wave-btn-t');
-    this.lastPips = -1;
     this.lastLoad = '';
     this.lastScore = -1;
     this.lastCoins = -1;
@@ -51,18 +68,8 @@ export class Hud {
     }
     if (goal !== this.lastGoal) {
       this.lastGoal = goal;
-      // the goal is the pips now, not a sentence: one per Keep level, lit up to where you are
       const m = /^(\d+)\/(\d+)$/.exec(String(goal || ''));
-      const at = m ? +m[1] : 0;
-      const max = m ? +m[2] : 0;
-      this.levelEl.textContent = goal === 'camp' ? 'March!' : `Keep ${at}`;
-      if (max && max !== this.lastPips) {
-        this.pipsEl.innerHTML = Array.from({ length: max }, () => '<i></i>').join('');
-        this.lastPips = max;
-      }
-      [...this.pipsEl.children].forEach((el, i) => {
-        el.className = i < at - 1 ? 'on' : i === at - 1 ? 'now' : '';
-      });
+      this.levelEl.textContent = goal === 'camp' ? 'March!' : `Keep ${m ? +m[1] : 0}`;
     }
     if (coins !== this.lastCoins) {
       this.coinEl.textContent = coins;
@@ -78,7 +85,9 @@ export class Hud {
     }
   }
 
-  // The bag: one number against its cap, beside the coin it is on its way to becoming.
+  // #68: the bag is a count inside a ring. The cap is not written down anywhere -- how full you are
+  // is a thing to glance at, not a fraction to read, and the ring answers it without a number and
+  // without asking anyone to remember what 18 was.
   setLoad(res, cap) {
     if (!this.loadNow) return;
     const total = Object.values(res).reduce((a, b) => a + b, 0);
@@ -86,9 +95,38 @@ export class Hud {
     if (key === this.lastLoad) return;
     this.lastLoad = key;
     this.loadNow.textContent = total;
-    this.loadCapEl.textContent = `/${cap}`;
+    this.setBagRing(cap > 0 ? total / cap : 0);
     this.carryRail.classList.toggle('full', cap > 0 && total >= cap);
   }
+  // One continuous arc, never segmented: `frac` of the circle is drawn, and the colour runs the
+  // traffic lights across it. The stops are interpolated rather than switched at thresholds, so a
+  // bag filling up shifts through the colours instead of snapping between four of them.
+  //
+  // The circumference is 2*PI*r for the r=17 circle in the markup, which is what the stylesheet's
+  // dash array is set to. Change one and change the other.
+  setBagRing(frac) {
+    if (!this.ringEl) return;
+    const f = Math.max(0, Math.min(1, frac));
+    const C = 106.81;
+    this.ringEl.style.strokeDashoffset = C * (1 - f);
+    this.ringEl.style.stroke = TRAFFIC(f);
+  }
+
+  // Five hearts, and a row that never changes width: an empty heart keeps the full one's outline, so
+  // losing one reads as that heart going out rather than as the row shrinking. Rounded UP, so any
+  // health left at all is a heart still showing -- an empty row means dead, and nothing else.
+  setHearts(frac) {
+    if (!this.heartsEl) return;
+    const n = Math.max(0, Math.min(HEARTS, Math.ceil(frac * HEARTS)));
+    if (n === this.lastHearts) return;
+    this.lastHearts = n;
+    // The whole row, but only when the count has actually changed -- six possible values over a run,
+    // against the sixty writes a second a HUD this size gets if nobody is watching.
+    let html = '';
+    for (let i = 0; i < HEARTS; i++) html += iconSvg(i < n ? 'heart' : 'heartEmpty', 17);
+    this.heartsEl.innerHTML = html;
+  }
+
   // #29: notices queue rather than overwrite. A playtester missed the one telling him a pad wanted
   // stone, because the next notice replaced it before he had read it. Each one now waits its turn,
   // holds long enough to read, and is kept in a short log the info screen can show back.

@@ -165,46 +165,57 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .icon { vertical-align: middle; display: inline-block; }
 /* #22: the status strip. Two plaques hanging from the top edge with a gap between them, the left
    one for the night and the royals, the right one for what you are carrying. */
+/* #68: the HUD floats. No plaque, no capsule, no panel, no backdrop blur -- nothing between the
+   player and the field except the marks themselves. Which means every mark has to carry its own
+   legibility, because it can land on pale grass, dark water or a white wall: hence the drawn outline
+   on every icon and the two-stop shadow under every number. */
 #topbar {
   position: relative; display: flex; align-items: flex-start; justify-content: space-between;
-  gap: 10px; padding: 0 10px; padding-top: max(4px, env(safe-area-inset-top));
-  padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right));
+  gap: 16px; padding: 0 12px; padding-top: max(8px, env(safe-area-inset-top));
+  padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right));
   color: #fff; background: none; pointer-events: none;
 }
-#topbar .tb-left, #topbar .tb-right {
-  background: var(--plaque); border: var(--rim-line) solid var(--rim); border-top-color: rgba(216,168,62,0.75);
-  border-radius: 0 0 20px 20px; padding: 7px 14px 9px; color: #fff; font: inherit; cursor: pointer;
-  box-shadow: 0 5px 16px rgba(0,0,0,0.32), inset 0 0 0 1px rgba(0,0,0,0.25);
-  pointer-events: auto; -webkit-tap-highlight-color: transparent;
+/* Both groups are still buttons onto the Keep sheet. A transparent button is easy to make
+   unclickable and easy to make impossible to hit, so the padding stays generous even though nothing
+   about it is visible. */
+#topbar .hud-group {
+  display: flex; align-items: center; gap: 12px; flex: 0 1 auto; min-width: 0;
+  background: none; border: 0; box-shadow: none; padding: 4px 6px; margin: -4px -6px;
+  color: #fff; font: inherit; cursor: pointer; pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
 }
-#topbar .tb-left:active, #topbar .tb-right:active { filter: brightness(1.12); }
-#topbar .tb-left:focus-visible, #topbar .tb-right:focus-visible { outline: 3px solid #fff; outline-offset: -6px; }
-@media (hover: hover) and (min-width: 431px) { #topbar { backdrop-filter: blur(3px); } }
-/* the Keep plaque: three short rows that never reflow, so its height is the same all game */
-#topbar .tb-left { display: grid; gap: 6px; flex: 0 1 auto; min-width: 232px; max-width: 46%; text-align: left; }
-.keep-top { display: flex; align-items: baseline; gap: 10px; }
-#wave-hud { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 22px; font-weight: 800; line-height: 1.1; text-shadow: 0 2px 3px rgba(0,0,0,0.5); white-space: nowrap; }
-#keep-level { margin-left: auto; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #ffe08a; white-space: nowrap; }
-/* one pip per Keep level: how far is left is the question, and a bar answers it faster than "9/13" */
-.pips { display: flex; gap: 3px; align-items: center; }
-.pips i { flex: 1 1 auto; height: 7px; border-radius: 2px; background: rgba(0,0,0,0.42); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16); }
-.pips i.on { background: linear-gradient(180deg, #ffd76a, #e8a91c); box-shadow: none; }
-.pips i.now { background: linear-gradient(180deg, #fff2c0, #ffd23f); }
-/* the carry rail: coins are spent every few seconds, materials every minute, and score has left the
-   bar entirely. What does not fit collapses into a +n that says so rather than being clipped away. */
-#topbar .tb-right {
-  display: flex; align-items: center; gap: 8px; flex: 0 1 auto; min-width: 0;
-  background: none; border: 0; box-shadow: none; padding: 8px 0 0;
-}
-.badge {
+#topbar .hud-group:active { filter: brightness(1.15); }
+#topbar .hud-group:focus-visible { outline: 3px solid #fff; outline-offset: 2px; border-radius: 12px; }
+.hud-cell {
   display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
-  background: var(--plaque); border: var(--rim-line) solid var(--rim); border-radius: 999px; padding: 3px 14px 3px 4px;
-  color: #fff; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 23px;
-  box-shadow: 0 5px 14px rgba(0,0,0,0.3); font-variant-numeric: tabular-nums; line-height: 1.1;
+  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 17px;
+  line-height: 1; font-variant-numeric: tabular-nums;
+  /* a tight dark rim plus a soft drop, so a number reads on grass and on snow alike */
+  text-shadow: 0 1px 0 rgba(0,0,0,0.55), 0 2px 6px rgba(0,0,0,0.5);
 }
-.badge span { font-size: 15px; opacity: 0.62; margin-left: -2px; }
-#carry-rail.full .badge.bag { border-color: #ffb37a; }
-#carry-rail.full .badge.bag b { color: #ffc9a0; }
+.hud-cell .icon { filter: drop-shadow(0 2px 3px rgba(0,0,0,0.45)); }
+.hud-cell .hud-sub { font-size: 12px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: #ffe08a; }
+/* the gold hairline between groups: bright in the middle, gone at both ends, so it reads as an
+   accent rather than a border of something */
+.hud-rule {
+  width: 2px; height: 20px; border-radius: 2px; flex: none;
+  background: linear-gradient(180deg, rgba(245,184,0,0), rgba(255,210,63,0.85), rgba(245,184,0,0));
+}
+.hearts { gap: 2px; }
+.hearts .icon { display: block; }
+/* the bag's ring: one continuous arc, never segmented. r=17 in a 40-box, so the circumference is
+   2*PI*17 = 106.81, which is what the dash array below is set to and what hud.js offsets against. */
+.bagring { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; }
+.bagring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+.bagring circle { fill: none; stroke-width: 4.5; stroke-linecap: round; }
+.bagring .ring-bg { stroke: rgba(0,0,0,0.42); }
+.bagring .ring-fill {
+  stroke: #3fd455; stroke-dasharray: 106.81; stroke-dashoffset: 106.81;
+  transition: stroke-dashoffset 0.25s ease-out, stroke 0.3s linear;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.45));
+}
+.bagring .icon { position: relative; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
+.bagcell { gap: 8px; }
 /* lane 2: the countdown, on its own line under the plaques. It used to ride inline on the night
    line, where it fought the health bars for the same row. */
 #lane-countdown, #lane-alarm { display: flex; justify-content: center; pointer-events: none; padding: 6px 12px 0; }
@@ -242,17 +253,18 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 #raid-meter.hidden { display: none; }
 
 @media (max-width: 430px) {
-  #topbar { gap: 6px; padding: 0 6px; padding-top: max(4px, env(safe-area-inset-top)); }
-  #topbar .tb-left, #topbar .tb-right { padding: 5px 9px 7px; border-radius: 0 0 16px 16px; }
-  #topbar .tb-left { min-width: 176px; gap: 5px; }
-  #wave-hud { font-size: 17px; }
-  #keep-level { font-size: 10px; }
+  /* A phone has no room for generous spacing, so the groups tighten rather than wrap: the KEEP
+     label and the hearts are what a narrow screen can least afford to lose, and they stay. */
+  #topbar { gap: 8px; padding: 0 8px; padding-top: max(6px, env(safe-area-inset-top)); }
+  #topbar .hud-group { gap: 8px; }
+  .hud-cell { font-size: 15px; gap: 5px; }
+  .hud-cell .hud-sub { font-size: 10px; }
+  .hud-rule { height: 17px; }
+  .hearts { gap: 1px; }
+  .bagring { width: 30px; height: 30px; }
+  .bagcell { gap: 6px; }
   #raid-meter .track { width: 68px; }
-  #topbar .tb-right { gap: 5px; padding-top: 6px; }
-  .badge { font-size: 19px; padding: 2px 11px 2px 3px; gap: 4px; }
-  .badge span { font-size: 13px; }
   #settings-btn { width: 42px; height: 42px; bottom: calc(76px + env(safe-area-inset-bottom)); }
-  #topbar .tb-right { min-width: 128px; }
 }
 /* #23: the only control left on the field. It used to hang off the right edge under the coin; with
    the coin in the corner it joins the warhorn instead, so one column holds every button. */
