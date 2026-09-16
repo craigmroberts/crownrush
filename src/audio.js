@@ -55,6 +55,8 @@ class Audio {
     this.nightOn = false;
     this.active = true;   // does the game want sound right now (see setActive)
     this.everRan = false; // has the context ever actually started? (see armResume)
+    this.rain = null;     // #81: the shower's nodes while one is running, null while it is dry
+    this.rainAt = 0;      // and how hard it was falling the last time anything was told about it
     this.loopLen = LEAD.length * 4 * BEAT;
   }
 
@@ -212,16 +214,23 @@ class Audio {
     };
   }
 
-  noise({ t, dur, gain = 0.2, type = 'bandpass', f = 1000, q = 1 }) {
-    const ctx = this.ctx;
+  // Half a second of white noise, made once and shared by everything that needs a hiss: arrows,
+  // the pickaxe, the wolf's breath and the rain (#81, which is what pulled it out of noise()).
+  noiseBuffer() {
     if (!this.noiseBuf) {
+      const ctx = this.ctx;
       const len = ctx.sampleRate * 0.5;
       this.noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
       const d = this.noiseBuf.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     }
+    return this.noiseBuf;
+  }
+
+  noise({ t, dur, gain = 0.2, type = 'bandpass', f = 1000, q = 1 }) {
+    const ctx = this.ctx;
     const src = ctx.createBufferSource();
-    src.buffer = this.noiseBuf;
+    src.buffer = this.noiseBuffer();
     const filt = ctx.createBiquadFilter();
     filt.type = type;
     filt.frequency.value = f;
@@ -407,6 +416,102 @@ class Audio {
       g.disconnect();
     };
     this.noise({ t: t + 0.15, dur: 1.5, gain: 0.045, type: 'bandpass', f: 500, q: 0.7 });
+  }
+
+  // #81: the shower. Rain is noise with the top taken off it, so the bed is the same half-second
+  // buffer the arrows and the pickaxe use, looped: a lowpass for the weight of it, and a quieter
+  // band above for the drops on their own.
+  //
+  // Two sources rather than one, at playback rates that do not divide into each other. Half a second
+  // of noise on loop IS a half-second pattern, and with the top rolled off you hear it come round --
+  // the bed pulsed twice a second, which sounds like a fault rather than like weather. 0.61 against
+  // 1.0 puts the two seams back in step about once a minute, by which time the shower is over.
+  //
+  // The slow LFO on the cutoff is it gusting. An unchanging noise stops being a place and becomes
+  // tape hiss after a few seconds, and a shower is on for half a minute at a time.
+  //
+  // 0.1 through the sfx bus, so the mute button reaches it like everything else. Quieter than any
+  // one-shot in this file (0.05 to 0.22) on purpose: those are heard once, this is sat under.
+  startRain() {
+    const ctx = this.ctx;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 1000;
+    lp.Q.value = 0.5;
+    const hiss = ctx.createBiquadFilter();
+    hiss.type = 'bandpass';
+    hiss.frequency.value = 5200;
+    hiss.Q.value = 0.5;
+    const hissGain = ctx.createGain();
+    hissGain.gain.value = 0.3;
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 0.13;
+    const lfoDepth = ctx.createGain();
+    lfoDepth.gain.value = 300;
+    lfo.connect(lfoDepth);
+    lfoDepth.connect(lp.frequency);
+    const g = ctx.createGain();
+    g.gain.value = 0.0001;
+    const srcs = [1, 0.61].map((rate) => {
+      const s = ctx.createBufferSource();
+      s.buffer = this.noiseBuffer();
+      s.loop = true;
+      s.playbackRate.value = rate;
+      s.connect(lp);
+      s.connect(hiss);
+      return s;
+    });
+    hiss.connect(hissGain);
+    hissGain.connect(g);
+    lp.connect(g);
+    g.connect(this.sfx);
+    const t = ctx.currentTime;
+    for (const s of srcs) s.start(t);
+    lfo.start(t);
+    this.rain = { srcs, lfo, gain: g, nodes: [lp, hiss, hissGain, lfoDepth, g], stopping: false };
+  }
+
+  stopRain() {
+    const r = this.rain;
+    if (!r || r.stopping) return;
+    r.stopping = true;
+    const t = this.ctx.currentTime;
+    r.gain.gain.cancelScheduledValues(t);
+    r.gain.gain.setValueAtTime(Math.max(0.0001, r.gain.gain.value), t);
+    r.gain.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
+    for (const s of r.srcs) s.stop(t + 1.5);
+    r.lfo.stop(t + 1.5);
+    // #61, and this is the one in the game that would actually have shown: a run gets eight or nine
+    // showers, and every one of them builds seven nodes and two looping sources. Both sources and the
+    // LFO stop on the same tick, so the first to report in takes the lot, as in howl(). `this.rain`
+    // is only cleared if it is still THIS shower: a new one starting inside the fade replaces it, and
+    // the old chain must not then null out the new one's handle on its way out.
+    r.srcs[0].onended = () => {
+      for (const s of r.srcs) s.disconnect();
+      r.lfo.disconnect();
+      for (const n of r.nodes) n.disconnect();
+      if (this.rain === r) this.rain = null;
+    };
+  }
+
+  // How hard it is raining, 0 to 1, from the frame loop. Called every frame, so like Hud.set it has
+  // to cost nothing when nothing has moved -- and the level is rounded to fiftieths first, because
+  // the six-second fade would otherwise schedule a ramp on each of its three hundred-odd frames and
+  // nobody can hear a fiftieth.
+  //
+  // The retry matters: the shower can begin while the context is still asleep or muted, and then the
+  // only thing that will ever start it is the level moving again. So a wet sky with no sound is not
+  // treated as settled, and the next hundredth of fade picks it up.
+  setRain(level) {
+    if (!this.ctx) return;
+    const want = Math.round(Math.min(1, Math.max(0, level)) * 50) / 50;
+    if (want === this.rainAt && (want === 0 || (this.rain && !this.rain.stopping))) return;
+    this.rainAt = want;
+    if (want > 0 && (!this.rain || this.rain.stopping) && this.ready()) this.startRain();
+    const r = this.rain;
+    if (!r || r.stopping) return;
+    if (want > 0) r.gain.gain.setTargetAtTime(want * 0.1, this.ctx.currentTime, 0.6);
+    else this.stopRain();
   }
 
   // #104: Wren calling out.

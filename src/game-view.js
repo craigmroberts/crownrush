@@ -195,6 +195,47 @@ export const ViewMethods = {
     this.renderer.toneMappingExposure = a.exp + (b.exp - a.exp) * t;
     this.sunHeight = a.h + (b.h - a.h) * t;
     if (this.world.groundMat) this.world.groundMat.color.copy(lerpC(a.tint, b.tint));
+    // #81: rain sits ON TOP of the day rather than beside it. Both want the same lights every frame,
+    // so the shower is a blend applied after the day has been painted -- the sun fades toward a flat
+    // cold grey, the sky lifts to make up for it (an overcast day is flatter than a clear one, not
+    // darker: the light arrives from everywhere instead of from one place), the fog closes in, the
+    // hard shadow goes, and the grass goes wet. At level 0 every multiplier is 1 and every lerp is 0,
+    // so the day gets back exactly what it asked for with nothing to undo by hand. It composes with
+    // the blood moon for free, which is worth seeing.
+    //
+    // The keys are inline rather than in CFG because the day's own key table is, three lines up: the
+    // colour of the sky is this function's business and splitting it across two files would mean
+    // reading both to know what any one frame looks like.
+    //
+    // Four of these the day never writes -- the hemisphere's intensity, both ends of the fog and the
+    // shadow -- so they are put back from `this.dry` rather than recomputed, and `wasWet` is what
+    // runs this one last time on the frame the rain ends. Without that latch the sky stayed shut in
+    // for the rest of the run: the block stopped running the moment there was no rain left to apply.
+    //
+    // The fog is the load-bearing one and it took a screenshot to see why. A first pass faded the sun
+    // by half, lifted the sky and tinted the grass, and the shot came back as a bright green meadow
+    // with white sticks falling on it -- because the fog starts at 42 and the camera never sees past
+    // about 45, so the ONLY part of the sky the player can see is the ground. Pulling `near` in to 20
+    // is what puts grey air between the camera and the far trees, and that is the whole difference
+    // between weather and a particle effect. It cannot come much closer: the camera sits about 21
+    // from the King, so at 20 he is already picking up the first few per cent of it.
+    const w = this.world.rain.level;
+    if (w > 0 || this.wasWet) {
+      this.wasWet = w > 0;
+      const c = this._rc || (this._rc = new THREE.Color());
+      this.sun.intensity *= 1 - 0.6 * w;
+      this.sun.color.lerp(c.setHex(0xcdd6e0), w * 0.8);
+      this.hemi.intensity = this.dry.hemi * (1 + 0.25 * w);
+      this.hemi.color.lerp(c.setHex(0xb2bfcb), w * 0.8);
+      this.hemi.groundColor.lerp(c.setHex(0x5b6d64), w * 0.6);
+      this.scene.fog.color.lerp(c.setHex(0x9aa8ad), w * 0.85);
+      this.scene.background.copy(this.scene.fog.color);
+      this.scene.fog.near = this.dry.fogNear - (this.dry.fogNear - 20) * w;
+      this.scene.fog.far = this.dry.fogFar - (this.dry.fogFar - 58) * w;
+      this.renderer.toneMappingExposure *= 1 - 0.16 * w;
+      this.sun.shadow.intensity = this.dry.shadow * (1 - 0.8 * w);
+      if (this.world.groundMat) this.world.groundMat.color.lerp(c.setHex(0x93a5a8), w * 0.5);
+    }
   },
 
   updateCamera(dt) {
@@ -217,9 +258,14 @@ export const ViewMethods = {
   updateMining(dt) {
     const kp = this.king.mesh.position;
     this.mineTimer -= dt;
+    // #81: rain waters what grows. The bonus is scaled by how hard it is falling rather than switched
+    // on, so a shower fading in and out carries it in and out with it and there is no frame where a
+    // tree suddenly changes pace. Nothing else moves: setNodeLook already fills a tree back in as it
+    // regrows, so the whole visual is the existing one running three times faster.
+    const wet = 1 + (CFG.rain.regrow - 1) * this.world.rain.level;
     for (const n of this.nodes) {
       if (n.stock < n.max) {
-        n.regrow += dt;
+        n.regrow += n.living ? dt * wet : dt;
         if (n.regrow >= CFG.mining.regrow) {
           n.regrow = 0;
           n.stock++;
