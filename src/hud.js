@@ -49,7 +49,7 @@ export class Hud {
     this.coinEl = document.getElementById('coin-count');
     this.coinIcon = document.getElementById('coin-icon');
     this.coinTier = null;
-    this.waveEl = document.getElementById('wave-num');
+    this.levelCell = document.getElementById('level-cell');
     this.armyEl = document.getElementById('army-count');
     this.toastEl = document.getElementById('toast');
     this.startScreen = document.getElementById('start-screen');
@@ -131,20 +131,38 @@ export class Hud {
     if (goal !== this.lastGoal) {
       this.lastGoal = goal;
       const m = /^(\d+)\/(\d+)$/.exec(String(goal || ''));
-      this.levelEl.textContent = goal === 'camp' ? 'March!' : `Keep ${m ? +m[1] : 0}`;
+      const lv = m ? +m[1] : 0;
+      // #119: nothing until the Keep stands. `baseLevel` is 0 for the whole rescue prologue, and
+      // `Lv. 0` sitting there for two minutes is a number that means "not yet", said badly.
+      this.levelCell.classList.toggle('hidden', goal !== 'camp' && lv < 1);
+      this.levelEl.textContent = goal === 'camp' ? 'March!' : `Lv. ${lv}`;
     }
     if (coins !== this.lastCoins) {
       this.coinEl.textContent = coins;
       this.lastCoins = coins;
     }
-    if (wave !== this.lastWave) {
-      this.waveEl.textContent = wave;
-      this.lastWave = wave;
-    }
+    // #119: the night is no longer printed anywhere on the field, but it is still counted -- the pause
+    // panel reports it, and it is still what the raid grows on. So the argument stays and only the
+    // cell went, and with no DOM write left there is nothing for a dirty check to save.
+    this.lastWave = wave;
     if (army !== this.lastArmy) {
       this.armyEl.textContent = army;
       this.lastArmy = army;
     }
+  }
+
+  // #119: the raid is being fought above the level the Keep stands at (`raidLevel() > baseLevel`).
+  // That is the single case where one number instead of two would lie, so it is said outright rather
+  // than left to be inferred. Measured in config.js: it happens on 0 of 30 nights at the pace the
+  // finale expects, 10 of 30 on a slow run and 20 of 30 on a very slow one -- so this is the display
+  // speaking exactly when the player is behind, and silent when they are not.
+  //
+  // Its own setter rather than another argument to `set`, because it is a new behaviour and belongs
+  // where it can be named; dirty-checked like everything else that runs every frame.
+  setStall(behind) {
+    if (behind === this.lastStall) return;
+    this.lastStall = behind;
+    this.levelEl.classList.toggle('stall', behind);
   }
 
   // #68: the bag is a count inside a ring. The cap is not written down anywhere -- how full you are
@@ -447,8 +465,21 @@ export class Hud {
 
   // `saved` is the stored run, or null. With one there, Continue is offered above Play and Play
   // says what it now means -- throwing the run away -- rather than looking like the same button.
+  // #119: `best` is the scoreboard's top row, or null before anyone has finished a run. It used to be
+  // the best NIGHT, read from its own key -- which would have left the title screen as the one place
+  // still keeping score in nights. Nothing new is stored for this: the board is already sorted by
+  // score, so its first row IS the best run, and it carries the level now that runs record one.
+  // A row from before #119 has no level, so it shows the points alone rather than inventing one.
   showStart(best, saved = null) {
-    document.getElementById('best-wave').textContent = best;
+    const line = document.getElementById('best-line');
+    if (line) {
+      line.classList.toggle('hidden', !best);
+      if (best) {
+        document.getElementById('best-run').textContent = best.level
+          ? `Lv. ${best.level} · ${best.score.toLocaleString()} points`
+          : `${best.score.toLocaleString()} points`;
+      }
+    }
     const cont = document.getElementById('continue-run-btn');
     const note = document.getElementById('continue-note');
     const start = document.getElementById('start-btn');
@@ -456,7 +487,7 @@ export class Hud {
       cont.classList.toggle('hidden', !saved);
       note.classList.toggle('hidden', !saved);
       if (saved) {
-        note.textContent = `Night ${saved.wave}, Keep ${saved.baseLevel} · ${saved.score} points`;
+        note.textContent = `Lv. ${saved.baseLevel} · ${saved.score.toLocaleString()} points`;
         start.textContent = 'New run';
       } else {
         start.textContent = 'Play';
@@ -467,9 +498,11 @@ export class Hud {
   hideStart() {
     this.startScreen.classList.add('hidden');
   }
-  showGameOver(wave, coins, score, best, reason = 'king') {
+  showGameOver(level, coins, score, best, reason = 'king') {
     document.getElementById('gameover-title').textContent = reason === 'taken' ? 'They Carried Wren Away' : reason === 'queen' ? 'Wren Is Lost' : 'The King Has Fallen';
-    document.getElementById('final-wave').textContent = wave;
+    // #119: a run that ended before the Keep was built has no level to report, and `Lv. 0` is not the
+    // sentence to end it on -- the rescue is where it ended, so say that.
+    document.getElementById('final-level').textContent = level > 0 ? `Lv. ${level}` : 'the rescue';
     document.getElementById('final-coins').textContent = coins;
     document.getElementById('final-score').textContent = score.toLocaleString();
     document.getElementById('final-best').textContent = best.toLocaleString();
@@ -619,7 +652,7 @@ export class Hud {
   showKeep(d) {
     const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     const N = d.level + 1;
-    document.getElementById('ks-title').textContent = d.level >= d.max ? `Keep level ${d.level} — max` : `Keep level ${d.level}`;
+    document.getElementById('ks-title').textContent = d.level >= d.max ? `Level ${d.level} — max` : `Level ${d.level}`;
     document.getElementById('ks-goal').textContent = d.finaleOpen
       ? 'The march is open: kill the Warlord to end the war.'
       : `Level ${d.finaleLevel} opens the march on the raider camp.`;
@@ -634,7 +667,7 @@ export class Hud {
         return `<span class="ks-need ${state}">${iconSvg(n.type, 16)}${Math.min(n.have, n.need)} / ${n.need}</span>`;
       }).join('')}</div>`);
     } else if (d.level < d.max) {
-      h.push('<p class="ks-h">Everything is fed. The Keep levels on your next delivery.</p>');
+      h.push('<p class="ks-h">Everything is fed. You level up on your next delivery.</p>');
     }
     if (d.unlocks.length) {
       h.push(`<p class="ks-h">Level ${N} gives you</p><div class="ks-list">${d.unlocks.map((u) => {
@@ -655,27 +688,27 @@ export class Hud {
     const chip = (icon, text, state = '') => `<span class="ichip ${state}">${iconSvg(icon, 16)}${esc(text)}</span>`;
     const h = [];
     if (d.queenCaptive) h.push('<p class="info-note">Wren is still captive. Follow the pink arrow, clear her guards and reach her. Nothing can be built, and no raiders will come, until she is free.</p>');
-    h.push(d.finaleOpen ? '<p class="info-note">The march is open: the raiders\' camp lies to the north. Kill the Warlord to end the war.</p>' : `<p class="sub">Goal: reach Keep level ${d.finaleLevel}, then march on the raider camp.</p>`);
-    h.push(`<h2>${iconSvg('keep', 22)} Keep level ${d.level}${d.level >= d.max ? ' (max)' : ''}</h2>`);
+    h.push(d.finaleOpen ? '<p class="info-note">The march is open: the raiders\' camp lies to the north. Kill the Warlord to end the war.</p>' : `<p class="sub">Goal: reach level ${d.finaleLevel}, then march on the raider camp.</p>`);
+    h.push(`<h2>${iconSvg('keep', 22)} Level ${d.level}${d.level >= d.max ? ' (max)' : ''}</h2>`);
     if (!d.hasKeep) h.push('<p>Not built yet. Stand on the Royal Keep pad in the village.</p>');
     else if (d.need.length) {
       h.push(`<p class="sub">To reach level ${d.level + 1}, feed the Keep:</p><p>${d.need.map((n) => chip(n.type, `${n.need} ${n.type} (you carry ${n.have})`, n.have >= n.need ? 'ok' : n.have > 0 ? '' : 'short')).join(' ')}</p>`);
     }
     if (d.unlocks.length) h.push(`<p class="sub">Level ${d.level + 1} gives you:</p><ul>${d.unlocks.map((u) => `<li>${esc(typeof u === 'string' ? u : u.text)}</li>`).join('')}</ul>`);
     h.push(`<h2>${iconSvg('archer', 22)} Your army</h2><p>${chip('archer', `${d.army.archers} / ${d.army.archerCap} archers`)} ${chip('swordsman', `${d.army.swords} / ${d.army.swordCap} swordsmen`)} ${chip('tower', d.army.towers.length ? `${d.army.towers.length} towers (levels ${d.army.towers.join(', ')})` : 'no towers yet')} ${chip('arrows', `arrows ${d.army.fire.toFixed(1)}x speed, training ${d.army.training}/5`)} ${chip('wall', `${d.army.wall.toLowerCase()} walls`)}${d.army.keepHp ? ' ' + chip('keep', `Keep ${d.army.keepHp}`) : ''}</p>`);
-    h.push(`<h2>${iconSvg('gold', 22)} Coins</h2><p>You carry ${d.coins.count} coins, each worth ${d.coins.value} score.${d.coins.nextValue ? ` At Keep level ${d.coins.nextAt} each one is worth ${d.coins.nextValue}.` : ''} Every pad costs coins except crews (archers) and the Keep (materials).</p>`);
+    h.push(`<h2>${iconSvg('gold', 22)} Coins</h2><p>You carry ${d.coins.count} coins, each worth ${d.coins.value} score.${d.coins.nextValue ? ` At level ${d.coins.nextAt} each one is worth ${d.coins.nextValue}.` : ''} Every pad costs coins except crews (archers) and the Keep (materials).</p>`);
     if (d.taken && d.taken.length) {
       h.push(`<h2>${iconSvg('star', 22)} Rewards you have taken</h2>`);
       for (const u of d.taken) h.push(`<div class="irow upgrade"><div class="iicon">${iconSvg(u.icon, 30)}</div><div><b>${esc(u.name)}</b>${u.n > 1 ? ` <span class="cost">x${u.n}</span>` : ''}<div class="desc">${esc(u.desc)}</div></div></div>`);
     }
     h.push(`<h2>${iconSvg('hammer', 22)} Pads right now</h2>`);
     if (!d.padsNow.length) h.push('<p>None yet.</p>');
-    for (const p of d.padsNow) h.push(`<div class="irow ${p.kind}${p.locked ? ' locked' : ''}"><div class="iicon">${iconSvg(p.icon, 30)}</div><div><b>${esc(p.label)}</b> <span class="cost">${esc(p.cost)}</span>${p.locked ? ` <span class="ichip short">needs Keep level ${p.locked}</span>` : ''}<div class="desc">${esc(p.desc)}</div></div></div>`);
+    for (const p of d.padsNow) h.push(`<div class="irow ${p.kind}${p.locked ? ' locked' : ''}"><div class="iicon">${iconSvg(p.icon, 30)}</div><div><b>${esc(p.label)}</b> <span class="cost">${esc(p.cost)}</span>${p.locked ? ` <span class="ichip short">needs level ${p.locked}</span>` : ''}<div class="desc">${esc(p.desc)}</div></div></div>`);
     if (d.later.length) {
       h.push(`<h2>${iconSvg('expand', 22)} Coming with higher levels</h2>`);
-      for (const p of d.later) h.push(`<div class="irow ${p.kind} later"><div class="iicon">${iconSvg(p.icon, 30)}</div><div><b>${esc(p.label)}</b> <span class="cost">Keep level ${p.at}</span><div class="desc">${esc(p.desc)}</div></div></div>`);
+      for (const p of d.later) h.push(`<div class="irow ${p.kind} later"><div class="iicon">${iconSvg(p.icon, 30)}</div><div><b>${esc(p.label)}</b> <span class="cost">Level ${p.at}</span><div class="desc">${esc(p.desc)}</div></div></div>`);
     }
-    h.push(`<h2>${iconSvg('skull', 22)} Enemy ranks</h2><p class="sub">Their colour says how dangerous they are. New ranks appear when the Keep levels up.</p><p>${d.ranks.map((r) => `<span class="ichip ${r.active ? 'ok' : ''}"><i class="swatch" style="background:${r.color}"></i>${esc(r.name)} · ${r.at === 0 ? 'from the start' : `Keep level ${r.at}`}</span>`).join(' ')}</p>`);
+    h.push(`<h2>${iconSvg('skull', 22)} Enemy ranks</h2><p class="sub">Their colour says how dangerous they are. New ranks appear as you level up.</p><p>${d.ranks.map((r) => `<span class="ichip ${r.active ? 'ok' : ''}"><i class="swatch" style="background:${r.color}"></i>${esc(r.name)} · ${r.at === 0 ? 'from the start' : `level ${r.at}`}</span>`).join(' ')}</p>`);
     h.push('<p class="sub">Shapes: square pads build things, round pads recruit (blue), upgrade (purple) or feed the Keep (green).</p>');
     // #29: what the game told you recently, for when a notice went by before you could read it
     const notices = this.recentNotices();
@@ -717,7 +750,7 @@ export class Hud {
           <b class="sc-rank">${i + 1}</b>
           <div class="sc-mid">
             <b class="sc-score">${r.score.toLocaleString()}</b>
-            <span class="sc-sub">night ${r.wave} · ${esc(endName(r.end))} · ${esc(when(r.at))}</span>
+            <span class="sc-sub">${r.level ? `Lv. ${r.level}` : `night ${r.wave}`} · ${esc(endName(r.end))} · ${esc(when(r.at))}</span>
           </div>
           <span class="sc-army">${r.coins}<i class="sc-u">coins</i></span>
         </div>`).join('');

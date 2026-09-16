@@ -462,7 +462,7 @@ const T = (id, tier, pos, cost, buildAt) => ({ id, tier, pos, cost, icon: 'tower
 // that has to spread. Each needs the one before it, so only one home mat is ever on the field.
 const HOME = (n, pos, cost, buildAt, requires) => ({
   id: `home-${n}`, tier: 1, pos, cost, icon: 'home', label: 'Villager Home', structure: 'house', buildAt, requires,
-  desc: `A family moves in. Every home raises the army limit by ${CFG.home.archers} archers and ${CFG.home.swordsmen} swordsmen, on top of whatever the Keep level allows.`,
+  desc: `A family moves in. Every home raises the army limit by ${CFG.home.archers} archers and ${CFG.home.swordsmen} swordsmen, on top of whatever your level allows.`,
   toast: 'A family moves in. Room for more soldiers.',
 });
 const W = (id, tier, pos, cost, side, label) => ({ id, tier, pos, cost, icon: 'wall', label, requires: [tier === 1 ? 'expand1' : 'expand2'], wall: { tier, side }, desc: 'Walls this side of the new plot. Raiders must break through.' });
@@ -470,7 +470,7 @@ export const PADS = [
   // ---- tier 0: the starting plot (28 x 22) ----
   { id: 'exchange', tier: 0, pos: [9.8, -6], cost: 8, afterRescue: true, icon: 'gold', label: 'Trade Post', structure: 'bank', buildAt: [9.8, -9.8], desc: 'Sell what you have mined. Until it stands there is nowhere to turn a heap into coin.', toast: 'Trade Post built! Bring your bag here to sell.' },
   { id: 'range', tier: 0, pos: [-9.8, -5.4], cost: 5, icon: 'bow', label: 'Archery Range', structure: 'hut', buildAt: [-9.8, -9.8], desc: 'Lets you recruit archers.', toast: 'Archery Range built! Recruit archers.' },
-  { id: 'recruit', tier: 0, pos: [-9.8, -5.4], cost: 5, growth: 1, icon: 'archer', label: '+2 Archers', requires: ['range'], repeatable: true, units: { type: 'archer', count: 2 }, desc: 'Two archers join the King. The Keep level caps how many you can have.' },
+  { id: 'recruit', tier: 0, pos: [-9.8, -5.4], cost: 5, growth: 1, icon: 'archer', label: '+2 Archers', requires: ['range'], repeatable: true, units: { type: 'archer', count: 2 }, desc: 'Two archers join the King. Your level caps how many you can have.' },
   // #107/#105: no percentage, and the mat says where the five levels get to rather than only what one
   // of them adds. "+25% damage per level" is a delta the player has to compound five times in his
   // head against an archer's damage, which is on no screen; `archerTraining` is additive, so the
@@ -486,7 +486,7 @@ export const PADS = [
   { ...T('tower-0-nw', 0, [-7.6, -14.2], 20, [-11.73, -14.95]), requires: ['recruit'] },
   { ...T('tower-0-se', 0, [15.2, 5.6], 20, [14.95, 11.73]), requires: ['recruit'] },
   { ...T('tower-0-sw', 0, [-10, 12.4], 20, [-13.44, 13.44]), requires: ['recruit'] },
-  { id: 'palisade', tier: 0, pos: [-5, 9], cost: 20, icon: 'wall', label: 'Palisade', requires: ['recruit'], wall: { tier: 0, side: 'all' }, desc: 'A wooden wall around the plot with two gates. Upgrades to brick, stone and iron as the Keep levels.', toast: 'Palisade raised. Raiders must break through!' },
+  { id: 'palisade', tier: 0, pos: [-5, 9], cost: 20, icon: 'wall', label: 'Palisade', requires: ['recruit'], wall: { tier: 0, side: 'all' }, desc: 'A wooden wall around the plot with two gates. Upgrades to brick, stone and iron as you level up.', toast: 'Palisade raised. Raiders must break through!' },
   { id: 'crew-gates1', tier: 0, pos: [5, -5], crew: 4, icon: 'shield', label: 'Gate Guards', requires: ['palisade'], posts: true, postTier: 0, desc: 'Four archers take posts beside the gates.', toast: 'Archers now watch the gates from their posts.' },
   { id: 'expand1', tier: 0, pos: [-5, 21], cost: 60, minLevel: 2, icon: 'expand', label: 'Expand Village', requires: ['palisade', 'keep'], effect: 'expand', desc: 'Grows the village onto a bigger plot with new pads, towers and the barracks.', toast: 'The village grows! Wall the new ground.' },
   { id: 'stable', tier: 0, pos: [-21, 5], cost: 25, icon: 'horse', label: 'Warhorse', requires: ['keep'], effect: 'horse', desc: 'The King rides: much faster around the map.', toast: 'The King rides! Much faster now.' },

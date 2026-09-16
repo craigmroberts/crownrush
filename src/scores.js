@@ -28,7 +28,12 @@ export function readScores() {
   }
 }
 
-// `run` is { score, wave, end, coins, army }. `at` is stamped here so no caller can forget it.
+// `run` is { score, wave, end, coins, army, level }. `at` is stamped here so no caller can forget it.
+//
+// #119 added `level` WITHOUT touching VERSION, and that is the whole trick: `readScores` returns []
+// when the stored version does not match, so bumping it to add a field would have deleted every
+// player's board for a change of label. A row written before #119 simply has no `level`, and the
+// board renders it with the night it already had.
 // Returns the board as it now stands, which is what the caller would have had to re-read anyway.
 export function recordRun(run) {
   const runs = readScores();

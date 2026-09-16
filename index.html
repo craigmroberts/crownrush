@@ -54,9 +54,14 @@
       <div id="topbar">
         <button class="hud-group" id="keep-plaque" title="Keep progress (K)">
           <span class="hud-stack">
+            <!-- #119: one number, not two. Night and Keep were the same clock printed twice -- on a
+                 run at the pace the finale expects, the night half never once changes what spawns
+                 (config.js, rankFloor). The day cycle is untouched; what went is the counter.
+                 The castle stays: this is still the button that opens the Keep, and feeding the Keep
+                 is still how the number goes up. Hidden until the Keep stands, because the rescue is
+                 a prologue with no level and `Lv. 0` is not a thing to look at for two minutes. -->
             <span class="hud-row">
-              <span class="hud-cell"><i data-icon="moon" data-size="20"></i><b id="wave-hud">Night <span id="wave-num">1</span></b></span>
-              <span class="hud-cell"><i data-icon="castle" data-size="19"></i><b id="keep-level" class="hud-sub">Keep 0</b></span>
+              <span class="hud-cell hidden" id="level-cell"><i data-icon="castle" data-size="19"></i><b id="keep-level">Lv. 1</b></span>
             </span>
             <!-- health at a glance, on its own line: it is the one row that grows, and putting it
                  beside the text is what made a phone cramped. The precise number is the bar over his
@@ -146,7 +151,10 @@
              that has loaded nothing. A fast finger loses; a probe measuring "bytes to a clickable Play
              button" measured 17 kB. -->
         <button id="start-btn" class="hidden" disabled>Play</button>
-        <p class="best">Best: night <span id="best-wave">1</span></p>
+        <!-- #119: the best run, in the currency the rest of the game now uses. This said "Best: night
+             30", which would have left the title screen as the one surface still keeping score in
+             nights. Filled from the scoreboard's top row, so nothing new is stored for it. -->
+        <p class="best hidden" id="best-line">Best: <span id="best-run">—</span></p>
       </div>
     </div>
 
@@ -167,7 +175,9 @@
     <div id="gameover-screen" class="overlay hidden">
       <div class="panel">
         <h1 id="gameover-title">The King Has Fallen</h1>
-        <p>You survived to night <strong id="final-wave">1</strong> and earned <strong id="final-coins">0</strong> coins.</p>
+        <!-- #119: level, then points. The night you reached was the headline here and it is no longer
+             the number the game keeps score in anywhere else. -->
+        <p>You got as far as <strong id="final-level">Lv. 1</strong> and earned <strong id="final-coins">0</strong> coins.</p>
         <p class="score">Score <strong id="final-score">0</strong> <span class="hint">· best <span id="final-best">0</span></span></p>
         <button id="restart-btn">Play Again</button>
       </div>
@@ -213,7 +223,7 @@
     <div id="keep-screen" class="overlay hidden">
       <div class="panel keep-sheet">
         <button class="panel-x" id="ks-x" aria-label="Close" title="Close">&times;</button>
-        <h1 id="ks-title">Keep level 0</h1>
+        <h1 id="ks-title">Level 0</h1>
         <p class="hint" id="ks-goal"></p>
         <div class="ks-track"><i id="ks-fill"></i></div>
         <p class="ks-of" id="ks-of"></p>

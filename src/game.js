@@ -103,6 +103,10 @@ export class Game {
 
     this.running = false;
     this.time = 0;
+    // #119: the best NIGHT. Nothing shows it any more -- the title screen leads with the best run's
+    // level and score instead -- but it is still kept: it is the only all-time record of the night
+    // reached, the board holds only ten runs, and throwing a player's record away to change a label
+    // is not a trade worth making if the decision is ever revisited.
     this.best = readNumber('crownrush-best', 1);
     this.reset();
   }
@@ -421,6 +425,7 @@ export class Game {
     this.hud.setRaid(0, 0);
     this.hud.setHearts(1);
     this.hud.setCoinTier(this.coinTier());
+    this.hud.setStall(false);    // #119: night 0 at Keep 0 -- a new run is never behind itself
     this.hud.setIndicators([]);
   }
 
@@ -617,7 +622,7 @@ export class Game {
     this.settingsPaused = false;
     this.infoOpen = false;
     this.hud.hidePanels();
-    this.hud.showGameOver(this.wave, this.coinsEarned, this.score, this.bestScore, reason);
+    this.hud.showGameOver(this.baseLevel, this.coinsEarned, this.score, this.bestScore, reason);
   }
 
   victory() {
@@ -652,6 +657,10 @@ export class Game {
   recordRun(end) {
     recordRun({
       score: this.score, wave: this.wave, end, coins: this.coinsEarned,
+      // #119: what the board and the title screen now lead with. `wave` stays beside it -- the night
+      // is still counted, rows written before this have nothing else to show, and the scores format
+      // must NOT have its VERSION bumped to add a field (that empties everyone's board).
+      level: this.baseLevel,
       army: Math.max(0, this.units.length - 1 + this.turrets.length),
     });
   }
@@ -753,6 +762,10 @@ export class Game {
       this.hornT = Math.max(0, this.hornT - dt);
       this.hud.setHorn(!this.queen.captive || this.queen.taken, this.hornT / CFG.horn.cooldown, this.hornT);
       this.hud.setCoinTier(this.coinTier());
+      // #119: with one number on the HUD instead of two, the one case it could lie about is a player
+      // falling behind -- the raid is fought at `raidLevel()`, which runs ahead of the Keep when the
+      // nights outpace it. The cell says so itself rather than leaving it to be inferred.
+      this.hud.setStall(this.raidLevel() > this.baseLevel);
       this.hud.setHearts(this.king.hp / this.king.maxHp);
       this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, this.finaleOpen ? 'camp' : `${this.baseLevel}/${CFG.finale.level}`, this.res, this.score, this.loadCap());
       this.updateIndicators(dt);

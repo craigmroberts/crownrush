@@ -143,7 +143,7 @@ export const BuildMethods = {
       // the way sitting above the bar so the bar itself never moves.
       cost: pad.def.crew ? 0 : pad.cost,
       left: Math.max(0, pad.cost - pad.paid),
-      blocker: pad.locked === 'rescue' ? 'Free Wren first' : pad.locked ? `Needs Keep ${pad.locked}` : null,
+      blocker: pad.locked === 'rescue' ? 'Free Wren first' : pad.locked ? `Needs Lv. ${pad.locked}` : null,
     });
   },
 
@@ -584,7 +584,7 @@ export const BuildMethods = {
           const need = r.need - r.paid;
           chips.push({ icon: r.type, text: `${need} ${r.type} (have ${this.res[r.type]})`, state: need <= 0 || this.res[r.type] >= need ? 'ok' : this.res[r.type] > 0 ? '' : 'short' });
         }
-        if (locked) chips.push({ icon: 'keep', text: `Keep level ${locked} needed`, state: 'short' });
+        if (locked) chips.push({ icon: 'keep', text: `Level ${locked} needed`, state: 'short' });
         if (def.units) chips.push({ icon: def.units.type, text: `${this.unitCount(def.units.type)} / ${this.unitCap(def.units.type)} ${def.units.type}s`, state: locked ? 'short' : 'ok' });
       }
       const note = this.keep && this.keep.state !== 'built' && def.repairKeep ? 'It has to stand again before it can be raised'

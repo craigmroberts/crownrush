@@ -16,7 +16,7 @@ try {
   throw err;
 }
 
-hud.showStart(game.best, game.savedRun());
+hud.showStart(readScores()[0] || null, game.savedRun());   // #119: the board's top row IS the best run
 const startBtn = document.getElementById('start-btn');
 startBtn.disabled = true;
 startBtn.classList.add('hidden');

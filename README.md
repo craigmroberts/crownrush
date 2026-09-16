@@ -51,13 +51,17 @@ loop underneath it:
   (the price is people, not coins). Gate guards work the same way.
 - Red arrows at the screen edge point at raiders you can't see, with a count and a skull for bosses.
 - The HUD floats on the scene: no plaque, no capsule, no panel behind any of it. Left is two short
-  rows -- a crescent and the night beside a castle and the Keep level, with the King's health as five
-  hearts under them -- five hearts, each draining by eighths, so losing a little shows as losing a
-  little. Right is the coin count and the bag, whose ring is how full it is -- one continuous
+  rows -- **one** number, `Lv. 6` beside a castle, with the King's health as five hearts under it --
+  five hearts, each draining by eighths, so losing a little shows as losing a little. The night used
+  to sit up there too, and it was the same clock printed twice: on a run at the pace the finale
+  expects, the night half never once changes what spawns. The nights still fall and the raids still
+  come at night; what went is the counter. The one thing a single number could hide is a player
+  falling behind, so it says that itself -- `Lv.` turns amber whenever the raid is being fought above
+  the level the Keep stands at. Right is the coin count and the bag, whose ring is how full it is -- one continuous
   arc running green to yellow to orange to red, so the cap is never a number anyone has to read. The
   middle is left empty on purpose. Every bar and pip is out of it; the only precise health readout is
   the one over the King's head, and that shows only when he is hurt, so no shape is drawn twice.
-- A meter under the night line says what is left of tonight's raid: a bar of the health it arrived
+- A meter under the hearts says what is left of tonight's raid: a bar of the health it arrived
   with, and the number still standing. Raiders who have not walked on yet are already counted, so it
   only falls, and it goes when the last one does -- which is the answer to "is that all of them?"
   without sweeping the map. The Warlord calling reinforcements is the one thing that puts it back up.
@@ -157,8 +161,8 @@ after another, costs 9.2 s.
 A full run is thirty nights of about seventy-five seconds, and a phone browser throws away a
 backgrounded tab whenever it feels like it. The run is written to `localStorage` at every dawn --
 the one beat where the field is quiet, the spawn queue empty and nothing in flight -- and the title
-screen offers **Continue** above a Play button that now says *New run*, with the night, the Keep
-level and the score under it. At most one cycle is ever lost.
+screen offers **Continue** above a Play button that now says *New run*, with the level and the score
+under it. At most one cycle is ever lost.
 
 What is stored is state rather than history. Replaying the pads that were bought would mean replaying
 every toast, every coin of score and every reward choice over a game that has not started, so
@@ -180,7 +184,10 @@ version -- a save-format bump throws the run save away, and that is no reason to
 night. Ten are kept, by score rather than by recency: a board that forgets your best run because you
 played ten bad ones afterwards is not a board. Every ending writes one, and the row says which of the
 four it was, because a victory and a high-scoring loss are different achievements and sorting by score
-alone flattens that. **Settings › Best runs** shows them. Every read and write is wrapped: a browser
+alone flattens that. **Settings › Best runs** shows them, and the title screen leads with the top row
+of that board -- `Best: Lv. 7 · 12,480 points`. A row carries the level it reached as well as the
+night; rows written before it did fall back to the night, because the stored version is what says
+whether a board can be read at all and bumping it to add a field would empty everybody's. Every read and write is wrapped: a browser
 that refuses storage still plays the game, and still ends a run.
 
 ## The intro
