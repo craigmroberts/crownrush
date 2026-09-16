@@ -22,7 +22,8 @@ loop underneath it:
   keep instead, and if it falls she is thrown out until you repair it. Keep HP grows with your wall
   upgrades.
 - The King starts on foot and gathers wood, stone and straw by standing next to lumber groves, ore outcrops
-  and wheat fields. Materials feed the Keep and nothing else; everything on a build pad costs coins.
+  and wheat fields. Everything in the game is paid for in coin; what you mine is not spent anywhere, it is
+  carried to the trade post and sold. That is the whole of what mining is for.
 - Roads grow out of the gates as you wall the village, and bridges over the river are built from pads at the
   crossings. Until a bridge exists, raiders only come from your side of the river.
 - Unexplored land is hidden under fog that clears as the King travels; the minimap in the top-right (tap to
@@ -42,10 +43,13 @@ loop underneath it:
   Keep** while it stands, **Repair the Keep** while it is rubble, in the green of an upgrade or the
   brown of a build so you can tell which without reading it. Levelling a Keep that is not standing is
   not possible, which is the whole reason the repair takes the raise's place rather than sitting
-  somewhere else. **The repair is priced in a material the current Keep level can actually open** --
-  wood below level 4, stone from 4 up. It used to ask for stone flat, and stone does not exist in the
-  world below 4 (`CFG.base.materialAt`), so a Keep destroyed early could never be repaired and the
-  same event took away the mat that would have levelled you to 4. The invariant lives next to the
+  somewhere else. **The repair is priced in coin** -- 40, or 60 once the Keep has passed level 4
+  (`CFG.keep.repair`), which is the old bill of 20 coins plus ten wood or ten stone, converted at
+  `CFG.materials` rates. It asked for the material itself until #125, and before that for stone flat;
+  stone does not exist in the world below level 4 (`CFG.base.materialAt`), so a Keep destroyed early
+  could never be repaired and the same event took away the mat that would have levelled you to 4. In
+  coin that dead end cannot come back at all: coin is never gated and never runs out of the world.
+  The invariant lives next to the
   number in `repairCost`: never ask for a material the Keep level cannot open.
 - Watchtowers are built empty. A "Man the Tower" pad next to each one takes archers from your army
   (the price is people, not coins). Gate guards work the same way.
@@ -211,7 +215,7 @@ that refuses storage still plays the game, and still ends a run.
 ## The intro
 
 The first time you press Play, four short steps explain the game one idea at a time (find the Queen,
-fight and collect, build, feed the Keep) with Next and a Skip. Enter, Space or the right arrow also
+fight and collect, build, raise the Keep) with Next and a Skip. Enter, Space or the right arrow also
 advance. It is remembered in `localStorage`, so replays go straight in. The start screen itself is one
 line.
 
@@ -244,7 +248,7 @@ her own paths, so a radius she has to reach herself is one she never will.
 ## Reading the pads
 
 Square pads BUILD something (structures, walls, bridges, expansions). Round pads do everything else,
-with a coloured rim: blue recruits units or sends a crew, purple upgrades, green feeds the Keep.
+with a coloured rim: blue recruits units or sends a crew, purple upgrades, green raises the Keep.
 
 The marker on the ground carries identity only: a big icon, a short name, and a level where the thing
 it points at has one ("Royal Keep · Level 4", "Watchtower · Level 2"). Nobody can read a price off the
@@ -283,7 +287,7 @@ the player standing still on a mat by his own choice.
   from 8, platinum from 12 (`CFG.coins`); the look and score value change, the count is one number.
   Enemies of higher ranks drop more coins. Every pad costs coins except crews, which are paid in
   archers. The Keep is paid in coin too -- `CFG.base.levelCost` is the old material lists priced at
-  `CFG.materials` rates -- though two strings it shows the player still say wood and stone.
+  `CFG.materials` rates.
 - **Info screen.** The blue **i** button (or the I key) pauses the game and lists what the next Keep
   level needs and gives, your army against its caps, every pad on offer with its cost and what it does,
   what appears at higher levels, and the enemy rank colours.
@@ -533,13 +537,18 @@ rather than drifting up level by level.
 
 ## The Keep is the base
 
-Wood, stone and straw you mine are spent on one thing only: **feeding the Keep**. Stand on the pad at
-its door to pour in materials; when the level's requirement is met the Keep levels up (1 to 15,
-`CFG.base.levels`). Each level raises how many archers and swordsmen the village supports
+Stand on the pad at its door and **pay coin into it**; when the level's price is met the Keep levels up
+(1 to 15, `CFG.base.levelCost`). Each level raises how many archers and swordsmen the village supports
 (`CFG.base.archers` / `swordsmen`; recruit pads lock with a "Needs Lv. N" chip when you hit the cap),
 speeds up every bow (1x at level 1, 2x at level 8, 3x at level 15) and rebuilds all walls in the next
 material at levels 4, 8 and 12 (`CFG.base.wallAt`). Some pads only appear at a Keep level
-(`minLevel`: village expansions, barracks). Coins still buy everything else.
+(`minLevel`: village expansions, barracks).
+
+It took wood, stone and straw once, and half the game's copy went on saying so for a long time after it
+stopped -- nine strings, including the tutorial step a new player reads first, which sent them mining
+for a currency the Keep does not take (#125). The chip above the controls had been saying *coins* on
+the same screen all along, because it reads the pad's own price. Materials now have exactly one use:
+they are sold.
 
 ## Tuning the game
 

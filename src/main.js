@@ -94,7 +94,11 @@ const INTRO = [
   { icon: 'coin', title: 'Fight and collect', text: 'Your archers shoot on their own. Raiders drop coins: walk over them to pick them up. The colour a raider wears tells you how dangerous it is.' },
   { icon: 'horn', title: 'Sound the horn', text: 'The horn button (or Space) rallies your army to you and drives them for a few seconds, and the blast throws nearby raiders back. It takes a while to recharge, so save it for a breach.' },
   { icon: 'hammer', title: 'Build', text: 'Stop on a floor marker to spend coins. Square markers build; round ones recruit and upgrade. Walking across a marker costs nothing.' },
-  { icon: 'keep', title: 'Feed the Keep', text: 'Wood, stone and straw go into the Keep only. Feeding it levels up the whole kingdom: a bigger army, faster arrows, stronger walls. Gather by day. The raid comes at night.' },
+  // #125: this step used to say wood, stone and straw went into the Keep, which stopped being true
+  // when the material lists were priced into coin -- the first thing a new player reads, sending them
+  // mining for a currency the Keep does not take. It is also the only place with room to say what
+  // mining IS for, which nothing in the game said at all.
+  { icon: 'keep', title: 'Raise the Keep', text: 'Pay coin into the Keep and the whole kingdom levels up: a bigger army, faster arrows, stronger walls. What you mine is not spent — sell it at the trade post to turn a bag into coin. Gather by day. The raid comes at night.' },
 ];
 const startGame = () => {
   try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) { /* private mode */ }

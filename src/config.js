@@ -105,9 +105,22 @@ export const CFG = {
   // should be next to a King of 2.3 and an Archery Range of 5.58 -- it was smaller than the hut.
   // padOffset: where the Keep's own pads sit relative to it. The castle stands on the crossroads, so
   // straight out of any face is the middle of a track -- the door faces the south-east corner instead.
-  keep: { hp: 420, hpPerLevel: 90, radius: 3.6, half: 2.9, materialBonus: 420, padOffset: [-5, 5] },
+  // #125: `repair` is what putting the Keep back up costs, in coin, now that nothing in the game is
+  // paid for in anything else. It was 20 coins AND ten stone -- or ten wood below Keep level 4, where
+  // stone cannot be mined yet -- so these are those two bills priced at `CFG.materials` rates and
+  // added up: 20 + 10 wood at 2 = 40, and 20 + 10 stone at 4 = 60. The same cost, said in the one
+  // currency the game has.
+  //
+  // The step stays where the material it replaces put it. It is not arbitrary now that the material
+  // lock is gone: a Keep at level 4 is a Keep whose owner is several times richer than one at level
+  // 1, and 60 coins against a 60-coin level is the same weight 40 was against a 20-coin one. What
+  // the step must NOT do is keep climbing -- #108 capped the material at stone for exactly that
+  // reason, because asking a level-12 King for ten diamond would make a late repair harder than an
+  // early one, and the Keep falling is already the punishment.
+  keep: { hp: 420, hpPerLevel: 90, radius: 3.6, half: 2.9, materialBonus: 420, padOffset: [-5, 5], repair: 40, repairLate: 60 },
 
-  // The Keep is the base. Materials you mine go ONLY into the Keep; each level unlocks more.
+  // The Keep is the base: pay coin into it and each level unlocks more. (It took materials once, which
+  // is where `levelCost` comes from and what half the game's copy used to say -- #125.)
   base: {
     maxLevel: 15,
     // Coin to reach the NEXT level, indexed by the current level (level 0 = no keep yet). These are
@@ -167,6 +180,12 @@ export const CFG = {
   // how close before a pile tells you what is in it, and how close before he picks it up
   pile: { showRadius: 7.0, pickRadius: 1.9 },
 
+  // #125: `buildPerMaterial` currently scores nothing. It is the rate for the materials a pad asks
+  // for, and since the Keep repair was priced in coin no pad asks for any -- `pad.res` is empty
+  // everywhere, so the term it multiplies is always zero. Left rather than deleted because the
+  // resource-payment path it belongs to is still whole and is what any future pad priced in
+  // materials would use; said out loud here so nobody measures a balance change against it and
+  // wonders why nothing moved. `material: 2` is untouched and still paid for every one mined.
   score: { earlyWavePerSecond: 4, kill: { knight: 10, elite: 25, brute: 20, boss: 200, thief: 40, sapper: 15, archer: 20, shield: 30 }, coin: 1, material: 2, buildPerCoin: 2, buildPerMaterial: 3, soldierPerWave: 2, waveClear: 50, levelUp: 60, rescue: 150, recapture: 90, finale: 1500 },
 
   // #69: the army FOLLOWS the King rather than orbiting him. Each soldier still gets a slot on a
@@ -513,7 +532,7 @@ export const PADS = [
   // enough to say out loud. The pad already counts itself ("2 of 5"), so "all five levels" is a state
   // the player can see he is walking towards.
   { id: 'train', tier: 0, pos: [-13.8, -5.4], cost: 12, growth: 8, maxBuys: 5, icon: 'arrows', label: 'Train Archers', requires: ['recruit'], repeatable: true, effect: 'archerPower', desc: 'Every archer, now and later, hits harder and stands longer. All five levels: twice the health, better than twice the damage.', toast: 'Archers trained: they all hit harder and stand longer.' },
-  { id: 'keep', tier: 0, pos: [-5, 5], cost: 25, icon: 'keep', label: 'Royal Keep', requires: ['range'], structure: 'keep', buildAt: [0, 0], desc: 'A door for Wren, and the heart of the village. Feed it materials to level up your whole kingdom.', toast: 'Wren has a door at last. Feed it wood and stone to level up!' },
+  { id: 'keep', tier: 0, pos: [-5, 5], cost: 25, icon: 'keep', label: 'Royal Keep', requires: ['range'], structure: 'keep', buildAt: [0, 0], desc: 'A door for Wren, and the heart of the village. Pay coin into it to level up your whole kingdom.', toast: 'Wren has a door at last. Pay coin into it to level up!' },
   // The citadel's towers stand on the ring itself, on its four diagonals -- a round wall has no
   // corners, and its gateways are taken by the roads. Their pads sit in the half of each quarter the
   // Keep's own pads leave free, which is what keeps both clear of the crossroads.

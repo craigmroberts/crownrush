@@ -718,7 +718,7 @@ export class Hud {
         return `<span class="ks-need ${state}">${iconSvg(n.type, 16)}${Math.min(n.have, n.need)} / ${n.need}</span>`;
       }).join('')}</div>`);
     } else if (d.level < d.max) {
-      h.push('<p class="ks-h">Everything is fed. You level up on your next delivery.</p>');
+      h.push('<p class="ks-h">Paid in full. You level up on the next coin.</p>');
     }
     if (d.unlocks.length) {
       h.push(`<p class="ks-h">Level ${N} gives you</p><div class="ks-list">${d.unlocks.map((u) => {
@@ -742,11 +742,11 @@ export class Hud {
     h.push(`<h2>${iconSvg('keep', 22)} Level ${d.level}${d.level >= d.max ? ' (max)' : ''}</h2>`);
     if (!d.hasKeep) h.push('<p>Not built yet. Stand on the Royal Keep pad in the village.</p>');
     else if (d.need.length) {
-      h.push(`<p class="sub">To reach level ${d.level + 1}, feed the Keep:</p><p>${d.need.map((n) => chip(n.type, `${n.need} ${n.type} (you carry ${n.have})`, n.have >= n.need ? 'ok' : n.have > 0 ? '' : 'short')).join(' ')}</p>`);
+      h.push(`<p class="sub">To reach level ${d.level + 1}, pay into the Keep:</p><p>${d.need.map((n) => chip(n.type, `${n.need} ${n.type} (you carry ${n.have})`, n.have >= n.need ? 'ok' : n.have > 0 ? '' : 'short')).join(' ')}</p>`);
     }
     if (d.unlocks.length) h.push(`<p class="sub">Level ${d.level + 1} gives you:</p><ul>${d.unlocks.map((u) => `<li>${gainBody(u)}</li>`).join('')}</ul>`);
     h.push(`<h2>${iconSvg('archer', 22)} Your army</h2><p>${chip('archer', `${d.army.archers} / ${d.army.archerCap} archers`)} ${chip('swordsman', `${d.army.swords} / ${d.army.swordCap} swordsmen`)} ${chip('tower', d.army.towers.length ? `${d.army.towers.length} towers (levels ${d.army.towers.join(', ')})` : 'no towers yet')} ${chip('arrows', `arrows ${d.army.fire.toFixed(1)}x speed, training ${d.army.training}/5`)} ${chip('wall', `${d.army.wall.toLowerCase()} walls`)}${d.army.keepHp ? ' ' + chip('keep', `Keep ${d.army.keepHp}`) : ''}</p>`);
-    h.push(`<h2>${iconSvg('gold', 22)} Coins</h2><p>You carry ${d.coins.count} coins, each worth ${d.coins.value} score.${d.coins.nextValue ? ` At level ${d.coins.nextAt} each one is worth ${d.coins.nextValue}.` : ''} Every pad costs coins except crews (archers) and the Keep (materials).</p>`);
+    h.push(`<h2>${iconSvg('gold', 22)} Coins</h2><p>You carry ${d.coins.count} coins, each worth ${d.coins.value} score.${d.coins.nextValue ? ` At level ${d.coins.nextAt} each one is worth ${d.coins.nextValue}.` : ''} Every pad costs coins except crews, which are paid in archers. What you mine is not spent anywhere: sell it at the trade post.</p>`);
     if (d.taken && d.taken.length) {
       h.push(`<h2>${iconSvg('star', 22)} Rewards you have taken</h2>`);
       for (const u of d.taken) h.push(`<div class="irow upgrade"><div class="iicon">${iconSvg(u.icon, 30)}</div><div><b>${esc(u.name)}</b>${u.n > 1 ? ` <span class="cost">x${u.n}</span>` : ''}<div class="desc">${esc(u.desc)}</div></div></div>`);
@@ -759,7 +759,7 @@ export class Hud {
       for (const p of d.later) h.push(`<div class="irow ${p.kind} later"><div class="iicon">${iconSvg(p.icon, 30)}</div><div><b>${esc(p.label)}</b> <span class="cost">Level ${p.at}</span><div class="desc">${esc(p.desc)}</div></div></div>`);
     }
     h.push(`<h2>${iconSvg('skull', 22)} Enemy ranks</h2><p class="sub">Their colour says how dangerous they are. New ranks appear as you level up.</p><p>${d.ranks.map((r) => `<span class="ichip ${r.active ? 'ok' : ''}"><i class="swatch" style="background:${r.color}"></i>${esc(r.name)} · ${r.at === 0 ? 'from the start' : `level ${r.at}`}</span>`).join(' ')}</p>`);
-    h.push('<p class="sub">Shapes: square pads build things, round pads recruit (blue), upgrade (purple) or feed the Keep (green).</p>');
+    h.push('<p class="sub">Shapes: square pads build things, round pads recruit (blue), upgrade (purple) or raise the Keep (green).</p>');
     // #29: what the game told you recently, for when a notice went by before you could read it
     const notices = this.recentNotices();
     if (notices.length) {

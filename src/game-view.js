@@ -1095,7 +1095,9 @@ export const ViewMethods = {
 
   padDesc(def) {
     if (def.desc) return def.desc;
-    if (def.feed) return 'Pour in wood, stone and straw to raise the Keep a level.';
+    // #125: coin, not a bag of materials -- and the sentence says where the materials DO go, because
+    // this mat is where a player who believed the old one comes to find out why nothing happened.
+    if (def.feed) return 'Pay coin into the Keep to raise it a level. What you mine is sold at the trade post.';
     if (def.tower && def.crew) return 'Archers climb the tower and shoot from it (they leave your army).';
     if (def.towerUp) return 'More crew slots, sharper and longer-ranged arrows.';
     if (def.repair) return 'Rebuild this broken wall section.';
@@ -1245,7 +1247,10 @@ export const ViewMethods = {
     const unlocks = !this.keep
       ? [{ icon: 'keep', text: 'Build the Royal Keep first: feeding it levels up everything else.' }]
       : req ? this.levelGains(N) : [];
-    const costText = (def, pad) => def.crew ? `${def.crew} archers` : def.feed ? 'materials' : `${pad ? pad.cost - pad.paid : this.padCost(def)} coins${def.res ? ' + ' + Object.entries(def.res).map(([t, n]) => `${n} ${t}`).join(', ') : ''}`;
+    // #125: the Keep mat said "materials" where every other mat printed a figure -- so the one with
+    // the largest price in the game was the only one the info screen would not price, and the word
+    // was wrong as well. `padCost` answers for it like any other: `levelReq()`, in coin.
+    const costText = (def, pad) => def.crew ? `${def.crew} archers` : `${pad ? pad.cost - pad.paid : this.padCost(def)} coins${def.res ? ' + ' + Object.entries(def.res).map(([t, n]) => `${n} ${t}`).join(', ') : ''}`;
     const padsNow = this.pads.map((p) => ({ icon: p.def.icon, label: p.def.label, cost: costText(p.def, p), desc: this.padDesc(p.def), locked: this.padLocked(p.def), kind: this.padKind(p.def) }));
     const later = PADS.filter((def) => def.minLevel && def.minLevel > L && def.tier <= this.tier + 1 && !this.built[def.id])
       .map((def) => ({ icon: def.icon, label: def.label, at: def.minLevel, desc: this.padDesc(def), kind: this.padKind(def) }));
