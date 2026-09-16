@@ -333,6 +333,32 @@ you would rather not wait out the daylight, "Bring on the night" skips the rest 
 While the Queen is still captive the clock does not run at all, so the opening stays in permanent
 daylight until you go and get her.
 
+## Rain
+
+It rains every two to four days, for between half a night and a whole one, and the timings are ranges
+for the same reason the wolf only howls some nights: a shower that arrives on the hour is scenery, not
+weather (`CFG.rain`). It is drawn from `Math.random` rather than the seeded generator the map is laid
+out with — the map should be the same every run and the weather should not.
+
+Most of the effect is the light, not the drops. The sun drops, the ambient lifts and the fog goes from
+green to grey, all scaled by how hard it is falling so a shower carries itself in and out. The drops
+are 520 instances in **one draw call and 1040 triangles**, and only while it is actually raining —
+measured dry against wet on the phone path, the whole thing costs `+1 draw call, +1040 triangles` and
+nothing at all when the sky is clear.
+
+**It waters the living ground.** Wood and straw regrow at three times the rate while it falls, never
+the rock — rain refilling a quarry reads as a bug, and keeping it to the two things that grow makes it
+a rule you can guess instead of one you have to be told. `setNodeLook` already thins a node as it is
+mined and fills it back in, so a tree visibly growing back in the rain needed no new art. Measured
+over 18 seconds of game time: a drained wood node comes back 1 unit dry and **6 wet**, and a rock node
+comes back 1 either way.
+
+The multiplier is pinned against a whole run rather than picked round. At ×2 a tree drained when the
+shower started stood at 0.73 of its height when the sky cleared, and a growth you have to remember the
+start of is not one you can see. And it is not worth farming: a King parked between two home wood
+nodes for all thirty nights gathers 543 units dry against 691 wet — 296 coin, against a maxed Keep's
+3538, for standing in one place and ignoring every raid.
+
 ## Thieves
 
 Once you are carrying enough to be worth robbing, raids bring thieves (`CFG.waves.thieves`). A thief
