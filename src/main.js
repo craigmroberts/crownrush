@@ -5,6 +5,7 @@ import { preloadRigs, renderPortrait, renderFace, releasePortraitRenderer } from
 import { preloadProps } from './props.js';
 import { preloadIcons, mountIcons, iconSvg } from './icons.js';
 import { readScores } from './scores.js';
+import { SAVE_VERSION } from './game-save.js';
 
 const canvas = document.getElementById('game');
 const hud = new Hud();
@@ -196,7 +197,11 @@ restartRow.addEventListener('click', () => {
   game.start();
 });
 
-document.getElementById('settings-btn').addEventListener('click', () => {
+const settingsBtn = document.getElementById('settings-btn');
+const startUpdateBtn = document.getElementById('start-update');
+const startUpdateNote = document.getElementById('start-update-note');
+startUpdateBtn.addEventListener('click', installUpdate);
+settingsBtn.addEventListener('click', () => {
   disarmRestart();
   syncUpdateRow();     // whether a reload would cost anything depends on where the run is right now
   syncSizeLine();
@@ -246,13 +251,51 @@ const updateRow = document.getElementById('set-update');
 const updateState = document.getElementById('set-update-state');
 const updateLabel = updateRow.querySelector('.sheet-label');
 const versionLine = document.getElementById('set-version');
+const updateNote = document.getElementById('set-update-note');
 let updateBusy = false;
 let updateResult = '';    // '' | 'current' | 'failed'
 
+// #120: what installing costs, in the player's terms.
+//
+// The line under the row used to speak only when there was something to LOSE -- anyone perfectly safe
+// got a build hash. That is the reported gap: the game only ever warned and never reassured, so the
+// one moment a player is deciding whether to risk a run, silence is all they had to go on.
+//
+// Three things it can be, off state the game already computes:
+//
+//   nothing in progress          -> installing costs nothing, and says so
+//   a run, and the field is quiet -> `saveBeforeReload` will take one, so the run comes back
+//   a run, mid-raid              -> the old line, which was already honest and stays word for word
+//
+// And over all three, the one that can make any of them a lie: a build whose save format has moved
+// cannot read this one's save at all (`savedRun` returns null on a version mismatch and the run is
+// discarded, not half-applied). That outranks everything, because it is the only case where the
+// reassuring lines would be false -- and it is stated as a fact about the update rather than as a
+// warning about the tap, since it is equally true of a run stored on disk and of the one being
+// played. When the waiting worker has not answered (`waitingSave` null -- a build from before it
+// could), nothing is claimed either way.
+function updateCostLine() {
+  const resets = swState.waitingSave !== null && swState.waitingSave !== SAVE_VERSION;
+  const running = game.inRun();
+  // a stored run is at stake too: a version bump throws it away the next time the title screen looks
+  const atStake = running || !!game.savedRun();
+  if (resets && atStake) return 'This update changes the save format, so your run will not survive it.';
+  if (!running) return 'No run in progress, so installing costs you nothing.';
+  if (game.quietEnoughToSave()) return 'Your run is saved before the game reloads.';
+  return 'Installing reloads the game. Your run picks up from the last dawn.';
+}
+
 function syncUpdateRow() {
+  const ready = !!swState.waiting;
+  // #120: the signal OUTSIDE the sheet. `swState.waiting` is set the moment a build is ready and the
+  // only thing that happened was this function repainting a row nobody was looking at. Here rather
+  // than in `Hud.set`, which runs every frame: this changes on registration, `updatefound`, a manual
+  // check and an install, and every one of those already calls this.
+  settingsBtn.classList.toggle('update', ready);
+  settingsBtn.title = ready ? 'Settings — an update is ready to install' : 'Settings';
+  syncStartUpdate();
   if (!swState.reg) return;                  // no worker to ask: the row stays hidden
   updateRow.classList.remove('hidden');
-  const ready = !!swState.waiting;
   updateRow.classList.toggle('ready', ready);
   updateLabel.textContent = ready ? 'Update ready' : 'Check for updates';
   updateState.textContent = updateBusy ? 'Checking…'
@@ -260,24 +303,45 @@ function syncUpdateRow() {
     : updateResult === 'failed' ? 'No connection'
     : updateResult === 'current' ? 'Up to date'
     : '';
-  // The warning goes where it is read: under the row, before the tap, and only when there is
-  // something to lose. Installing reloads, and a run only survives a reload through a save.
-  const warn = ready && game.inRun() && !game.quietEnoughToSave();
-  versionLine.textContent = warn
-    ? 'Installing reloads the game. Your run picks up from the last dawn.'
-    : swState.version ? `Build ${swState.version}` : '';
+  // The line goes where it is read: under the row, before the tap -- which is a separate element
+  // from the build hash now, because they are not the same kind of sentence and the hash belongs in
+  // the footer with the screen details.
+  updateNote.textContent = ready ? updateCostLine() : '';
+  updateNote.classList.toggle('hidden', !updateNote.textContent);
+  versionLine.textContent = swState.version ? `Build ${swState.version}` : '';
   versionLine.classList.toggle('hidden', !versionLine.textContent);
+}
+
+// #120: the same install from two places now -- the settings row and the title screen -- so it is one
+// function. Take a fresh save first if the field happens to be quiet enough for one, then hand over;
+// the page reloads itself the moment the new worker takes control.
+function installUpdate() {
+  if (updateBusy || !swState.waiting) return;
+  game.saveBeforeReload();
+  updateBusy = true;                    // the page is on its way out; a second tap does nothing
+  updateState.textContent = 'Installing…';
+  startUpdateBtn.textContent = 'Installing…';
+  applyUpdate();
+}
+
+// #120: the title screen's own copy of the news. It is deliberately not a dot on something: there is
+// nothing up here for a dot to sit on, and this screen has the room the HUD does not -- so it says
+// what it is and what it costs, in the two lines the sheet would have taken a tap to reach.
+//
+// No check for whether the title screen is up. Both elements live INSIDE `#start-screen`, so the
+// overlay takes them with it when it goes, and `showStart` is called once at load and never again --
+// a game over restarts rather than returning here. One less thing to keep in step.
+function syncStartUpdate() {
+  const show = !!swState.waiting;
+  startUpdateBtn.classList.toggle('hidden', !show);
+  startUpdateNote.classList.toggle('hidden', !show);
+  if (show && !updateBusy) startUpdateNote.textContent = updateCostLine();
 }
 
 updateRow.addEventListener('click', () => {
   if (updateBusy) return;
   if (swState.waiting) {
-    // Take a fresh save first if the field happens to be quiet enough for one, then hand over. The
-    // page reloads itself the moment the new worker takes control.
-    game.saveBeforeReload();
-    updateBusy = true;                  // the page is on its way out; a second tap does nothing
-    updateState.textContent = 'Installing…';
-    applyUpdate();
+    installUpdate();
     return;
   }
   updateBusy = true;
@@ -530,6 +594,10 @@ const swState = {
   reg: null,
   waiting: null,    // an installed worker holding for permission to take over
   version: '',      // the cache name of the build actually answering, e.g. crownrush-4f1c...
+  // #120: the save format the WAITING build reads, asked of it directly. `null` is "not known",
+  // which is a third state and not a synonym for "the same": a worker built before this existed
+  // never answers, and the row has to stay quiet about survival rather than guess.
+  waitingSave: null,
   lastCheck: 0,
 };
 
@@ -540,6 +608,8 @@ function watchForUpdate(reg) {
     // is no older build to replace and nothing to tell anyone about.
     if (!navigator.serviceWorker.controller) return;
     swState.waiting = worker;
+    swState.waitingSave = null;
+    askWaitingBuild(worker);
     syncUpdateRow();
   };
   if (reg.waiting) offer(reg.waiting);      // one was already holding from a previous visit
@@ -598,6 +668,36 @@ function applyUpdate() {
   setTimeout(go, 6000);
   w.postMessage({ type: 'SKIP_WAITING' });
   return true;
+}
+
+// #120: what the build that is WAITING will do to a run in progress.
+//
+// The page cannot know this from anything it holds -- it is the old build, and the answer lives in
+// the new one's `game-save.js`. But a worker in `waiting` is already installed and already receiving
+// messages, so it can be asked, and its baked `SAVE_VERSION` ships in the same commit as the bundle
+// it is waiting to serve. Same `MessageChannel` shape as `askVersion`.
+//
+// Everything about the failure is deliberate. A worker built before this message existed never
+// replies, so `waitingSave` stays null and the row says nothing about survival -- and there is a
+// timeout because a channel nobody answers leaves no event to hang that on. Null is not "the same
+// version": the whole point of the line is that a reassurance which turns out to be false once is
+// worse than no reassurance at all.
+function askWaitingBuild(worker) {
+  const ch = new MessageChannel();
+  let answered = false;
+  ch.port1.onmessage = (e) => {
+    answered = true;
+    const save = e.data && e.data.save;
+    swState.waitingSave = typeof save === 'number' ? save : null;
+    syncUpdateRow();
+  };
+  setTimeout(() => { if (!answered) ch.port1.close(); }, 4000);
+  try {
+    worker.postMessage({ type: 'BUILD' }, [ch.port2]);
+  } catch {
+    // a worker that has already moved on (redundant, or taken over) cannot be messaged
+    swState.waitingSave = null;
+  }
 }
 
 // Which build is serving this page. Asked of the worker rather than baked in at build time, because

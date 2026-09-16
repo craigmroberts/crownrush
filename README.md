@@ -192,7 +192,8 @@ undo a good part of what the player did. A saved run runs about 17 kB.
 
 One other thing asks for a save, since installing an update reloads the page. It only gets one when
 the field *looks* like dawn -- daylight, nothing standing, nothing queued, the opening over -- and is
-refused otherwise, which the Settings row says out loud before you tap it.
+refused otherwise, which the Settings row says out loud before you tap it, along with what the update
+does to the save format if it moves it.
 
 Winning or losing clears it, and so does starting a new run. See [src/game-save.js](src/game-save.js).
 
@@ -758,13 +759,34 @@ been fetched, so a run in progress asks the cache for nothing. That is the curre
 than a guarantee. Now the page decides when to swap.
 
 Settings has a **Check for updates** row for that, with the build the worker is answering with printed
-underneath it, so "Up to date" can be checked rather than believed. The row says so plainly when there
-is no connection instead of reporting good news it does not have. Installing reloads the page, so it
-takes a fresh save first when the field happens to be quiet enough for one — daylight, nothing on the
-field, nothing queued — and warns that the run picks up from the last dawn when it is not. The game
-also checks by itself when it comes back to the foreground, at most every fifteen minutes: that is the
-only moment a homescreen app reliably gives you, because iOS *resumes* it to the page it was already on
-rather than navigating, so nothing re-checks the worker and a phone can sit on one build for weeks.
+at the foot of the sheet, so "Up to date" can be checked rather than believed. The row says so plainly
+when there is no connection instead of reporting good news it does not have. Installing reloads the
+page, so it takes a fresh save first when the field happens to be quiet enough for one — daylight,
+nothing on the field, nothing queued. The game also checks by itself when it comes back to the
+foreground, at most every fifteen minutes: that is the only moment a homescreen app reliably gives
+you, because iOS *resumes* it to the page it was already on rather than navigating, so nothing
+re-checks the worker and a phone can sit on one build for weeks.
+
+A waiting build now says so outside the sheet: a **red dot on the settings cog**, and on the title
+screen a row of its own, because the cog lives in the HUD and the title screen is both the one place
+it could not be seen and the one moment when installing costs nothing at all. The dot does not pulse —
+the attack alarm does, because it is about something the player has seconds to answer, and an update
+has been waiting a while and will keep.
+
+Under the row is **what installing costs**, which is three sentences off state the game already has:
+nothing in progress and it costs nothing; a run with the field quiet and *"your run is saved before
+the game reloads"*; a run mid-raid and the old line about picking up from the last dawn. It only ever
+warned before, and a player who was perfectly safe got a build hash — so the one moment somebody is
+deciding whether to risk a run, silence was all they had.
+
+Over all three sits the case that would make any of them a lie. A build whose **save format** has
+moved cannot read this one's save at all: `savedRun` returns null on a version mismatch and the run is
+discarded rather than half-applied. The old page cannot know that from anything it holds — it is the
+old build — so it asks. A worker in `waiting` is already installed and already receiving messages, and
+its `SAVE_VERSION` is baked in at build time out of `game-save.js`, so it ships in the same commit as
+the bundle it is waiting to serve. If it answers with a different one, the row says the run will not
+survive; if it does not answer at all — a build from before this existed — nothing is claimed either
+way. A reassurance that turns out to be false once is worse than no reassurance at all.
 
 Cache lookups pass `ignoreVary`. Without it the shell loads offline and the bundle does not: a server
 answering `Vary: Accept-Encoding` makes the browser compare request headers against the ones that

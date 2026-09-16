@@ -519,6 +519,17 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 }
 #settings-btn .icon { filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5)) drop-shadow(0 0 3px rgba(0,0,0,0.35)); }
 #settings-btn:active { transform: scale(0.88); filter: brightness(1.15); }
+/* #120: a build is waiting. There was no badge pattern in the game before this, so: red on the cream
+   the panels use, which is the pairing every alert in the HUD already makes, and a ring so it reads
+   against grass as well as against a wall.
+   It does not pulse. The alarm pulses because it is about something happening right now that the
+   player has seconds to answer; an update has been waiting a while and will keep. A second pulsing
+   red thing over the field during a raid would be competing with the one that matters. */
+#settings-btn.update::after {
+  content: ''; position: absolute; top: 7px; right: 7px; width: 11px; height: 11px;
+  border-radius: 50%; background: #e8342a; border: 2px solid #fff6e0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
 /* the settings sheet: the same parchment and gold as every other dialog */
 .panel.sheet { max-width: 320px; }
 .panel.sheet h1 { font-size: 30px; }
@@ -543,6 +554,11 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .panel.sheet #set-update.hidden { display: none; }
 .panel.sheet #set-version { margin: 6px 0 0; font-size: 12px; opacity: 0.6; }
 .panel.sheet #set-version.hidden { display: none; }
+/* #120: the cost sentence, between the Update row and whatever is under it. Brighter than the build
+   line below because it is the opposite kind of thing -- one is a fact about the build, this is the
+   answer to "what happens if I press that". */
+.panel.sheet #set-update-note { margin: -4px 2px 10px; font-size: 12.5px; line-height: 1.35; text-align: left; color: #cbd8bd; }
+.panel.sheet #set-update-note.hidden { display: none; }
 /* #74: a diagnostic, dressed as the version line beside it rather than as a control. It is not a
    thing to press on purpose -- it is a thing to press once, when somebody is asked for it -- so it
    takes none of the button treatment the rows above it have. */
@@ -1071,7 +1087,25 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 /* There is no blanket `.hidden` in this stylesheet (see the settings sheet above), and these three had
    been toggling a class that styled nothing: a fresh install with no saved run showed Continue and its
    note anyway. #119 needed a rule for the best line and found the other two next to it. */
-#continue-run-btn.hidden, #continue-note.hidden, #best-line.hidden { display: none; }
+#continue-run-btn.hidden, #continue-note.hidden, #best-line.hidden,
+#start-update.hidden, #start-update-note.hidden { display: none; }
+/* #120: a waiting build, said on the one screen where installing costs nothing. Scoped past
+   `.panel button`, which would otherwise paint it as a second gold Play -- it is a quiet offer under
+   the real button, not a rival to it. The red dot is the same dot the cog wears, so the two read as
+   one piece of news wherever it is met. */
+#start-update {
+  display: inline-flex; align-items: center; gap: 8px; margin: 14px 0 0;
+  background: rgba(255,255,255,0.11); border: 0; border-radius: 999px; padding: 9px 16px;
+  font-size: 14px; font-weight: 800; color: #ffe08a; -webkit-text-stroke: 0;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.55); cursor: pointer;
+  transition: background 0.12s ease-out, transform 0.12s ease-out;
+}
+#start-update:hover { background: rgba(255,255,255,0.17); }
+/* there is no bottom border to sink into, so the press shrinks rather than dropping */
+#start-update:active { transform: scale(0.96); border-bottom-width: 0; }
+#start-update:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+#start-update .su-dot { width: 9px; height: 9px; border-radius: 50%; background: #e8342a; box-shadow: 0 0 0 2px rgba(255,246,224,0.92); }
+#start-update-note { margin: 7px 0 0; }
 @media (max-width: 480px) {
   .panel.title .heroes img { width: 88px; }
   .panel.title h1 { font-size: 38px; }
