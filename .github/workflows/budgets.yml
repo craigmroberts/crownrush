@@ -1,0 +1,34 @@
+# #53: the probe existed so a change could be measured instead of argued about, and nothing ran it.
+# Two budgets drifted out of compliance unnoticed while the instrument sat in the repo.
+#
+# This does NOT run on pushes to main. A budget that fails after merge is a red deploy and a broken
+# Pages build, and the thing it was supposed to stop has already happened; the only moment the answer
+# is useful is before the merge.
+name: Budgets
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    # A probe run is Chromium rendering through SwiftShader on a CPU, twice, with a crowd on the
+    # field. It is slow on purpose and it is still faster than finding out from a phone.
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # The probe's findChromium() falls back to Playwright's own cache when PLAYWRIGHT_BROWSERS_PATH
+      # is unset, which is what this puts there.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      # --crowd 120 because "late game" is what the draw-call and triangle budgets say, and a plain
+      # run never leaves night one: eighteen characters is not a crowd. Both devices, because desktop
+      # is the stricter of the two for draw calls and phone is the one the triangle budget is about.
+      - name: Measure against the README's budgets
+        run: node tools/probe/probe.mjs --assert --crowd 120 --seconds 12
