@@ -136,10 +136,18 @@ export const UnitsMethods = {
     this.flashHurt(k);
     this.updateMining(dt);
     this.ring.position.set(p.x, 0.04, p.z);
-    const followers = this.countFollowers();
-    const rr = 2.4 + Math.sqrt(followers) * 0.45;
-    this.ring.scale.setScalar(rr / 2.4);
-    this.ringRadius = rr;
+    // #103: one number for the circle and for the reach. `ringRadius` is what coins are tested
+    // against (game-view.js) and what the ring is drawn at, so they cannot drift apart again.
+    // #103: the radius only moves when an upgrade lands, so rebuild rather than scale. Scaling the
+    // mesh scales its line too, and a Lodestone-stacked ring drawn at 2.8x wore a stroke nearly three
+    // times the weight of the one the King starts with -- the circle got louder as it got wider, when
+    // what it is saying is the same thing either way.
+    const rr = CFG.king.pickupRadius * this.mods.pickup;
+    if (rr !== this.ringRadius) {
+      this.ring.geometry.dispose();
+      this.ring.geometry = new THREE.RingGeometry(rr - 0.08, rr, 48);
+      this.ringRadius = rr;
+    }
   },
 
   // Everyone who marches with the King: the army, minus the royals and minus anyone already walking

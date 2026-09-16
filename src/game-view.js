@@ -572,7 +572,8 @@ export const ViewMethods = {
       } else if (c.state === 'ground') {
         c.mesh.rotation.y += dt * 2;
         p.y = 0.12 + Math.sin(c.t * 4) * 0.04;
-        if (p.distanceTo(kp) < CFG.king.pickupRadius * this.mods.pickup + this.ringRadius * 0.3) c.state = 'fly';
+        // #103: the circle the player can see, not a second number that happened to be near it
+        if (p.distanceTo(kp) < this.ringRadius) c.state = 'fly';
       } else {
         tmp.copy(kp);
         tmp.y = this.stackBase() + this.stackCount() * 0.11;

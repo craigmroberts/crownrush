@@ -354,8 +354,9 @@ export class Game {
     this.world.bridges.length = 0;
     for (const sm of this.world.smokers || []) for (const p of sm.puffs) p.mesh.visible = false;
     if (this.world.smokers) this.world.smokers.length = 0;
-    this.ring = makeRing(2.4);
-    this.ringRadius = 2.4;
+    // #103: built at the reach, which is what it draws. updateKing rebuilds it if an upgrade moves it.
+    this.ring = makeRing(CFG.king.pickupRadius);
+    this.ringRadius = CFG.king.pickupRadius;
     this.root.add(this.ring);
 
     // coin stack carried above the king

@@ -4,7 +4,19 @@ export const CFG = {
   // the grey mesas in the north-west; nothing spawns or walks here
   cliffs: { x: -14, z: -33 },
 
-  king: { speed: 7.5, footSpeed: 5.6, hp: 140, range: 8.5, fireRate: 1.2, damage: 10, pickupRadius: 3.0 },
+  // #103: `pickupRadius` is now also the radius of the ring drawn under the King -- the circle means
+  // his reach, which is what a circle under a character has always meant to everyone who has ever
+  // played anything. It used to mean the size of his retinue and nothing else, and the reach was
+  // `3.0 * pickup + drawnRing * 0.3`, so coins flew in from outside the circle on the first pickup of
+  // a new game (3.72 against a ring of 2.4) and from four times outside it with Lodestone stacked
+  // (9.72 against 2.4).
+  // 3.7 rather than 3.0 because 3.0 + 2.4 * 0.3 = 3.72 was the old reach with no followers, and this
+  // is a change of what the player is told, not of how far the King can reach.
+  // The retinue no longer widens it at all. That term existed so the circle stayed findable with a
+  // hundred units standing on it, and 3.7 is already 54% wider than the 2.4 it used to start at, so
+  // the job is done by the reach being honest rather than by a second rule on top of it. One number,
+  // drawn and tested, is the whole point.
+  king: { speed: 7.5, footSpeed: 5.6, hp: 140, range: 8.5, fireRate: 1.2, damage: 10, pickupRadius: 3.7 },
   // #83: the Queen cannot be hurt. She has no health at all -- nothing in the game takes any off
   // her, because raiders take her by getting hold of her rather than by wearing her down. `seize` is
   // that grip, and the bar over her head shows it the same way round as a health bar: full is safe,

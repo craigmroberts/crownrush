@@ -43,7 +43,14 @@ export const UPGRADES = [
   { id: 'spiked-walls', pool: 'walls', icon: 'wall', name: 'Spiked Walls', desc: 'Raiders hurt themselves attacking your walls.', max: 3, apply: add('wallThorns', 5) },
 
   // ---- economy ----
-  { id: 'lodestone', pool: 'economy', icon: 'coin', name: 'Lodestone', desc: 'Coins are pulled to you from much further away.', max: 2, apply: mul('pickup', 1.8) },
+  // #103: 1.35, down from 1.8. The pickup radius is now the circle drawn under the King, so it has to
+  // be a size that can be drawn: at 1.8 stacked twice the reach was 11.99 and the circle ran clean off
+  // a phone screen, leaving the King with no mark under him at all -- measured, not guessed. 1.35
+  // takes the full stack to 6.74, which fills most of the width and stays on it. Both stacks still
+  // land (3.7 -> 5.0 -> 6.74) and the full stack is still 82% further than bare, which is what the
+  // card promises. It is a real cut to how much ground a stacked Lodestone sweeps, and it buys the
+  // player an upgrade whose effect is on the screen rather than in a number nobody can see.
+  { id: 'lodestone', pool: 'economy', icon: 'coin', name: 'Lodestone', desc: 'Coins are pulled to you from much further away.', max: 2, apply: mul('pickup', 1.35) },
   { id: 'plunder', pool: 'economy', icon: 'coin', name: 'Plunder', desc: 'Every raider you kill drops an extra coin.', max: 3, apply: add('coinBonus', 1) },
   { id: 'sharp-tools', pool: 'economy', icon: 'hammer', name: 'Sharp Tools', desc: 'You mine 45% faster.', max: 2, apply: mul('mineSpeed', 1.45) },
   { id: 'packhorse', pool: 'economy', icon: 'horse', name: 'Packhorse', desc: 'Carry 8 more before you have to sell at the trade post.', max: 3, apply: add('carryBonus', 1) },

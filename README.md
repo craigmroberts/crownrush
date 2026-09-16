@@ -161,6 +161,13 @@ line.
 The run opens with an empty coin stack and the starting coins scattered along the road west, so
 picking them up is the first thing you do and it teaches the pickup rule without a word.
 
+The white circle under the King **is** that reach: one number (`CFG.king.pickupRadius`) is both what
+coins are tested against and what the ring is drawn at, so they cannot drift apart. It used to be the
+size of his retinue instead, which meant coins flew in from outside it from the very first pickup, and
+from four times outside it once **Lodestone** was stacked. Lodestone now visibly widens the circle --
+which is also why it multiplies by 1.35 rather than 1.8: at 1.8 the full stack reached 11.99 and the
+circle ran off a phone screen entirely, leaving the King with no mark under him at all.
+
 The Queen starts captive in the wilds (`CFG.rescue`). Three Bandits circle her and she edges away from
 whichever is nearest, so the scene reads as a capture from a distance rather than as four figures
 standing in a field. A pink arrow points to her. Come within sight and she calls out with a heart while
