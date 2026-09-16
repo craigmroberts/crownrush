@@ -189,6 +189,20 @@
         <p class="hint" id="offer-more"></p>
       </div>
     </div>
+
+    <!-- #105: a mat that changed what the player can do stops the game and says where he has got to,
+         and waits to be dismissed. The chip's `desc` said it behind a tap on `.tip-body` and the toast
+         said it for 3.2s over a running game, so neither reached him at the one moment he was looking:
+         just after paying for it. No corner close, the way the sheets you open by choice have one:
+         this one was not asked for, so it gets one deliberate button (Escape or Enter on a keyboard). -->
+    <div id="gain-screen" class="overlay hidden">
+      <div class="panel gain">
+        <h1 id="gain-title">Training 1 of 5</h1>
+        <p class="hint" id="gain-sub"></p>
+        <div id="gain-rows"></div>
+        <button id="gain-close">Back to the game</button>
+      </div>
+    </div>
     <!-- what the Keep plaque opens: where you are, what the next level costs, what it gives, and
          two levels past that so there is a reason to come back to it -->
     <div id="keep-screen" class="overlay hidden">

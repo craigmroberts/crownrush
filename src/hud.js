@@ -753,6 +753,21 @@ export class Hud {
     document.getElementById('offer-screen').classList.add('hidden');
   }
 
+  // #105: what a capability purchase leaves the player able to do. The rows are the level-up summary's
+  // (`.og-row`) because it is the same kind of news. Like `showOffer` this runs on an event and not on
+  // a frame, so the innerHTML here is not the per-frame rule `Hud.set` lives under.
+  showGain(gain) {
+    const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    document.getElementById('gain-title').textContent = gain.title;
+    document.getElementById('gain-sub').textContent = gain.sub || '';
+    document.getElementById('gain-rows').innerHTML = gain.rows
+      .map((r) => `<div class="og-row">${iconSvg(r.icon, 26)}<div>${esc(r.text)}</div></div>`).join('');
+    document.getElementById('gain-screen').classList.remove('hidden');
+  }
+  hideGain() {
+    document.getElementById('gain-screen').classList.add('hidden');
+  }
+
   showPause() {
     // score is not in the status bar any more: it grows without limit, it is read once at the end of
     // a run, and it was pushing live resource counts off the edge to earn its place there

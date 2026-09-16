@@ -358,7 +358,14 @@ export const BuildMethods = {
     }
     if (!def.crew) this.addScore(pad.cost * CFG.score.buildPerCoin + pad.res.reduce((a, r) => a + r.need, 0) * CFG.score.buildPerMaterial);
     audio.build();
-    if (def.toast) this.hud.toast(def.toast, 3200, 'Village');
+    // #105: a mat that changed what the player can DO says so on a panel that takes the screen, and
+    // the toast would fire underneath it -- `#toast` is z-index 4 against `.overlay`'s 10, which is
+    // exactly the trap #99 found under the level-up modal. The pads that do not change a capability
+    // (and any future `effect` this does not know how to describe) still speak in a toast.
+    // Built here, where every effect above has already been applied, and shown at the bottom once the
+    // mat is gone and `refreshPads` has run, so the world behind the blur is the world he bought.
+    const gain = this.capabilityGains(def);
+    if (def.toast && !gain) this.hud.toast(def.toast, 3200, 'Village');
 
     const again = def.repeatable && !(def.maxBuys && this.buyCount[def.id] >= def.maxBuys) && !(def.feed && !this.levelReq());
     if (again) {
@@ -374,6 +381,7 @@ export const BuildMethods = {
       if (di >= 0) this.dynamicPads.splice(di, 1);
     }
     this.refreshPads();
+    if (gain) this.showGain(gain);
   },
 
   buildStructure(def) {
@@ -1180,6 +1188,48 @@ export const BuildMethods = {
     this.hud.toast(`${u.name}: ${u.desc}`, 3000, 'Village');
     if (this.offerQueue > 0) this.showOffer();
     else this.endOfferPause();
+  },
+
+  // #105: the capability panel. It pauses REGARDLESS of what is happening on the field, which is the
+  // level-up modal's rule and was the decision worth making rather than assuming:
+  //
+  // - It is rare and it is the player's own doing. Nine times in a whole run at most -- Train Archers
+  //   five, Royal Guard three, the Warhorse once -- and each one happens because he walked onto a mat
+  //   and stood on it while the coins flew across. He is already stopped, and the pads only take
+  //   payment once the King has stopped (`CFG.spend`), so this never lands while he is running. A
+  //   level-up can, and pauses anyway.
+  // - Waiting for the wave to end was the alternative and it is worse. The answer to "what did I just
+  //   buy" would arrive minutes later attached to nothing, after the archers had already been fighting
+  //   with the numbers it is about to explain -- and the night holds open until the last raider is
+  //   down (`CFG.cycle.holdDawn`), so "after the wave" is not a time anyone can point at.
+  // - What it costs is the interruption and nothing else: the game is stopped, so the raiders on the
+  //   wall are exactly where he left them when he dismisses it.
+  //
+  // It cannot land on top of another panel. `updatePads` only runs while `running`, so a purchase can
+  // only complete in a frame where nothing has the screen, and no second one can complete while this
+  // one holds the pause.
+  showGain(gain) {
+    if (this.over || this.won) return;
+    // Only claim the pause if the game was running. A pause the player asked for is his: `dismissGain`
+    // puts his screen back rather than resuming a game he stopped. (Reachable through a tab switch,
+    // which pauses under the panel.)
+    this.gainPaused = this.running;
+    if (this.gainPaused) this.pause(true);
+    else this.hud.hidePause();
+    this.gain = gain;
+    this.hud.showGain(gain);
+  },
+
+  // #25: every way off this panel runs through here, and it always ends with something able to move
+  // the King -- either the game running again or the pause screen he opened it from back on top.
+  dismissGain() {
+    if (!this.gain) return;
+    this.gain = null;
+    this.hud.hideGain();
+    if (this.gainPaused) {
+      this.gainPaused = false;
+      this.unpause();
+    } else this.hud.showPause();
   },
 
   // Give back the pause an offer took, and only that one: a pause the player asked for stays.

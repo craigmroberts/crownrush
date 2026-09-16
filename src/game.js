@@ -282,6 +282,8 @@ export class Game {
     this.offerLevel = 0;
     this.offer = null;
     this.offerPaused = false;
+    this.gain = null;           // #105: the capability panel a purchase put up, until it is dismissed
+    this.gainPaused = false;
     this.settingsOpen = false;
     this.settingsPaused = false;
     this.coinsCarried = 0; // the starting coins lie on the ground (#20): picking them up is the first thing you do
@@ -469,6 +471,11 @@ export class Game {
     this.hud.hideGameOver();
     this.hud.hideVictory();
     this.hud.hidePause();
+    // #25: Restart is reachable from the pause screen, and the pause screen sits on top of both of
+    // these (a tab switch pauses whatever is open). `reset` clears the state behind them, so without
+    // this the new run starts underneath a panel whose buttons now refer to nothing.
+    this.hud.hideOffer();
+    this.hud.hideGain();
     this.hud.toast('Raiders have taken Wren. Follow the pink arrow and free her.', 3600, 'Wren');
     audio.init();
     audio.setActive(true);
@@ -524,6 +531,13 @@ export class Game {
       // level lands while the first offer is still on screen.
       const lv = this.offerLevel || this.baseLevel;
       this.hud.showOffer(this.offer, lv, this.offerQueue, this.levelGains(lv));
+      return;
+    }
+    // #105: same rule for the capability panel. Nothing resumes the game while it is owed -- it goes
+    // back on top instead, so the panel can never be left on screen over a game that is running again.
+    if (this.gain) {
+      this.hud.hidePause();
+      this.hud.showGain(this.gain);
       return;
     }
     this.paused = false;
@@ -598,7 +612,7 @@ export class Game {
   // take it back here rather than leaving the player looking at a still picture.
   watchStuck(dt) {
     const excused = this.running || this.over || this.won || this.contextLost
-      || this.offer || this.infoOpen || this.settingsOpen
+      || this.offer || this.gain || this.infoOpen || this.settingsOpen
       || !this.hud.pauseHidden();       // the player's own pause, with its screen up
     if (excused) {
       this.stuckFor = 0;
@@ -612,7 +626,10 @@ export class Game {
     this.offerLevels = [];
     this.offer = null;
     this.offerPaused = false;
+    this.gain = null;
+    this.gainPaused = false;
     this.hud.hideOffer();
+    this.hud.hideGain();
     this.hud.hidePause();
     this.paused = false;
     this.running = true;

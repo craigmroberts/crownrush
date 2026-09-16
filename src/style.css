@@ -688,6 +688,18 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 #offer-gains { display: grid; gap: 5px; max-height: 26vh; overflow-y: auto; margin: 8px 0 14px; text-align: left; }
 .og-row { display: grid; grid-template-columns: 24px 1fr; gap: 8px; align-items: center; font-size: 13px; line-height: 1.28; color: #dde7cf; text-shadow: none; }
 #offer-gains:empty, #offer-gave-h:empty { display: none; }
+/* #105: the capability panel. The same rows as the level-up summary at a size up, because here they
+   are the whole panel rather than the preamble to three cards -- there is nothing below them to be
+   pushed off the bottom, so they get the room. The cap is still there for a phone in landscape, where
+   50vh is about 190px and four rows do not fit. */
+#gain-rows { display: grid; gap: 9px; max-height: 50vh; overflow-y: auto; margin: 12px 0 20px; text-align: left; }
+#gain-rows .og-row { grid-template-columns: 28px 1fr; gap: 10px; font-size: 14.5px; line-height: 1.34; }
+.panel.gain { max-width: 25rem; }
+/* 32px, not the panel's usual 40: "Royal Guard 1 of 3" is the longest title here and at 40px it was
+   three lines' worth of height on a 390px phone. It still wraps at 32, which is why `capabilityGains`
+   joins the count with non-breaking spaces -- the break lands before the number, not inside "1 of 3". */
+.panel.gain h1 { font-size: 32px; margin-bottom: 2px; text-wrap: balance; }
+#gain-sub:empty { display: none; }
 #offer-cards { display: flex; gap: 10px; margin: 14px 0 4px; }
 .panel.offer .offer-card {
   margin: 0; flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 6px;
