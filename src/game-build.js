@@ -515,19 +515,25 @@ export const BuildMethods = {
   },
 
   // Keep level needed before a recruit pad can add its units; null if it can recruit now
-  // Why this mat will not take your coin, in a sentence, naming the thing to go and do.
+  // What to go and do about a mat that will not take your coin.
+  //
+  // #102: it used to open by naming the blocker -- "Keep level 3 is needed", "X is shut until Wren is
+  // home" -- and the chip's own face has said exactly that since it grew a lock chip of its own, so
+  // standing on a shut mat told you the same thing twice. The chip states the problem (the lock chip,
+  // the 4 / 4 archers, "Free Wren first"); this states the answer, which is the one part of it the
+  // chip keeps behind a tap, in `tip-note`. That split is what #38 wanted in the first place: the
+  // strip on the mat has room for three words and this is where the rest of the sentence goes.
   lockReason(pad, locked) {
     const name = this.padName(pad.def);
     if (locked === 'rescue') {
       return this.queen.taken
-        ? `${name} is shut until Wren is home. Cut off her escort and bring her back.`
-        : `${name} is shut until Wren is free. Follow the pink arrow and clear her guards.`;
+        ? `Cut off Wren's escort and bring her home, then ${name} will open.`
+        : `Follow the pink arrow and clear Wren's guards, then ${name} will open.`;
     }
-    if (pad.def.units) {
-      const t = pad.def.units.type === 'archer' ? 'archers' : 'swordsmen';
-      return `Your army is full: Keep level ${locked} is needed for more ${t}. Pay coin into the Keep to raise it.`;
-    }
-    return `${name} needs Keep level ${locked}. Pay coin into the Keep to raise it.`;
+    // "Your army is full" stays: the chip puts that as a count, and a count is not the same as being
+    // told you have hit the ceiling.
+    if (pad.def.units) return `Your army is full. Pay coin into the Keep to raise the limit.`;
+    return `Pay coin into the Keep to raise it, then ${name} will open.`;
   },
 
   padLocked(def) {

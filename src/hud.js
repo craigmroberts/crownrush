@@ -58,6 +58,18 @@ export class Hud {
     this.carryRail = document.getElementById('carry-rail');
     this.bagCell = document.getElementById('bag-cell');
     this.flying = [];          // #88: armfuls in the air between the world and the bag
+    // #90: how tall whatever is on the notice line is, so the alarm above it knows what to clear.
+    // A constant was tried first and measured wrong: 64px cleared a one-line notice, and a two-line
+    // one ran twelve pixels into the alarm -- which is the exact collision #90 exists to stop, moved
+    // up the screen rather than fixed. The observer is what makes measuring it cheap: it fires when a
+    // notice really changes shape (longer text, the chip opening, a font swapping in, the phone
+    // turning), not once a frame, so no layout is read on a frame where nothing moved.
+    this.noticeStack = -1;
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(() => this.syncNoticeStack());
+      ro.observe(this.toastEl);
+      ro.observe(this.tip);
+    }
     this.btnTimeEl = document.getElementById('next-wave-btn-t');
     this.lastLoad = '';
     this.lastScore = -1;
@@ -180,6 +192,7 @@ export class Hud {
     if (!next) {
       this.toastShowing = null;
       this.toastEl.classList.remove('show');
+      this.syncNoticeStack();
       return;
     }
     this.toastShowing = next.text;
@@ -187,7 +200,19 @@ export class Hud {
     const kindEl = document.getElementById('toast-kind');
     if (kindEl) kindEl.textContent = next.kind || '';
     this.toastEl.classList.add('show');
+    this.syncNoticeStack();
     this.toastTimer = setTimeout(() => this.nextToast(), next.ms);
+  }
+  // #90: the tallest thing currently on the notice line, handed to CSS. Both notices stay in the
+  // layout while they are down -- they have to, or they could not transition out -- so an element's
+  // height is only its own to give while it is actually up.
+  syncNoticeStack() {
+    const t = this.toastEl.classList.contains('show') ? this.toastEl.offsetHeight : 0;
+    const p = this.tip.classList.contains('hidden') ? 0 : this.tip.offsetHeight;
+    const h = Math.max(t, p);
+    if (h === this.noticeStack) return;
+    this.noticeStack = h;
+    document.documentElement.style.setProperty('--notice-stack', `${h}px`);
   }
   recentNotices() {
     return this.toastLog || [];
@@ -317,8 +342,26 @@ export class Hud {
     this.overScreen.classList.add('hidden');
   }
   // readable requirements card floating above the pad the King is near
+  // #102: the mat chip waits while a notice is being read.
+  //
+  // A notice is timed and unrepeatable -- a night falling, Wren speaking, a thief in the coins. Miss
+  // it and it is gone. The chip is neither: it is on screen because the King is standing on a mat,
+  // and it comes back the moment he stands there again. So when both want the screen the notice goes
+  // first and this one takes its turn, rather than the notice being lifted a hundred and seventy
+  // pixels up the world to make room (which is what `over-tip` used to do).
+  //
+  // No re-trigger is needed on the other side. This is called every frame the King is on a mat, so
+  // the first frame after the last notice clears puts the chip straight back up.
   showPadTip({ icon, name, sub, desc, chips, note, progress }) {
-    if (this.tipKey === null) this.toastEl.classList.add('over-tip');
+    if (this.toastShowing) {
+      if (!this.tip.classList.contains('hidden')) this.hidePadTip();
+      return;
+    }
+    // #90: coming up is the one change the resize observer cannot see -- `hidden` is opacity, not
+    // size, so the box is the same either way. Ask for the height on that frame only; a resize takes
+    // every frame after it. Reading it here rather than earlier is deliberate: the content below has
+    // already been written by then, so the height is the one the player is about to see.
+    const wasDown = this.tip.classList.contains('hidden');
     this.tip.classList.remove('hidden');
     // Called every frame the King is on a mat, so everything below the key check has to be cheap.
     const key = icon + name + sub + chips.map((c) => c.text + c.state).join('|') + note;
@@ -350,20 +393,26 @@ export class Hud {
       if (!firstPad) this.tip.classList.remove('open');
     }
     this.tipEls.bar.style.width = `${Math.round(Math.min(1, progress) * 100)}%`;
+    if (wasDown) this.syncNoticeStack();
   }
   hidePadTip() {
     this.tip.classList.add('hidden');
     this.tip.classList.remove('open');
-    this.toastEl.classList.remove('over-tip');
+    this.syncNoticeStack();
     this.tipKey = null;
   }
   togglePadTip() {
     this.tip.classList.toggle('open');
+    this.syncNoticeStack();
   }
   showAlarm(text) {
     const el = this.alarmEl;
     const on = !!text;
-    if (on && el.textContent !== text) el.textContent = text;
+    // #90: into a span, not onto the element. `el.textContent = text` replaced every child, and one
+    // of those children is the alert icon mountIcons puts there -- so the glyph disappeared the first
+    // time an alarm said anything other than what the markup shipped with.
+    const t = this.alarmText || (this.alarmText = document.getElementById('alarm-text'));
+    if (on && t && t.textContent !== text) t.textContent = text;
     if (on !== !el.classList.contains('hidden')) el.classList.toggle('hidden', !on);
   }
 

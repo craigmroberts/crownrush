@@ -56,6 +56,18 @@
   --rim: #d8a83e;
   --rim-dark: #8a6316;
   --rim-line: 3px;
+  /* #90: where notices live. Everything that speaks at the bottom is measured from this one value
+     rather than each element knowing a number the others also know -- which is how the toast and the
+     mat chip ended up colliding in the first place (#75). */
+  --notice-bottom: calc(116px + env(safe-area-inset-bottom));
+  /* #90: how tall the notice on that line currently is. Hud.syncNoticeStack writes it; nothing but
+     the alarm reads it. 0 when the line is empty, which is most of the time. */
+  --notice-stack: 0px;
+  /* Air between the notice and the alarm above it, and every pixel of it is spoken for: 10 for the
+     kind label, which hangs clear of the panel's top edge and would otherwise have the alarm sitting
+     on the word "WREN"; 4 for the top of the notice's bob, which the label rides; and 10 left over,
+     which is the air. Measured at 16px first and the two decorations ate it down to 1. */
+  --notice-gap: 24px;
   --parchment: linear-gradient(180deg, #fffbe8, #f3e6c4);
   --ink: #2a3a2f;
   --radius: 14px;
@@ -184,12 +196,15 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
    so it reads in the same place as the settings sheet and leaves the play area clear. */
 /* #75: the mat chip. It sits above the minimap, the warhorn and the skip button rather than beside
    them, so it can use the width without hard-coded gutters for each control in turn. */
+/* #90: the same caption the notices wear, and the same slot. #102 guarantees the two never share it:
+   a chip waits while a notice is being read, so neither has to be lifted out of the other's way. */
 #pad-tip {
   position: fixed; left: 50%; transform: translateX(-50%) translateY(0);
-  bottom: calc(116px + env(safe-area-inset-bottom));
-  width: max-content; max-width: min(400px, calc(100vw - 24px));
-  background: var(--parchment); border: var(--rim-line) solid var(--rim); border-radius: 16px;
-  box-shadow: 0 8px 22px rgba(0,0,0,0.32); z-index: 4; overflow: hidden;
+  bottom: var(--notice-bottom);
+  width: max-content; max-width: min(420px, calc(100vw - 28px));
+  background: rgba(16, 24, 14, 0.62); border: 0; border-radius: 20px; color: #f4f7ec;
+  box-shadow: 0 8px 22px rgba(0,0,0,0.28); z-index: 4; overflow: hidden;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.45), 0 2px 6px rgba(0,0,0,0.55);
   transition: transform 0.2s cubic-bezier(0.34, 1.4, 0.64, 1), opacity 0.16s ease-out;
 }
 #pad-tip.hidden { display: block; opacity: 0; transform: translateX(-50%) translateY(14px) scale(0.96); pointer-events: none; }
@@ -199,25 +214,26 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   background: none; border: 0; padding: 7px 11px; cursor: pointer; color: inherit; font: inherit;
   pointer-events: auto; -webkit-tap-highlight-color: transparent;
 }
-#pad-tip .tip-head:active { background: rgba(0,0,0,0.05); }
+#pad-tip .tip-head:active { background: rgba(255,255,255,0.1); }
 #pad-tip .tip-icon { flex: none; display: flex; }
 #pad-tip .tip-lines { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
-#pad-tip .tip-name { font-weight: 900; font-size: 16px; color: #2a3a2f; line-height: 1.15; }
+#pad-tip .tip-name { font-weight: 900; font-size: 16px; color: #f4f7ec; line-height: 1.15; }
 #pad-tip .tip-costs { display: flex; gap: 6px; flex-wrap: wrap; }
-#pad-tip .chip { font-weight: 800; font-size: 13px; padding: 1px 7px; border-radius: 999px; background: #eee6c8; color: #4a3a10; white-space: nowrap; display: inline-flex; align-items: center; gap: 3px; }
-#pad-tip .chip.ok { background: #cdf2d2; color: #1f6b30; }
-#pad-tip .chip.short { background: #ffd9d6; color: #8a1a22; }
+/* the chips keep carrying their own state in colour, in the alpha the dark panel needs */
+#pad-tip .chip { font-weight: 800; font-size: 13px; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.13); color: #e7eeda; white-space: nowrap; display: inline-flex; align-items: center; gap: 3px; text-shadow: none; }
+#pad-tip .chip.ok { background: rgba(63,212,85,0.24); color: #c6f7c8; }
+#pad-tip .chip.short { background: rgba(232,52,42,0.26); color: #ffc0ba; }
 /* the chevron turns to say which way this goes */
-#pad-tip .tip-more { flex: none; display: flex; color: #8a8372; transition: transform 0.2s ease-out; }
+#pad-tip .tip-more { flex: none; display: flex; color: #a9bb96; transition: transform 0.2s ease-out; }
 #pad-tip.open .tip-more { transform: rotate(90deg); }
 /* Payment progress stays on the face of it at all times. Standing on a mat spends coins one at a
    time and this bar is the only thing that shows it happening; behind a tap it would be useless. */
-#pad-tip .tip-bar { height: 5px; background: rgba(0,0,0,0.14); }
+#pad-tip .tip-bar { height: 5px; background: rgba(0,0,0,0.3); }
 #pad-tip .tip-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffd76a, #e8a91c); transition: width 0.12s linear; }
 #pad-tip .tip-body { display: none; padding: 8px 12px 10px; border-top: 1px solid rgba(0,0,0,0.08); }
 #pad-tip.open .tip-body { display: block; }
-#pad-tip .tip-desc { font-size: 14px; color: #4a4a3a; line-height: 1.35; }
-#pad-tip .tip-note { font-size: 12px; color: #6b675c; margin-top: 5px; }
+#pad-tip .tip-desc { font-size: 14px; color: #dde7cf; line-height: 1.35; }
+#pad-tip .tip-note { font-size: 12px; color: #a9bb96; margin-top: 5px; }
 @media (prefers-reduced-motion: reduce) {
   #pad-tip, #pad-tip.hidden { transition: opacity 0.18s linear; transform: translateX(-50%); }
 }
@@ -260,15 +276,33 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 
 /* lane 3. It used to be positioned at 18% of screen height, which is exactly where the toast card
    lands, so the two sat on top of each other whenever both were up. Now it has a band of its own. */
-#alarm {
-  display: inline-flex; align-items: center; gap: 7px;
-  background: #d8262c; color: #fff; padding: 5px 16px 6px 12px; border-radius: 999px; border: 2px solid #fff;
-  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 15px;
-  pointer-events: none; box-shadow: 0 6px 16px rgba(0,0,0,0.3);
-  animation: alarmPulse 0.6s ease-in-out infinite alternate;
+/* #90: the alarm reads as the same kind of object as every other notice now -- a dark translucent
+   caption -- with the urgency carried by the colour of the words and the icon rather than by a solid
+   red slab and a white border. It keeps the pulse: it is still the loudest thing in the game.
+   Its own slot above the notice line, because the alarm and a notice are two halves of one event --
+   the shout and the sentence -- and several beats raise both (captureQueen, breakKeep).
+   It rides on the notice rather than at a set height above the line, because notices are not all one
+   height: a fixed 64px cleared a one-liner and was measured twelve pixels inside a two-line notice.
+   The lift is a transform and not `bottom` so the compositor does it, and because `bottom` is doing
+   the other half of the job. The pulse is safe from it: that animates #alarm, this moves the lane. */
+#alarm-lane {
+  position: fixed; left: 50%; bottom: var(--notice-bottom);
+  transform: translateX(-50%) translateY(calc(-1 * (var(--notice-stack) + var(--notice-gap))));
+  transition: transform 0.2s ease-out;
+  z-index: 4; pointer-events: none; display: flex; justify-content: center;
+  width: max-content; max-width: min(420px, calc(100vw - 28px));
 }
+#alarm {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(16, 24, 14, 0.62); color: #ff9f96; padding: 8px 16px; border-radius: 16px; border: 0;
+  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 15px;
+  pointer-events: none; box-shadow: 0 8px 22px rgba(0,0,0,0.28);
+  text-shadow: 0 1px 0 rgba(0,0,0,0.45), 0 2px 6px rgba(0,0,0,0.55);
+  animation: alarmPulse 0.9s ease-in-out infinite alternate;
+}
+#alarm .icon { filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
 #alarm.hidden { display: none; }
-@keyframes alarmPulse { from { transform: scale(1); opacity: 0.86; } to { transform: scale(1.05); opacity: 1; } }
+@keyframes alarmPulse { from { transform: scale(1); opacity: 0.88; } to { transform: scale(1.03); opacity: 1; } }
 .indicator.alarm .arrow { background: #ff2d2d; width: 40px; height: 40px; left: -20px; top: -20px; animation: alarmPulse2 0.5s ease-in-out infinite alternate; }
 .indicator.alarm .count { font-size: 20px; top: 14px; }
 @keyframes alarmPulse2 { from { opacity: 0.6; } to { opacity: 1; } }
@@ -353,7 +387,6 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .bagcell { gap: 8px; }
 /* lane 2: the countdown, on its own line under the plaques. It used to ride inline on the night
    line, where it fought the health bars for the same row. */
-#lane-alarm { display: flex; justify-content: center; pointer-events: none; padding: 5px 12px 0; }
 /* #72: the countdown sits under the hearts as a clock. `.soon` is the only warning a raid is
    imminent apart from the dusk toast, so it survives the move -- as a colour now rather than a
    border, since there is no longer a border to colour. */
@@ -446,7 +479,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
    killing the settle the instant it started. The outer one places and moves the notice; the inner one
    is the panel you can see, and it is the one that floats. */
 #toast {
-  position: fixed; left: 50%; bottom: calc(124px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(10px);
+  position: fixed; left: 50%; bottom: var(--notice-bottom); transform: translateX(-50%) translateY(10px);
   /* it clears the minimap and the warhorn by sitting above them, so it can have the full width */
   width: max-content; max-width: min(420px, calc(100vw - 28px));
   opacity: 0; pointer-events: none; display: block; z-index: 4;
@@ -497,7 +530,6 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
    quietly being different */
 @keyframes bagBump { 0% { transform: scale(1); } 38% { transform: scale(1.22); } 100% { transform: scale(1); } }
 .bagcell.bump .bagring { animation: bagBump 0.32s ease-out; }
-#toast.over-tip { bottom: calc(286px + env(safe-area-inset-bottom)); }
 #toast.show {
   opacity: 1; transform: translateX(-50%) translateY(0) scale(1);
   transition: opacity 0.18s ease-out, transform 0.34s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -507,6 +539,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 @media (prefers-reduced-motion: reduce) {
   #toast, #toast.show { transition: opacity 0.2s linear; transform: translateX(-50%); }
   #toast.show .toast-panel { animation: none; }   /* #96: no bob either */
+  /* #90: the alarm still clears the notice -- that is layout, not decoration -- it just stops
+     gliding there, and stops pulsing. */
+  #alarm-lane { transition: none; }
+  #alarm { animation: none; opacity: 1; }
   /* #92: the sheets still fade, they just do not rise or scale. */
   .overlay .panel, .overlay.hidden .panel { transition: none; transform: none; }
   .bagring .ring-fill { transition: stroke 0.3s linear; }
@@ -597,7 +633,11 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .indicator.thief .arrow { background: #2f8f5b; width: 40px; height: 40px; left: -20px; top: -20px; animation: alarmPulse2 0.45s ease-in-out infinite alternate; }
 .indicator.thief .count { font-size: 20px; top: 14px; }
 
-#pad-tip .tip-desc { font-size: 13px; color: #6b675c; line-height: 1.3; margin-bottom: 6px; max-width: 520px; margin-left: auto; margin-right: auto; }
+/* #90: this rule outlives the card it was written for. `#6b675c` is dark grey, which was right when
+   the chip was cream and is unreadable now that it is a dark caption -- and because it sits four
+   hundred lines below the rule that sets the colour, it quietly won. Same selector, same
+   specificity, later in the file. */
+#pad-tip .tip-desc { font-size: 13px; color: #dde7cf; line-height: 1.3; margin-bottom: 6px; max-width: 520px; margin-left: auto; margin-right: auto; }
 #pad-tip .tip-bar { height: 8px; border-radius: 999px; background: rgba(0,0,0,0.16); margin: 7px auto 0; max-width: 520px; overflow: hidden; }
 #pad-tip .tip-bar i { display: block; height: 100%; width: 0; background: #3fd455; border-radius: 4px; transition: width 0.1s linear; }
 

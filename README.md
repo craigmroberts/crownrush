@@ -70,6 +70,16 @@ loop underneath it:
   corner saying who is speaking or what it is about --
   **Wren**, **Raid**, **Keep**, **Village**, **Bag**. The few notices that are the game talking about
   itself rather than about the world (a lost graphics context) carry no label at all.
+- Everything that speaks does it in the same place, at the bottom: the notice, the mat chip that says
+  what the pad under the King costs, and the attack alarm, which used to be a solid red pill at the
+  top of the screen and is now the same dark caption with the urgency in the colour of the words.
+  Only one of them can have the line, and the one that cannot wait gets it -- a notice is timed and
+  never comes back, the chip is on screen only because the King is standing somewhere and returns the
+  moment he stands there again, so the chip stands down and takes its turn. The alarm is the exception
+  and is meant to be: an alarm and a notice are the shout and the sentence, and several beats raise
+  both, so the alarm keeps a slot directly above. That slot is measured rather than assumed -- it
+  clears whatever is on the line, which is the only thing that holds when a notice can be one line or
+  four.
 - What you scoop off a heap flies to the bag in the corner and the bag bumps when it lands, so the
   armful you picked up and the number that changed are one event. The ledger is credited before the
   flight, not when it arrives: hanging a player's materials on a CSS transition completing would cost

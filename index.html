@@ -92,11 +92,9 @@
           <i id="load-track" hidden></i>
         </button>
       </div>
-      <!-- lanes 2 and 3: the countdown and the alarm each own a band under the plaques, so neither
-           can land on the other the way the inline countdown did. The raid meter shares lane 2 with
-           the countdown: the countdown is only up between waves, which is exactly when the meter
-           has nothing left to show. -->
-      <div id="lane-alarm"><span id="alarm" class="hidden"><i data-icon="alert" data-size="16"></i>The Keep is under attack</span></div>
+      <!-- The countdown and the raid meter share a band under the plaques: the countdown is only up
+           between waves, which is exactly when the meter has nothing left to show. The alarm used to
+           own a second band here and now lives at the bottom with every other notice (#90). -->
       <!-- #23: sound, pause and info live in the settings sheet; the gear sits in the controls corner
            over the warhorn, out of the way of the field and of the coin -->
       <button id="settings-btn" title="Settings"><i data-icon="gear" data-size="34"></i></button>
@@ -120,6 +118,10 @@
     </div>
 
     <div id="indicators"></div>
+    <!-- #90: the alarm, at the bottom with every other notice rather than on its own band at the top.
+         `showAlarm` used to write `textContent` straight onto the span, which wiped the mounted icon
+         the first time the text changed -- hence a span of its own to write into. -->
+    <div id="alarm-lane"><span id="alarm" class="hidden"><i data-icon="alert" data-size="16"></i><span id="alarm-text">The Keep is under attack</span></span></div>
     <!-- #89: a caption over the world, not a card on top of it. The label sits above the panel and
          says what kind of notice this is -- the crown that used to be here wanted the same corner. -->
     <div id="toast"><div class="toast-panel"><b id="toast-kind"></b><span id="toast-text"></span></div></div>
