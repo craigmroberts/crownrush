@@ -308,7 +308,14 @@ chase window is roughly ten seconds.
 
 ## Rewards: pick one of three
 
-Every Keep level pauses the game and offers three rewards; you keep one. The pool is in
+Every Keep level pauses the game and says what the level just gave -- the army limit, any material
+that opened, the walls' new stuff, what a coin is now worth, any pad that has appeared -- before it
+asks for a choice. That list is `levelGains(N)`, the same one the Keep plaque reads to answer *what
+will the next level give me*; it was there all along and only one of the two screens was asking. The
+level's news used to go out as toasts fired in the same tick as this panel, and `#toast` is z-index 4
+against the panel's 10, so the game announced every level underneath the thing covering it.
+
+You keep one of three rewards. The pool is in
 [src/upgrades.js](src/upgrades.js) and covers five areas: your army, watchtowers, walls, the economy
 and the King himself. Offers draw from different areas where they can, so a choice is never three
 flavours of the same idea, and a few rewards are rare and change how a run plays rather than how fast

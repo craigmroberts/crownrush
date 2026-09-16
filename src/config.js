@@ -98,6 +98,12 @@ export const CFG = {
      // those materials becomes mineable. One boundary, so a level-up lands as one big moment.
     wallAt: [1, 4, 8, 12],
     materialAt: { wood: 0, stone: 4, iron: 8, diamond: 12 },
+    // #99: what the ground is called when a material opens, in one place. revealNodes says it to the
+    // world and levelGains says it on the level-up modal, and they were two strings saying the same
+    // thing in slightly different words.
+    // each reads as the subject of "... are open", which the diamond one did not: "Diamond in the deep
+    // rock are open" is what came out the first time both screens shared this string
+    nodeName: { stone: 'Stone quarries', iron: 'Iron seams', diamond: 'Diamond seams in the deep rock' },
     // enemies grow with the Keep too, so a strong base always has a fight on its hands
     enemyHpPerLevel: 0.05,
     enemyDmgPerLevel: 0.04,

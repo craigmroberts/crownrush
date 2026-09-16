@@ -276,6 +276,8 @@ export class Game {
     this.mods = { ...MODS };
     this.taken = {};
     this.offerQueue = 0;
+    this.offerLevels = [];      // #99: which level each waiting offer belongs to
+    this.offerLevel = 0;
     this.offer = null;
     this.offerPaused = false;
     this.settingsOpen = false;
@@ -516,7 +518,10 @@ export class Game {
       this.hud.hidePause();
       this.hud.hideInfo();
       this.infoOpen = false;
-      this.hud.showOffer(this.offer, this.baseLevel, this.offerQueue);
+      // #99: the level this offer was opened for. `baseLevel` would be right only until a second
+      // level lands while the first offer is still on screen.
+      const lv = this.offerLevel || this.baseLevel;
+      this.hud.showOffer(this.offer, lv, this.offerQueue, this.levelGains(lv));
       return;
     }
     this.paused = false;
@@ -591,6 +596,7 @@ export class Game {
     this.stuckFor = 0;
     console.warn('recovered a stopped game: paused with nothing on screen');
     this.offerQueue = 0;
+    this.offerLevels = [];
     this.offer = null;
     this.offerPaused = false;
     this.hud.hideOffer();

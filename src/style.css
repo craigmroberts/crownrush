@@ -653,6 +653,14 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 /* the level-up upgrade choice */
 .panel.offer { max-width: 620px; }
 .panel.offer h1 { margin-bottom: 2px; }
+/* #99: what the level gave, above the cards. The rows are the Keep plaque's, one size down, because
+   this is the same list and should not read as a different kind of thing.
+   The height cap is the point: a late level gives eight or nine rows, and three reward cards already
+   fill a phone. Capped, the summary can be scrolled and the choice can never be pushed off the bottom
+   -- a modal that looks like it has nothing to choose is worse than a summary you have to scroll. */
+#offer-gains { display: grid; gap: 5px; max-height: 26vh; overflow-y: auto; margin: 8px 0 14px; text-align: left; }
+.og-row { display: grid; grid-template-columns: 24px 1fr; gap: 8px; align-items: center; font-size: 13px; line-height: 1.28; color: #dde7cf; text-shadow: none; }
+#offer-gains:empty, #offer-gave-h:empty { display: none; }
 #offer-cards { display: flex; gap: 10px; margin: 14px 0 4px; }
 .panel.offer .offer-card {
   margin: 0; flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 6px;

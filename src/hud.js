@@ -650,9 +650,16 @@ export class Hud {
   hideSettings() {
     document.getElementById('settings-screen').classList.add('hidden');
   }
-  showOffer(list, level, queued) {
+  // #99: `gains` is what the level just gave, from the same `levelGains` the Keep plaque reads for the
+  // level ahead. It goes above the cards because it is the answer to "what just happened", and the
+  // cards are the question that follows it.
+  showOffer(list, level, queued, gains = []) {
     const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     document.getElementById('offer-level').textContent = level;
+    const gv = document.getElementById('offer-gains');
+    const gh = document.getElementById('offer-gave-h');
+    if (gv) gv.innerHTML = gains.map((u) => `<div class="og-row">${iconSvg(u.icon, 22)}<div>${esc(u.text)}</div></div>`).join('');
+    if (gh) gh.textContent = gains.length ? `Level ${level} gave you` : '';
     document.getElementById('offer-more').textContent = queued > 1 ? `${queued - 1} more choice${queued > 2 ? 's' : ''} after this` : '';
     document.getElementById('offer-cards').innerHTML = list.map((u) => `
       <button class="offer-card${u.rare ? ' rare' : ''}" data-id="${esc(u.id)}">

@@ -180,6 +180,10 @@
     <div id="offer-screen" class="overlay hidden">
       <div class="panel offer">
         <h1>Level <span id="offer-level">2</span></h1>
+        <!-- #99: what the level just did, before it asks what you want. It used to say this in a toast
+             fired in the same tick as this panel and four z-index layers beneath it. -->
+        <p class="hint" id="offer-gave-h">The Keep is stronger</p>
+        <div id="offer-gains"></div>
         <p class="hint">Choose one reward</p>
         <div id="offer-cards"></div>
         <p class="hint" id="offer-more"></p>

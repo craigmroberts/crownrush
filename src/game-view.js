@@ -454,7 +454,9 @@ export const ViewMethods = {
   },
 
   // A new material becomes mineable: its nodes appear across the map with a toast saying where.
-  revealNodes() {
+  // `announce` is off when something else is already telling the player: a level-up puts the same
+  // sentence on its modal (#99), and a toast fired in that tick is drawn underneath it.
+  revealNodes(announce = true) {
     const opened = new Set();
     for (const n of this.nodes) {
       if (n.open || this.baseLevel < n.from) continue;
@@ -465,8 +467,8 @@ export const ViewMethods = {
         this.popIn(n.mesh, Math.random() * 0.4);
       }
     }
-    for (const type of opened) {
-      const where = { stone: 'Stone quarries', iron: 'Iron seams', diamond: 'Diamond in the deep rock' }[type] || cap(type);
+    if (announce) for (const type of opened) {
+      const where = CFG.base.nodeName[type] || cap(type);
       this.hud.toast(`${where} are open. Look for them on the map.`, 3200, 'Bag');
     }
     return opened.size > 0;
@@ -1024,27 +1026,49 @@ export const ViewMethods = {
     return '';
   },
 
+  // #99: what level N changes, as icon-and-text rows. The Keep plaque asks it about the NEXT level
+  // and the level-up modal asks it about the one just reached, which is why it takes N rather than
+  // reading `baseLevel` -- the same list answered both questions all along, and only one screen was
+  // asking. Pure: it must stay safe to ask about a level that has already happened.
+  levelGains(N) {
+    const out = [];
+    const add = (icon, text) => out.push({ icon, text });
+    // #29/#99: the levels that open a material are exactly the levels whose `unlocks` line announces
+    // it ("Stone quarries open"), so this is one row and not two -- it just uses the material's own
+    // icon and the sentence revealNodes would have said, which is where to go and look. That sentence
+    // used to arrive as a toast in the same tick as the modal that covers it, which is how the same
+    // news ended up being told three times and seen once.
+    const material = Object.keys(CFG.base.materialAt).find((m) => CFG.base.materialAt[m] === N);
+    if (material) add(material, `${CFG.base.nodeName[material] || material} are open. Look for them on the map.`);
+    else if (CFG.base.unlocks[N]) add('star', CFG.base.unlocks[N]);
+    add('archer', `Army limit: ${CFG.base.archers[N]} archers, ${CFG.base.swordsmen[N]} swordsmen`);
+    add('arrows', `Arrow speed ${CFG.base.fireRate(N).toFixed(1)}x for archers, towers and the King`);
+    // walls and buildings both: rebuildStructures goes round the village in the same pass, and the
+    // toast that used to say so fired underneath this modal
+    if (CFG.base.wallAt.includes(N)) add('wall', `Walls and buildings rebuilt in ${CFG.wallLevels[CFG.base.wallAt.indexOf(N)].name.toLowerCase()}`);
+    if (CFG.coins.valueAt.includes(N)) {
+      // From the table rather than from coinValue(): asked about a level already reached, coinValue()
+      // returns the NEW figure, so the row would have read "worth 3 instead of 3".
+      const i = CFG.coins.valueAt.indexOf(N);
+      if (i > 0) add('gold', `Every coin is worth ${CFG.coins.value[i]} score instead of ${CFG.coins.value[i - 1]}`);
+    }
+    const rank = CFG.ranks.find((r) => r.fromLevel === N);
+    if (rank) add('skull', `${rank.name}s start raiding: tougher, but they drop more coins`);
+    for (const def of PADS) if (def.minLevel === N) add(def.icon, `${def.label} pad appears`);
+    if (N === CFG.finale.level) add('swords', 'The march on the raider camp opens: kill the Warlord to end the war');
+    add('keep', `Keep health ${CFG.keep.hp + (N - 1) * CFG.keep.hpPerLevel}`);
+    return out;
+  },
+
   infoData() {
     const L = this.baseLevel;
     const N = L + 1;
     const req = this.levelReq();
     const feed = this.pads.find((p) => p.def.feed);
     const need = req ? [{ type: 'gold', need: req - (feed ? feed.paid : 0), have: this.coinsCarried }] : [];
-    const unlocks = [];
-    if (!this.keep) unlocks.push({ icon: 'keep', text: 'Build the Royal Keep first: feeding it levels up everything else.' });
-    else if (req) {
-      const add = (icon, text) => unlocks.push({ icon, text });
-      if (CFG.base.unlocks[N]) add('star', CFG.base.unlocks[N]);
-      add('archer', `Army limit: ${CFG.base.archers[N]} archers, ${CFG.base.swordsmen[N]} swordsmen`);
-      add('arrows', `Arrow speed ${CFG.base.fireRate(N).toFixed(1)}x for archers, towers and the King`);
-      if (CFG.base.wallAt.includes(N)) add('wall', `All walls rebuilt in ${CFG.wallLevels[CFG.base.wallAt.indexOf(N)].name.toLowerCase()}`);
-      if (CFG.coins.valueAt.includes(N)) add('gold', `Every coin is worth ${CFG.coins.value[CFG.coins.valueAt.indexOf(N)]} score instead of ${this.coinValue()}`);
-      const rank = CFG.ranks.find((r) => r.fromLevel === N);
-      if (rank) add('skull', `${rank.name}s start raiding: tougher, but they drop more coins`);
-      for (const def of PADS) if (def.minLevel === N) add(def.icon, `${def.label} pad appears`);
-      if (N === CFG.finale.level) add('swords', 'The march on the raider camp opens: kill the Warlord to end the war');
-      add('keep', `Keep health ${CFG.keep.hp + (N - 1) * CFG.keep.hpPerLevel}`);
-    }
+    const unlocks = !this.keep
+      ? [{ icon: 'keep', text: 'Build the Royal Keep first: feeding it levels up everything else.' }]
+      : req ? this.levelGains(N) : [];
     const costText = (def, pad) => def.crew ? `${def.crew} archers` : def.feed ? 'materials' : `${pad ? pad.cost - pad.paid : this.padCost(def)} coins${def.res ? ' + ' + Object.entries(def.res).map(([t, n]) => `${n} ${t}`).join(', ') : ''}`;
     const padsNow = this.pads.map((p) => ({ icon: p.def.icon, label: p.def.label, cost: costText(p.def, p), desc: this.padDesc(p.def), locked: this.padLocked(p.def), kind: this.padKind(p.def) }));
     const later = PADS.filter((def) => def.minLevel && def.minLevel > L && def.tier <= this.tier + 1 && !this.built[def.id])

@@ -205,7 +205,7 @@ export const BuildMethods = {
 
   // #3: the Keep crossed a material boundary, so every standing building is rebuilt in the new one.
   // Towers keep their level and crew, the Keep keeps its health bar and the Queen on the balcony.
-  rebuildStructures() {
+  rebuildStructures(announce = true) {
     this.structures.forEach((s, i) => {
       if (s.kind === 'keep' && (!this.keep || this.keep.state !== 'built')) return;
       const t = s.kind === 'tower' ? this.towers[s.id] : null;
@@ -227,7 +227,7 @@ export const BuildMethods = {
       this.popIn(m, i * 0.08);
       s.mesh = m;
     });
-    if (this.structures.length) this.hud.toast(`The village is rebuilt in ${this.materialName()}.`, 2600, 'Village');
+    if (announce && this.structures.length) this.hud.toast(`The village is rebuilt in ${this.materialName()}.`, 2600, 'Village');
   },
 
   // where a crew pad sends its archers: gate posts, or the next free spots around a tower top
@@ -465,26 +465,27 @@ export const BuildMethods = {
     const L = this.baseLevel;
     // walls follow the Keep: wood -> brick -> stone -> iron at the levels in CFG.base.wallAt
     const target = CFG.base.wallAt.filter((lv) => lv <= L).length - 1;
-    while (this.wallLevel < target) this.upgradeWalls();
+    while (this.wallLevel < target) this.upgradeWalls(false);
     if (this.keep && this.keep.state === 'built') {
       this.keep.maxHp = this.keepHp();
       this.keep.hp = this.keep.maxHp;
       setHealthBar(this.keep.bar, 1);
     }
-    this.revealNodes();
-    const newRank = CFG.ranks.find((r) => r.fromLevel === L);
-    const coinNote = CFG.coins.valueAt.includes(L) && L > 0 ? `each coin is now worth ${this.coinValue()} score` : null;
-    const notes = [CFG.base.unlocks[L], coinNote, newRank ? `${newRank.name}s now join the raids` : null, `${CFG.base.archers[L]} archers`, `${CFG.base.swordsmen[L]} swordsmen`, `arrows ${this.fireMul().toFixed(1)}x`].filter(Boolean);
-    this.hud.toast(`Keep level ${L}! ${notes.join(' · ')}`, 4200, 'Keep');
-    // #29: a playtester never worked out that raising the Keep is what opens new materials, so the
-    // level that opens one says so on its own, after the rest of the level's news.
-    const opened = Object.keys(CFG.base.materialAt).find((m) => CFG.base.materialAt[m] === L);
-    if (opened) this.hud.toast(`${opened[0].toUpperCase() + opened.slice(1)} can now be gathered: look for new nodes out in the world.`, 5200, 'Bag');
+    this.revealNodes(false);
+    // #99: the level's news used to go out as two toasts fired in the same tick as the modal that
+    // covers them -- `#toast` is z-index 4 and `.overlay` is 10, so every level announced itself
+    // underneath the thing standing on top of it. The summary is on the modal now, built from the same
+    // `levelGains` the Keep plaque reads, and there is nothing left for a toast to say.
     this.spawnFx(this.keep.x, this.keep.z, 0xffd23d);
     this.addScore(CFG.score.levelUp * L);
     audio.unlock();
     // #13: every level lets the player keep one of three upgrades. Levels can chain when the King
     // arrives with a big stockpile, so offers queue and are presented one at a time.
+    // #99: the level each queued offer belongs to, not just how many are waiting. A King who levels
+    // twice at once gets two summaries, and they have to be the two levels he actually passed rather
+    // than the one he ended on twice.
+    this.offerLevels = this.offerLevels || [];
+    this.offerLevels.push(L);
     this.offerQueue++;
     if (!this.offer) this.showOffer();
     if (!this.levelReq() && this.feedDef) this.feedDef = null;
@@ -997,11 +998,13 @@ export const BuildMethods = {
     if (di >= 0) this.dynamicPads.splice(di, 1);
   },
 
-  upgradeWalls() {
+  // `announce` is off during a level-up: the modal that opens in the same tick already carries the
+  // line, and a toast fired under it is drawn four z-index layers down (#99).
+  upgradeWalls(announce = true) {
     this.wallLevel = Math.min(CFG.wallLevels.length - 1, this.wallLevel + 1);
     for (const def of [...this.dynamicPads]) if (def.repair) this.removePadDef(def);
     this.walls.forEach((w, i) => this.rebuildWall(w, this.wallLevel, i * 0.035));
-    this.rebuildStructures();
+    this.rebuildStructures(announce);
     if (this.keep && this.keep.state === 'built') {
       this.keep.level = this.wallLevel;
       this.keep.maxHp = this.keep.hp = this.keepHp();
@@ -1147,17 +1150,19 @@ export const BuildMethods = {
     // This used to return with the game still paused and no panel on screen: a permanent freeze.
     if (!list.length) {
       this.offerQueue = 0;
+      this.offerLevels = [];
       this.offer = null;
       this.hud.hideOffer();
       this.endOfferPause();
       return;
     }
     this.offer = list;
+    this.offerLevel = (this.offerLevels || []).shift() || this.baseLevel;
     this.offerPaused = true;
     this.pause(true);
     this.hud.hideInfo();
     this.infoOpen = false;
-    this.hud.showOffer(list, this.baseLevel, this.offerQueue);
+    this.hud.showOffer(list, this.offerLevel, this.offerQueue, this.levelGains(this.offerLevel));
   },
 
   takeUpgrade(id) {
