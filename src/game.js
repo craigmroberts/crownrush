@@ -3,7 +3,7 @@ import { CFG, TIERS, NODES } from './config.js';
 import { audio } from './audio.js';
 import { setRigShadows, enableCrowd, updateCrowd, clearCrowd, crowdStats } from './rig.js';
 import { MODS } from './upgrades.js';
-import { recordRun, readNumber, writeNumber } from './scores.js';
+import { recordRun, readNumber, writeNumber, readLegacy, addLegacy } from './scores.js';
 import { buildWorld, setupLights } from './world.js';
 import { Input } from './input.js';
 import { setHealthBar, HealthBars, CoinField, clearHealthBars, makeRing, makeCoinStack, makeCamp } from './models.js';
@@ -304,6 +304,11 @@ export class Game {
     this.lastFogPos = new V3(999, 0, 999);
     this.damageMul = 1;
     this.mods = { ...MODS };
+    // #56: and then whatever previous runs have earned, through the same door an in-run upgrade uses.
+    // Read fresh every reset rather than cached, so a run that ends and unlocks something hands the
+    // next one the benefit without a reload.
+    this.legacy = readLegacy();
+    this.applyLegacy();
     this.taken = {};
     this.offerQueue = 0;
     this.offerLevels = [];      // #99: which level each waiting offer belongs to
@@ -430,8 +435,9 @@ export class Game {
     this.resetFog();
     // #20: the starting purse is scattered along the road west, the way the pink arrow points, so the
     // first three seconds teach the pickup rule and the stack builds because of what you did.
-    for (let i = 0; i < CFG.coins.start; i++) {
-      const t = i / Math.max(1, CFG.coins.start - 1);
+    const purse = this.startCoins();
+    for (let i = 0; i < purse; i++) {
+      const t = i / Math.max(1, purse - 1);
       tmp.set(-5 - t * 12 + rand(-1.2, 1.2), 0.6, 2 + t * 4 + rand(-1.6, 1.6));
       this.dropCoin(tmp);
     }
@@ -536,6 +542,54 @@ export class Game {
     return Math.round(this.wave / this.nightScale());
   }
 
+  // ---------- #56: what previous runs have earned ----------
+  //
+  // One place, and it is the only gameplay code the meta-progression touches -- everything else goes
+  // on reading `mods` exactly as it did. `unlocked` is what the title screen lists; `applyLegacy` is
+  // what a run actually starts with.
+
+  unlocked() {
+    return CFG.legacy.filter((u) => this.legacy >= u.at);
+  }
+
+  // The next one to come, or null once they are all in hand.
+  nextUnlock() {
+    return CFG.legacy.find((u) => this.legacy < u.at) || null;
+  }
+
+  has(id) {
+    const u = CFG.legacy.find((x) => x.id === id);
+    return !!u && this.legacy >= u.at;
+  }
+
+  applyLegacy() {
+    if (this.has('volunteers')) this.mods.recruitBonus += 1;
+    if (this.has('packs')) this.mods.carryBonus += 1;
+    // `purse` is read where the coins are scattered, and `stables` in `start()` -- `mountKing` needs
+    // a King to mount, and this runs from `reset()` before the field exists.
+  }
+
+  // #56: what to say at the end of a run. `gained` is this run's contribution, `next` what is coming
+  // and how far off, `just` anything this run actually bought. Everything the two ending screens and
+  // the title screen need, worked out in one place.
+  legacyProgress() {
+    const next = this.nextUnlock();
+    return {
+      total: this.legacy,
+      gained: this.score,
+      just: this.justUnlocked || [],
+      next,
+      toGo: next ? Math.max(0, next.at - this.legacy) : 0,
+      unlocked: this.unlocked(),
+      of: CFG.legacy.length,
+    };
+  }
+
+  // How many coins lie on the road at the start. #56's first unlock, and its only reader.
+  startCoins() {
+    return CFG.coins.start + (this.has('purse') ? 15 : 0);
+  }
+
   start() {
     this.runLength = readLength();   // #58: whatever the title screen is showing, at the moment Play is pressed
     this.clearRun();
@@ -551,6 +605,9 @@ export class Game {
     // this the new run starts underneath a panel whose buttons now refer to nothing.
     this.hud.hideOffer();
     this.hud.hideGain();
+    // #56: the last unlock is a horse in the stable before the run begins. After `reset()`, because
+    // `mountKing` swaps a mesh that has to exist first.
+    if (this.has('stables')) this.mountKing();
     this.hud.toast('Raiders have taken Wren. Follow the pink arrow and free her.', 3600, 'Wren');
     audio.init();
     audio.setActive(true);
@@ -682,10 +739,10 @@ export class Game {
     this.settingsPaused = false;
     this.infoOpen = false;
     this.hud.hidePanels();
-    // #58: the pills on the end screen say what Play Again will start, which is the stored preference
+      // #58: the pills on the end screen say what Play Again will start, which is the stored preference
     // rather than this run's length -- they differ after a Continue, where the run being finished is
     // whatever was saved and the next one is whatever the player last chose.
-    this.hud.showGameOver(this.baseLevel, this.coinsEarned, this.score, this.bestScore, reason, readLength());
+    this.hud.showGameOver(this.baseLevel, this.coinsEarned, this.score, this.bestScore, reason, readLength(), this.legacyProgress());
   }
 
   victory() {
@@ -699,7 +756,8 @@ export class Game {
     }
     this.saveScore();
     this.recordRun('won');
-    setTimeout(() => this.hud.showVictory(this.coinsEarned, this.units.length - 1 + this.turrets.length, this.score, readLength()), 600);
+    const legacy = this.legacyProgress();
+    setTimeout(() => this.hud.showVictory(this.coinsEarned, this.units.length - 1 + this.turrets.length, this.score, readLength(), legacy), 600);
   }
 
   addScore(n) {
@@ -717,6 +775,12 @@ export class Game {
   // #94: the run itself, not just whether it beat the maximum. Called from both endings, which is
   // every way a run can finish -- `gameOver` covers three of the four and `victory` is the fourth.
   recordRun(end) {
+    // #56: the run pays into the lifetime total FIRST, so the verdict screen can say what it bought.
+    // `justUnlocked` is the difference either side of the payment -- the honest way to answer "did
+    // this loss advance anything", which is the whole point of the ticket.
+    const before = this.unlocked().map((u) => u.id);
+    this.legacy = addLegacy(this.score);
+    this.justUnlocked = this.unlocked().filter((u) => !before.includes(u.id));
     recordRun({
       score: this.score, wave: this.wave, end, coins: this.coinsEarned,
       // #119: what the board and the title screen now lead with. `wave` stays beside it -- the night

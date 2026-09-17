@@ -27,7 +27,9 @@ usePropRenderer(game.renderer);
 // being played and the title screen is asking about the next one.
 const refreshStart = () => {
   const len = readLength();
-  hud.showStart(readScores(len)[0] || null, game.savedRun(), len);
+  // #56: and what previous runs have earned. `legacyProgress` is read fresh rather than cached,
+  // because the run that just ended is what changed it.
+  hud.showStart(readScores(len)[0] || null, game.savedRun(), len, game.legacyProgress());
 };
 refreshStart();
 const startBtn = document.getElementById('start-btn');

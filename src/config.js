@@ -312,6 +312,43 @@ export const CFG = {
   // Which one a player who has never chosen gets. Short, because that is the whole point of the
   // ticket: the long run is the thing you graduate to, not the entry fee.
   defaultLength: 'short',
+  // #56: what a lost run buys. Before this, `reset()` rebuilt from constants every time and the only
+  // thing that outlived a run was two numbers -- so losing bought a number, which is not a reason to
+  // start a second run.
+  //
+  // Four unlocks, permanent, bought with CUMULATIVE LIFETIME SCORE rather than a second currency. A
+  // second currency would need earning, displaying and explaining; score is already earned, already
+  // shown, and already the thing the player is trying to make bigger.
+  //
+  // Each one seeds `game.mods` (or one flag) at reset through the same door `upgrades.js` uses, which
+  // is what keeps this from touching gameplay code at all -- see the comment at the top of that file.
+  //
+  // THE THRESHOLDS, and what they are pinned against. Most of a run's score is the wave-clear bonus,
+  // and that part is exactly computable: `score.waveClear * wave` summed over a run is 50 * (1+..+15)
+  // = 6,000 for a short run and 50 * (1+..+30) = 23,250 for a long one. Levelling the Keep to 13 adds
+  // 60 * (1+..+13) = 5,460, and the finale 1,500. So a FINISHED short run clears 13,000 before a
+  // single kill or coin is counted, and a long one 30,000; a run that dies around the halfway mark is
+  // a few thousand.
+  //
+  //     first    4,000    inside a first run, even a bad one -- the point is that the FIRST loss pays
+  //     second  14,000    about one finished short run
+  //     third   34,000    two or three more
+  //     fourth  70,000    a finished long run, or several short ones
+  //
+  // The kill and coin halves are not computable without playing, so these are a floor rather than a
+  // measurement, and the shape is what matters: something on the first loss, everything by the time
+  // somebody has finished the game a couple of times. Move them after playing, not before.
+  //
+  // They are deliberately gentle. The ticket's third rule is that a first-time player's run is
+  // unchanged, and nothing here is required to win -- every one of them is a head start on something
+  // the run already gives you.
+  legacy: [
+    { id: 'purse', at: 4000, icon: 'coin', name: 'A fuller purse', desc: 'Start with 25 coins on the road instead of 10.' },
+    { id: 'volunteers', at: 14000, icon: 'person', name: 'Word has spread', desc: 'Every recruit mat brings one extra soldier, all run.' },
+    { id: 'packs', at: 34000, icon: 'sack', name: 'Packhorses', desc: 'Carry 8 more before you have to sell.' },
+    { id: 'stables', at: 70000, icon: 'horse', name: 'The stables stand', desc: 'Begin every run already mounted.' },
+  ],
+
   // #18: the King's one ability. The warhorn pulls the army to him and drives them for a few
   // seconds, and the blast shoves nearby raiders back and stuns them: an answer to a breach.
   horn: { cooldown: 22, duration: 6, radius: 7.5, push: 3.4, stun: 1.3, speed: 1.6, damage: 1.5, rallySpeed: 2.2 },

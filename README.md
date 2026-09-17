@@ -206,6 +206,49 @@ worker precaches the lot after that. Waiting for all fourteen cost 12.0 s to a c
 on a throttled 4 Mbps / 100 ms connection; waiting for eleven, fetched in parallel rather than one
 after another, costs 9.2 s.
 
+## What a lost run buys
+
+Before #56, `reset()` rebuilt from constants every time and the only thing that outlived a run was two
+numbers — so losing bought a number, which is not a reason to start a second run.
+
+Four permanent unlocks, bought with **cumulative lifetime score** rather than a second currency. A
+second currency would need earning, displaying and explaining; score is already earned, already shown,
+and already the thing the player is trying to make bigger. Each one seeds `game.mods` at `reset()`
+through the same door an in-run reward uses (`upgrades.js`), which is what keeps the whole feature
+from touching gameplay code.
+
+| at | | what it does |
+| ---: | --- | --- |
+| 4,000 | A fuller purse | 25 coins on the road instead of 10 |
+| 14,000 | Word has spread | every recruit mat brings one extra soldier |
+| 34,000 | Packhorses | carry 8 more before you have to sell |
+| 70,000 | The stables stand | begin every run already mounted |
+
+**Where the thresholds come from.** Most of a run's score is the wave-clear bonus, and that part is
+exactly computable: `score.waveClear * wave` summed over a run is 50 × (1+…+15) = **6,000** for a
+short run and 50 × (1+…+30) = **23,250** for a long one. Levelling the Keep to 13 adds 60 × (1+…+13) =
+5,460, and the finale 1,500. So a *finished* short run clears 13,000 before a single kill or coin is
+counted, and a long one 30,000; a run that dies around halfway is a few thousand.
+
+That makes 4,000 reachable inside a first run even a bad one — the point is that the **first** loss
+pays — and all four land somewhere around finishing the game a couple of times. The kill and coin
+halves are not computable without playing, so these are a floor rather than a measurement. Move them
+after playing, not before.
+
+They are deliberately gentle, because the ticket's third rule is that a first-time player's run is
+unchanged. Driven with nothing stored: the strip is hidden, the road has 10 coins, and every `mods`
+entry is its default — byte for byte the screen and the run that existed before this. Driven at each
+threshold, in order: 25 coins on the ground, `recruitBonus` 1, carry 18 → 26, mounted at the start.
+
+The lifetime total lives in its own `localStorage` key for the same reason the scoreboard does — a
+save format change must not take somebody's unlocks back — and it only ever goes up: a zero-score run
+leaves it exactly where it was.
+
+Both ending screens lead with what *this run* bought, because that is the ticket's first rule; the
+title screen leads with what is in hand and what is next, because that is the reason to press Play.
+The bar measures the gap between the unlock just passed and the next one rather than zero to next,
+or a player holding three of four would always see a bar that is nearly full.
+
 ## How long a run is
 
 Two lengths, picked on the title screen above the Play button and again on both ending screens — the

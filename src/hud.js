@@ -534,9 +534,49 @@ export class Hud {
       </button>`).join('');
   }
 
+  // #56: what previous runs have earned. One renderer for all three places it appears -- the title
+  // screen, the game over screen and the victory screen -- because they are the same information and
+  // three copies of it would drift.
+  //
+  // `mode` is 'title' or 'end'. The end screens lead with what THIS run added, because the ticket's
+  // first rule is that a loss visibly advances something; the title screen leads with what is in hand
+  // and what is next, because that is the reason to press Play.
+  //
+  // Hidden outright when nothing has been earned and nothing is unlocked, so a first-time player sees
+  // exactly the screen they saw before this existed.
+  renderLegacy(el, p, mode) {
+    if (!el) return;
+    const nothingYet = !p || (p.total <= 0 && !p.unlocked.length);
+    el.classList.toggle('hidden', nothingYet);
+    if (nothingYet) return;
+    const badge = (u, cls) => `<span class="lg-badge ${cls}">${iconSvg(u.icon, 14)}${esc(u.name)}</span>`;
+    const out = [];
+    if (mode === 'end' && p.just.length) {
+      out.push(`<div class="lg-line"><b>Unlocked for every run from now on</b></div>`);
+      out.push(`<div class="lg-row">${p.just.map((u) => badge(u, 'new')).join('')}</div>`);
+      out.push(`<div class="lg-line">${p.just.map((u) => esc(u.desc)).join(' ')}</div>`);
+    } else if (p.unlocked.length) {
+      out.push(`<div class="lg-row">${p.unlocked.map((u) => badge(u, 'on')).join('')}</div>`);
+    }
+    if (p.next) {
+      // The bar measures the gap between the unlock just passed and the next one, not 0 to next --
+      // otherwise a player who has three of four sees a bar that is always nearly full.
+      const from = p.unlocked.length ? p.unlocked[p.unlocked.length - 1].at : 0;
+      const frac = Math.max(0, Math.min(1, (p.total - from) / Math.max(1, p.next.at - from)));
+      out.push(`<div class="lg-bar"><i style="width:${Math.round(frac * 100)}%"></i></div>`);
+      // "9,850 more to word has spread" was the first wording and it does not survive the names --
+      // half of them are sentences, not nouns. Naming the unlock as a thing works for all four.
+      out.push(`<div class="lg-line">${mode === 'end' ? `This run earned <b>${p.gained.toLocaleString()}</b>. ` : ''}Next: <b>${esc(p.next.name)}</b>, <b>${p.toGo.toLocaleString()}</b> to go</div>`);
+    } else {
+      out.push(`<div class="lg-line">Every unlock earned \u2014 <b>${p.total.toLocaleString()}</b> lifetime</div>`);
+    }
+    el.innerHTML = out.join('');
+  }
+
   // `len` is the length the next run will be played at, which is also the board `best` was read from.
-  showStart(best, saved = null, len = CFG.defaultLength) {
+  showStart(best, saved = null, len = CFG.defaultLength, legacy = null) {
     this.renderLengths(document.getElementById('length-pick'), len, true);
+    this.renderLegacy(document.getElementById('legacy'), legacy, 'title');
     const line = document.getElementById('best-line');
     if (line) {
       line.classList.toggle('hidden', !best);
@@ -572,8 +612,9 @@ export class Hud {
   hideStart() {
     this.startScreen.classList.add('hidden');
   }
-  showGameOver(level, coins, score, best, reason = 'king', len = CFG.defaultLength) {
+  showGameOver(level, coins, score, best, reason = 'king', len = CFG.defaultLength, legacy = null) {
     this.renderLengths(document.getElementById('over-length'), len, true);
+    this.renderLegacy(document.getElementById('over-legacy'), legacy, 'end');
     document.getElementById('gameover-title').textContent = reason === 'taken' ? 'They Carried Wren Away' : reason === 'queen' ? 'Wren Is Lost' : 'The King Has Fallen';
     // #119: a run that ended before the Keep was built has no level to report, and `Lv. 0` is not the
     // sentence to end it on -- the rescue is where it ended, so say that.
@@ -997,8 +1038,9 @@ export class Hud {
   hidePause() {
     document.getElementById('pause-screen').classList.add('hidden');
   }
-  showVictory(coins, army, score, len = CFG.defaultLength) {
+  showVictory(coins, army, score, len = CFG.defaultLength, legacy = null) {
     this.renderLengths(document.getElementById('victory-length'), len, true);
+    this.renderLegacy(document.getElementById('victory-legacy'), legacy, 'end');
     document.getElementById('victory-coins').textContent = coins;
     document.getElementById('victory-army').textContent = army;
     document.getElementById('victory-score').textContent = score.toLocaleString();

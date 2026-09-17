@@ -69,6 +69,24 @@ export function recordRun(run) {
   return kept;
 }
 
+// #56: cumulative lifetime score -- what a lost run buys. Its own key, for the same reason the board
+// has its own: `game-save.js` throws a run away when its VERSION moves, and a save format change is
+// no reason to take somebody's unlocks back. Nothing here is ever reduced; a run only ever adds.
+//
+// Stored as a bare number rather than a versioned object, because there is no shape to get wrong.
+const LEGACY_KEY = 'crownrush-legacy';
+
+export function readLegacy() {
+  return Math.max(0, readNumber(LEGACY_KEY, 0));
+}
+
+// Returns the new total, so the caller can say what a run just bought without re-reading.
+export function addLegacy(score) {
+  const total = readLegacy() + Math.max(0, Math.round(score || 0));
+  writeNumber(LEGACY_KEY, total);
+  return total;
+}
+
 // #94: the two loose bests. They are not part of the board, but they are written in the same breath at
 // the end of a run and they were bare -- so a browser refusing the write threw out of `gameOver`
 // before it could show the game over screen, and a run in private mode ended with nothing on screen

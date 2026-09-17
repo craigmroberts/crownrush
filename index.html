@@ -207,6 +207,9 @@
              30", which would have left the title screen as the one surface still keeping score in
              nights. Filled from the scoreboard's top row, so nothing new is stored for it. -->
         <p class="best hidden" id="best-line">Best: <span id="best-run">—</span></p>
+        <!-- #56: what previous runs have earned, and what the next one buys. Hidden outright before
+             anybody has finished a run, so a first-time player's title screen is the one it was. -->
+        <div id="legacy" class="legacy hidden"></div>
         <!-- #120: the title screen is the best moment in the whole game to install, because it is the
              one where nothing is at stake -- and it was the one screen with no way to know there was
              anything to install, since the cog that carries the dot lives in the HUD. Hidden until a
@@ -241,6 +244,9 @@
         <!-- #58: the length Play Again will use, changeable here. The end of a run is the one moment a
              player knows what the last one cost them, and the title screen is shown once at load and
              never again -- so without this, changing length meant reloading the page. -->
+        <!-- #56: what this run bought. The whole point of the ticket is that a loss advances
+             something, so it goes above Play Again rather than below it. -->
+        <div id="over-legacy" class="legacy hidden"></div>
         <div id="over-length" class="seg length-pick" role="radiogroup" aria-label="Run length"></div>
         <button id="restart-btn">Play Again</button>
       </div>
@@ -380,6 +386,7 @@
         <!-- #58: and here especially. Winning a fifteen-night run is the moment the thirty-night one
              is meant to be graduated to, so the choice belongs beside "Start over" rather than back
              on a title screen this session will not show again. -->
+        <div id="victory-legacy" class="legacy hidden"></div>
         <div id="victory-length" class="seg length-pick" role="radiogroup" aria-label="Run length"></div>
         <p class="best"><a href="#" id="victory-restart">Start over</a></p>
       </div>
