@@ -231,11 +231,34 @@ export const CFG = {
   // keeps the ticket's own rule: both lengths reach Marauders, Warlords and the camp. A short mode
   // that stops at level 8 would never meet a Warlord (rank gate 11) and would be a demo.
   //
-  // 0.45 is an estimate and is the one number here that wants a real run rather than arithmetic. The
-  // reasoning: a 30-night run reaches level 13 on income that grows through the run, so the cumulative
-  // coin at night 15 is well under half of the night-30 figure -- nearer a third. 0.45 is deliberately
-  // gentler than a third, because a short run should feel brisk rather than free, and it is easier to
-  // argue a number down after playing than to argue an impossible climb up. Play it and move it.
+  // The raid is fought on the long run's clock regardless (`game.raidNight`), so night 15 of a short
+  // run is the same size of raid as night 30 of a long one. That is load-bearing for the number
+  // below, and it is why a short run is not simply a cheaper run.
+  //
+  // WHERE 0.45 COMES FROM, and what is still unknown about it.
+  //
+  // Measured, by summing this table: reaching level 13 costs 1988 coin at full price and 896 at 0.45.
+  // Reaching the cap at 15 costs 3178 and 1432. Buying every one-shot pad in `PADS` -- every wall,
+  // tower, home, bridge and building -- costs 1567 coin on top, at either length, and the repeatable
+  // recruit and crown mats are open-ended above that.
+  //
+  // The argument: at the same FRACTION of a run both lengths stand at about the same Keep level, so
+  // the same materials are open and income per night is about the same. A short run just has half the
+  // nights, so it earns about half the coin -- which on its own would say 0.5. What pulls it below is
+  // that the 1567 does NOT halve: because the raid runs on the long clock, a short run's last nights
+  // want the same army, walls and towers a long run's do, and it has to buy them out of half the
+  // income. How far below 0.5 that squeeze reaches depends on how much of a run a given player spends
+  // on the village rather than the Keep, which is a choice and not a number this file can hold. 0.45
+  // is a deliberately gentle first cut: it is easier to argue a price down after playing than to
+  // argue an impossible climb back up.
+  //
+  // So this is arithmetic plus a stated assumption, NOT a played run, and it is the one number here
+  // that wants one. Tried and rejected: driving whole runs headlessly with a scripted player and the
+  // renderer stubbed out, to read the Keep level off each night. It does not work in this sandbox --
+  // even with `renderer.render` and `drawMinimap` replaced, stepping `update(0.05)` in a loop ran at
+  // roughly a sixth of game time, so 900 seconds of wall clock bought two nights and a full run would
+  // be hours; and a bot crude enough to write in an afternoon dies around night 2, so its numbers
+  // would not have meant much anyway. The measurement that settles this is somebody playing it.
   //
   // Scores are kept per length (`scores.js` stores `len`), because comparing 15 nights against 30 on
   // one board makes the board meaningless.
