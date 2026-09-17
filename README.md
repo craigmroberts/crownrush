@@ -462,6 +462,35 @@ its level (`CFG.enemy.*.fromLevel`) so you meet one idea at a time:
 - **Shieldbearers** (Keep 7) take a quarter damage from the front. Hits show "blocked". Flank them,
   or let the horn scatter the fight.
 
+## Build previews fade, they do not pop
+
+Every mat previews what it would buy — archers standing on it, a wall along the edge, a translucent
+copy of the building it puts up. The preview used to be switched on and off outright:
+
+```js
+for (const g of pad.ghosts) g.visible = pad.fade > 0.4;
+```
+
+The mat itself has always faded up as the King approaches and sunk back into the grass behind him.
+The preview standing on it did not — it appeared and vanished at a hard threshold, so walking towards
+and away from a mat made a translucent building blink on and off on that square. Reported twice as
+the Archery Range "flickering to a different version of itself" (#111), the second time with the
+trigger: *only while walking towards and away from it*.
+
+It fades with the mat now. Measured across the crossing, one reading every other frame: `0, 0, 0,
+0.088, 0.156, 0.21, 0.252, 0.284, 0.31` — seven distinct values where there used to be two.
+
+That needed each mat's ghosts to own their material. `ghostify` assigns `GHOST_MAT`, a module-level
+singleton every ghost in the game wears, so there was no way to fade one mat's preview without
+fading all of them — which is what the snapping `visible` was standing in for. One clone per mat,
+disposed with it. **This is the third time that singleton pattern in `models.js` has caused a bug in
+this codebase** — `BAKED_STD` disposal in the rally banner, `GHOST_MAT` tinting in the placement
+ghost, and now this.
+
+And a mat no longer previews a building that is already standing. A translucent copy fading in and
+out on top of the real one is the other half of that report, and a preview of something that exists
+is wrong whether or not anybody is looking at it.
+
 ## Choosing where a building goes
 
 Watchtowers and villager homes are **placed by the player** (#43). `buildAt` in `src/config.js` is

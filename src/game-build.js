@@ -69,8 +69,18 @@ export const BuildMethods = {
     // Anything built procedurally (the walls, the bridge, the fallback characters) is fresh per pad
     // and nobody else's, so it goes when the pad goes. Decided here, in the branch that has just
     // called the builder and knows which it was, rather than guessed at by traversal later.
+    //
+    // #111: and its own MATERIAL, one clone shared by this pad's ghosts. `ghostify` assigns
+    // `GHOST_MAT`, a module-level singleton every ghost in the game wears, so there was no way to
+    // fade one pad's preview without fading all of them -- which is what the snapping `visible`
+    // below was standing in for, and what a player read as a building glitching.
     const ghost = (mesh, mine) => {
       const g = ghostify(mesh);
+      g.traverse((o) => {
+        if (!o.isMesh || !o.material) return;
+        pad.ghostMat = pad.ghostMat || o.material.clone();
+        o.material = pad.ghostMat;
+      });
       g.userData.ownGeometry = mine;
       this.root.add(g);
       pad.ghosts.push(g);
@@ -104,7 +114,10 @@ export const BuildMethods = {
       }
     } else if (def.effect === 'horse') {
       ghost(makeKing(), true).position.set(def.pos[0], 0, def.pos[1] - 1.2);
-    } else if (def.structure && def.buildAt) {
+    } else if (def.structure && def.buildAt && !this.structures.some((st) => st.id === def.id)) {
+      // #111: and not when the thing it is previewing is already standing there. A translucent copy
+      // of a building fading in and out ON TOP of the real one is the double-draw half of that
+      // report, and a preview of something that exists is wrong whether or not anybody sees it.
       const m = this.makeStructureMesh(def.structure);
       ghost(m, !m.userData.sharedGeometry).position.set(def.buildAt[0], 0, def.buildAt[1]);
     }
@@ -902,7 +915,16 @@ export const BuildMethods = {
       pad.fade += ((show ? 1 : 0) - pad.fade) * Math.min(1, dt * 7);
       pad.mesh.visible = pad.fade > 0.02;
       pad.mesh.material.opacity = pad.fade;
-      for (const g of pad.ghosts) g.visible = pad.fade > 0.4;
+      // #111: FADED with the mat, not snapped on at a threshold. This used to be
+      // `g.visible = pad.fade > 0.4`, so a preview appeared and vanished outright as the King walked
+      // towards and away from a mat -- reported as a building "flickering to a different version",
+      // and the trigger in the report was exactly that walk. The mat itself has always faded; the
+      // preview standing on it was the one thing that did not.
+      const gv = pad.fade * 0.4;   // 0.4 is GHOST_MAT's own opacity: full fade reaches what it always was
+      if (pad.ghostMat) {
+        pad.ghostMat.opacity = gv;
+        for (const g of pad.ghosts) g.visible = gv > 0.02;
+      }
       const inside = dist < CFG.spend.padRadius;
       // #9: no pad can be paid until the Queen is free. They stay visible so the player can see what
       // the village will offer, but they are plainly shut.
@@ -1368,6 +1390,11 @@ export const BuildMethods = {
       for (const geo of g.userData.droppedGeometry || []) geo.dispose();
     }
     pad.ghosts = [];
+    // #111: the clone is this pad's and nothing else refers to it. Never `GHOST_MAT` itself.
+    if (pad.ghostMat) {
+      pad.ghostMat.dispose();
+      pad.ghostMat = null;
+    }
   },
 
   removePadDef(def) {
