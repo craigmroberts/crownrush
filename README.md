@@ -719,6 +719,19 @@ something a tool should argue with. That was the objection to adding a linter at
 out to be an objection to a different linter: the correctness half found eight things on its first
 run, every one of them dead code, and nothing else.
 
+The two buildings that load **behind** the title screen -- the Barracks and the villager home -- carry
+their base colour as KTX2/ETC1S rather than JPEG. JPEG decompresses to raw RGBA on upload, so 1024x1024
+costs 5.59 MB of permanently resident video memory whatever the file weighed; ETC1S stays compressed on
+the GPU at about a quarter of a byte per texel, which is 699 kB. Five buildings were 27.9 MB and are now
+**18.2 MB**.
+
+Only those two, and that is the whole design of it. A KTX2 texture needs the Basis transcoder, 577 kB
+on the wire, fetched the first time one is decoded -- so compressing the three the opening needs in
+hand would drag that download onto the critical path and put bytes-to-a-clickable-Play over a budget it
+currently clears. The rule is: what the opening needs stays JPEG, everything after it is ETC1S, and
+`tools/models/compress.mjs` holds the same split (#51). Measured: nothing of the transcoder arrives
+before Play, and both devices report the same 2972 kB.
+
 What keeps it fast:
 - The crowd — raiders, archers, swordsmen, elites, brutes, the boss — is ONE instanced draw per model,
   animated on the GPU from a baked bone-matrix texture (`src/crowd.js`). 181 characters cost 6 draw
