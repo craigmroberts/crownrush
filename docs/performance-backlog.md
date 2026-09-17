@@ -170,6 +170,54 @@ along. `CoinField` in `src/models.js` does the same for the ground.
 **326 -> 83 draw calls.** The rest of the list is small enough to leave alone; an arrow is still three
 meshes, which is worth remembering if arrows ever become numerous.
 
+## Tried and rejected: a shadow-distance tier for the crowd (#64)
+
+Measured, built, measured again, reverted. Recorded here so the next person does not build it twice.
+
+**The idea.** `castShadow` sits on the crowd's `InstancedMesh`, so every on-screen character casts a
+shadow at any distance. Sort the instance write near-first and hand the depth pass a shorter prefix
+through `onBeforeShadow`/`onAfterShadow`, and the distant ones stop costing a shadow. No second mesh,
+no extra geometry, nothing added to the download. It works exactly as described — `crowdStats` read
+64 of 186 characters casting shadows at a 26-unit cut.
+
+**Why it does not pay.** Two measurements, on a seeded ~200-character scene, toggling the hook within
+one frame so nothing else moves:
+
+| viewport | camDist | crowd shadows cost | what a 26-unit cut saves |
+| --- | --- | --- | --- |
+| real phone (iPhone UA) | — | **nothing: already off** | nothing |
+| desktop 1280x800 | 16.5 | 732k tris (23% of frame) | 26k — 4% of that |
+| desktop 390x844 | 23 | 749k tris (29% of frame) | 465k — 62% of that |
+
+The first row is the whole story. `setRigShadows(!this.mobile)` in `game.js` already swaps the crowd's
+real shadows for blob shadows on mobile, so on the device the budgets exist for, there is no shadow
+cost to cut. Everything below it is desktop, where the frame is not tight.
+
+And the two desktop rows cannot be served by one number, because which characters are on screen at all
+is set by `camDist`, not by the cut. Sweeping the distance on the same scene:
+
+```
+desktop 1280x800 (camDist 16.5)        desktop 390x844 (camDist 23)
+  cut off  3252k   192/192 shadowed      cut off  3147k   186/186
+  cut 26   3120k   177/192               cut 26   2082k    58/183
+  cut 22   2623k   120/188               cut 22   1595k     0/181
+  cut 18   2026k    47/188               cut 18   1579k     0/179
+  cut 14   1629k     0/186               cut 14   1553k     0/176
+```
+
+The useful band is about `camDist` to `camDist + 14`, so 26 is "nearly everything" at one aspect and
+"nearly nothing" at the other. A `camDist`-relative cut would fix that — and it would not help, because
+of what the screenshots show: **every setting that saves meaningful triangles is visible.** At the
+distances that save 19–38%, the crowd loses its contact shadows, the grass reads bright right up to
+the characters, and the mass goes flat and pasted-on. At the distances that are invisible, the saving
+is 4%. There is no window between the two.
+
+**What is left of #64.** The geometry tier the ticket originally describes — a decimated mesh beyond
+~25 units — is untouched by this and remains the honest option, because it cuts triangles without
+removing a visual cue. It would want its models in the deferred preload wave rather than on the
+critical path; four LOD models in the opening would put bytes-to-a-clickable-Play over budget, which
+is the trap #51 just navigated.
+
 ## What is left
 
 Nothing urgent. The draw-call budget has plenty of headroom now, and the remaining items are only
