@@ -506,11 +506,30 @@ from four times outside it once **Lodestone** was stacked. Lodestone now visibly
 which is also why it multiplies by 1.35 rather than 1.8: at 1.8 the full stack reached 11.99 and the
 circle ran off a phone screen entirely, leaving the King with no mark under him at all.
 
-The Queen starts captive in the wilds (`CFG.rescue`). Three Bandits circle her and she edges away from
-whichever is nearest, so the scene reads as a capture from a distance rather than as four figures
-standing in a field. A pink arrow points to her. Come within sight and she calls out with a heart while
-the guards turn and square up, then a beat later they charge. Free her and she goes up in a burst of
-hearts, with the odd one drifting up between the two of them afterwards on a quiet day.
+The Queen does not start captive any more — she is taken in front of you, and the chase is the rest of
+the opening (#152). The four who come down the north road do not fight: they walk past the King, around
+his archers, pick her up and **turn straight back north with her** at `CFG.opening.escortSpeed`, which
+is above his speed on foot for the same reason their walk-in speed is. Every one you shoot off her on
+the way is a pair of hands gone; kill the last of them and she is back on the spot, shaken.
+
+Otherwise they reach the **picket** — the camp's outer guard post at the end of the north road
+(`CFG.opening.picket`, 38 clear of `finale.wakeRadius`) — hand her over, and walk on. That is where the
+opening's fight is, and **the camp is on the horizon behind it**: a promise made in minute five and paid
+at night 30.
+
+Six raiders and a Marauder captain circle her and she edges away from whichever is nearest, so the
+scene reads as a capture from a distance rather than as seven figures standing in a field. A pink arrow
+points to her. Come within sight and she calls out with a heart while the guards turn and square up,
+then a beat later they charge. Free her and she goes up in a burst of hearts, with the odd one drifting
+up between the two of them afterwards on a quiet day.
+
+None of that guard behaviour is new: it is what every run before #152 opened with, orphaned when she
+started beside him instead of already taken, and put back where the story wants it. The carriers are
+taken off the field at the hand-off rather than standing into the fight — left as they were they
+followed her north anyway (a collector has no target but her) and the rescue measured twelve in the
+bar against the seven it was tuned for. Standing them in is the more interesting fight, and it turns
+the hardest thing in the early game into a variable number, which wants playing rather than reasoning
+about.
 
 **Nothing happens until you go and get her.** No raiders spawn while she is captive, however long you
 take, and no build pad will accept payment: pads stay visible but shut, marked "Free the Queen". The
@@ -661,6 +680,9 @@ walking a step behind the King and nothing happening at all for `CFG.opening.cal
 
 Then they come from the north, **walk straight past him**, and take her. The walls come down with
 her, and he wakes on the plot the game used to start on.
+
+And they carry her back up the road they came down, to the camp's picket — see *The opening: rescue
+the Queen* above for the chase and the fight at the end of it.
 
 Three jobs in one scene, which is why it is the opening:
 

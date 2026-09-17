@@ -44,6 +44,11 @@ it.
 They take her north. He wakes at dawn on the rubble, which is where the game as built actually
 begins.
 
+**Built** (#152, slice 3): the chase goes to the camp's **picket** rather than off the edge of the
+map. They hand her to the guard post at the end of the north road, and the camp is visible behind it
+and out of reach -- close enough to be a promise, far enough that walking up to it does not stand the
+garrison up in minute three.
+
 This does three jobs at once and that is why it is the opening:
 
 - It explains the empty plot. A king with no village needs a reason, and "it was destroyed last

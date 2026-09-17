@@ -248,35 +248,125 @@ export const EnemiesMethods = {
     q.held = false;
     q.bar.visible = false;
     const p = q.mesh.position;
-    const exit = this.edgeExit(p);
+    // #152: the premise goes NORTH, to the camp's picket. A mid-run recapture still runs for the
+    // nearest map edge, because that one is a loss with a lose screen on the end of it and this one
+    // is the story -- they were sent to fetch her and they are taking her back the way they came.
+    const O = CFG.opening;
+    const exit = premise ? { x: O.picket[0], z: O.picket[1] } : this.edgeExit(p);
     const rank = this.topRank();
     q.escort = [];
-    for (let i = 0; i < CFG.rescue.escort; i++) {
+    // #152: IN THE OPENING THE CARRIERS ARE THE COLLECTORS. Not two fresh knights spawned beside her
+    // -- the four who walked down the north road and went round his archers to reach her are the four
+    // who carry her back up it. One party, from the fall to the hand-off.
+    //
+    // It is not only tidier. Left as ordinary enemies they follow her anyway (slice 1's retarget line
+    // gives a collector no target but her), so they arrived at the picket a beat behind her and stood
+    // into the rescue -- measured, twelve in the bar against the seven that fight was tuned for
+    // (#147). And it makes shooting them on the way north matter: every one that goes down is one
+    // fewer pair of hands on her, and if they all go down she is back before the picket is reached.
+    const party = premise ? this.enemies.filter((e) => e.collector) : [];
+    for (const e of party) {
+      e.collector = false;              // their errand is over; they are carrying now
+      e.escort = true;
+      e.exit = exit;
+      // marks the whole beat, not just the destination: it picks the speed, it is what says arriving
+      // is a hand-off rather than a lose screen, and it keeps `gameOver('taken')` off this one.
+      e.premise = true;
+      q.escort.push(e);
+    }
+    // The recapture's own escort, and the premise's fallback if he somehow cut every collector down
+    // in the two frames between the last one reaching her and this -- she must not be left standing
+    // with nobody holding her.
+    for (let i = q.escort.length; i < CFG.rescue.escort; i++) {
       const e = this.spawnEnemy('knight', p.x + rand(-1.3, 1.3), p.z + rand(-1.3, 1.3), rank);
       e.escort = true;
       e.exit = exit;
+      e.premise = premise;
       e.maxHp = e.hp = e.maxHp * 1.5;
       q.escort.push(e);
     }
     this.raiseAlarm('They have Wren!', 'fear');
-    this.hud.toast('They are carrying Wren to the edge of the map. *Cut the escort down.*', 3800, 'Wren');
+    this.hud.toast(premise
+      ? 'They are carrying Wren north. *Go after them.*'
+      : 'They are carrying Wren to the edge of the map. *Cut the escort down.*', 3800, 'Wren');
     audio.wave(true);
+  },
+
+  // #152, beat six: the picket. They reach the camp's outer guard post and hand her over, and the
+  // opening ends in the fight the game already had written for it.
+  //
+  // NOTHING NEW IS BUILT HERE. The captor machinery -- guards orbiting a prisoner, her pacing inside
+  // a pen, the beat where they spot him and turn, `freeQueen` winding the sun to just before dusk --
+  // is what every run before slice 1 opened with, and slice 1 left all of it orphaned when she
+  // started beside him instead of already taken. This is the same fight, put where the story wants
+  // it: at the end of the north road, with the camp on the horizon behind it.
+  //
+  // `rescue` as well as `captor`, and the two are not the same flag. `captor` is the behaviour and it
+  // is cleared the instant they charge; `rescue` is what keeps them out of the raid bar until
+  // `rescueSpotted`, so the bar arrives when the fight does and not while he is still walking up the
+  // road to it (#147).
+  handOffAtPicket() {
+    const q = this.queen;
+    const R = CFG.rescue;
+    // The party goes with her: they hand her over and walk on to the camp. They are taken off the
+    // field rather than stood into the fight, so the rescue is the seven it was tuned for (#147)
+    // rather than seven plus however many of them the player failed to shoot on the way north.
+    //
+    // The other way round is the more interesting fight -- the carriers stay and the size of the
+    // rescue is what the chase left of them -- but it changes the hardest thing in the early game
+    // from a fixed seven at rank 1 to a variable eight-to-twelve at rank 2, and that is a number
+    // that wants playing rather than reasoning about.
+    for (const e of [...this.enemies]) if (e.escort) this.removeEnemy(e);
+    q.escort = null;
+    q.taken = false;      // set down, not carried: `updateCaptive` takes it from here
+    q.seize = 0;
+    q.held = false;
+    // The pen is where they actually stopped rather than where the config says the post is: she is
+    // carried here by a runner that was dodging a river bank, and a pen a metre off her would have
+    // her pacing towards a point she is not standing on.
+    const p = q.mesh.position;
+    this._pen.set(p.x, 0, p.z);
+    this.rescueSpotted = false;
+    this.alertT = 0;
+    for (let i = 0; i < R.captors; i++) {
+      const a = (i / R.captors) * Math.PI * 2;
+      const e = this.spawnEnemy('knight', p.x + Math.cos(a) * 2.3, p.z + Math.sin(a) * 2.3, R.captorRank);
+      e.captor = true;
+      e.rescue = true;
+      e.orbit = a;
+      e.orbitDir = i % 2 ? 1 : -1;
+    }
+    if (R.captain) {
+      const c = this.spawnEnemy('brute', p.x, p.z - 2.9, R.captainRank);
+      c.captor = true;
+      c.rescue = true;
+      c.orbitDir = 1;
+    }
+    this.raiseAlarm('', 'fear');
+    this.hud.toast('They have handed her to the camp\'s picket. *Take her back.*', 3800, 'Wren');
   },
 
   // escorts march for the edge with her; the first one alive is the one carrying her
   updateEscort(e, dt) {
     const p = e.mesh.position;
     const R = CFG.rescue;
+    // #152: the opening's escort runs at the collectors' speed. See `CFG.opening.escortSpeed` -- at
+    // 4.0 the King catches them in two seconds and the picket is unreachable code.
+    const speed = e.premise ? CFG.opening.escortSpeed : R.escortSpeed;
     tmp2.set(e.exit.x - p.x, 0, e.exit.z - p.z);
     const d = tmp2.length();
     this.faceTowards(e.mesh, tmp.set(e.exit.x, 0, e.exit.z), dt, 8);
     if (d > 0.1) {
-      tmp2.normalize().multiplyScalar(Math.min(R.escortSpeed * dt, d));
+      tmp2.normalize().multiplyScalar(Math.min(speed * dt, d));
       p.add(tmp2);
     }
     this.collideRiver(p, e.radius);
     e.moving = true;
     this.animateWalk(e, 1, dt);
+    // The premise never ends a run: it ends at the picket, which `updateTaken` watches for -- once,
+    // on the one escort that is actually carrying her, rather than once per escort from in here
+    // while this loop is walking the array the hand-off is about to empty.
+    if (e.premise) return;
     const half = CFG.world.size / 2 - 4;
     if (Math.abs(p.x) > half - 0.5 || Math.abs(p.z) > half - 0.5) this.gameOver('taken');
   },

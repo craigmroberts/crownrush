@@ -119,6 +119,27 @@ export const CFG = {
     // different kind of creature; the mounted King does 7.5, so a horse would still outrun them --
     // which is fine, because by the time anyone has a horse this beat is twenty minutes past.
     speed: 6.2,
+    // #152: WHERE THEY ARE TAKING HER. The camp's outer guard post, not the edge of the map -- the
+    // edge is still where a mid-run recapture runs to, because that one is a loss and this one is the
+    // premise. They carry her back up the road they walked in on and hand her over there.
+    //
+    // [0, -36] is the end of the north road. The tracks run dead straight to 36 north and stop, which
+    // is exactly where a picket belongs: the last place the kingdom's own road reaches. It also puts
+    // it 14 clear of the north-west mesas (`cliffs`, x < -14 and z < -33), which nothing walks in.
+    //
+    // AND 38.2 FROM THE CAMP, which is the number that actually pins it. `finale.wakeRadius` is 20,
+    // so a picket any further north stands the whole garrison up in minute three of a first run --
+    // eight raiders at top rank and the chief, against one man with no walls. The camp is meant to be
+    // SEEN from here and not reached; it is a promise made in minute five and paid at night 30.
+    picket: [0, -36],
+    // The escort carries her at the collectors' speed rather than `rescue.escortSpeed` (4.0), and
+    // this is the same hole slice 1 found rather than a difficulty choice. At 4.0 the King closes at
+    // 1.6/s from a standing start beside her, so he catches them in about two seconds and the picket
+    // is never seen -- the whole of this beat would be unreachable code. At 6.2 they make it, which
+    // is what the story asks for: the opening is meant to be lost. He can still shoot them off her on
+    // the way, which is the branch that survives -- he falls back about 0.6/s, so they stay inside
+    // his bow for the length of the chase.
+    escortSpeed: 6.2,
     // WHAT THE KINGDOM IS, on the morning it ends. The STARTING plot, finished: walls, the Keep, the
     // three service buildings, four manned towers. Level 5, so the walls are stone and the Keep is
     // well up, but not the whole thirty-night arc.
@@ -165,7 +186,10 @@ export const CFG = {
   rescue: {
     // #30: the opening has to feel like a rescue. Six guards at Raider strength and a Marauder
     // captain holding her, rather than three bandits who fall over.
-    pos: [-30, 9], captors: 6, captorRank: 1, captain: true, captainRank: 2,
+    // #152: no `pos` any more. The rescue used to happen at a fixed spot west of the plot, because the
+    // run opened with her already gone and she had to be somewhere. She is taken in front of the
+    // player now, so where she is held is wherever they stopped carrying her -- `opening.picket`.
+    captors: 6, captorRank: 1, captain: true, captainRank: 2,
     freeRadius: 3.2, aggroRadius: 9, firstRaid: 22,
     penRadius: 3.4, // how far she can drift before the guards push her back
     noticeRadius: 15, // the King is spotted here: guards turn, she calls out

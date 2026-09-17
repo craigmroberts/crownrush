@@ -310,7 +310,7 @@ export class Game {
     this.alertT = 0;
     this.queenHop = 0;
     this.heartTimer = 0;
-    this._pen = new V3(CFG.rescue.pos[0], 0, CFG.rescue.pos[1]);
+    this._pen = new V3(CFG.opening.picket[0], 0, CFG.opening.picket[1]);
     this._penDir = new V3();
     this.lastAlarm = -99;
     this.lastCry = -99;         // #104: when Wren last said anything out loud
@@ -1029,6 +1029,14 @@ export class Game {
     q.moving = true;
     this.animateWalk(q, 1, dt);
     q.bar.visible = false;
+    // #152: the opening's chase ends at the camp's picket rather than at the edge of the world.
+    // Checked here and not in `updateEscort`: this runs once a frame on the one escort that is
+    // actually carrying her, where `updateEscort` runs on each of them from inside a walk of
+    // `this.enemies` -- and the hand-off empties that array of escorts as its first act.
+    if (lead.premise) {
+      const pk = CFG.opening.picket;
+      if (Math.hypot(lp.x - pk[0], lp.z - pk[1]) < 1.6) this.handOffAtPicket();
+    }
   }
 
   rescueTaken() {
