@@ -120,7 +120,6 @@ export class Hud {
     this.levelEl = document.getElementById('keep-level');
     this.heartsEl = document.getElementById('king-hearts');
     this.ringEl = document.getElementById('load-ring');
-    this.raidRingEl = document.getElementById('raid-ring');
     this.bagCell = document.getElementById('bag-cell');
     this.flying = [];          // #88: armfuls in the air between the world and the bag
     // #90: how tall whatever is on the notice line is, so the alarm above it knows what to clear.
@@ -401,10 +400,22 @@ export class Hud {
     const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
     const ms = CFG.notice.letterMs;
     let i = 0;
+    // #135: a run wrapped in *asterisks* takes the emphasis colour. The instruction in a notice is
+    // the half a player is scanning for -- "the sun is going down" is flavour, "get behind your
+    // walls" is the thing to do -- and colouring it is the difference between reading a notice and
+    // glancing at one. The markers are stripped before the word is measured or drawn, so the spans
+    // are the same shape either way and the letter reveal is untouched.
+    let em = false;
     const html = text.split(' ').map((w, wi) => {
       const lead = wi ? ` ` : '';
       if (wi) i++;            // the space counts, or the pacing stutters at every word break
-      return lead + `<span class="tw-w">${[...w].map((ch) => `<span style="animation-delay:${i++ * ms}ms">${esc(ch)}</span>`).join('')}</span>`;
+      if (w.startsWith('*')) { em = true; w = w.slice(1); }
+      const closes = w.endsWith('*');
+      if (closes) w = w.slice(0, -1);
+      const cls = em ? 'tw-w tw-em' : 'tw-w';
+      const out = lead + `<span class="${cls}">${[...w].map((ch) => `<span style="animation-delay:${i++ * ms}ms">${esc(ch)}</span>`).join('')}</span>`;
+      if (closes) em = false;
+      return out;
     }).join('');
     el.innerHTML = html;
     return i * ms;
@@ -710,11 +721,11 @@ export class Hud {
   // many raiders are still coming or still standing. The count is the part that answers "is it over"
   // outright; the bar is there because twelve raiders on their last legs and twelve fresh ones are
   // not the same news.
-  setRaid(frac, count) {
-    const el = this.raidEl || (this.raidEl = document.getElementById('raid-meter'));
+  setRaid(frac, count, night, boss) {
+    const el = this.raidBar || (this.raidBar = document.getElementById('raid-bar'));
     const show = count > 0;
     if (!show && !this.raidShown) return;
-    // Fill and count are written BEFORE the meter is unhidden. A hidden element does not run CSS
+    // Width and count are written BEFORE the bar is unhidden. A hidden element does not run CSS
     // transitions, so the new night's bar snaps to full while nobody is looking; setting it after
     // would show last night's leftover width sliding up to this one's, which reads as the raid
     // growing at the exact moment it has not started.
@@ -722,12 +733,27 @@ export class Hud {
       const pct = Math.round(Math.max(0, Math.min(1, frac)) * 100);
       if (pct !== this.raidPct) {
         this.raidPct = pct;
-        if (this.raidRingEl) this.raidRingEl.style.strokeDashoffset = RING_C * (1 - pct / 100);
+        (this.rbFill || (this.rbFill = document.getElementById('rb-fill'))).style.width = `${pct}%`;
       }
       if (count !== this.raidCount) {
         this.raidCount = count;
-        (this.raidLeft || (this.raidLeft = document.getElementById('raid-left'))).textContent = count;
+        (this.rbCount || (this.rbCount = document.getElementById('rb-count'))).textContent = count;
         el.classList.toggle('last', count <= 3);
+      }
+      if (night !== this.raidNight) {
+        this.raidNight = night;
+        // Night 0 is the prologue -- the men carrying Wren off, before there is a night to count.
+        // "Night 0" is a counter showing its working; the rescue has a name and this is it.
+        (this.rbNight || (this.rbNight = document.getElementById('rb-night'))).textContent =
+          night > 0 ? `Night ${night}` : 'The rescue';
+      }
+      // The Warlord is the one enemy the player has a word for, so he gets his name on the bar and
+      // everybody else is "Raiders". A boss arriving mid-night rewrites the line under way, which is
+      // the point: the thing on the field changed.
+      const name = boss ? 'The Warlord' : 'Raiders';
+      if (name !== this.raidName) {
+        this.raidName = name;
+        (this.rbName || (this.rbName = document.getElementById('rb-name'))).textContent = name;
       }
     }
     if (show !== this.raidShown) {

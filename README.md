@@ -69,27 +69,36 @@ the raids keep coming for a high score.
   - **Coin and bag.** The bag's ring is how full it is: one continuous arc running green to yellow to
     orange to red, so the cap is never a number anyone has to read.
   - **Five hearts**, each draining by eighths, so losing a little shows as losing a little.
-  - **`Lv. 6`**, and beside it either the countdown to nightfall or the raid meter. The night used to
-    have a counter of its own up here and it was the same clock printed twice: on a run at the pace
-    the finale expects, the night half never once changes what spawns. The nights still fall and the
-    raids still come at night; what went is the counter. The one thing a single number could hide is a
-    player falling behind, so it says that itself -- `Lv.` turns amber whenever the raid is being
-    fought above the level the Keep stands at.
+  - **`Lv. 6`**, and beside it the countdown to nightfall. The night used to have a counter of its
+    own up here and it was the same clock printed twice: on a run at the pace the finale expects, the
+    night half never once changes what spawns. The nights still fall and the raids still come at
+    night; what went is the counter. The one thing a single number could hide is a player falling
+    behind, so it says that itself -- `Lv.` turns amber whenever the raid is being fought above the
+    level the Keep stands at.
 
-  The countdown and the raid meter **share** that slot rather than each having one. They are driven
-  from the same `raid` snapshot in the same frame of `update` -- the meter on `count > 0`, the clock
-  on `count === 0` -- so the exclusivity is exact rather than incidental, and there is no frame in
-  which both could be up. Both sit after `Lv.`, so whichever is showing, and the stretch where neither
-  is, nothing to their left moves.
+  The raid used to share that slot with the clock, as a 30px ring. It is a bar across the top of the
+  screen now (#135) and the reason is that a ring in the corner competing with everything else on
+  that line is easy to miss -- which is exactly what was reported.
 
   The middle of the screen is left empty on purpose. Every bar and pip is out of it; the only precise
   health readout is the one over the King's head, and that shows only when he is hurt, so no shape is
   drawn twice.
-- The raid meter is a bar of the health the night arrived with and the number still standing. Raiders
-  who have not walked on yet are already counted, so it only falls, and it goes when the last one does
-  -- which is the answer to "is that all of them?" without sweeping the map. The Warlord calling
-  reinforcements is the one thing that puts it back up. The King has no bar in the corner: his own is
-  over his head, where everyone else's is.
+- **The raid runs across the top of the screen** (#135): who is out there, a bar of the health the
+  night arrived with, and the number still standing. Three lines because they answer different
+  questions -- the bar says "is this nearly over", the count is what a player acts on when it gets
+  low, and the name is the only place the Warlord is ever called by it. Raiders who have not walked on
+  yet are already counted, so it only falls, and it goes when the last one does -- which is the answer
+  to "is that all of them?" without sweeping the map. The Warlord calling reinforcements is the one
+  thing that puts it back up; the last three turn the bar amber, which is about counting down rather
+  than about danger.
+
+  It sits **first in `#hud`**, which is a flex column, so the top bar is pushed down by the flow
+  rather than by a number that would have to be kept in step with the block's height. The minimap and
+  the purse are `fixed` and cannot be pushed, so they are offset off a sibling selector -- the one
+  place that height is written down, and the real price of the change: about 104px of the top of the
+  screen while a raid is on.
+
+  The King has no bar in the corner: his own is over his head, where everyone else's is.
 - Nothing on the field carries a frame. The minimap and the settings gear both used to wear a gold
   ring; the gear is just a gear now, which is what let it grow to fill the space the border was using,
   and the map has no edge at all -- it fades out into the grass and is slightly see-through, so it
@@ -348,23 +357,55 @@ fight and collect, build, raise the Keep) with Next and a Skip. Enter, Space or 
 advance. It is remembered in `localStorage`, so replays go straight in. The start screen itself is one
 line.
 
-## The buttons
+## The buttons, and the palette they come from
 
 One rule paints every call to action in the game -- Play, Continue, Play Again, Next, Back to the
-game -- so the treatment is decided once. It is a **gold frame on a dark translucent fill**, with a
-small diamond at each end and a glyph beside the word: a crown on Continue, a leaf on New Run. It was
-a block of flat yellow, which at 26px is a lot of the screen given to a control, and on the title
-screen it sat on a blurred photograph of the game and flattened it. The frame keeps the gold where
-gold does the work -- the edge, the glyph, the word -- and gives the middle back to the world behind.
+game -- so the treatment is decided once. It is a **near-black fill with a hairline edge and an
+italic label**: no frame, no ornament, nothing to say "button" except being one.
 
-The frame is a gradient, which `border-color` cannot be: the fill paints to `padding-box` and the gold
-to `border-box`, so a 2px transparent border shows the second layer as an edge. No extra element, no
-image, nothing to download -- and the title screen is the one measured in bytes to a clickable Play
-(#53), so ornament arriving as a request would cost the thing it decorates. The flourishes above and
-below the wordmark are the same deal: a hairline that fades out from a rotated 7px diamond.
+That is a repaint (#135). It was a gold frame on a dark fill with a rotated diamond at each end, and
+the frame was the affordance -- which meant every button in the game had to wear the full ornament to
+read as one, and a panel offering three of them had no way left to say *this one*. The emphasis moved
+to where it can mean something:
 
-The loading bar is held to the same standard, because it is the first thing anyone sees and it was
-the last piece of that screen still looking like a default (#112).
+- **The primary action** of a panel -- one per panel -- takes the accent edge with a soft glow at
+  rest. Play is findable on the title screen without looking, which is the one thing the old frame
+  genuinely did well.
+- **The press** takes a heavier accent ring. `:hover` is a state a touchscreen never enters and this
+  game is played with a thumb, so an affordance that only appears on hover is one that never appears
+  at all -- #121 learned that on the reward cards. A press is the one gesture a thumb always makes.
+- **Unavailable** is its own material rather than the same button fainter: no fill of its own, a
+  fainter edge, a muted label, so it never reads as something that would work if you pressed harder.
+
+The palette behind it is **Emerald**: deep forest-teal panels with gold, so the HUD reads as part of
+the meadow rather than a layer floating over it. Green UI on a green world is the hardest separation
+to hold, so it leans on **value** rather than hue -- the panels are far darker than any terrain the
+game draws, including the near-white diamond-age walls.
+
+### The `:root` block is read now
+
+This is the part worth knowing before changing a colour. The stylesheet has always had a `:root` block
+that looked like a brand guide -- `--gold`, `--wood`, `--plaque`, `--rim` -- and **nothing read
+thirteen of its sixteen properties**. Not the stylesheet, not the JS, not the markup. The values had
+drifted into 361 literals across seven files, to the point where `--rim: #d8a83e` and the button
+frame's `#d8a63c` were the same intended colour two shades apart, one of them unreachable.
+
+It is a live contract now: `--accent`, `--frame-*`, `--fill-*`, `--btn-ink`, `--surface`,
+`--surface-2`, `--ink`, `--ink-dim`, `--figure`, `--good`, `--emph`, `--scrim`, `--danger-*` and the
+five `--pool-*`. **Anything added there has to be read by something**, or it is decoration pretending
+to be a decision. The stylesheet is down to 93 hex literals from 107 and carries 96 `var()` reads
+where it carried five; the rest are the 3D world's materials in `models.js` and `world.js`, which are
+a separate palette and deliberately not part of this one yet.
+
+## Notices colour the half you act on
+
+A notice is usually two halves: what happened, and what to do about it. The second half is wrapped in
+`*asterisks*` in the string and takes `--emph` -- *"The sun is going down. **Get behind your
+walls.**"* The markers are stripped in `typeInto` before the word is measured or drawn, so the spans
+are the same shape either way and the letter-by-letter reveal is untouched.
+
+The rule is **colour the thing to do, never the flavour**. Colour is the one channel a player can
+read without reading, and spending it on atmosphere would leave nothing for the instruction.
 
 ## The opening: rescue the Queen
 
@@ -1080,7 +1121,8 @@ on the wire, fetched the first time one is decoded -- so compressing the three t
 hand would drag that download onto the critical path and put bytes-to-a-clickable-Play over a budget it
 currently clears. The rule is: what the opening needs stays JPEG, everything after it is ETC1S, and
 `tools/models/compress.mjs` holds the same split (#51). Measured: nothing of the transcoder arrives
-before Play, and both devices report the same 3003 kB (2972 before the #55 clips added 31).
+before Play, and both devices report the same 3006 kB (2972 before the #55 clips added 31, 3003
+before #135's palette block and raid bar added 3).
 
 How a character dies, and how it reacts (#55):
 

@@ -1195,10 +1195,10 @@ export const BuildMethods = {
     // an ordinary unit made the worst moment in the game a non-event; the raiders carry her off
     // instead, and the chase that already existed starts from here.
     if (sheltering) {
-      this.hud.toast('The Keep is down and Wren with it. Cut the escort off!', 3600, 'Wren');
+      this.hud.toast('The Keep is down and Wren with it. *Cut the escort off!*', 3600, 'Wren');
       this.captureQueen();
     } else {
-      this.hud.toast('The Keep has fallen! Get Wren behind something.', 2600, 'Keep');
+      this.hud.toast('The Keep has fallen! *Get Wren behind something.*', 2600, 'Keep');
     }
     this.showKeepBroken();
   },

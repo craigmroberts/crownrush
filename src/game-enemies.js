@@ -189,7 +189,7 @@ export const EnemiesMethods = {
       q.escort.push(e);
     }
     this.raiseAlarm('They have Wren!', 'fear');
-    this.hud.toast('They are carrying Wren to the edge of the map. Cut the escort down.', 3800, 'Wren');
+    this.hud.toast('They are carrying Wren to the edge of the map. *Cut the escort down.*', 3800, 'Wren');
     audio.wave(true);
   },
 
@@ -295,14 +295,20 @@ export const EnemiesMethods = {
   raidRemaining(out) {
     out.hp = 0;
     out.count = 0;
+    // #135: and who it is. The raid bar names what is on the field, and the Warlord is the one
+    // enemy the player has a word for -- so the name is worth a flag on a loop that already runs
+    // rather than a second pass over the same list.
+    out.boss = false;
     for (const e of this.enemies) {
       if (e.camp) continue;
       out.hp += Math.max(0, e.hp);
       out.count++;
+      if (e.type === 'boss') out.boss = true;
     }
     for (const s of this.spawnQueue) {
       out.hp += this.enemyMaxHp(s.type, s.rank || 0);
       out.count++;
+      if (s.type === 'boss') out.boss = true;
     }
     return out;
   },
@@ -464,7 +470,7 @@ export const EnemiesMethods = {
       e.state = 'flee';
       this.attachLoot(e);
       this.raiseAlarm(`A thief took ${take} coins!`);
-      this.hud.toast(`A thief has your coins! Cut them down before they reach the edge.`, 3000, 'Raid');
+      this.hud.toast(`A thief has your coins! *Cut them down before they reach the edge.*`, 3000, 'Raid');
       this.popup(`-${take}`, p, '#ff9a9a', 1.8);
       audio.hurt();
     }
@@ -685,7 +691,7 @@ export const EnemiesMethods = {
 
     if (!this.night && this.dayPhase >= cy.nightStart - cy.warn / cy.length && this.dayPhase < cy.nightStart && !this.duskWarned) {
       this.duskWarned = true;
-      this.hud.toast('The sun is going down. Get behind your walls.', 2600, 'Raid');
+      this.hud.toast('The sun is going down. *Get behind your walls.*', 2600, 'Raid');
     }
     if (!this.night && crossed(prev, this.dayPhase, cy.nightStart)) {
       this.night = true;

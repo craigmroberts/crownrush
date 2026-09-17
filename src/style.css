@@ -42,20 +42,59 @@
 /* #21: the royal skin in one place. Every panel, bar and button reads from these, so the gold
    stroke weight and the wood/parchment fills stay the same across the HUD. */
 :root {
-  --gold: #f5b800;
-  --gold-dark: #b07a00;
-  --gold-line: 2px;          /* the one stroke weight: bar, dialog, buttons, minimap */
-  /* dark wood: a grain of fine vertical bands over the base, so the bar reads as a plank rather
-     than a flat fill, and still lets the grass through at ~80% opacity */
-  --wood:
-    repeating-linear-gradient(90deg, rgba(0,0,0,0.13) 0 2px, rgba(255,255,255,0.035) 2px 7px),
-    linear-gradient(180deg, rgba(78, 55, 32, 0.84), rgba(44, 30, 17, 0.88));
-  --wood-solid: #4a341e;
-  /* the HUD plaques: dark olive glass with a heavy tan-gold rim, the way the mock has them */
-  --plaque: linear-gradient(180deg, rgba(74, 90, 48, 0.9), rgba(52, 65, 33, 0.93));
-  --rim: #d8a83e;
-  --rim-dark: #8a6316;
-  --rim-line: 3px;
+  /* #135: the palette, and this block is READ now. The one it replaced was not: sixteen properties
+     were declared here and thirteen of them -- every colour, every stroke weight -- had zero readers
+     anywhere in the stylesheet, the JS or the markup. The values had drifted into 361 literals spread
+     across seven files, to the point where `--rim: #d8a83e` and the button frame's `#d8a63c` were the
+     same intended colour two shades apart, one of them unreachable. Anything added here has to be
+     read by something or it is decoration pretending to be a decision.
+     The palette is "Emerald": deep forest-teal panels with gold, chosen so the HUD reads as part of
+     the meadow rather than a layer floating over it. Green UI on a green world is the hardest
+     separation to hold, so it leans on VALUE rather than hue -- the panels are much darker than any
+     terrain the game draws, including the near-white diamond-age walls. */
+
+  /* the brand colour. Gold survives the repaint: it is the crown, and it is the only hue the
+     grass, the stone and the snow never take. */
+  --accent: #ffd24a;
+  /* the button frame, light to dark. Three stops rather than a border-color, because the frame is a
+     gradient painted to border-box behind a fill painted to padding-box. */
+  --frame-hi: #fff0a8;
+  --frame-mid: #e0b13a;
+  --frame-lo: #7a5a12;
+  /* what a button is filled with. Dark enough that the gold edge and the label carry it, so the
+     world behind still shows through the middle. */
+  --fill-hi: rgba(12, 52, 42, 0.86);
+  --fill-lo: rgba(5, 30, 24, 0.92);
+  --btn-ink: #eafff2;
+  /* the round HUD controls and the notice panels: one glass, so a toast and the warhorn under it
+     are plainly the same material. */
+  --surface: rgba(10, 46, 36, 0.76);
+  /* rows and tiles INSIDE a panel, where the panel is already dark and a second dark would vanish */
+  --surface-2: rgba(255, 255, 255, 0.10);
+  --ink: #e6fff1;
+  --ink-dim: #93c4ab;
+  /* a number worth looking at: the countdown, the raid, what a level just gave you */
+  --figure: var(--figure);
+  --good: #7fe3a0;
+  /* #135: the clause a player is scanning for, coloured inside the sentence so a notice can be read
+     at a glance instead of read. The rule is: colour the thing to DO, never the flavour. */
+  --emph: #8fe8d8;
+  /* the overlay scrim. 0.66 is not a taste: a diamond-age village blurs to near-white behind it and
+     a blur preserves average brightness, so this is the only thing between light text and a pale
+     background. */
+  --scrim: rgba(4, 26, 20, 0.66);
+  /* the one red. Everything that interrupts -- the skip button, the alarm, the raid bar -- uses it,
+     and nothing else does, so red always means the same thing. */
+  --danger-hi: #ff7059;
+  --danger-lo: #cf3a2c;
+  --danger-edge: #7a1e16;
+  /* the five reward pools. Gold is deliberately not among them: it is the primary button's colour,
+     and a gold card would read as "the recommended one". */
+  --pool-army: #a8324a;
+  --pool-towers: #136a80;
+  --pool-walls: #8a5a24;
+  --pool-economy: #1d7a4e;
+  --pool-king: #6b45a8;
   /* #90: where notices live. Everything that speaks at the bottom is measured from this one value
      rather than each element knowing a number the others also know -- which is how the toast and the
      mat chip ended up colliding in the first place (#75).
@@ -84,10 +123,6 @@
      on the word "WREN"; 4 for the top of the notice's bob, which the label rides; and 10 left over,
      which is the air. Measured at 16px first and the two decorations ate it down to 1. */
   --notice-gap: 24px;
-  --parchment: linear-gradient(180deg, #fffbe8, #f3e6c4);
-  --ink: #2a3a2f;
-  --radius: 14px;
-  --bar-h: 56px;                        /* the top bar's height; the controls sit below it */
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; font-family: "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
@@ -167,7 +202,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
      thing standing between light text and a pale background. At this alpha a full screen of white
      composites to about a mid-grey, which the panel text clears comfortably -- and every line on a
      panel carries a two-stop shadow on top of that. */
-  background: rgba(8, 18, 12, 0.66);
+  background: var(--scrim);
   -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
   opacity: 1; visibility: visible;
   transition: opacity 0.2s ease-out;
@@ -205,7 +240,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   position: absolute; top: -4px; right: -2px; width: 44px; height: 44px;
   border-radius: 50%; border-bottom: 0; margin: 0;
   display: grid; place-items: center; border: 0; background: none; cursor: pointer; padding: 0;
-  color: #dde7cf; font-size: 30px; line-height: 1; font-weight: 700;
+  color: var(--ink); font-size: 30px; line-height: 1; font-weight: 700;
   font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
   text-shadow: 0 1px 2px rgba(0,0,0,0.6); -webkit-text-stroke: 0;
   -webkit-tap-highlight-color: transparent; transition: transform 0.12s ease-out, color 0.12s ease-out;
@@ -218,15 +253,15 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .panel {
   background: none; border: 0; box-shadow: none; border-radius: 0;
   padding: 28px 24px; max-width: 30rem; width: calc(100% - 36px); text-align: center;
-  position: relative; color: #eef4e4;
+  position: relative; color: var(--ink);
   /* light text on a blurred photograph of the game, not on a flat panel: the world behind moves
      between runs and materials, and a diamond-age village blurs much lighter than grass */
   text-shadow: 0 1px 0 rgba(0,0,0,0.55), 0 2px 10px rgba(0,0,0,0.65);
 }
 .panel h1 { font-size: 40px; color: #ffb347; -webkit-text-stroke: 1px #5a2a0c; text-shadow: 0 3px 0 #b07a00, 0 4px 14px rgba(0,0,0,0.6); margin-bottom: 12px; }
-.panel p { color: #dde7cf; margin-bottom: 14px; line-height: 1.4; }
-.panel .hint { font-size: 13px; color: #a9bb96; }
-.panel .best { font-size: 14px; color: #a9bb96; margin-top: 14px; margin-bottom: 0; }
+.panel p { color: var(--ink); margin-bottom: 14px; line-height: 1.4; }
+.panel .hint { font-size: 13px; color: var(--ink-dim); }
+.panel .best { font-size: 14px; color: var(--ink-dim); margin-top: 14px; margin-bottom: 0; }
 /* #112: the framed CTA. One rule paints every button in the game -- Play, Continue, Play Again, Next,
    Back to the game -- so this moves all of them at once, which is why it is worth getting right here
    rather than per panel.
@@ -241,30 +276,51 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .panel button {
   position: relative; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center; gap: 11px;
-  background:
-    linear-gradient(180deg, rgba(26, 38, 20, 0.8), rgba(12, 20, 10, 0.88)) padding-box,
-    linear-gradient(180deg, #ffe694, #d8a63c 48%, #8a6316) border-box;
-  border: 2px solid transparent; border-radius: 15px;
-  padding: 12px 34px; color: #ffe3a3; font-size: 25px; font-weight: 900;
-  text-shadow: 0 2px 0 rgba(0,0,0,0.5); -webkit-text-stroke: 0;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.13), inset 0 -10px 18px rgba(0,0,0,0.28), 0 6px 18px rgba(0,0,0,0.42);
-  transition: transform 0.1s ease-out, filter 0.1s ease-out;
+  background: linear-gradient(180deg, var(--fill-hi), var(--fill-lo));
+  border: 1.5px solid rgba(255, 255, 255, 0.26); border-radius: 5px;
+  padding: 13px 26px; color: var(--btn-ink);
+  font-size: 22px; font-weight: 800; font-style: italic;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6); -webkit-text-stroke: 0;
+  box-shadow: 0 5px 16px rgba(0,0,0,0.38);
+  transition: border-color 0.12s ease-out, box-shadow 0.12s ease-out, transform 0.1s ease-out;
 }
-/* the diamonds at each end. Rotated squares rather than a glyph, so they cost nothing and scale with
-   the button; they sit inside the padding, which is why the padding is 34 and not 40. */
-.panel button::before, .panel button::after {
-  content: ''; position: absolute; top: 50%; width: 7px; height: 7px;
-  background: linear-gradient(135deg, #ffe694, #c9962a); transform: translateY(-50%) rotate(45deg);
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.35);
-}
-.panel button::before { left: 11px; }
-.panel button::after { right: 11px; }
 .panel button .icon { flex: 0 0 auto; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.55)); }
-.panel button:hover { filter: brightness(1.12); }
-/* it has no bottom strip to sink into any more, so the press is the whole thing settling */
-.panel button:active { transform: translateY(2px); filter: brightness(1.15); }
-.panel button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
-.panel button[disabled] { opacity: 0.55; cursor: default; }
+.panel button:hover { border-color: rgba(255, 255, 255, 0.45); }
+/* #135: the press IS the selected state. The old button said "button" with a gold frame and a
+   diamond at each end on every single one of them, so the ornament was spent on the resting state
+   and there was nothing left to say "this one". The frame moves to the moment of choosing: a ring in
+   the accent with a glow behind it, which is the one thing on screen wearing that treatment.
+   It matters more here than it looks. `:hover` is a state a touchscreen never enters, and this game
+   is played with a thumb -- so an affordance that only appears on hover is an affordance that never
+   appears at all (#121 learned this on the reward cards). A press is the one gesture a thumb always
+   makes, so that is where the emphasis goes. */
+.panel button:active {
+  transform: translateY(1px);
+  border: 3px solid var(--accent); padding: 11.5px 24.5px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.55), 0 0 15px 2px rgba(255, 210, 74, 0.55),
+              inset 0 0 12px rgba(0,0,0,0.6);
+}
+.panel button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+/* #135: the reference always has one item selected and the glow says which -- but that is a
+   controller cursor, and this game is played with a thumb. At rest nothing wears it, so a panel loses
+   its focal point, which is the one thing the old gold frame did well: Play was findable without
+   looking. The PRIMARY action takes the accent edge at rest instead. One per panel, so the emphasis
+   still means "this one" and not "this is a button" -- which is what went wrong when every button
+   wore the frame. */
+.panel button.primary {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.45), 0 0 14px rgba(255, 210, 74, 0.28), 0 5px 16px rgba(0,0,0,0.38);
+}
+.panel button.primary:hover {
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.45), 0 0 19px rgba(255, 210, 74, 0.45), 0 5px 16px rgba(0,0,0,0.38);
+}
+
+/* not "the same button, fainter": unavailable is its own material -- no fill of its own, a fainter
+   edge and a muted label, so it never reads as something that would work if you pressed harder. */
+.panel button[disabled] {
+  background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.13);
+  color: var(--ink-dim); cursor: default; text-shadow: none; box-shadow: none;
+}
 
 /* #58: the run-length pills -- on the title screen above Play, and over the scoreboard to pick which
    board is showing. Deliberately NOT the gold frame above: two more full-size gold CTAs stacked over
@@ -279,13 +335,13 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   box-shadow: none; text-shadow: 0 1px 0 rgba(0,0,0,0.5); font-size: 15px;
 }
 .panel .seg .seg-b::before, .panel .seg .seg-b::after { content: none; }
-.panel .seg .seg-b b { display: block; font-size: 16px; line-height: 1.2; font-weight: 900; color: #dde7cf; }
-.panel .seg .seg-b span { display: block; font-size: 11px; line-height: 1.3; margin-top: 2px; color: #a9bb96; }
+.panel .seg .seg-b b { display: block; font-size: 16px; line-height: 1.2; font-weight: 900; color: var(--ink); }
+.panel .seg .seg-b span { display: block; font-size: 11px; line-height: 1.3; margin-top: 2px; color: var(--ink-dim); }
 .panel .seg .seg-b.on {
   background: linear-gradient(180deg, rgba(58, 44, 14, 0.85), rgba(30, 22, 8, 0.9));
-  border-color: #d8a63c;
+  border-color: var(--frame-mid);
 }
-.panel .seg .seg-b.on b { color: #ffe3a3; }
+.panel .seg .seg-b.on b { color: var(--btn-ink); }
 .panel .seg .seg-b.on span { color: #d6b96a; }
 .panel .seg .seg-b:active { transform: translateY(1px); }
 #sc-pick { margin-bottom: 0; }
@@ -295,7 +351,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 #move-btn {
   position: fixed; right: max(212px, calc(200px + env(safe-area-inset-right))); bottom: max(16px, calc(4px + env(safe-area-inset-bottom)));
   width: 56px; height: 56px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; pointer-events: auto;
-  background: rgba(30, 40, 24, 0.7); box-shadow: 0 0 0 2px rgba(255,227,163,0.35), 0 6px 16px rgba(0,0,0,0.35); z-index: 5;
+  background: var(--surface); box-shadow: 0 0 0 2px rgba(255,227,163,0.35), 0 6px 16px rgba(0,0,0,0.35); z-index: 5;
   display: grid; place-items: center; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
 }
 #move-btn.hidden { display: none; }
@@ -306,7 +362,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 #place-btn {
   position: fixed; right: 12px; right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom));
   width: 64px; height: 64px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; pointer-events: auto;
-  background: rgba(30, 40, 24, 0.7); box-shadow: 0 6px 16px rgba(0,0,0,0.35); z-index: 5;
+  background: var(--surface); box-shadow: 0 6px 16px rgba(0,0,0,0.35); z-index: 5;
   display: grid; place-items: center; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
 }
 #place-btn.hidden { display: none; }
@@ -322,7 +378,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   position: fixed; right: max(88px, calc(76px + env(safe-area-inset-right)));
   bottom: max(16px, calc(4px + env(safe-area-inset-bottom)));
   width: 56px; height: 56px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; pointer-events: auto;
-  background: rgba(30, 40, 24, 0.7); box-shadow: 0 0 0 2px rgba(255,227,163,0.25), 0 6px 16px rgba(0,0,0,0.35);
+  background: var(--surface); box-shadow: 0 0 0 2px rgba(255,227,163,0.25), 0 6px 16px rgba(0,0,0,0.35);
   z-index: 5; display: grid; place-items: center; touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
@@ -360,13 +416,13 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 .legacy .lg-badge {
   display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 999px;
   background: rgba(12, 20, 10, 0.55); border: 1px solid rgba(255, 227, 163, 0.22);
-  font-size: 12px; font-weight: 800; color: #a9bb96; text-shadow: none;
+  font-size: 12px; font-weight: 800; color: var(--ink-dim); text-shadow: none;
 }
-.legacy .lg-badge.on { border-color: #d8a63c; color: #ffe3a3; background: linear-gradient(180deg, rgba(58,44,14,0.85), rgba(30,22,8,0.9)); }
+.legacy .lg-badge.on { border-color: var(--frame-mid); color: var(--btn-ink); background: linear-gradient(180deg, rgba(58,44,14,0.85), rgba(30,22,8,0.9)); }
 .legacy .lg-badge.new { border-color: #7ad17a; color: #d8ffd0; background: linear-gradient(180deg, rgba(22,58,24,0.9), rgba(12,32,14,0.92)); }
 .legacy .lg-badge .icon { flex: 0 0 auto; }
-.legacy .lg-line { font-size: 12.5px; color: #a9bb96; line-height: 1.35; text-align: center; }
-.legacy .lg-line b { color: #ffe3a3; }
+.legacy .lg-line { font-size: 12.5px; color: var(--ink-dim); line-height: 1.35; text-align: center; }
+.legacy .lg-line b { color: var(--btn-ink); }
 /* the bar that fills towards the next unlock */
 .legacy .lg-bar { width: min(260px, 100%); height: 6px; border-radius: 3px; background: rgba(12,20,10,0.6); border: 1px solid rgba(255,227,163,0.18); overflow: hidden; }
 .legacy .lg-bar i { display: block; height: 100%; background: linear-gradient(90deg, #d8a63c, #ffe694); }
@@ -409,8 +465,8 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 #next-wave-btn {
   position: fixed; left: max(12px, env(safe-area-inset-left)); bottom: max(24px, env(safe-area-inset-bottom));
   pointer-events: auto; display: inline-flex; align-items: center; gap: 7px;
-  border: 0; border-bottom: 4px solid #8a1a22; border-radius: 14px; padding: 7px 14px;
-  background: linear-gradient(#f05a4a, #d8262c); color: #fff; cursor: pointer;
+  border: 0; border-bottom: 4px solid var(--danger-edge); border-radius: 14px; padding: 7px 14px;
+  background: linear-gradient(var(--danger-hi), var(--danger-lo)); color: #fff; cursor: pointer;
   font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 17px;
   box-shadow: 0 6px 16px rgba(0,0,0,0.3); text-shadow: 0 2px 0 rgba(0,0,0,0.3);
 }
@@ -428,7 +484,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
   position: fixed; left: 50%; transform: translateX(-50%) translateY(0);
   bottom: var(--notice-bottom);
   width: max-content; max-width: min(420px, calc(100vw - 28px));
-  background: rgba(16, 24, 14, 0.62); border: 0; border-radius: 20px; color: #f4f7ec;
+  background: var(--surface); border: 0; border-radius: 20px; color: #f4f7ec;
   box-shadow: 0 8px 22px rgba(0,0,0,0.28); z-index: 4; overflow: hidden;
   text-shadow: 0 1px 0 rgba(0,0,0,0.45), 0 2px 6px rgba(0,0,0,0.55);
   visibility: visible;
@@ -468,7 +524,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 #pad-tip .chip.ok { background: rgba(63,212,85,0.24); color: #c6f7c8; }
 #pad-tip .chip.short { background: rgba(232,52,42,0.26); color: #ffc0ba; }
 /* the chevron turns to say which way this goes */
-#pad-tip .tip-more, #gain-note .tip-more { flex: none; display: flex; color: #a9bb96; transition: transform 0.2s ease-out; }
+#pad-tip .tip-more, #gain-note .tip-more { flex: none; display: flex; color: var(--ink-dim); transition: transform 0.2s ease-out; }
 #pad-tip.open .tip-more, #gain-note.open .tip-more { transform: rotate(90deg); }
 /* Payment progress stays on the face of it at all times. Standing on a mat spends coins one at a
    time and this bar is the only thing that shows it happening; behind a tap it would be useless. */
@@ -476,8 +532,8 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 #pad-tip .tip-bar i, #gain-note .tip-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffd76a, #e8a91c); transition: width 0.12s linear; }
 #pad-tip .tip-body, #gain-note .tip-body { display: none; padding: 8px 12px 10px; border-top: 1px solid rgba(0,0,0,0.08); }
 #pad-tip.open .tip-body, #gain-note.open .tip-body { display: block; }
-#pad-tip .tip-desc { font-size: 14px; color: #dde7cf; line-height: 1.35; }
-#pad-tip .tip-note { font-size: 12px; color: #a9bb96; margin-top: 5px; }
+#pad-tip .tip-desc { font-size: 14px; color: var(--ink); line-height: 1.35; }
+#pad-tip .tip-note { font-size: 12px; color: var(--ink-dim); margin-top: 5px; }
 @media (prefers-reduced-motion: reduce) {
   /* #128: the visibility hold stays even here -- it is hit testing, not motion */
   #pad-tip, #gain-note { transition: opacity 0.18s linear; transform: translateX(-50%); }
@@ -492,7 +548,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 #gain-note { z-index: 4; }
 #gain-note .tip-bar i { transition: width 0.1s linear; }
 #gain-note .gain-rows { display: grid; gap: 8px; }
-#gain-note .og-row { display: grid; grid-template-columns: 26px 1fr; gap: 9px; align-items: start; font-size: 13.5px; line-height: 1.34; color: #dde7cf; }
+#gain-note .og-row { display: grid; grid-template-columns: 26px 1fr; gap: 9px; align-items: start; font-size: 13.5px; line-height: 1.34; color: var(--ink); }
 #gain-note .og-row svg { margin-top: 1px; }
 /* #85: no gold ring. It was the last piece of furniture left on the field after #68 took the rest of
    the HUD down to glyphs and numbers.
@@ -559,7 +615,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 }
 #alarm {
   display: inline-flex; align-items: center; gap: 8px;
-  background: rgba(16, 24, 14, 0.62); color: #ff9f96; padding: 8px 16px; border-radius: 16px; border: 0;
+  background: var(--surface); color: var(--danger-hi); padding: 8px 16px; border-radius: 16px; border: 0;
   font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 15px;
   pointer-events: none; box-shadow: 0 8px 22px rgba(0,0,0,0.28);
   text-shadow: 0 1px 0 rgba(0,0,0,0.45), 0 2px 6px rgba(0,0,0,0.55);
@@ -688,7 +744,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 .bagring .ring circle { fill: none; stroke-width: 4.5; stroke-linecap: round; }
 .bagring .ring-bg { stroke: rgba(0,0,0,0.42); }
 .bagring .ring-fill {
-  stroke: #3fd455; stroke-dasharray: 106.81; stroke-dashoffset: 106.81;
+  stroke: var(--good); stroke-dasharray: 106.81; stroke-dashoffset: 106.81;
   transition: stroke-dashoffset 0.25s ease-out, stroke 0.3s linear;
   filter: drop-shadow(0 1px 2px rgba(0,0,0,0.45));
 }
@@ -699,17 +755,10 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 /* #72: the countdown sits under the hearts as a clock. `.soon` is the only warning a raid is
    imminent apart from the dusk toast, so it survives the move -- as a colour now rather than a
    border, since there is no longer a border to colour. */
-.hud-cell.clock { font-size: 15px; color: #ffe08a; }
+.hud-cell.clock { font-size: 15px; color: var(--figure); }
 .hud-cell.clock.soon { color: #ffb570; }
 .hud-cell.hidden { display: none; }
 
-/* #71: the raid ring is the bag's ring in a different colour. Red throughout rather than the bag's
-   green-to-red ramp: the two rings sit side by side and mean opposite things by their fullness, so
-   giving them the same colour language would have been the one way to make them genuinely confusing.
-   Amber at the last few is the one cue, and it is about counting down rather than about danger. */
-.bagring .ring-fill.raid { stroke: #e8342a; }
-#raid-meter.last .ring-fill.raid { stroke: #f0a020; }
-#raid-meter.last b { color: #ffe08a; }
 @media (max-width: 430px) {
   /* A phone has no room for generous spacing, so the groups tighten rather than wrap: #119 left one
      cell on the top row instead of two, so the width this was fighting over is mostly back. */
@@ -781,15 +830,15 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 /* scoped past `.panel button`, which would otherwise paint these as big gold play buttons */
 .panel.sheet .sheet-row {
   display: flex; align-items: center; gap: 12px; width: 100%; margin-bottom: 10px;
-  background: rgba(255,255,255,0.09); border: 0; border-radius: 14px;
-  padding: 13px 16px; cursor: pointer; font-size: 19px; font-weight: 800; color: #eef4e4;
+  background: var(--surface-2); border: 0; border-radius: 14px;
+  padding: 13px 16px; cursor: pointer; font-size: 19px; font-weight: 800; color: var(--ink);
   -webkit-text-stroke: 0; text-shadow: 0 1px 2px rgba(0,0,0,0.5);
   transition: background 0.12s ease-out, transform 0.12s ease-out;
 }
 /* the press was a button sinking into its own bottom border; there is no border to sink into now */
 .panel.sheet .sheet-row:active { transform: scale(0.985); background: rgba(255,255,255,0.17); }
 .panel.sheet .sheet-row .sheet-label { flex: 1; text-align: left; }
-.panel.sheet .sheet-row em { font-style: normal; font-size: 15px; color: #a9bb96; }
+.panel.sheet .sheet-row em { font-style: normal; font-size: 15px; color: var(--ink-dim); }
 /* #84: an update waiting is good news, not a warning -- it gets the green the game uses for a thing
    you want rather than the red the restart row below uses for a thing you might regret. Both the row
    and the build line are hidden where there is no worker to ask; there is no blanket .hidden rule in
@@ -811,7 +860,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
   display: block; margin: 2px auto 0; padding: 4px 8px; width: auto;
   background: none; border: 0; box-shadow: none; border-radius: 8px;
   font-family: inherit; font-size: 11px; line-height: 1.35; opacity: 0.55; letter-spacing: 0;
-  color: #a9bb96; text-shadow: none; -webkit-text-stroke: 0; font-weight: 600;
+  color: var(--ink-dim); text-shadow: none; -webkit-text-stroke: 0; font-weight: 600;
   cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .panel.sheet #set-size:active { opacity: 0.9; background: rgba(255,255,255,0.08); }
@@ -852,7 +901,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 /* the panel: everything you can see, and the thing that floats */
 .toast-panel {
   position: relative;
-  background: rgba(16, 24, 14, 0.62); color: #f4f7ec; padding: 11px 20px; border-radius: 20px;
+  background: var(--surface); color: #f4f7ec; padding: 11px 20px; border-radius: 20px;
   font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 700; font-size: 17px;
   /* #97: stated rather than left to the font, because the page split divides by it -- `normal` reads
      back from getComputedStyle as the string "normal", not a number of pixels. */
@@ -994,9 +1043,9 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 .panel.info h1 { text-align: center; font-size: 34px; }
 .panel.info h2 { display: flex; align-items: center; gap: 8px; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 21px; color: #f2f6ea; margin: 18px 0 6px; }
 .panel.info p { margin-bottom: 8px; font-size: 15px; }
-.panel.info p.sub { color: #a9bb96; font-size: 13px; margin-bottom: 6px; }
+.panel.info p.sub { color: var(--ink-dim); font-size: 13px; margin-bottom: 6px; }
 .panel.info .info-note { background: #ffe0ec; border: 2px solid #f07aa8; border-radius: 12px; padding: 8px 12px; color: #7a2b4a; font-weight: 700; }
-.panel.info ul { margin: 0 0 8px 20px; color: #dde7cf; font-size: 15px; line-height: 1.45; }
+.panel.info ul { margin: 0 0 8px 20px; color: var(--ink); font-size: 15px; line-height: 1.45; }
 .panel.info .ichip { display: inline-flex; align-items: center; gap: 5px; background: #f1ecd8; border-radius: 999px; padding: 3px 10px 3px 6px; font-size: 13px; font-weight: 700; color: #4a4a3a; margin: 2px 0; }
 .panel.info .ichip.ok { background: #d9f5dc; color: #23613a; }
 .panel.info .ichip.short { background: #fde0dc; color: #8a2a20; }
@@ -1019,12 +1068,12 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
    on a phone. */
 #sc-body { display: grid; gap: 6px; margin: 10px 0 4px; max-height: 54vh; overflow-y: auto; }
 .sc-row { display: grid; grid-template-columns: 22px 1fr auto; gap: 9px; align-items: center; text-align: left; }
-.sc-rank { font-size: 14px; color: #a9bb96; text-align: right; }
+.sc-rank { font-size: 14px; color: var(--ink-dim); text-align: right; }
 .sc-mid { min-width: 0; }
 .sc-score { display: block; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 19px; color: #f4f7ec; line-height: 1.1; }
-.sc-sub { display: block; font-size: 11.5px; color: #a9bb96; line-height: 1.25; }
-.sc-army { font-size: 14px; color: #dde7cf; text-align: right; white-space: nowrap; }
-.sc-u { display: block; font-size: 10px; font-style: normal; color: #a9bb96; letter-spacing: 0.06em; text-transform: uppercase; }
+.sc-sub { display: block; font-size: 11.5px; color: var(--ink-dim); line-height: 1.25; }
+.sc-army { font-size: 14px; color: var(--ink); text-align: right; white-space: nowrap; }
+.sc-u { display: block; font-size: 10px; font-style: normal; color: var(--ink-dim); letter-spacing: 0.06em; text-transform: uppercase; }
 /* a run that ended the war is a different achievement from a high-scoring loss, and sorting by score
    alone flattens that -- so the row says so rather than trying to rank it */
 .sc-row.won .sc-score { color: #ffd76a; }
@@ -1101,23 +1150,23 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
    that does not know `dvh`. */
 #offer-gains { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 6px; max-height: 24vh; max-height: 24dvh; overflow-y: auto; margin: 8px 0 12px; text-align: left; }
 .og-tile {
-  background: rgba(255,255,255,0.09); border-radius: 11px; padding: 6px 9px 7px;
+  background: var(--surface-2); border-radius: 11px; padding: 6px 9px 7px;
   display: grid; grid-template-columns: 22px 1fr; gap: 0 7px; align-items: center; text-shadow: none;
 }
 .og-tile .ot-icon { display: grid; place-items: center; }
 /* the label loses to the figure on purpose: it is what the number is OF, and the number is the news */
-.og-tile .ot-label { font-size: 10.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #a9bb96; line-height: 1.15; }
+.og-tile .ot-label { font-size: 10.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-dim); line-height: 1.15; }
 .og-tile .ot-now {
   grid-column: 1 / -1; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
-  font-size: 16px; font-weight: 800; color: #ffe08a; line-height: 1.1; margin-top: 2px;
+  font-size: 16px; font-weight: 800; color: var(--figure); line-height: 1.1; margin-top: 2px;
 }
-.og-tile .ot-was { grid-column: 1 / -1; display: flex; align-items: center; gap: 5px; font-style: normal; font-size: 11px; color: #a9bb96; line-height: 1.2; }
+.og-tile .ot-was { grid-column: 1 / -1; display: flex; align-items: center; gap: 5px; font-style: normal; font-size: 11px; color: var(--ink-dim); line-height: 1.2; }
 /* the arrow is 8x6 of border and says the direction the figure moved. Every row that carries a `was`
    goes UP -- there is no level in the game that takes something away -- so it points one way and is
    not a component with states. */
 .og-tile .ot-was::before {
   content: ''; flex: 0 0 auto; width: 0; height: 0;
-  border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 6px solid #7fd08c;
+  border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 6px solid var(--good);
 }
 /* #121: the list is longer than the box, and a phone draws no scrollbar to say so. `showOffer` sets
    the class when it measures one, so the fade is never on a list that fits. */
@@ -1128,8 +1177,8 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 /* an event has no figure, so it is a sentence across the grid rather than a number-shaped box with
    nothing in the number */
 .og-tile.wide { grid-column: 1 / -1; }
-.og-tile.wide .ot-text { font-size: 12.5px; line-height: 1.3; color: #dde7cf; }
-.og-row { display: grid; grid-template-columns: 24px 1fr; gap: 8px; align-items: center; font-size: 13px; line-height: 1.28; color: #dde7cf; text-shadow: none; }
+.og-tile.wide .ot-text { font-size: 12.5px; line-height: 1.3; color: var(--ink); }
+.og-row { display: grid; grid-template-columns: 24px 1fr; gap: 8px; align-items: center; font-size: 13px; line-height: 1.28; color: var(--ink); text-shadow: none; }
 /* #113: what a level gave, in the two weights a glance needs. The new figure takes the HUD's gold --
    the same colour the countdown and the raid meter use for a number worth looking at -- and the old
    one goes small and muted behind it, so the eye lands on "15 archers, 6 swordsmen" and picks up
@@ -1138,8 +1187,8 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
    renderer that ever put a `<b>` inside one, and it emits tiles now, so `.og-row b` could not match
    anything. The two that remain are the Keep plaque and the info screen, which still call
    `gainBody`. */
-.ks-row b, .panel.info ul b { color: #ffe08a; font-weight: 800; }
-.ks-row em, .panel.info ul em { font-style: normal; color: #a9bb96; font-size: 0.88em; }
+.ks-row b, .panel.info ul b { color: var(--figure); font-weight: 800; }
+.ks-row em, .panel.info ul em { font-style: normal; color: var(--ink-dim); font-size: 0.88em; }
 #offer-gains:empty, #offer-gave-h:empty { display: none; }
 /* #105: the capability panel. The same rows as the level-up summary at a size up, because here they
    are the whole panel rather than the preamble to three cards -- there is nothing below them to be
@@ -1181,11 +1230,11 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
   -webkit-text-stroke: 0;
   transition: transform 0.08s, filter 0.08s;
 }
-.panel.offer .offer-card.p-army    { --pc: #a12e3b; --pc-top: #aa434f; --pc-edge: #611c23; }
-.panel.offer .offer-card.p-towers  { --pc: #176079; --pc-top: #2e7086; --pc-edge: #0e3a49; }
-.panel.offer .offer-card.p-walls   { --pc: #845020; --pc-top: #906236; --pc-edge: #4f3013; }
-.panel.offer .offer-card.p-economy { --pc: #256b40; --pc-top: #3b7a53; --pc-edge: #164026; }
-.panel.offer .offer-card.p-king    { --pc: #733ab0; --pc-top: #814eb8; --pc-edge: #45236a; }
+.panel.offer .offer-card.p-army    { --pc: var(--pool-army);    --pc-top: color-mix(in srgb, #fff 10%, var(--pool-army));    --pc-edge: color-mix(in srgb, #000 40%, var(--pool-army)); }
+.panel.offer .offer-card.p-towers  { --pc: var(--pool-towers);  --pc-top: color-mix(in srgb, #fff 10%, var(--pool-towers));  --pc-edge: color-mix(in srgb, #000 40%, var(--pool-towers)); }
+.panel.offer .offer-card.p-walls   { --pc: var(--pool-walls);   --pc-top: color-mix(in srgb, #fff 10%, var(--pool-walls));   --pc-edge: color-mix(in srgb, #000 40%, var(--pool-walls)); }
+.panel.offer .offer-card.p-economy { --pc: var(--pool-economy); --pc-top: color-mix(in srgb, #fff 10%, var(--pool-economy)); --pc-edge: color-mix(in srgb, #000 40%, var(--pool-economy)); }
+.panel.offer .offer-card.p-king    { --pc: var(--pool-king);    --pc-top: color-mix(in srgb, #fff 10%, var(--pool-king));    --pc-edge: color-mix(in srgb, #000 40%, var(--pool-king)); }
 .panel.offer .offer-card:hover { filter: brightness(1.09); transform: translateY(-3px); }
 /* the same ring the top bar's groups use, so a keyboard lands somewhere it can see */
 .panel.offer .offer-card:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
@@ -1194,7 +1243,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 /* #121: rare said itself in purple, and purple is now a pool. A word survives any card colour under
    it, which a hue cannot, so Volley wears one -- with the gold ring the cards deliberately do not
    have, so the two channels agree without either being the only one. */
-.panel.offer .offer-card.rare { box-shadow: 0 0 0 3px #f5b800, 0 3px 12px rgba(0,0,0,0.45); }
+.panel.offer .offer-card.rare { box-shadow: 0 0 0 3px var(--accent), 0 3px 12px rgba(0,0,0,0.45); }
 .panel.offer .offer-card .orare {
   position: absolute; top: -9px; right: 10px; font-style: normal;
   background: linear-gradient(#ffd54a, #f5a800); color: #5a2a0c;
@@ -1259,7 +1308,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
    the chip was cream and is unreadable now that it is a dark caption -- and because it sits four
    hundred lines below the rule that sets the colour, it quietly won. Same selector, same
    specificity, later in the file. */
-#pad-tip .tip-desc { font-size: 13px; color: #dde7cf; line-height: 1.3; margin-bottom: 6px; max-width: 520px; margin-left: auto; margin-right: auto; }
+#pad-tip .tip-desc { font-size: 13px; color: var(--ink); line-height: 1.3; margin-bottom: 6px; max-width: 520px; margin-left: auto; margin-right: auto; }
 #pad-tip .tip-bar { height: 8px; border-radius: 999px; background: rgba(0,0,0,0.16); margin: 7px auto 0; max-width: 520px; overflow: hidden; }
 #pad-tip .tip-bar i { display: block; height: 100%; width: 0; background: #3fd455; border-radius: 4px; transition: width 0.1s linear; }
 
@@ -1268,7 +1317,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 .panel.intro { max-width: 380px; padding: 26px 26px 20px; }
 .panel.intro .intro-icon { height: 60px; display: grid; place-items: center; margin-bottom: 4px; }
 .panel.intro h2 { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 28px; color: #ffb347; margin: 0 0 8px; }
-.panel.intro p { font-size: 16px; line-height: 1.45; color: #dde7cf; min-height: 4.4em; margin-bottom: 10px; }
+.panel.intro p { font-size: 16px; line-height: 1.45; color: var(--ink); min-height: 4.4em; margin-bottom: 10px; }
 .panel.intro .intro-dots { display: flex; justify-content: center; gap: 7px; margin-bottom: 14px; }
 .panel.intro .intro-dots i { width: 9px; height: 9px; border-radius: 50%; background: #d9d0b0; display: inline-block; }
 .panel.intro .intro-dots i.on { background: #f5a800; }
@@ -1280,7 +1329,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 #horn-btn {
   position: fixed; right: 12px; bottom: max(12px, env(safe-area-inset-bottom));
   width: 64px; height: 64px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; pointer-events: auto;
-  background: rgba(30, 40, 24, 0.7); box-shadow: 0 6px 16px rgba(0,0,0,0.35); z-index: 5;
+  background: var(--surface); box-shadow: 0 6px 16px rgba(0,0,0,0.35); z-index: 5;
   display: grid; place-items: center; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
 }
 #horn-btn.hidden { display: none; }
@@ -1299,7 +1348,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 #dash-btn, #banner-btn {
   position: fixed; bottom: max(16px, calc(4px + env(safe-area-inset-bottom)));
   width: 56px; height: 56px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; pointer-events: auto;
-  background: rgba(30, 40, 24, 0.7); box-shadow: 0 6px 16px rgba(0,0,0,0.35); z-index: 5;
+  background: var(--surface); box-shadow: 0 6px 16px rgba(0,0,0,0.35); z-index: 5;
   display: grid; place-items: center; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
 }
 #dash-btn { right: max(84px, calc(72px + env(safe-area-inset-right))); }
@@ -1379,7 +1428,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
   box-shadow: inset 0 2px 5px rgba(0,0,0,0.45);
 }
 #load-bar i { display: block; height: 100%; width: 0; background: linear-gradient(180deg, #ffe27a, #f5a800 60%, #d88a00); transition: width 0.25s ease-out; box-shadow: 0 0 10px rgba(245,184,0,0.45); }
-#load-bar span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 13px; font-weight: 800; color: #ffe3a3; text-shadow: 0 1px 2px rgba(0,0,0,0.75); }
+#load-bar span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 13px; font-weight: 800; color: var(--btn-ink); text-shadow: 0 1px 2px rgba(0,0,0,0.75); }
 #load-bar.done { display: none; }
 #start-btn.hidden { display: none; }
 /* There is no blanket `.hidden` in this stylesheet (see the settings sheet above), and these three had
@@ -1394,7 +1443,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 #start-update {
   display: inline-flex; align-items: center; gap: 8px; margin: 14px 0 0;
   background: rgba(255,255,255,0.11); border: 0; border-radius: 999px; padding: 9px 16px;
-  font-size: 14px; font-weight: 800; color: #ffe08a; -webkit-text-stroke: 0;
+  font-size: 14px; font-weight: 800; color: var(--figure); -webkit-text-stroke: 0;
   text-shadow: 0 1px 2px rgba(0,0,0,0.55); cursor: pointer;
   transition: background 0.12s ease-out, transform 0.12s ease-out;
 }
@@ -1437,7 +1486,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 .panel.keep-sheet .hint { text-align: left; }
 .ks-track { height: 12px; border-radius: 999px; background: rgba(0,0,0,0.35); overflow: hidden; margin: 14px 0 5px; box-shadow: inset 0 1px 2px rgba(0,0,0,0.3); }
 .ks-track i { display: block; height: 100%; background: linear-gradient(90deg, #ffd76a, #f5a800); border-radius: 999px; transition: width 0.2s; }
-.ks-of { font-size: 11px; font-weight: 800; letter-spacing: 0.1em; color: #a9bb96; margin-bottom: 14px; }
+.ks-of { font-size: 11px; font-weight: 800; letter-spacing: 0.1em; color: var(--ink-dim); margin-bottom: 14px; }
 .ks-h { font-size: 13px; font-weight: 800; color: #b6c4a6; margin: 14px 0 8px; }
 .ks-needs { display: flex; gap: 7px; flex-wrap: wrap; }
 .ks-need {
@@ -1448,9 +1497,66 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 .ks-need.done { background: #d8efc0; border-color: #8fc86a; color: #3c6a22; }
 .ks-need.short { background: #f6d9cf; border-color: #e2937c; color: #93341c; }
 .ks-list { display: grid; gap: 7px; }
-.ks-row { display: grid; grid-template-columns: 26px 1fr; gap: 9px; align-items: center; font-size: 14px; color: #dde7cf; line-height: 1.3; }
-.ks-row .at { font-size: 11px; font-weight: 800; color: #a9bb96; white-space: nowrap; }
+.ks-row { display: grid; grid-template-columns: 26px 1fr; gap: 9px; align-items: center; font-size: 14px; color: var(--ink); line-height: 1.3; }
+.ks-row .at { font-size: 11px; font-weight: 800; color: var(--ink-dim); white-space: nowrap; }
 .ks-list.later { opacity: 0.62; }
 .panel.keep-sheet hr { border: 0; border-top: 2px dashed #ddd0a0; margin: 16px 0 0; }
 .panel.keep-sheet #ks-close { display: block; margin: 20px auto 0; font-size: 20px; padding: 10px 24px; }
 .panel.keep-sheet .hint:last-child { text-align: center; margin-top: 10px; }
+
+/* #135: the raid, across the top. Three lines and a rule: who is out there, how much of them is
+   left, and the count -- because the bar answers "is this nearly over" and the number is what a
+   player actually acts on when it gets low, and those are different questions.
+   The fill DRAINS rather than grows, so the bar is always showing what is still to come. It is
+   measured against the most the night ever held (`raidPeak`), which is why it only climbs when the
+   Warlord calls more men in -- the one time a raid genuinely gets bigger. */
+#raid-bar {
+  flex: 0 0 auto; pointer-events: none; text-align: center; color: var(--ink);
+  padding: max(4px, env(safe-area-inset-top)) 16px 0;
+}
+#raid-bar.hidden { display: none; }
+/* the topbar carries the safe area when the bar is down and must not carry it twice when it is up */
+#raid-bar:not(.hidden) + #topbar { padding-top: 8px; }
+/* the map and the purse are `fixed`, so the flow cannot move them. This is the one place the bar's
+   height is written as a number; it is measured, and it is why the block above is not free. */
+#raid-bar:not(.hidden) ~ #minimap { top: calc(max(12px, env(safe-area-inset-top)) + 104px); }
+#raid-bar:not(.hidden) ~ #purse { top: calc(max(12px, env(safe-area-inset-top)) + 184px); }
+.rb-eye {
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  font-family: "Nunito", "Trebuchet MS", system-ui, sans-serif; font-weight: 700; font-size: 13px;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.7);
+}
+.rb-eye .icon { opacity: 0.85; }
+.rb-name {
+  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800;
+  font-size: 33px; line-height: 1.08; letter-spacing: 0.02em; color: #fff; margin-top: 1px;
+  text-shadow: 0 2px 0 rgba(0,0,0,0.45), 0 3px 14px rgba(0,0,0,0.65);
+}
+.rb-track {
+  position: relative; height: 5px; margin-top: 9px; background: rgba(0,0,0,0.62);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+.rb-track i {
+  position: absolute; inset: 0 auto 0 0; width: 100%; background: var(--danger-lo);
+  box-shadow: 0 0 8px rgba(255, 112, 89, 0.6);
+  transition: width 0.25s ease-out, background 0.3s linear;
+}
+/* the last few. Amber rather than a brighter red: it is about counting down, not about danger --
+   the same distinction the ring this replaced drew, and the one cue worth keeping from it. */
+#raid-bar.last .rb-track i { background: #f0a020; box-shadow: 0 0 8px rgba(240, 160, 32, 0.6); }
+#raid-bar.last .rb-left b { color: var(--figure); }
+.rb-left {
+  margin-top: 5px; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800;
+  font-size: 12px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-dim);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.7); font-variant-numeric: tabular-nums;
+}
+@media (max-width: 430px) {
+  .rb-name { font-size: 29px; }
+  #raid-bar:not(.hidden) ~ #minimap { top: calc(max(12px, env(safe-area-inset-top)) + 98px); }
+  #raid-bar:not(.hidden) ~ #purse { top: calc(max(12px, env(safe-area-inset-top)) + 178px); }
+}
+
+/* #135: the emphasised run inside a notice, and the same colour anywhere else a sentence has one
+   clause worth finding. Colour only -- no italic: the display face has no italic cut, so it would be
+   synthesised, and the colour is what was asked for and what does the work. */
+.tw-em, .emph { color: var(--emph); }

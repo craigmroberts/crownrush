@@ -62,6 +62,20 @@
     <div id="vignette"></div>
 
     <div id="hud">
+      <!-- #135: what is left of tonight's raid, across the top. It was a 30px ring in the top-left
+           sharing a row with the Keep level, and the report was that it is easy to miss -- which it
+           is: it competed with everything else on that line and never got more than a glyph's worth
+           of attention. Given the width of the screen it reads without being looked for.
+           It sits FIRST in `#hud`, which is a flex column, so `#topbar` is pushed down by the flow
+           rather than by a number that would have to be kept in step with this block's height. The
+           two fixed things -- the map and the purse -- cannot be pushed, so they are offset off a
+           sibling selector below; that is the only place the height is written down. -->
+      <div id="raid-bar" class="hidden" aria-hidden="true">
+        <div class="rb-eye"><i data-icon="swords" data-size="15"></i><span id="rb-night">Night 1</span><i data-icon="swords" data-size="15"></i></div>
+        <div class="rb-name" id="rb-name">Raiders</div>
+        <div class="rb-track"><i id="rb-fill"></i></div>
+        <div class="rb-left"><b id="rb-count">0</b> left</div>
+      </div>
       <!-- #22: one slim bar instead of the corner plaque, so the playfield is clear -->
       <!-- lane 1. The left plaque IS the Keep: tapping it opens the level sheet, which is where the
            "what do I need next" detail lives instead of being crammed in beside it. -->
@@ -101,13 +115,6 @@
             <span class="hud-row">
               <span class="hud-cell hidden" id="level-cell"><i data-icon="castle" data-size="19"></i><b id="keep-level">Lv. 1</b></span>
               <span class="hud-cell clock hidden" id="next-wave"><i data-icon="hourglass" data-size="16"></i><b id="next-wave-t">0:00</b></span>
-              <span class="hud-cell bagcell hidden" id="raid-meter" title="What is left of tonight's raid">
-                <span class="bagring">
-                  <svg class="ring" viewBox="0 0 40 40" aria-hidden="true"><circle class="ring-bg" cx="20" cy="20" r="17"/><circle id="raid-ring" class="ring-fill raid" cx="20" cy="20" r="17"/></svg>
-                  <i data-icon="skull" data-size="19"></i>
-                </span>
-                <b id="raid-left">0</b>
-              </span>
             </span>
           </span>
         </button>
@@ -219,7 +226,7 @@
         <p>Rescue Queen Wren, level up the Keep, then march on the raider camp and end the war.</p>
         <p class="hint">Drag anywhere to move · or use WASD / arrow keys.</p>
         <div id="load-bar"><i></i><span id="load-text">Loading…</span></div>
-        <button id="continue-run-btn" class="hidden"><i data-icon="crown" data-size="22"></i><span>Continue</span></button>
+        <button id="continue-run-btn" class="primary hidden"><i data-icon="crown" data-size="22"></i><span>Continue</span></button>
         <p id="continue-note" class="hint hidden"></p>
         <!-- #58: how long the next run is, chosen before Play rather than buried in settings -- it is
              a fork in the road, not a preference. Thirty nights is about thirty-seven minutes and was
@@ -232,7 +239,7 @@
              and that assignment there is a window in which Play is a live, enabled button on a game
              that has loaded nothing. A fast finger loses; a probe measuring "bytes to a clickable Play
              button" measured 17 kB. -->
-        <button id="start-btn" class="hidden" disabled><i data-icon="leaf" data-size="22"></i><span>Play</span></button>
+        <button id="start-btn" class="primary hidden" disabled><i data-icon="leaf" data-size="22"></i><span>Play</span></button>
         <!-- #119: the best run, in the currency the rest of the game now uses. This said "Best: night
              30", which would have left the title screen as the one surface still keeping score in
              nights. Filled from the scoreboard's top row, so nothing new is stored for it. -->
@@ -259,7 +266,7 @@
         <div class="intro-dots" id="intro-dots"></div>
         <div class="intro-row">
           <a href="#" id="intro-skip">Skip</a>
-          <button id="intro-next">Next</button>
+          <button class="primary" id="intro-next">Next</button>
         </div>
       </div>
     </div>
@@ -278,7 +285,7 @@
              something, so it goes above Play Again rather than below it. -->
         <div id="over-legacy" class="legacy hidden"></div>
         <div id="over-length" class="seg length-pick" role="radiogroup" aria-label="Run length"></div>
-        <button id="restart-btn">Play Again</button>
+        <button class="primary" id="restart-btn">Play Again</button>
       </div>
     </div>
 
@@ -322,7 +329,7 @@
         <div class="ks-track"><i id="ks-fill"></i></div>
         <p class="ks-of" id="ks-of"></p>
         <div id="ks-body"></div>
-        <button id="ks-close">Back to the game</button>
+        <button class="primary" id="ks-close">Back to the game</button>
         <p class="hint">Press K or Esc to close</p>
       </div>
     </div>
@@ -332,7 +339,7 @@
         <button class="panel-x" id="info-x" aria-label="Close" title="Close">&times;</button>
         <h1>Your Kingdom</h1>
         <div id="info-body"></div>
-        <button id="info-close">Back to the game</button>
+        <button class="primary" id="info-close">Back to the game</button>
         <p class="hint">Press I or Esc to close</p>
       </div>
     </div>
@@ -360,7 +367,7 @@
              should not be able to throw away a run. The Pause row it replaces was redundant — the
              sheet already pauses the game the whole time it is open. -->
         <button class="sheet-row danger" id="set-restart"><i data-icon="restart" data-size="24"></i><span class="sheet-label">Restart</span><em id="set-restart-hint"></em></button>
-        <button id="set-close">Back to the game</button>
+        <button class="primary" id="set-close">Back to the game</button>
         <p class="hint hidden" id="set-version"></p>
         <!-- #74: the numbers a screen bug needs, reachable without a URL. `?perf=1` is how they were
              read before, and a home-screen app cannot be opened with a query string -- the shortcut
@@ -379,7 +386,7 @@
              so ranking them together would make the board meaningless. -->
         <div id="sc-pick" class="seg" role="radiogroup" aria-label="Run length"></div>
         <div id="sc-body"></div>
-        <button id="sc-close">Back</button>
+        <button class="primary" id="sc-close">Back</button>
       </div>
     </div>
     <div id="pause-screen" class="overlay hidden">
@@ -388,7 +395,7 @@
         <h1>Paused</h1>
         <p class="hint">Press P or Esc to resume</p>
         <p class="score">Score <strong id="pause-score">0</strong> <span class="hint">· night <span id="pause-wave">1</span></span></p>
-        <button id="resume-btn">Resume</button>
+        <button class="primary" id="resume-btn">Resume</button>
         <p class="best"><a href="#" id="pause-restart">Restart</a></p>
       </div>
     </div>
@@ -399,7 +406,7 @@
         <p>The Warlord is dead and the raiders are scattered. Wren stands on her own wall again. You marched with an army of <strong id="victory-army">0</strong> and earned <strong id="victory-coins">0</strong> coins.</p>
         <p class="score">Score <strong id="victory-score">0</strong></p>
         <p class="hint">Stragglers will keep coming at night. Keep going for a high score?</p>
-        <button id="continue-btn">Keep Playing</button>
+        <button class="primary" id="continue-btn">Keep Playing</button>
         <!-- #58: and here especially. Winning a fifteen-night run is the moment the thirty-night one
              is meant to be graduated to, so the choice belongs beside "Start over" rather than back
              on a title screen this session will not show again. -->

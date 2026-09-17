@@ -456,7 +456,7 @@ export class Game {
     this.hud.hidePadTip();
     this.hud.clearFlights();     // #88: nothing from the last run still in the air
     this.hud.set(this.coinsCarried, 1, 0, null, `0/${CFG.finale.level}`, this.res, 0, this.loadCap());
-    this.hud.setRaid(0, 0);
+    this.hud.setRaid(0, 0, this.wave, false);
     this.hud.setHearts(1);
     this.hud.setCoinTier(this.coinTier());
     this.hud.setStall(false);    // #119: night 0 at Keep 0 -- a new run is never behind itself
@@ -618,7 +618,7 @@ export class Game {
     // #56: the last unlock is a horse in the stable before the run begins. After `reset()`, because
     // `mountKing` swaps a mesh that has to exist first.
     if (this.has('stables')) this.mountKing();
-    this.hud.toast('Raiders have taken Wren. Follow the pink arrow and free her.', 3600, 'Wren');
+    this.hud.toast('Raiders have taken Wren. *Follow the pink arrow and free her.*', 3600, 'Wren');
     audio.init();
     audio.setActive(true);
   }
@@ -880,7 +880,7 @@ export class Game {
       // own size rather than against the biggest night so far.
       if (raid.hp > this.raidPeak) this.raidPeak = raid.hp;
       if (raid.count === 0) this.raidPeak = 0;
-      this.hud.setRaid(this.raidPeak > 0 ? raid.hp / this.raidPeak : 0, raid.count);
+      this.hud.setRaid(this.raidPeak > 0 ? raid.hp / this.raidPeak : 0, raid.count, this.wave, raid.boss);
       // #19: the march on the camp opens at a Keep level or a night, whichever comes first
       if (!this.finaleOpen && (this.baseLevel >= CFG.finale.level || this.wave >= this.finaleNight())) {
         this.finaleOpen = true;
