@@ -286,7 +286,14 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   background: linear-gradient(180deg, var(--fill-hi), var(--fill-lo));
   border: 1.5px solid rgba(255, 255, 255, 0.26); border-radius: 5px;
   padding: 13px 26px; color: var(--btn-ink);
-  font-size: 22px; font-weight: 800; font-style: italic;
+  /* #135: 18, not 22, and not four sizes. The button carried 22px here, 21 on the title screen and
+     20 on two of the sheets -- four figures for what is meant to be ONE component, which is the
+     drift this ticket exists about, in miniature. 18 is 1.125x the panel's 16px body: enough to be
+     the action without shouting, and "Back to the game" is five words at the width of a phone.
+     The height is the thumb target and it comes from the padding, not the type: 13px top and bottom
+     puts this at about 48px, which is over the 44 a thumb wants. Shrinking the type does not shrink
+     the target. */
+  font-size: 18px; font-weight: 800; font-style: italic;
   text-shadow: 0 1px 2px rgba(0,0,0,0.6); -webkit-text-stroke: 0;
   box-shadow: 0 5px 16px rgba(0,0,0,0.38);
   transition: border-color 0.12s ease-out, box-shadow 0.12s ease-out, transform 0.1s ease-out;
@@ -478,7 +485,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
   border: 1.5px solid var(--danger-hi); border-radius: 5px; padding: 9px 15px;
   background: linear-gradient(180deg, var(--fill-hi), var(--fill-lo)); color: var(--btn-ink);
   cursor: pointer; font-style: italic;
-  font-family: "Nunito", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 17px;
+  font-family: "Nunito", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 16px;
   box-shadow: 0 5px 16px rgba(0,0,0,0.38); text-shadow: 0 1px 2px rgba(0,0,0,0.6);
 }
 #next-wave-btn b { font-variant-numeric: tabular-nums; }
@@ -842,14 +849,16 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 .panel.sheet .sheet-row {
   display: flex; align-items: center; gap: 12px; width: 100%; margin-bottom: 10px;
   background: var(--surface-2); border: 0; border-radius: 14px;
-  padding: 13px 16px; cursor: pointer; font-size: 19px; font-weight: 800; color: var(--ink);
+  /* #135: 17, under the CTA's 18. A row you scan past should not carry more weight than
+     the button you are being asked to press. */
+  padding: 13px 16px; cursor: pointer; font-size: 17px; font-weight: 800; color: var(--ink);
   -webkit-text-stroke: 0; text-shadow: 0 1px 2px rgba(0,0,0,0.5);
   transition: background 0.12s ease-out, transform 0.12s ease-out;
 }
 /* the press was a button sinking into its own bottom border; there is no border to sink into now */
 .panel.sheet .sheet-row:active { transform: scale(0.985); background: rgba(255,255,255,0.17); }
 .panel.sheet .sheet-row .sheet-label { flex: 1; text-align: left; }
-.panel.sheet .sheet-row em { font-style: normal; font-size: 15px; color: var(--ink-dim); }
+.panel.sheet .sheet-row em { font-style: normal; font-size: 14px; color: var(--ink-dim); }
 /* #84: an update waiting is good news, not a warning -- it gets the green the game uses for a thing
    you want rather than the red the restart row below uses for a thing you might regret. Both the row
    and the build line are hidden where there is no worker to ask; there is no blanket .hidden rule in
@@ -879,7 +888,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 .panel.sheet .sheet-row.danger { margin-top: 16px; }
 .panel.sheet .sheet-row.danger.armed { background: rgba(216,38,44,0.3); color: #ffc9c4; }
 .panel.sheet .sheet-row.danger.armed em { color: #ffc9c4; font-weight: 800; }
-.panel.sheet #set-close { font-size: 20px; padding: 10px 24px; margin-top: 4px; }
+.panel.sheet #set-close { margin-top: 4px; }
 /* #89: a caption over the world rather than a dialog box on top of it. Parchment and a gold border
    are what the settings sheet and the victory panel are made of -- things that stop the game and wait
    for an answer. A notice that arrives mid-fight and leaves on its own should not look like one, and
@@ -1334,7 +1343,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 .panel.intro .intro-dots i.on { background: #f5a800; }
 .panel.intro .intro-row { display: flex; align-items: center; justify-content: space-between; }
 .panel.intro .intro-row a { color: #8a8672; font-weight: 700; font-size: 14px; padding: 8px 6px; }
-.panel.intro .intro-row button { font-size: 22px; padding: 10px 34px; margin: 0; }
+.panel.intro .intro-row button { margin: 0; }
 
 /* #18: the warhorn, bottom-right above the pad panel; the ring fills as it cools down */
 #horn-btn {
@@ -1474,7 +1483,8 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
   .panel.title { padding: 14px 18px 16px; }
   .panel.title .lockup { padding-bottom: 14px; }
   .panel.title .flourish { margin: 3px 0; }
-  .panel.title button { font-size: 21px; padding: 9px 26px; gap: 9px; }
+  /* the narrow case tightens the box, not the type: one CTA size at every width. */
+  .panel.title button { padding: 11px 24px; }
   .panel.title button::before { left: 9px; }
   .panel.title button::after { right: 9px; }
 }
@@ -1512,7 +1522,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 .ks-row .at { font-size: 11px; font-weight: 800; color: var(--ink-dim); white-space: nowrap; }
 .ks-list.later { opacity: 0.62; }
 .panel.keep-sheet hr { border: 0; border-top: 2px dashed #ddd0a0; margin: 16px 0 0; }
-.panel.keep-sheet #ks-close { display: block; margin: 20px auto 0; font-size: 20px; padding: 10px 24px; }
+.panel.keep-sheet #ks-close { display: block; margin: 20px auto 0; }
 .panel.keep-sheet .hint:last-child { text-align: center; margin-top: 10px; }
 
 /* #135: the raid, across the top. Three lines and a rule: who is out there, how much of them is

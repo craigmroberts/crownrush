@@ -380,6 +380,16 @@ to where it can mean something:
 - **Unavailable** is its own material rather than the same button fainter: no fill of its own, a
   fainter edge, a muted label, so it never reads as something that would work if you pressed harder.
 
+**One size, at every width.** The CTA is **18px** -- 1.125x the panel's 16px body. It was four
+figures before #135 (22 here, 21 on the title screen, 20 on two of the sheets), which is this
+ticket's whole problem in miniature: one component, four numbers, none of them written down. The
+scale under it is **17** for a sheet row, **16** for the skip button, **15** for a run-length pill,
+**13** for a hint -- so a row you scan past never outweighs the button you are being asked to press.
+
+The height is the thumb target and it comes from the **padding**, not the type: 13px top and bottom
+puts a CTA at about 56px, well over the 44 a thumb wants. Shrinking the type does not shrink the
+target, which is why the narrow-screen rule tightens the box and leaves the size alone.
+
 The palette behind it is **Emerald**: deep forest-teal panels with gold, so the HUD reads as part of
 the meadow rather than a layer floating over it. Green UI on a green world is the hardest separation
 to hold, so it leans on **value** rather than hue -- the panels are far darker than any terrain the
