@@ -457,9 +457,17 @@ let updateResult = '';    // '' | 'current' | 'failed'
 //
 // Three things it can be, off state the game already computes:
 //
-//   nothing in progress          -> installing costs nothing, and says so
-//   a run, and the field is quiet -> `saveBeforeReload` will take one, so the run comes back
-//   a run, mid-raid              -> the old line, which was already honest and stays word for word
+//   nothing in progress         -> installing costs nothing, and says so
+//   a run the save can describe -> `saveBeforeReload` will take one, so the run comes back
+//   a run with Wren taken       -> the last dawn, and now it says whose doing it is
+//
+// #150 moved the middle line without changing a word of it. It used to mean daylight, an empty field
+// and nothing queued, so every night and every raid fell through to the third line. The raid is
+// stored now, so the middle line is what a player mid-raid gets -- which is the whole ticket -- and
+// the third is left holding the one case a save cannot describe: `quietEnoughToSave` still refuses
+// while they have her, because her capture is a beat with a beginning and cannot be resumed from the
+// middle. That line names her rather than saying only "the last dawn", which now that every other
+// case is saved would read as the game being arbitrary instead of honest.
 //
 // And over all three, the one that can make any of them a lie: a build whose save format has moved
 // cannot read this one's save at all (`savedRun` returns null on a version mismatch and the run is
@@ -476,7 +484,7 @@ function updateCostLine() {
   if (resets && atStake) return 'This update changes the save format, so your run will not survive it.';
   if (!running) return 'No run in progress, so installing costs you nothing.';
   if (game.quietEnoughToSave()) return 'Your run is saved before the game reloads.';
-  return 'Installing reloads the game. Your run picks up from the last dawn.';
+  return 'They have Wren. Installing now puts you back at the last dawn.';
 }
 
 function syncUpdateRow() {
@@ -523,9 +531,10 @@ function installUpdate() {
   // time this text is set the run is already on disk -- "Saving…" would be the only dishonest word
   // available.
   //
-  // And nothing is claimed when nothing was saved. `quietEnoughToSave` refuses mid-raid, and a player
-  // who is told his run was kept and then comes back to the last dawn has been lied to at exactly the
-  // moment he was deciding whether to risk it.
+  // And nothing is claimed when nothing was saved. Since #150 that is one case rather than most of
+  // them -- `quietEnoughToSave` now refuses only while they are carrying her off -- but the branch
+  // stays, because a player told his run was kept who then comes back to the last dawn has been lied
+  // to at exactly the moment he was deciding whether to risk it.
   const kept = game.saveBeforeReload();
   updateBusy = true;                    // the page is on its way out; a second tap does nothing
   const line = kept ? 'Run saved — installing…' : 'Installing…';

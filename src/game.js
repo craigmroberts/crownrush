@@ -641,7 +641,13 @@ export class Game {
     this.hud.hideGameOver();
     this.hud.hideVictory();
     this.hud.hidePause();
-    this.hud.toast(`Night ${this.wave} again. Your kingdom stands.`, 3000, 'Raid');
+    // #150: two homecomings now, because there are two things a restore can be. A save used to be
+    // taken only with the field empty, so "your kingdom stands" was the only one there was -- now the
+    // ordinary case is walking back into a fight that never stopped, and being told the kingdom
+    // stands while four of them are on the wall reads as the game not having noticed.
+    this.hud.toast(this.anyActiveEnemy()
+      ? `Night ${this.wave}, where you left it. *They are still on the field.*`
+      : `Night ${this.wave} again. Your kingdom stands.`, 3000, 'Raid');
     audio.init();
     audio.setActive(true);
   }

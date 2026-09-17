@@ -21,9 +21,18 @@
 // Those five are the ones whose output is a mesh in the right place rather than a number, and their
 // input is already in `built`.
 //
-// WHAT IS NOT SAVED. Enemies, coins on the ground, mined piles in transit, arrows, effects. At dawn
-// there are no enemies, and the rest is seconds of value. A restored run starts the morning with a
-// clean field, which is what the morning looks like anyway.
+// WHAT IS NOT SAVED. Coins on the ground, mined piles in transit, arrows, effects. Seconds of value
+// each, and a restored run starts the morning without them, which is what the morning looks like.
+//
+// ENEMIES ARE SAVED NOW (#150). They were not, and the rule that followed from it was that a save
+// could only be taken with the field empty -- so installing an update mid-raid rewound the run to the
+// last dawn. The request was "start exactly where they left off", and the reason it could not be
+// honoured was the stored shape rather than caution.
+//
+// It turned out much cheaper than it looks, and the reason is worth writing down: an enemy's TARGET
+// is recomputed on a 0.6s timer (`retarget`), and so is its bridge waypoint, so none of the
+// behaviour state has to be stored at all. What is left is type, rank, hp and where it stood, which
+// `spawnEnemy` already takes.
 import { CFG, PADS, NODES } from './config.js';
 import { setHealthBar } from './models.js';
 
@@ -46,14 +55,18 @@ export const SaveMethods = {
     return (this.running || this.paused) && !this.over && !this.won;
   },
 
-  // #84: what dawn LOOKS like, for the one caller that wants a save at a moment nobody chose --
-  // installing an update, which reloads the page. Daylight, an empty field, nothing queued to walk
-  // on, and the opening over. Everywhere else it declines, and the player comes back to the last
-  // real dawn: the stored shape has no room for arrows, spawn timers or a thief halfway to the edge,
-  // and restoring half a raid would be worse than losing the minute.
+  // #84 asked for a save at a moment nobody chose -- installing an update, which reloads the page --
+  // and #150 is what it costs now. It used to want daylight, an empty field and nothing queued,
+  // because the stored shape had no room for a raid; a mid-raid install therefore rewound the run to
+  // the last dawn, which is exactly the complaint.
+  //
+  // The raid is stored now, so the only thing left that a save cannot describe is HER BEING CARRIED
+  // OFF. That is not a gap to close later: `runState` has no `seize`, and the comment beside the
+  // Queen says why -- "a restore that started with raiders' hands already on her would be restoring a
+  // moment that cannot happen". Her capture is a beat with a beginning; it cannot be resumed from the
+  // middle. So one condition, and it is the honest one.
   quietEnoughToSave() {
-    return this.inRun() && !this.night && !this.queen.captive
-      && !this.anyActiveEnemy() && this.spawnQueue.length === 0;
+    return this.inRun() && !this.queen.captive;
   },
 
   // Returns whether it took one, so the caller can say which run the player is coming back to.
@@ -113,12 +126,59 @@ export const SaveMethods = {
       mods: { ...this.mods },
       taken: { ...this.taken },
       rankSeen: { ...this.rankSeen },
+      // #150: the raid in flight, so an update installed mid-night comes back to the same night
+      // rather than to the last dawn. Added WITHOUT bumping VERSION, the #119 trick: a save written
+      // before this simply has no `raid`, and `applyRun` reads that as a quiet field -- which is
+      // exactly what every save written before this WAS.
+      //
+      // Three lists and no behaviour. `target` and the bridge waypoint are recomputed on their own
+      // timers within 0.6s of a restore, so storing them would be storing something the game is
+      // about to throw away anyway.
+      //
+      // Excluded, each for its own reason: `camp` stands itself back up in `reset()`; `rescue` and
+      // `captor` belong to an opening that a restore is past by definition; `escort` cannot be here
+      // at all, because a run is never saved while she is captive.
+      //
+      // And `fromCamp`, which is the one that bites. Waking the camp sets `camp = false` on the whole
+      // garrison and the chief, so without this term they read as ordinary raiders -- and a restore
+      // would respawn every one of them ON TOP of the sleeping garrison `reset()` has just rebuilt,
+      // handing the player two camps and a chief with none of its own make-up (`chief`, `chiefHp`,
+      // the scale) because `spawnEnemy` only knows how to make a plain boss.
+      //
+      // So a reload mid-march puts the camp back to asleep and whole. That is not a compromise, it is
+      // the game's own rule: `updateCampReturn` already heals the entire garrison to full and beds it
+      // down again the moment the King walks past the leash. A reload is a break-off like any other,
+      // and the run around it -- village, coin, score, the night -- comes back intact, which is the
+      // part that used to be lost.
+      raid: {
+        // The raid meter reads tonight against the most this night ever held, and that peak is a
+        // running maximum rather than anything derivable from the field -- the Warlord calls men in,
+        // so it is not just "the biggest wave". One number, stored, and the bar comes back reading
+        // what it read. Without it a restore seeds the peak from the survivors on the next frame and
+        // a half-fought night reads as untouched.
+        peak: round(this.raidPeak),
+        queue: this.spawnQueue.map((j) => ({
+          type: j.type, x: round(j.x), z: round(j.z), t: round(j.t), rank: j.rank || 0, warn: !!j.warn,
+        })),
+        live: this.enemies
+          .filter((e) => !e.camp && !e.fromCamp && !e.captor && !e.rescue && !e.escort && e.hp > 0)
+          .map((e) => ({
+            type: e.type, rank: e.rank || 0, hp: round(e.hp), at: pos(e.mesh),
+            // a thief that has already grabbed is mid-errand; `state` is the only bit of behaviour
+            // that does not rebuild itself, because 'hunt' and 'flee' go to different places.
+            state: e.state || null,
+            // and what a thief is already holding, or the coins it took would simply vanish on a
+            // reload -- which is the player paying for the update.
+            carrying: e.carrying || 0,
+          })),
+      },
       typeSeen: { ...this.typeSeen },
       // the royals
       king: { hp: round(k.hp), maxHp: round(k.maxHp), at: pos(k.mesh) },
-      // #83: no health, and `seize` is not stored either -- a save is taken with the field quiet, so
-      // nobody has hold of her, and a restore that started with raiders' hands already on her would
-      // be restoring a moment that cannot happen.
+      // #83: no health, and `seize` is not stored either -- `quietEnoughToSave` refuses while she is
+      // captive, so nobody has hold of her when a save is taken, and a restore that started with
+      // raiders' hands already on her would be restoring a moment that cannot happen. Since #150
+      // that is the ONLY thing the quiet test still refuses, which makes this the reason for it.
       queen: { at: pos(q.mesh), inKeep: !!q.inKeep, captive: !!q.captive },
       // the army. Anyone walking to a post is stored where they are going rather than where they got
       // to: they arrive on the next frame instead of the one after, and nobody is left mid-errand.
@@ -241,7 +301,7 @@ export const SaveMethods = {
 
     const q = this.queen;
     q.captive = false;   // a run is never saved with her taken: dawn cannot arrive while she is, and
-                         // the one other caller refuses unless the field is empty (quietEnoughToSave)
+                         // the one other caller is refused outright for it (quietEnoughToSave)
     q.taken = false;
     q.escort = null;
     q.seize = 0;
@@ -274,6 +334,27 @@ export const SaveMethods = {
     for (const [id, t] of Object.entries(s.towers || {})) {
       if (this.towers[id]) Object.assign(this.towers[id], { level: t.level, crew: t.crew });
     }
+
+    // --- #150: the raid, put back. After the walls and towers exist, because an enemy that lands
+    // mid-field retargets within 0.6s and the thing it picks has to be there to be picked.
+    //
+    // `|| {}` is the whole of reading a save written before this: no `raid` means a quiet field,
+    // which is what every save before this actually was.
+    const raid = s.raid || {};
+    for (const j of raid.queue || []) {
+      this.spawnQueue.push({ type: j.type, x: j.x, z: j.z, t: j.t, rank: j.rank || 0, warn: !!j.warn });
+    }
+    for (const e of raid.live || []) {
+      const made = this.spawnEnemy(e.type, e.at[0], e.at[1], e.rank || 0);
+      if (!made) continue;
+      made.hp = Math.min(e.hp, made.maxHp);
+      if (e.state) made.state = e.state;
+      if (e.carrying) made.carrying = e.carrying;
+      setHealthBar(made.bar, made.hp / made.maxHp);
+    }
+    // `|| 0` for a save from before the peak was stored: the meter then seeds itself from whatever
+    // came back on the next frame, which is what those saves have always done.
+    this.raidPeak = raid.peak || 0;
 
     // --- damage taken, after the things that take it exist
     s.walls.forEach((w, i) => {

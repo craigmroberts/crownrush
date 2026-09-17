@@ -332,7 +332,7 @@ A run is fifteen or thirty nights of about seventy-five seconds — nineteen min
 and a phone browser throws away a backgrounded tab whenever it feels like it. Nineteen minutes is
 still longer than a mobile tab reliably survives, which is why the short run is not a substitute for
 this and the two were always separate problems. The run is written to `localStorage` at every dawn --
-the one beat where the field is quiet, the spawn queue empty and nothing in flight -- and the title
+the beat the day cycle already has, so the cadence is not an invented one -- and the title
 screen offers **Continue** above a Play button that now says *New run*, with the level and the score
 under it. At most one cycle is ever lost.
 
@@ -340,12 +340,18 @@ What is stored is state rather than history. Replaying the pads that were bought
 every toast, every coin of score and every reward choice over a game that has not started, so
 everything the player *has* is written down directly and only five builders are replayed on load:
 the buildings, the walls, the expansions, the bridges and the horse -- the ones whose output is a
-mesh in a place rather than a number. Enemies, loose coins, arrows and half-mined piles are not
-stored; at dawn there are none, which is what makes dawn the place to do this. The fog of war is,
-as a 256x256 PNG. That was for the minimap, which is parked now (#145) -- the fog on the ground still
-reads off it, and it is stored anyway so that parking the map is a flag rather than a save migration,
-because coming back blind would
-undo a good part of what the player did. A saved run runs about 17 kB.
+mesh in a place rather than a number. Loose coins, arrows and half-mined piles are not stored --
+seconds of value each, and a restored run starts without them, which is what a morning looks like.
+**The raid in flight is** (#150): the enemies still standing, what is still queued to walk on, and
+how big the night was at its worst, so the meter comes back reading what it read. It costs less than
+it looks, because an enemy's target and its bridge waypoint are both recomputed on a 0.6 s timer --
+so type, rank, hp and where it stood is the whole of an enemy, and `spawnEnemy` already takes those.
+The fog of war is stored too, as a 256x256 PNG. That was for the minimap, which is parked now
+(#145) -- the fog on the ground still reads off it, and it is stored anyway so that parking the map
+is a flag rather than a save migration, because coming back blind would undo a good part of what the
+player did. A saved run runs about 17 kB, and 70 kB at its very worst -- measured on a night-30 raid,
+143 enemies and 40 more queued, on a map walked end to end. 54 kB of that worst case is the fog PNG
+and 13 kB is the raid.
 
 Replaying the five builders is what makes the one rule the restore has to hold: **after a load, the
 Keep wears whichever mat its own state would have raised.** `rebuildVillage` puts up every structure
@@ -357,10 +363,22 @@ dawn save asks only whether a run is in progress, and a Keep can fall without ta
 restore now calls the same `showKeepBroken` the field does -- the picture without the event, so no
 horn, no notice and nothing done to Wren (#127).
 
-One other thing asks for a save, since installing an update reloads the page. It only gets one when
-the field *looks* like dawn -- daylight, nothing standing, nothing queued, the opening over -- and is
-refused otherwise, which the Settings row says out loud before you tap it, along with what the update
-does to the save format if it moves it.
+One other thing asks for a save, since installing an update reloads the page (#84). It used to get one
+only when the field *looked* like dawn -- daylight, nothing standing, nothing queued -- so installing
+mid-raid rewound the run to the previous morning, which was the honest answer to a save that had no
+room for a raid. Now that it has one, the test is down to a single condition: **not while they are
+carrying Wren off.** Her capture is a beat with a beginning and cannot be resumed from the middle, and
+the restore has no `seize` to resume it with. Everything else -- any night, any raid, mid-thief,
+mid-march -- is saved and comes back, and the run picks up on the same night rather than the last
+dawn (#150). The Settings row says which of the two you are getting before you tap it, along with
+what the update does to the save format if it moves it.
+
+The march on the camp is the one place the restore gives ground. Waking the camp clears the `camp`
+flag on the whole garrison, so without care a reload would respawn all of them on top of the sleeping
+garrison the reset had just rebuilt, and hand back a chief with none of its own make-up. So a reload
+mid-march beds the camp down again, whole. That is the game's own rule rather than a compromise:
+walk past the leash in ordinary play and `updateCampReturn` heals the garrison to full and puts it
+back to sleep exactly the same way.
 
 Winning or losing clears it, and so does starting a new run. See [src/game-save.js](src/game-save.js).
 
@@ -1510,10 +1528,16 @@ the attack alarm does, because it is about something the player has seconds to a
 has been waiting a while and will keep.
 
 Under the row is **what installing costs**, which is three sentences off state the game already has:
-nothing in progress and it costs nothing; a run with the field quiet and *"your run is saved before
-the game reloads"*; a run mid-raid and the old line about picking up from the last dawn. It only ever
-warned before, and a player who was perfectly safe got a build hash — so the one moment somebody is
-deciding whether to risk a run, silence was all they had.
+nothing in progress and it costs nothing; a run the save can describe and *"your run is saved before
+the game reloads"*; and the one case it cannot, which is Wren being carried off, where the line names
+her and says you come back to the last dawn. It only ever warned before, and a player who was
+perfectly safe got a build hash — so the one moment somebody is deciding whether to risk a run,
+silence was all they had. The middle sentence used to mean daylight and an empty field, and every
+night fell through to the third; since the raid is stored (#150) it is what a player mid-raid gets,
+which is the whole of that ticket. Installing then says **"Run saved — installing…"** rather than
+*"Installing…"* — one line and not two, because `applyUpdate` reloads the moment the worker takes
+over and nobody gets through two states, and in the past tense because `saveRun` writes
+`localStorage` synchronously and the run is already on disk by the time the words are set.
 
 Over all three sits the case that would make any of them a lie. A build whose **save format** has
 moved cannot read this one's save at all: `savedRun` returns null on a version mismatch and the run is
