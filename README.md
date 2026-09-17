@@ -386,9 +386,16 @@ ticket's whole problem in miniature: one component, four numbers, none of them w
 scale under it is **17** for a sheet row, **16** for the skip button, **15** for a run-length pill,
 **13** for a hint -- so a row you scan past never outweighs the button you are being asked to press.
 
-The height is the thumb target and it comes from the **padding**, not the type: 13px top and bottom
-puts a CTA at about 56px, well over the 44 a thumb wants. Shrinking the type does not shrink the
-target, which is why the narrow-screen rule tightens the box and leaves the size alone.
+**One padding too: `10px 18px`, on every CTA and on the skip button.** That was three figures as well
+-- 13/26 on the button, 11/24 on the title screen, 9/15 on the skip -- so one component came out three
+shapes depending on which panel it landed in. 10/18 is the skip button's proportions, the tightest of
+the three; it is not quite its own numbers, because at 9px that button measured **43px tall, one pixel
+under the 44 a thumb wants**, and 10 buys the target back for every button including that one.
+
+The height is the thumb target and it comes from the padding, not the type. Measured at 390x844:
+**50-52px** for a CTA, **45px** for the skip button, **51px** for a sheet row, and nothing in the game
+under 44. Shrinking the type does not shrink the target, which is why there is no narrow-screen button
+rule any more -- the CTA is one shape at every width.
 
 The palette behind it is **Emerald**: deep forest-teal panels with gold, so the HUD reads as part of
 the meadow rather than a layer floating over it. Green UI on a green world is the hardest separation

@@ -285,7 +285,14 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   display: inline-flex; align-items: center; justify-content: center; gap: 11px;
   background: linear-gradient(180deg, var(--fill-hi), var(--fill-lo));
   border: 1.5px solid rgba(255, 255, 255, 0.26); border-radius: 5px;
-  padding: 13px 26px; color: var(--btn-ink);
+  /* #135: ONE padding on every call to action, here and on the skip button, and no per-panel
+     override. It was three figures -- 13/26 here, 11/24 on the title screen, 9/15 on the skip -- so
+     the same component came out three shapes depending on which panel it landed in.
+     10/18 is the skip button's proportions, which is the tighter of the three and the one that was
+     preferred. It is not quite the skip button's own numbers: at 9px vertical that button measured
+     43px tall, a pixel under the 44 a thumb wants, so 10 buys the target back for every button
+     including that one. Measured: 47px for an 18px CTA, 45px for the 16px skip. */
+  padding: 10px 18px; color: var(--btn-ink);
   /* #135: 18, not 22, and not four sizes. The button carried 22px here, 21 on the title screen and
      20 on two of the sheets -- four figures for what is meant to be ONE component, which is the
      drift this ticket exists about, in miniature. 18 is 1.125x the panel's 16px body: enough to be
@@ -309,7 +316,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
    makes, so that is where the emphasis goes. */
 .panel button:active {
   transform: translateY(1px);
-  border: 3px solid var(--accent); padding: 11.5px 24.5px;
+  border: 3px solid var(--accent); padding: 8.5px 16.5px;
   box-shadow: 0 0 0 1px rgba(0,0,0,0.55), 0 0 15px 2px rgba(255, 210, 74, 0.55),
               inset 0 0 12px rgba(0,0,0,0.6);
 }
@@ -482,7 +489,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
      edge in the danger colour rather than a red fill, so red still means "this interrupts" without
      the button being a different species. It kept the 4px bottom bevel long after `.panel button`
      was moved off it, which made the one control that interrupts play the one that looked oldest. */
-  border: 1.5px solid var(--danger-hi); border-radius: 5px; padding: 9px 15px;
+  border: 1.5px solid var(--danger-hi); border-radius: 5px; padding: 10px 18px;
   background: linear-gradient(180deg, var(--fill-hi), var(--fill-lo)); color: var(--btn-ink);
   cursor: pointer; font-style: italic;
   font-family: "Nunito", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 16px;
@@ -1483,10 +1490,9 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
   .panel.title { padding: 14px 18px 16px; }
   .panel.title .lockup { padding-bottom: 14px; }
   .panel.title .flourish { margin: 3px 0; }
-  /* the narrow case tightens the box, not the type: one CTA size at every width. */
-  .panel.title button { padding: 11px 24px; }
-  .panel.title button::before { left: 9px; }
-  .panel.title button::after { right: 9px; }
+  /* the two rules that sat here moved the diamonds at each end of the button in. There are no
+     diamonds, and there is no narrow-screen button size either: the CTA is one shape at every
+     width now, so what is left in this block is the panel's own spacing. */
 }
 /* The smallest phones still in use. The title panel has overflowed its own screen here since long
    before this ticket -- measured at 320x568 it ran 12px past the right edge, because the row is two
