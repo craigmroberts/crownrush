@@ -379,7 +379,6 @@ export const BuildMethods = {
       if (def.wall.side === 'north') this.world.revealRoad('north');
     }
     if (!def.crew) this.addScore(pad.cost * CFG.score.buildPerCoin + pad.res.reduce((a, r) => a + r.need, 0) * CFG.score.buildPerMaterial);
-    audio.build();
     // #105: a mat that changed what the player can DO says so on a panel that takes the screen, and
     // the toast would fire underneath it -- `#toast` is z-index 4 against `.overlay`'s 10, which is
     // exactly the trap #99 found under the level-up modal. The pads that do not change a capability
@@ -1302,7 +1301,6 @@ export const BuildMethods = {
     this.offer = null;
     this.offerQueue = Math.max(0, this.offerQueue - 1);
     this.hud.hideOffer();
-    audio.build();
     this.hud.toast(`${u.name}: ${u.desc}`, 3000, 'Village');
     if (this.offerQueue > 0) this.showOffer();
     else this.endOfferPause();

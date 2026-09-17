@@ -388,11 +388,13 @@ export const CFG = {
   // who MEANT to buy five batches back to back pays 2.4s for the whole run of them, and one who did
   // not wanted nothing at all.
   //
-  // Pinned at both ends rather than picked. The floor is the sound: `audio.build()` is four tones at
-  // 0.07s apart with a 0.25s body and a 0.18s release, so the fanfare that says "bought" runs about
-  // 0.64s -- a cooldown shorter than that has the mat taking money while the player is still hearing
-  // the last purchase. 1.0 clears it with a third of a second to spare, and 2.4s across five is the
-  // other end.
+  // Pinned at the end that is still there. It used to be pinned at both: the floor was the length of
+  // `audio.build()`, a 0.64s fanfare, on the grounds that a mat must not take money while the player
+  // is still hearing the last purchase. #130 removed that sound, so that floor is gone with it and
+  // this number now rests on the other end alone -- five batches back to back cost 2.4s more than
+  // they used to, which is what a deliberate buyer pays for the protection, and it is nothing.
+  // The purchase is not silent without the fanfare: `audio.ching()` runs per coin the whole way in,
+  // so 1.0s still lands well clear of the sound of paying.
   //
   // The fixture trap, since the first set of numbers here was wrong because of it: the recruit mat
   // stands in the Archery Range mat's exact `pos`, so forcing `built.range` without taking the range

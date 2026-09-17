@@ -636,7 +636,6 @@ export class Game {
     }
     this.saveScore();
     this.recordRun('won');
-    audio.build();
     setTimeout(() => this.hud.showVictory(this.coinsEarned, this.units.length - 1 + this.turrets.length, this.score), 600);
   }
 

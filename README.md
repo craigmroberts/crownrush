@@ -141,7 +141,11 @@ loop underneath it:
   deliberately has neither -- a pending choice that could be dismissed once left the King stopped
   dead with nothing able to resume him.
 - Sound is synthesised in the browser (no audio files): a looping background melody, arrow hits, coin
-  pickups, the "ching" of coins being spent, build fanfares and wave horns. The speaker button mutes it.
+  pickups, the "ching" of coins being spent and wave horns. The speaker button mutes it. There is no
+  build fanfare any more: a four-tone arpeggio played on every purchase, and because the level-up and
+  capability panels are opened BY a purchase, it was also the sound those panels came up to -- which
+  is where it was reported from. It went from all four of its callers rather than being muted on two,
+  so winning is quiet now as well; a purchase is not, because the coins ching the whole way in (#130).
   Anything that stops the game suspends the audio context, which stops the loop and freezes
   `ctx.currentTime` with it so the music comes back in phase rather than desynced -- but the music bus
   fades over 0.22s first, and the suspend waits for the ramp. Cutting a soundtrack dead between two

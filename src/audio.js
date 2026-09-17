@@ -692,12 +692,6 @@ class Audio {
       this.noise({ t, dur: 0.14, gain: 0.16, f: 3200, q: 0.7 });
     }
   }
-  build() {
-    if (!this.ready()) return;
-    const t = this.now;
-    ['C5', 'E5', 'G5', 'C6'].forEach((n, i) => this.tone({ f: freq(n), t: t + i * 0.07, dur: 0.25, type: 'triangle', gain: 0.18, attack: 0.005, release: 0.18, lp: 3000 }));
-    this.noise({ t, dur: 0.18, gain: 0.12, type: 'lowpass', f: 600 });
-  }
   horn() {
     if (!this.ready()) return;
     const t = this.now;
