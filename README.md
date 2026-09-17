@@ -261,6 +261,15 @@ on, and steps inside when he brings her to an intact Keep -- measured from the K
 *his* position rather than hers (`CFG.queen.doorReach`). Both of those are the point: she never walks
 her own paths, so a radius she has to reach herself is one she never will.
 
+One rule holds that together: **whenever Wren is free and the Keep is built, walking the King to the
+door puts her inside, and there is no state in which that fails.** `inKeep` is the flag that could
+strand her -- everything in `updateQueen` returns on it, so if it were ever true while she was drawn
+outside, the game would believe she was home and nothing the player did could change its mind. It is
+now checked once a frame rather than trusted: a Keep that has stopped standing under the flag clears
+it, and a position that has drifted off the balcony the flag claims she is on is put back. Entering
+sets the flag only after she has actually reached the balcony, not before -- the other order is how a
+Keep mesh without one could have stranded her (#126).
+
 ## Reading the pads
 
 Square pads BUILD something (structures, walls, bridges, expansions). Round pads do everything else,

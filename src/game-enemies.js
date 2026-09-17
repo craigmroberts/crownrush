@@ -891,7 +891,29 @@ export const EnemiesMethods = {
 
   updateQueen(dt) {
     const q = this.queen;
-    if (!q || q.inKeep) return;
+    if (!q) return;
+    // #126: the invariant, checked rather than assumed -- whenever Wren is free and the Keep is
+    // built, walking the King to the door has to put her inside, and there must be no state in which
+    // that fails. `inKeep` is the flag that can strand her: everything below returns immediately on
+    // it, so if it is ever true while she is standing outside, the game believes she is home and the
+    // player has no way left to get her there. That is the report this came from.
+    //
+    // Two ways it can go wrong, and both are answered here rather than hunted down one at a time:
+    // the Keep stops being built underneath the flag, and her position drifts off the balcony the
+    // flag claims she is on (a mesh replaced, a restore, anything future). A squared compare against
+    // the balcony, once a frame, on a check that already returns on the same line.
+    if (q.inKeep) {
+      if (!this.keep || this.keep.state !== 'built') this.queenLeaveKeep();
+      else {
+        const b = this.keep.mesh && this.keep.mesh.userData.balcony;
+        if (!b) this.queenLeaveKeep();
+        else {
+          tmp.set(this.keep.x + b.x, b.y, this.keep.z + b.z);
+          if (q.mesh.position.distanceToSquared(tmp) > 0.01) this.queenToBalcony();
+        }
+      }
+      return;
+    }
     if (q.captive) return this.updateCaptive(dt);
     if (this.updateSeize(dt)) return;
     const k = this.king.mesh;

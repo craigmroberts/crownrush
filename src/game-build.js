@@ -238,10 +238,10 @@ export const BuildMethods = {
         this.keep.mesh.remove(this.keep.bar);
         m.add(this.keep.bar);
         this.keep.mesh = m;
-        if (this.queen.inKeep) {
-          const b = m.userData.balcony;
-          this.queen.mesh.position.set(this.keep.x + b.x, b.y, this.keep.z + b.z);
-        }
+        // #126: through the same call the door uses, so the two paths cannot drift apart again. This
+        // is the one moment in a run when the Keep's mesh identity changes under a Wren who may be
+        // standing on its balcony -- levels 4, 8 and 12 (`CFG.base.wallAt`).
+        if (this.queen.inKeep) this.queenToBalcony();
       }
       if (t) t.mesh = m;
       this.root.remove(s.mesh);
@@ -737,17 +737,34 @@ export const BuildMethods = {
     return pad.paid >= pad.cost && pad.res.every((r) => r.paid >= r.need);
   },
 
+  // #126: the one place that knows where she stands when she is home. Three callers had their own
+  // copy of it -- entering, the material rebuild, and now the drift guard -- and a copy is how they
+  // came to disagree about what happens to her when the Keep's mesh is replaced underneath her.
+  // Returns whether it could: a Keep mesh with no `balcony` in its userData is a mesh she cannot
+  // stand on, and the honest answer is no rather than a throw.
+  queenToBalcony() {
+    const b = this.keep && this.keep.mesh && this.keep.mesh.userData.balcony;
+    if (!b) return false;
+    this.queen.mesh.position.set(this.keep.x + b.x, b.y, this.keep.z + b.z);
+    return true;
+  },
+
   queenEnterKeep() {
     const q = this.queen;
     if (!this.keep || this.keep.state !== 'built' || q.inKeep || q.captive) return;
+    // #126: the balcony FIRST, and the flag only if she got there. It used to set `inKeep` and then
+    // read `userData.balcony`, so any Keep mesh without one would leave the flag true with her never
+    // moved -- and `updateQueen` returns immediately on `inKeep`, so she would be drawn outside while
+    // the game believed she was home and no amount of walking the King to the door could fix it.
+    // That is the exact shape of the report this came from, and it is now unreachable: the flag
+    // cannot be set unless she is standing on the thing it claims she is standing on.
+    if (!this.queenToBalcony()) return;
     q.inKeep = true;
     // #83: a door closed between her and them is the whole of the answer. Getting her to the Keep
     // with raiders already on her is the best save in the game, so it has to be a clean one.
     q.seize = 0;
     q.held = false;
     setHealthBar(q.bar, 1);
-    const b = this.keep.mesh.userData.balcony;
-    q.mesh.position.set(this.keep.x + b.x, b.y, this.keep.z + b.z);
     q.mesh.rotation.y = 0;
     q.moving = false;
     this.hud.toast('Wren is inside the Keep.', 1500, 'Wren');
@@ -850,7 +867,13 @@ export const BuildMethods = {
   restoreKeep() {
     const k = this.keep;
     this.root.remove(k.mesh);
-    k.mesh = makeKeep(this.materialName());
+    // #126: the same builder every other path uses, which prefers the imported castle and falls back
+    // to the built one. This said `makeKeep(this.materialName())` outright, so repairing the Keep
+    // silently swapped the imported castle for the procedural one and it stayed swapped until the
+    // next material boundary rebuilt it -- the same class as #111. It also put the collision box out
+    // of step with what was drawn: `CFG.keep.half` is 2.9, sized for the import's 6.03 x 5.38, while
+    // the built Keep is 3.44 square, so the King was held a metre clear of a wall that was not there.
+    k.mesh = this.makeStructureMesh('keep');
     { const rec = this.structures.find((x) => x.kind === 'keep'); if (rec) rec.mesh = k.mesh; }
     k.mesh.position.set(k.x, 0, k.z);
     k.state = 'built';
