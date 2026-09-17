@@ -1453,8 +1453,13 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
    input.js changes, which is the point: the clamp is felt, not read.
    `box-sizing` is `border-box` globally, so dropping the stroke moves nothing -- the background was
    already painting out to 128px underneath it. */
+/* #153, the second half: and the disk is a guide, so it sits back. 0.18 white to 0.10, plus a dark
+   rim that is a shadow and not a stroke -- the ring came off because a bright line read as a second
+   object, and a 1px inset at 10% black does not, but it is what keeps a 10% white disk from vanishing
+   into pale grass. The HUD's own rule: every mark has to carry its own legibility, because it can
+   land on grass, water or a white wall. */
 #joystick .base { position: absolute; left: -64px; top: -64px; width: 128px; height: 128px; border-radius: 50%;
-  background: rgba(255,255,255,0.18); }
+  background: rgba(255,255,255,0.10); box-shadow: inset 0 0 0 1px rgba(0,0,0,0.10); }
 #joystick .knob { position: absolute; left: -26px; top: -26px; width: 52px; height: 52px; border-radius: 50%;
   background: rgba(255,255,255,0.85); box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
 
