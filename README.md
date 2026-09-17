@@ -114,6 +114,12 @@ loop underneath it:
   The words type themselves out. They are all laid out at full size first and only their opacity is
   staggered, so the box cannot re-wrap or re-centre partway through; the hold starts when the last
   letter lands rather than when the notice appears. Reduced motion gets the whole line at once.
+- **The four corners.** Health, the Keep's level and the night's count hang from the top-left; the
+  minimap is top-right with the settings cog directly under it; coin and the bag sit above the warhorn
+  in the bottom-right, beside the thumb that spends them; and the skip button anchors bottom-left, so
+  the two actions are on opposite thumbs. What is at the top is state you read, what is at the bottom
+  is what changes while you play. The bottom-centre is left empty on purpose, because it is the only
+  place a notice and a button would have to negotiate for space (#124, #131).
 - Everything that speaks does it in the same place, at the bottom: the notice, the mat chip that says
   what the pad under the King costs, and the attack alarm, which used to be a solid red pill at the
   top of the screen and is now the same dark caption with the urgency in the colour of the words.
@@ -123,7 +129,11 @@ loop underneath it:
   and is meant to be: an alarm and a notice are the shout and the sentence, and several beats raise
   both, so the alarm keeps a slot directly above. That slot is measured rather than assumed -- it
   clears whatever is on the line, which is the only thing that holds when a notice can be one line or
-  four.
+  four. The line is at 129 rather than 116: #124 came to bring it *down*, on the grounds that 116 was
+  pinned against a minimap that moved to the top-right in #123 and left the space behind -- but the
+  space was spent in the same breath by the purse (#131), and the measurement said up by 13 rather
+  than down by 25. Which is the point of having one value: the number moved once, and everything that
+  speaks down there moved with it.
   Everything in that band hides with `visibility` as well as opacity, and that is not tidiness: the
   drag that moves the King is bound to the canvas, so anything above it that is still hit-testable
   eats the whole gesture. The chip's head is a button, and `pointer-events: none` on the chip did not

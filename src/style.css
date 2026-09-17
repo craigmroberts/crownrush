@@ -58,8 +58,17 @@
   --rim-line: 3px;
   /* #90: where notices live. Everything that speaks at the bottom is measured from this one value
      rather than each element knowing a number the others also know -- which is how the toast and the
-     mat chip ended up colliding in the first place (#75). */
-  --notice-bottom: calc(116px + env(safe-area-inset-bottom));
+     mat chip ended up colliding in the first place (#75).
+     #124 came to bring this DOWN. 116 was pinned against the minimap, which stood in the bottom-left
+     until #123 took it to the top-right, and nobody had been back for the space. The measurement said
+     otherwise: #131 put the purse -- coin and the bag -- above the warhorn in the same breath, so the
+     space the map gave up has been spent, and by something that changes while you play rather than
+     something you glance at. So it goes UP by 13, not down by 25, and the reason is recorded here
+     because the old one is no longer true.
+     Measured at 390x844 with a notice up, the mat chip open and the skip button raised: the panel
+     lands 11px below this value, the purse's row tops out 114 from the floor, and 129 is the first
+     figure that leaves the two of them clear with air. Checked again at 320x568 and in landscape. */
+  --notice-bottom: calc(129px + env(safe-area-inset-bottom));
   /* #90: how tall the notice on that line currently is. Hud.syncNoticeStack writes it; nothing but
      the alarm reads it. 0 when the line is empty, which is most of the time. */
   --notice-stack: 0px;
@@ -238,8 +247,19 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .indicator.home .arrow { background: #2f6fd6; }
 .indicator.home .count { font-size: 18px; }
 
+/* #124: bottom-LEFT, not centre. It was the one thing in the middle of the bottom edge, which is the
+   only place a notice and a button have to negotiate for space at all -- everything else down there
+   is already in a corner. Left-anchored it puts the two actions on opposite thumbs: skip on the left,
+   warhorn on the right, and the band between them belongs to whatever is speaking.
+
+   #123 moved the minimap OUT of this corner because it was a live target over a canvas that listens
+   for drags, so putting a button back here is worth being deliberate about. Two things make it
+   different rather than a straight reversal: it is intermittent -- `showNextWave` only raises it in
+   the daytime lull, not for the whole run -- and it is a button somebody is looking for, so a tap
+   landing on it is usually the tap they meant. It also sits at 24px rather than the horn's 12, which
+   keeps the very bottom strip of the corner, where a thumb actually rests, clear. */
 #next-wave-btn {
-  position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+  position: fixed; left: max(12px, env(safe-area-inset-left)); bottom: max(24px, env(safe-area-inset-bottom));
   pointer-events: auto; display: inline-flex; align-items: center; gap: 7px;
   border: 0; border-bottom: 4px solid #8a1a22; border-radius: 14px; padding: 7px 14px 7px 11px;
   background: linear-gradient(#f05a4a, #d8262c); color: #fff; cursor: pointer;
@@ -429,7 +449,22 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
    so equal tops put the shorter one's centre 3px high, which is exactly half the difference.
    Only the right-hand group wants centres. The left one keeps flex-start: it is a column of rows
    that has to hang from the top edge, and centring it would float the whole stack. */
-#topbar #carry-rail { align-items: center; }
+/* #131: the purse -- coin and the bag, above the warhorn.
+   A ROW rather than a column, and the constraint that decides it is vertical, not horizontal. The
+   notice band is centred and nearly the full width of a phone -- 25 to 365 of a 390 screen, measured
+   -- so it overlaps anything in this corner horizontally whatever its width. What it cannot overlap
+   is its HEIGHT: a column of two cells is 60px tall and pushes the notice line up by that much, a row
+   is 28px and barely moves it. The band is the scarce thing at the bottom of this screen (#90, #124),
+   so the purse is the shape that costs it least.
+   It sits above the horn's 64px and its 12px of floor. `pointer-events: none` because it is a number
+   to read, not a thing to press: a live target over the canvas where a right thumb rests is exactly
+   what #128 was. */
+#purse {
+  position: fixed; right: 12px; right: max(12px, env(safe-area-inset-right));
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  z-index: 5; pointer-events: none;
+  display: flex; align-items: center; gap: 14px;
+}
 #topbar .hud-group:active { filter: brightness(1.15); }
 #topbar .hud-group:focus-visible { outline: 3px solid #fff; outline-offset: 2px; border-radius: 12px; }
 .hud-cell {
@@ -518,7 +553,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   /* #86: the box is the thumb target and nothing is drawn on it, so it does not shrink with the rest
      of the HUD -- 42px here was the old plaque's size and is under what a thumb wants. Only the glyph
      inside it gives ground. */
-  #settings-btn { bottom: calc(76px + env(safe-area-inset-bottom)); }
+  #settings-btn { top: calc(max(12px, env(safe-area-inset-top)) + 78px); }
   #settings-btn .icon { width: 30px; height: 30px; }
 }
 /* #23: the only control left on the field. It used to hang off the right edge under the coin; with
@@ -531,8 +566,12 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
    icon in the HUD wears (`.hud-cell .icon`) and is the only reason gold reads on green.
    The press had to change with it. translateY(2px) is a button being pushed into its own shadow,
    which is a lie once there is no button; a glyph answers by shrinking. */
+/* #131: under the map, not over the horn. It is pressed twice in a run -- once for sound, once when
+   something is wrong -- and it was holding the best place on the screen for a thing that changes
+   while you play. The map is 78px tall at the same right edge, so this hangs directly below it. */
 #settings-btn {
-  position: fixed; right: 12px; bottom: calc(86px + env(safe-area-inset-bottom)); z-index: 5;
+  position: fixed; right: 12px;
+  top: calc(max(12px, env(safe-area-inset-top)) + 86px); z-index: 5;
   pointer-events: auto; width: 48px; height: 48px; border: 0; background: none; cursor: pointer;
   display: grid; place-items: center; -webkit-tap-highlight-color: transparent;
   transition: transform 0.12s ease-out, filter 0.12s ease-out;

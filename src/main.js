@@ -164,7 +164,8 @@ document.getElementById('ks-x').addEventListener('click', () => game.hideKeep())
 document.getElementById('pause-x').addEventListener('click', () => game.unpause());
 // both plaques open the Keep sheet: the left one is the level, the right one is what feeds it
 document.getElementById('keep-plaque').addEventListener('click', () => game.toggleKeep());
-document.getElementById('carry-rail').addEventListener('click', () => game.toggleKeep());
+// #131: the carry rail was the other half of that button and is now the purse in the bottom-right,
+// which is a readout rather than a control -- so there is nothing here to bind.
 document.getElementById('ks-close').addEventListener('click', () => game.hideKeep());
 
 // #23: one gear instead of three buttons on the field. The sheet holds sound, pause and how to play.
