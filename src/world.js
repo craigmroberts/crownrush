@@ -149,35 +149,58 @@ function foamTexture() {
 }
 
 function groundTexture() {
+  // The ground carries most of the coverage, and that is the point rather than a saving. A field does
+  // not read as lush because of how many grass models stand on it -- it reads that way because the
+  // ground BETWEEN them is not one flat colour. Three flat blob passes over a single green was what
+  // made 9000 tufts still look like decoration scattered on a lawn.
+  //
+  // 512 rather than 256, at the same 16x repeat: the tile is still 11.9 world units, so nothing about
+  // how often it repeats has changed -- there is just twice the detail inside it, which is what lets
+  // the speckle pass be fine enough to read as texture instead of as spots.
+  const S = 512;
   const c = document.createElement('canvas');
-  c.width = 256;
-  c.height = 256;
+  c.width = S;
+  c.height = S;
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#89bd55';
-  ctx.fillRect(0, 0, 256, 256);
+  ctx.fillRect(0, 0, S, S);
   const r = rng(99);
   const blob = (color, count, rmin, rmax) => {
     ctx.fillStyle = color;
     for (let i = 0; i < count; i++) {
-      const x = r() * 256;
-      const y = r() * 256;
+      const x = r() * S;
+      const y = r() * S;
       const rx = rmin + r() * (rmax - rmin);
       const ry = rx * (0.45 + r() * 0.3);
-      // draw wrapped so the tile repeats seamlessly
-      for (const ox of [-256, 0, 256]) for (const oy of [-256, 0, 256]) {
+      // drawn wrapped so the tile repeats seamlessly
+      for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) {
         ctx.beginPath();
         ctx.ellipse(x + ox, y + oy, rx, ry, r() * Math.PI, 0, Math.PI * 2);
         ctx.fill();
       }
     }
   };
-  blob('rgba(159, 208, 104, 0.32)', 22, 10, 26);
-  blob('rgba(123, 172, 74, 0.24)', 18, 8, 22);
-  blob('rgba(172, 220, 118, 0.2)', 16, 4, 10);
+  // Broad mottling: the patches you read as "this field is not flat", at the scale of a few metres.
+  blob('rgba(163, 212, 104, 0.42)', 26, 20, 56);
+  blob('rgba(118, 166, 70, 0.36)', 24, 16, 48);
+  blob('rgba(178, 226, 122, 0.28)', 20, 8, 22);
+  // Earth through the grass. Kept very low in opacity and few in number, because this tiles every
+  // 11.9 units and anything with an edge on it announces the repeat.
+  blob('rgba(152, 130, 88, 0.20)', 11, 12, 32);
+  blob('rgba(122, 102, 68, 0.10)', 7, 6, 15);
+  // And the speckle, which is what the eye reads as vegetation rather than paint. Small enough to
+  // mip away at distance, which is exactly what should happen to it.
+  blob('rgba(106, 150, 62, 0.30)', 320, 2.5, 7);
+  blob('rgba(180, 214, 122, 0.24)', 260, 2, 5.5);
+  blob('rgba(88, 126, 52, 0.22)', 190, 1.5, 4);
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(16, 16);
   tex.colorSpace = THREE.SRGBColorSpace;
+  // The ground is looked at across, at 45 degrees, which is the case mipmapping handles worst: the
+  // far half of every frame is ground seen edge-on, and without this the speckle above turns to
+  // porridge about fifteen units out. Three clamps this to whatever the device actually offers.
+  tex.anisotropy = 4;
   return tex;
 }
 
@@ -440,40 +463,83 @@ export function buildWorld(scene) {
   }
 
   // grass tufts and flowers, instanced
+  // SEVEN BLADES FOR THE PRICE OF THREE, and it is worth writing down because it looks like a
+  // trade-off and is not one. These cones were closed, and a cone's base cap faces straight DOWN --
+  // at ground level, under the tuft, back-facing from every angle the camera can reach. It was three
+  // triangles a blade that nothing has ever seen. Open-ended, a blade is 3 triangles instead of 6, so
+  // a seven-blade clump costs 21 where the old three-blade one cost 18.
+  //
+  // And the clump has WIDTH now. The old three sat on one spot and leaned, which reads as a spike at
+  // this camera; these are spread over a 0.13 disc on a golden angle so no two line up, which is what
+  // makes each one cover ground instead of marking it.
   const blades = [];
-  for (let i = 0; i < 3; i++) {
-    const b = new THREE.ConeGeometry(0.07, 0.55 + i * 0.1, 3);
-    b.translate(0, 0.28, 0);
-    b.rotateX((i - 1) * 0.35);
-    b.rotateY(i * 2.1);
+  for (let i = 0; i < 7; i++) {
+    const h = 0.42 + (i % 3) * 0.16;
+    const b = new THREE.ConeGeometry(0.055, h, 3, 1, true);
+    b.translate(0, h * 0.5, 0);
+    b.rotateX(((i % 3) - 1) * 0.42);       // lean, pivoting on the root rather than the middle
+    b.rotateY(i * 1.63);
+    const a = i * 2.39996;                 // golden angle
+    b.translate(Math.cos(a) * 0.13, 0, Math.sin(a) * 0.13);
     blades.push(b);
   }
   const tuftGeo = mergeGeometries(blades, false);
-  // 700 over the whole map was one clump every 43 square metres -- scattered dots on a flat plane
-  // rather than a field. 9000 is roughly one every two, which is what reads as grass rather than as
-  // decoration at the game's camera. 5200 was tried first and looked like a meadow somebody had
-  // mostly mown.
+  // 700 over the whole map was one clump every 43 square metres -- scattered dots on a flat plane.
+  // 13000 is about one every 1.6, and with seven blades apiece that is 91,000 blades of grass where
+  // there were 27,000.
+  //
+  // THE COUNT WAS NEVER THE WHOLE ANSWER, though, and 9000 three-blade tufts on the old flat ground
+  // proved it: at a density close to the reference it still read as a lawn with things stuck in it.
+  // Coverage is three layers and the models are only the top one -- the ground texture does the most
+  // work, the speckle in it does the rest, and the tufts supply silhouette.
   //
   // IT IS STILL ONE DRAW CALL, because they are instanced: the count costs triangles and nothing
-  // else. 18 triangles a tuft, so 162k measured, against a scene that measures 824k in open field
-  // and 2.6M under the probe's forced crowd. Draw calls were 187 at 5200 and 209 at 9000 -- that
-  // rise is the extra scenery in frame, not the grass, which is one call at any count.
+  // else. 21 a tuft, so 273k measured, in a scene that measures 981k -- so this is the largest single
+  // instanced cost in the world, and worth knowing beside the second largest, which is 28 characters
+  // at 8,576 triangles each for 240k (#52's models, already over their stated budget). Grass is the
+  // one of those two that is a dial: `TUFTS` is the number to move if a device ever struggles.
   //
-  // THE THING IT COULD HAVE BROKEN IS COINS. They rest at about y 0.25 and a tuft stands 0.55 to
-  // 1.05, so grass is taller than the thing the player walks over to collect. Checked on screen with
-  // 26 coins dropped in open field at both densities: gold on green keeps its separation and no coin
-  // is lost in it. That is the number to revisit first if this ever goes higher.
-  const TUFTS = 9000;
+  // THE THING IT COULD BREAK IS COINS. They rest at about y 0.25 and a blade stands 0.42 to 0.74, so
+  // the grass is taller than the thing the player walks over to collect. Checked on screen every time
+  // this number moves, with coins dropped in open field. That is the first thing to look at if it
+  // ever goes higher again.
+  const TUFTS = 13000;
   const tufts = new THREE.InstancedMesh(tuftGeo, swayMaterial(0x88bd5a), TUFTS);
-  const flowerGeo = new THREE.SphereGeometry(0.14, 6, 5);
+  // Flowers carry more of the lushness than their number suggests, so there are four times as many
+  // and each is cheaper: 5 by 3 segments is 20 triangles against the old 6 by 5's 48, and at this
+  // size nobody has ever counted the facets on a daisy.
+  const flowerGeo = new THREE.SphereGeometry(0.12, 5, 3);
   const flowerColors = [0xffffff, 0xffd54a, 0xff8aa8];
-  const flowers = flowerColors.map((c) => new THREE.InstancedMesh(flowerGeo, mat(c), 70));
+  const FLOWERS = 300;
+  const flowers = flowerColors.map((c) => new THREE.InstancedMesh(flowerGeo, mat(c), FLOWERS));
   const m4 = new THREE.Matrix4();
   let ti = 0;
   const fi = [0, 0, 0];
-  for (let tries = 0; tries < TUFTS * 6 && ti < TUFTS; tries++) {
-    const x = (rand() * 2 - 1) * half;
-    const z = (rand() * 2 - 1) * half;
+  // CLUMPED, NOT SPRINKLED, and this is free -- it is where the tufts go, not how many there are.
+  // Uniform random gives every square metre the same amount of grass, which is the one thing real
+  // ground never does: it grows in patches with thinner ground between them, and that variation is
+  // most of what makes a field look grown rather than applied. The trees already do this (`clumps`
+  // above, for the same reason); the grass was the only scattered thing left.
+  //
+  // 78% into a patch and the rest loose, so the thin ground between them is not bald either. The 0.55
+  // power pulls them toward the middle of a patch, which gives each one a dense heart and a soft edge
+  // instead of a disc with a rim.
+  const patches = [];
+  for (let i = 0; i < 240; i++) patches.push([(rand() * 2 - 1) * half, (rand() * 2 - 1) * half]);
+  for (let tries = 0; tries < TUFTS * 8 && ti < TUFTS; tries++) {
+    let x;
+    let z;
+    if (rand() < 0.78) {
+      const [px, pz] = patches[(rand() * patches.length) | 0];
+      const a = rand() * Math.PI * 2;
+      const d = (rand() ** 0.55) * 5;
+      x = px + Math.cos(a) * d;
+      z = pz + Math.sin(a) * d;
+      if (Math.abs(x) > half || Math.abs(z) > half) continue;
+    } else {
+      x = (rand() * 2 - 1) * half;
+      z = (rand() * 2 - 1) * half;
+    }
     if (!grassFree(x, z)) continue;
     m4.makeRotationY(rand() * Math.PI);
     m4.scale(new THREE.Vector3(1, 0.8 + rand() * 0.6, 1));
@@ -481,7 +547,7 @@ export function buildWorld(scene) {
     tufts.setMatrixAt(ti++, m4);
     if (rand() < 0.28) {
       const k = Math.floor(rand() * 3);
-      if (fi[k] < 70) {
+      if (fi[k] < FLOWERS) {
         m4.makeTranslation(x + 0.4, 0.3, z + 0.2);
         flowers[k].setMatrixAt(fi[k]++, m4);
         world.flowerSpots.push(new THREE.Vector3(x + 0.4, 0.3, z + 0.2));

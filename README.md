@@ -45,12 +45,31 @@ the raids keep coming for a high score.
 - The map has a river that raiders (and the King) can only cross at the bridges where the curved roads
   meet it, so each bridge is a natural choke point. Mesas and snow peaks sit to the north-west, with
   forests, boulders, barricades, a wheat field and flower patches across the meadow.
-- **Grass, and where it is not.** 9000 instanced tufts in one draw call, thick enough outside the
-  walls to read as a field. What is kept bare is the **citadel** -- the tight first ring the Keep and
-  its three service buildings stand in, which is paved and walked over all game. Everything beyond it
-  is countryside, including the ground inside the later walls, because those enclose farmland and
-  homes rather than a city. The mats are kept clear too: `spend.padSize` is 3.6 across and grass is
-  held 2.6 off, so nothing grows through a price.
+- **Grass, and where it is not.** 13,000 instanced tufts in one draw call. What is kept bare is the
+  **citadel** -- the tight first ring the Keep and its three service buildings stand in, which is
+  paved and walked over all game. Everything beyond it is countryside, including the ground inside the
+  later walls, because those enclose farmland and homes rather than a city. The mats are kept clear
+  too: `spend.padSize` is 3.6 across and grass is held 2.6 off, so nothing grows through a price.
+
+  **Coverage is three layers and the models are the top one.** 9000 tufts on the old flat ground was
+  already close to a reference's density and still read as a lawn with things stuck in it, which is
+  the useful thing this taught: the ground BETWEEN the grass is what decides whether a field looks
+  grown. So the ground texture carries most of it -- 512 rather than 256 at the same 16x repeat, so
+  the tile is still 11.9 world units with twice the detail in it, mottled at the scale of metres,
+  with earth showing faintly through and a fine speckle pass that mips away at distance. It is
+  `anisotropy: 4`, because the far half of every frame is ground seen at 45 degrees and without it the
+  speckle turns to porridge fifteen units out.
+
+  The tufts themselves are **seven blades for the price of three**: the cones were closed, and a
+  cone's base cap faces straight down at ground level where nothing can ever see it, so open-ending
+  them halved the cost per blade. A seven-blade clump is 21 triangles where the old three-blade one
+  was 18, and it has width -- the blades are spread on a golden angle over a 0.13 disc, so each clump
+  covers ground rather than marking it. And they are **clumped rather than sprinkled**, 78% into
+  patches, because uniform random gives every square metre the same amount of grass and real ground
+  never does.
+
+  It costs 273k triangles in a scene measuring 981k -- the largest single instanced cost in the world,
+  next to 28 characters at 8,576 each for 240k (#52). `TUFTS` in `world.js` is the dial.
 - The village starts as a small plot. "Expand Village" pads grow it in three stages, each with its own
   wall ring. When the outer ring is complete the old inner wall is torn down.
 - Walls are real: raiders are blocked and bash at short sections. A battered section degrades to the
