@@ -738,7 +738,7 @@ export class Hud {
   // many raiders are still coming or still standing. The count is the part that answers "is it over"
   // outright; the bar is there because twelve raiders on their last legs and twelve fresh ones are
   // not the same news.
-  setRaid(frac, count, night, boss) {
+  setRaid(frac, count, night, boss, rescue = false) {
     const el = this.raidBar || (this.raidBar = document.getElementById('raid-bar'));
     const show = count > 0;
     if (!show && !this.raidShown) return;
@@ -759,12 +759,13 @@ export class Hud {
       }
       if (night !== this.raidNight) {
         this.raidNight = night;
-        // #146: night 0 no longer means the rescue -- that party is out of the count now, so the bar
-        // cannot come up for it. The only fight left that can happen before night 1 is the camp,
-        // which wakes on proximity with no wave gate; a thief needs `wave >= 2`. So night 0 IS the
-        // camp, and saying so beats "Night 0", which is a counter showing its working.
+        // #146: "Night 0" is a counter showing its working, so night 0 says what the fight IS.
+        // #147: and there are two of them. The rescue can raise a bar again once the guards turn, so
+        // night 0 is the rescue while Wren is still captive and the camp otherwise -- the camp fight
+        // can only happen after she is home, which is what makes one boolean enough to tell them
+        // apart rather than a second flag threaded down here.
         (this.rbNight || (this.rbNight = document.getElementById('rb-night'))).textContent =
-          night > 0 ? `Night ${night}` : 'The camp';
+          night > 0 ? `Night ${night}` : rescue ? 'The rescue' : 'The camp';
       }
       // The Warlord is the one enemy the player has a word for, so he gets his name on the bar and
       // everybody else is "Raiders". A boss arriving mid-night rewrites the line under way, which is

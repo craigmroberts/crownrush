@@ -315,7 +315,15 @@ export const EnemiesMethods = {
     // rather than a second pass over the same list.
     out.boss = false;
     for (const e of this.enemies) {
-      if (e.camp || e.rescue) continue;
+      // #147: the rescue party is out of the count while the player is still walking out to it, and
+      // in it the moment the guards turn. #146 took them out for the WHOLE opening, which also took
+      // the bar off the fight itself -- seven enemies and the hardest thing in the early game, with
+      // nothing on screen saying how much of it was left.
+      //
+      // `rescueSpotted` and not `captor`: the flag `captor` is cleared the instant they charge, and
+      // this has to answer for the rest of the fight. It is set once, at `noticeRadius`, by the same
+      // beat that turns them and sounds the alarm -- so the bar arrives when the fight does.
+      if (e.camp || (e.rescue && !this.rescueSpotted)) continue;
       out.hp += Math.max(0, e.hp);
       out.count++;
       if (e.type === 'boss') out.boss = true;

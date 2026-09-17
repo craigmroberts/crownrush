@@ -884,7 +884,7 @@ export class Game {
       // own size rather than against the biggest night so far.
       if (raid.hp > this.raidPeak) this.raidPeak = raid.hp;
       if (raid.count === 0) this.raidPeak = 0;
-      this.hud.setRaid(this.raidPeak > 0 ? raid.hp / this.raidPeak : 0, raid.count, this.wave, raid.boss);
+      this.hud.setRaid(this.raidPeak > 0 ? raid.hp / this.raidPeak : 0, raid.count, this.wave, raid.boss, this.queen.captive);
       // #19: the march on the camp opens at a Keep level or a night, whichever comes first
       if (!this.finaleOpen && (this.baseLevel >= CFG.finale.level || this.wave >= this.finaleNight())) {
         this.finaleOpen = true;
