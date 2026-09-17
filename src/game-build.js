@@ -460,7 +460,7 @@ export const BuildMethods = {
     this.enterEditMode();
     // `quiet` for the moving half, which says its own thing a line later: without it one pick-up fired
     // two notices, and the second had to wait out the first before it could be read.
-    if (!quiet) this.hud.toast('Drag it where it should stand, then tap the tick.', 4200, 'Village');
+    if (!quiet) this.hud.toast('Drag it where it should stand, then *tap the tick.*', 4200, 'Village');
   },
 
   // #137: centres land on multiples of `CFG.place.grid`, and the grid drawn under them is the same
@@ -583,7 +583,7 @@ export const BuildMethods = {
       rec.mesh.scale.setScalar(rec.mesh.userData.baseScale || 1);
     }
     rec.mesh.visible = false;   // picked up: the ghost is where it is now
-    this.hud.toast('Drag it somewhere else, then tap the tick — or the cross to leave it.', 4200, 'Village');
+    this.hud.toast('Drag it somewhere else, then *tap the tick* — or the cross to leave it.', 4200, 'Village');
   },
 
   // Everything the building owns at an absolute position, shifted by the same delta. A delta rather
@@ -1296,7 +1296,7 @@ export const BuildMethods = {
     this.root.add(k.mesh);
     this.queenEnterKeep();
     this.addFeedPad();          // #34: standing again, so it can be fed again
-    this.hud.toast('The Keep stands again. You can raise its level once more.', 3200, 'Keep');
+    this.hud.toast('The Keep stands again. *You can raise its level once more.*', 3200, 'Keep');
   },
 
   // #106: how far a point is from the Keep's WALL rather than from its centre -- 0 anywhere inside the

@@ -884,7 +884,7 @@ export class Game {
       // #19: the march on the camp opens at a Keep level or a night, whichever comes first
       if (!this.finaleOpen && (this.baseLevel >= CFG.finale.level || this.wave >= this.finaleNight())) {
         this.finaleOpen = true;
-        this.hud.toast('The raiders\' camp lies to the north. March on it and end the war!', 4200, 'Raid');
+        this.hud.toast('The raiders\' camp lies to the north. *March on it and end the war!*', 4200, 'Raid');
         audio.wave(true);
       }
       this.hud.showNextWave(between && this.wave > 0 && this.waveTimer > 3 && !this.won);

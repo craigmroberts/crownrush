@@ -576,7 +576,7 @@ export const ViewMethods = {
     }
     if (announce) for (const type of opened) {
       const where = CFG.base.nodeName[type] || cap(type);
-      this.hud.toast(`${where} are open. Look for them on the map.`, 3200, 'Bag');
+      this.hud.toast(`${where} are open. *Look for them on the map.*`, 3200, 'Bag');
     }
     return opened.size > 0;
   },
@@ -1269,7 +1269,7 @@ export const ViewMethods = {
     // used to arrive as a toast in the same tick as the modal that covers it, which is how the same
     // news ended up being told three times and seen once.
     const material = Object.keys(CFG.base.materialAt).find((m) => CFG.base.materialAt[m] === N);
-    if (material) add(material, `${CFG.base.nodeName[material] || material} are open. Look for them on the map.`);
+    if (material) add(material, `${CFG.base.nodeName[material] || material} are open. *Look for them on the map.*`);
     else if (CFG.base.unlocks[N]) add('star', CFG.base.unlocks[N]);
     // Swordsmen are 0 until level 3, so the row says archers alone until there are any -- "12 archers,
     // 0 swordsmen" is a line about something the player cannot have yet.

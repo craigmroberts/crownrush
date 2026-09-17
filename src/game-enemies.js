@@ -36,7 +36,7 @@ export const EnemiesMethods = {
     const dmgMul = (1 + CFG.waves.dmgGrowthPerWave * (w - 1)) * rk.damage * (1 + CFG.base.enemyDmgPerLevel * L);
     if (!this.rankSeen[rank] && this.running) {
       this.rankSeen[rank] = true;
-      if (rank > 0) this.hud.toast(`${rk.name}s have arrived! Watch for their colours.`, 2800, 'Raid');
+      if (rank > 0) this.hud.toast(`${rk.name}s have arrived! *Watch for their colours.*`, 2800, 'Raid');
     }
     const intro = { sapper: 'Sappers! They ignore your army and go for the walls.', archer: 'Enemy archers! They outrange a new tower and shoot the crews: go out and get them, or build the towers up.', shield: 'Shieldbearers! Arrows bounce off the front. Hit them from behind.' }[type];
     if (intro && !this.typeSeen[type] && this.running) {
@@ -683,7 +683,7 @@ export const EnemiesMethods = {
       next = cy.dawn - 1e-4;
       if (!this.dawnHolding) {
         this.dawnHolding = true;
-        this.hud.toast('The sun waits. Finish them before it rises.', 3000, 'Raid');
+        this.hud.toast('The sun waits. *Finish them before it rises.*', 3000, 'Raid');
       }
     }
     this.dayPhase = next;
