@@ -484,6 +484,42 @@ to be a decision. The stylesheet is down to 93 hex literals from 107 and carries
 where it carried five; the rest are the 3D world's materials in `models.js` and `world.js`, which are
 a separate palette and deliberately not part of this one yet.
 
+### The world's palette, and the two things that were wrong with it
+
+Separate from the UI's, and corrected against a BotW colour breakdown the owner brought in. Most of
+that document was turned down on purpose -- its accent hexes are Sheikah-tech semiotics (`#00E1D9`
+means "shrine", `#FF5500` means "a guardian is awake") and this game already spends saturated colour
+on a language the player has to read under pressure: enemy **rank** is a colour, tan through to
+black-and-gold, against a King in blue and gold. A second vocabulary would compete with it. Its
+global 10-20% desaturation was turned down too -- these greens already sat at 38-53% against the
+reference's 41-46%, so there was nothing to mute, and restraint reads as painterly in a naturalistic
+open world where it reads as washed-out in a toy one.
+
+Two things it did catch, and both were internal inconsistencies rather than differences of taste:
+
+- **Stone was cold in a warm world.** `C.rock` and `C.cliff` sat at hue 210-213 and 4-6% saturation
+  -- slate -- while the game's own roads are hue 36-39 at 47-62%. A mesa read as a slab dropped into
+  the field rather than as part of it. Stone is hue 34 now at 18-25%: warm enough to belong, and
+  deliberately well under the roads so a cliff never reads as a sand dune. The strata bands used to
+  alternate warm and cool greys; they carry their contrast in value alone now.
+- **The lighting was already chartreuse and the ground was not.** `hemi.groundColor` in the day keys
+  has always been hue 90-93, which is exactly the reference's range for ground cover -- while the
+  ground texture, the tufts, `C.grass` and `C.leaf` ran 101-140. So the light bouncing off the grass
+  was a different green from the grass. The surfaces moved to the lighting: hue only, saturation and
+  lightness untouched.
+
+The fog colour moved with them, because `updateDaylight` copies it onto `scene.background` and the
+far distance would otherwise be a different green from the ground underfoot. So did the page green
+(`#699a3f` in `style.css`, `theme-color` and the manifest), which is the load screen and the
+overscroll band -- a green that does not match the world is a flash on the way in and a seam at the
+edges of a phone.
+
+**Checked against the thing it could have broken:** rank is read by colour, and the ground those
+colours are read against just moved. Measured, WCAG contrast of each rank's tunic against the grass:
+Bandit 1.52 -> 1.59, Raider 2.14 -> 2.24, Marauder 2.62 -> 2.74, Warlord 6.70 -> 7.02. Every one
+improves slightly, because the new grass is marginally lighter. Confirmed on screen with all four
+ranks stood in open grass.
+
 ## Notices colour the half you act on
 
 A notice is usually two halves: what happened, and what to do about it. The second half is wrapped in

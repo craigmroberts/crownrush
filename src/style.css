@@ -130,7 +130,11 @@
   --notice-gap: 24px;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; font-family: "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
+/* #699a3f is the WORLD's green, rotated with it. It is the overscroll band, the load screen and
+   `theme-color`, so it is the last thing seen before the first frame and the first thing seen past
+   the canvas edge -- a different green from the ground is a flash on the way in and a seam at the
+   top and bottom of a phone. It has to move whenever `world.js` moves. */
+html, body { width: 100%; height: 100%; overflow: hidden; background: #699a3f; font-family: "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
 /* #74: the canvas has to be told its size in a unit that means THE SCREEN.
    `inset: 0` is not enough on its own and never was -- a canvas is a replaced element, so with
    `width: auto` its used size is its INTRINSIC size, which is the drawing buffer. Driven: dropping the

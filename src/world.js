@@ -153,7 +153,7 @@ function groundTexture() {
   c.width = 256;
   c.height = 256;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = '#6cbd55';
+  ctx.fillStyle = '#89bd55';
   ctx.fillRect(0, 0, 256, 256);
   const r = rng(99);
   const blob = (color, count, rmin, rmax) => {
@@ -171,9 +171,9 @@ function groundTexture() {
       }
     }
   };
-  blob('rgba(134, 208, 104, 0.32)', 22, 10, 26);
-  blob('rgba(94, 172, 74, 0.24)', 18, 8, 22);
-  blob('rgba(150, 220, 118, 0.2)', 16, 4, 10);
+  blob('rgba(159, 208, 104, 0.32)', 22, 10, 26);
+  blob('rgba(123, 172, 74, 0.24)', 18, 8, 22);
+  blob('rgba(172, 220, 118, 0.2)', 16, 4, 10);
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(16, 16);
@@ -204,7 +204,7 @@ export function buildWorld(scene) {
   world.waterTex = waterTex;
   // pebbles along both banks
   const pebbleGeo = new THREE.DodecahedronGeometry(0.22, 0);
-  const pebbles = new THREE.InstancedMesh(pebbleGeo, matFlat(0x9a9ea3), 240);
+  const pebbles = new THREE.InstancedMesh(pebbleGeo, matFlat(0xb0a18d), 240);
   const pm = new THREE.Matrix4();
   for (let i = 0; i < 240; i++) {
     const t = rand();
@@ -244,7 +244,7 @@ export function buildWorld(scene) {
     entry.meshes.push(ribbon(samples, MAP.roadWidth * 0.55, 0xe8cd9c, 0.02 + ry, { taper: 'end', wobble: 0.08 }));
     // stones scattered along the verge, revealed with the road
     const stoneGeo = new THREE.DodecahedronGeometry(0.16, 0);
-    const stones = new THREE.InstancedMesh(stoneGeo, matFlat(0xa8a49c), 40);
+    const stones = new THREE.InstancedMesh(stoneGeo, matFlat(0xb7a58d), 40);
     const sm = new THREE.Matrix4();
     for (let k = 0; k < 40; k++) {
       const i = 4 + Math.floor(rand() * (samples.length - 8));
@@ -426,7 +426,7 @@ export function buildWorld(scene) {
     blades.push(b);
   }
   const tuftGeo = mergeGeometries(blades, false);
-  const tufts = new THREE.InstancedMesh(tuftGeo, swayMaterial(0x5fbd5a), 700);
+  const tufts = new THREE.InstancedMesh(tuftGeo, swayMaterial(0x88bd5a), 700);
   const flowerGeo = new THREE.SphereGeometry(0.14, 6, 5);
   const flowerColors = [0xffffff, 0xffd54a, 0xff8aa8];
   const flowers = flowerColors.map((c) => new THREE.InstancedMesh(flowerGeo, mat(c), 70));
@@ -823,8 +823,11 @@ export function buildWorld(scene) {
 }
 
 export function setupLights(scene) {
-  scene.background = new THREE.Color(0x6cbd55);
-  scene.fog = new THREE.Fog(0x6cbd55, 42, 90);
+  // The fog colour IS the background (`updateDaylight` copies one onto the other every frame), so it
+  // has to travel with the ground texture or the far distance goes a different green from the grass
+  // under your feet -- which is the one place a flat-shaded world cannot hide a mismatch.
+  scene.background = new THREE.Color(0x89bd55);
+  scene.fog = new THREE.Fog(0x89bd55, 42, 90);
   const hemi = new THREE.HemisphereLight(0xfff8ea, 0x8fb86a, 1.45);
   scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xfff1d6, 1.3);

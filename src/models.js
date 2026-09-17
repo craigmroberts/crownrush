@@ -59,7 +59,18 @@ export const C = {
   skin: 0xf6cfae, hair: 0x2a1e16, white: 0xf7f7f7, blue: 0x2f6fd6, navy: 0x3a3f5c, pants: 0x6b4a32, shoes: 0x2b2b2b,
   red: 0xd8262c, darkRed: 0xa31a1f, steel: 0xb9bec7, steelDark: 0x7d848e, gold: 0xf5b800, goldDark: 0xc98a00,
   horse: 0xe8d5b5, mane: 0x8a5a2b, wood: 0x9a6a3a, darkWood: 0x6b4a2b, roof: 0x7a4f30,
-  leaf: 0x2f8f4e, leafDark: 0x257a42, rock: 0x8f959c, cliff: 0x5b5f63, grass: 0x4aa364,
+  // Greens rotated toward chartreuse and stone warmed out of grey (the BotW palette note). Hue only:
+  // saturation and lightness are untouched, because they were never the problem -- these sat at 38-53%
+  // against the reference's 41-46%. What was wrong was the HUE. Grass ran 107-138 (a blue-green) and
+  // rock ran 210-213 at 4-6% saturation (a cold slate), in a world whose own roads are hue 36-39.
+  //
+  // The giveaway that this was an inconsistency rather than a style: `hemi.groundColor` in the day
+  // keys was ALREADY hue 90-93. The light bouncing off the ground has been chartreuse all along and
+  // the ground itself was not, so these bring the surfaces to the lighting rather than the other way.
+  //
+  // Stone stops at 18-25% saturation, deliberately below the roads' 47-62%: warm enough to belong to
+  // the same world, muted enough that a cliff never reads as a sand dune.
+  leaf: 0x498f2f, leafDark: 0x3c7a25, rock: 0xac997f, cliff: 0x70614e, grass: 0x74a34a,
   boss: 0xf4e9ec, bossDark: 0xe6cfd6, bow: 0x3b7bff, leather: 0x8a5a3a,
 };
 
@@ -1237,13 +1248,15 @@ export function makeWheatField(w, d) {
 
 export function makeCliff(w, h, d) {
   const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), matFlat(0x6e7378));
+  const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), matFlat(0x88765e));
   body.position.y = h / 2 - 0.05;
   body.castShadow = true;
   body.receiveShadow = true;
   g.add(body);
-  // strata bands in warm and cool greys so the layers read from a distance
-  for (const [f, col, t] of [[0.22, 0x8a8078, 0.32], [0.48, 0x5a5f64, 0.22], [0.7, 0x9a9590, 0.28], [0.88, 0x565b60, 0.18]]) {
+  // strata bands, light and dark, so the layers read from a distance. They used to alternate warm and
+  // cool greys; the cool ones are what made a mesa look like slate, so the contrast is carried by
+  // value alone now and every band is the same warm family.
+  for (const [f, col, t] of [[0.22, 0xa08562, 0.32], [0.48, 0x70614e, 0.22], [0.7, 0xa89882, 0.28], [0.88, 0x6c5d4a, 0.18]]) {
     g.add(box(w + 0.08, h * t * 0.35, d + 0.08, col, 0, h * f, 0, matFlat(col)));
   }
   const cap = new THREE.Mesh(new RoundedBoxGeometry(w + 0.2, 0.6, d + 0.2, 2, 0.25), matFlat(C.grass));

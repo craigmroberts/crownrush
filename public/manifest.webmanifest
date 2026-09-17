@@ -6,8 +6,8 @@
   "scope": ".",
   "display": "fullscreen",
   "display_override": ["fullscreen", "standalone", "minimal-ui"],
-  "background_color": "#3f9a5b",
-  "theme_color": "#3f9a5b",
+  "background_color": "#699a3f",
+  "theme_color": "#699a3f",
   "categories": ["games"],
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
