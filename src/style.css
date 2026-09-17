@@ -67,8 +67,15 @@
      because the old one is no longer true.
      Measured at 390x844 with a notice up, the mat chip open and the skip button raised: the panel
      lands 11px below this value, the purse's row tops out 114 from the floor, and 129 is the first
-     figure that leaves the two of them clear with air. Checked again at 320x568 and in landscape. */
-  --notice-bottom: calc(129px + env(safe-area-inset-bottom));
+     figure that leaves the two of them clear with air. Checked again at 320x568 and in landscape.
+     #133 costs it 18px, and the reason is worth knowing before anyone tries to win them back. The
+     purse and the settings cog traded places, and the cog is a 48px THUMB TARGET where the purse was
+     a 28px row of text -- so what sits in that corner now tops out at 132 from the floor instead of
+     114. That matters more than 18px of anything usually does, because a paged notice is itself
+     tappable (`#toast.more .toast-panel`), so an overlap here does not just look wrong, it eats the
+     tap meant for the cog. Measured the same three ways: 147 is the first figure that clears the
+     cog's BOX rather than its glyph. */
+  --notice-bottom: calc(147px + env(safe-area-inset-bottom));
   /* #90: how tall the notice on that line currently is. Hud.syncNoticeStack writes it; nothing but
      the alarm reads it. 0 when the line is empty, which is most of the time. */
   --notice-stack: 0px;
@@ -554,22 +561,40 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
    so equal tops put the shorter one's centre 3px high, which is exactly half the difference.
    Only the right-hand group wants centres. The left one keeps flex-start: it is a column of rows
    that has to hang from the top edge, and centring it would float the whole stack. */
-/* #131: the purse -- coin and the bag, above the warhorn.
-   A ROW rather than a column, and the constraint that decides it is vertical, not horizontal. The
-   notice band is centred and nearly the full width of a phone -- 25 to 365 of a 390 screen, measured
-   -- so it overlaps anything in this corner horizontally whatever its width. What it cannot overlap
-   is its HEIGHT: a column of two cells is 60px tall and pushes the notice line up by that much, a row
-   is 28px and barely moves it. The band is the scarce thing at the bottom of this screen (#90, #124),
-   so the purse is the shape that costs it least.
-   It sits above the horn's 64px and its 12px of floor. `pointer-events: none` because it is a number
-   to read, not a thing to press: a live target over the canvas where a right thumb rests is exactly
-   what #128 was. */
+/* #133: the purse -- coin and the bag, hanging under the minimap.
+   #131 had it above the warhorn as a ROW, and the whole of that shape was a bottom-of-screen
+   argument: the notice band is centred and nearly the full width of a phone, so a column of two
+   cells would push the notice line up by 60px where a row cost 28. None of that applies up here.
+   Off the bottom edge entirely, it can be the shape the numbers actually want -- a column, bigger,
+   with the map directly above it.
+
+   `color: #fff` is EXPLICIT, and that is the bug in this ticket. The white came from `#topbar`, and
+   `#purse` is a SIBLING of it under `#hud` -- so the moment #131 lifted these two cells out of the
+   top bar they stopped inheriting and fell back to initial black. It read worse than plain black,
+   too: `.hud-cell`'s text-shadow is a dark rim and a dark drop, built to hold WHITE text off a bright
+   background, so under black text it added nothing and the number had no separation from grass at
+   all. Set here rather than inherited from a parent, because this is the second time these two have
+   moved and the next move should not be able to do it again.
+
+   The width is FIXED, and that is what keeps the icons still. The block is right-anchored, so a
+   shrink-to-fit box grows leftward -- and coin reaches four digits in a long run, which would walk
+   both icons sideways at coin 1000. 96px wide with the number taking the slack means the digits grow
+   into reserved space and nothing else moves. */
 #purse {
   position: fixed; right: 12px; right: max(12px, env(safe-area-inset-right));
-  bottom: calc(84px + env(safe-area-inset-bottom));
-  z-index: 5; pointer-events: none;
-  display: flex; align-items: center; gap: 14px;
+  top: calc(max(12px, env(safe-area-inset-top)) + 86px);
+  z-index: 5; pointer-events: none; color: #fff;
+  display: flex; flex-direction: column; align-items: stretch; gap: 7px;
+  width: 96px;
 }
+/* #87 again, rotated. The coin is a bare glyph and the bag is a ring box, so stacking them and
+   letting each row size its own icon puts the two glyphs on different left edges and different
+   centrelines. One fixed-width icon column for both fixes both at once, whatever either glyph
+   measures. The number takes what is left and is left-aligned against it. */
+#purse .hud-cell { font-size: 21px; gap: 7px; }
+#purse .hud-cell > :first-child { flex: 0 0 38px; display: grid; place-items: center; }
+#purse .hud-cell > b { flex: 1 1 auto; text-align: left; }
+#purse .bagring { width: 38px; height: 38px; }
 #topbar .hud-group:active { filter: brightness(1.15); }
 #topbar .hud-group:focus-visible { outline: 3px solid #fff; outline-offset: 2px; border-radius: 12px; }
 .hud-cell {
@@ -655,10 +680,14 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   .hud-cell.clock { font-size: 13px; }
   .bagring { width: 30px; height: 30px; }
   .bagcell { gap: 6px; }
+  /* #133: the purse inherits the tightening the cog used to have here, because it is what hangs off
+     the map now. The cog has no `top` at all any more -- it is bottom-anchored, and a `top` left
+     behind in a media query would silently win over `bottom` and pin it back up here, which is
+     exactly what it did on the first pass. */
+  #purse { top: calc(max(12px, env(safe-area-inset-top)) + 80px); }
   /* #86: the box is the thumb target and nothing is drawn on it, so it does not shrink with the rest
      of the HUD -- 42px here was the old plaque's size and is under what a thumb wants. Only the glyph
      inside it gives ground. */
-  #settings-btn { top: calc(max(12px, env(safe-area-inset-top)) + 78px); }
   #settings-btn .icon { width: 30px; height: 30px; }
 }
 /* #23: the only control left on the field. It used to hang off the right edge under the coin; with
@@ -671,12 +700,17 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
    icon in the HUD wears (`.hud-cell .icon`) and is the only reason gold reads on green.
    The press had to change with it. translateY(2px) is a button being pushed into its own shadow,
    which is a lie once there is no button; a glyph answers by shrinking. */
-/* #131: under the map, not over the horn. It is pressed twice in a run -- once for sound, once when
-   something is wrong -- and it was holding the best place on the screen for a thing that changes
-   while you play. The map is 78px tall at the same right edge, so this hangs directly below it. */
+/* #133: and back down again, into the slot the purse just left. #131 moved it under the map on the
+   grounds that it is pressed twice in a run and was holding the best place on the screen; that is
+   still true, and the purse is a better tenant for it than the cog was. So the two trade places.
+   This puts a LIVE target back in the bottom-right corner, which is the corner #128 was about -- a
+   target parked over the canvas where a right thumb rests, swallowing drags. It is not new (the
+   horn, the dash and the banner are all live down there) and this is the slot above the lowest
+   strip rather than in it, but a drag started in that corner is the thing to check before calling
+   this done. */
 #settings-btn {
-  position: fixed; right: 12px;
-  top: calc(max(12px, env(safe-area-inset-top)) + 86px); z-index: 5;
+  position: fixed; right: 12px; right: max(12px, env(safe-area-inset-right));
+  bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 5;
   pointer-events: auto; width: 48px; height: 48px; border: 0; background: none; cursor: pointer;
   display: grid; place-items: center; -webkit-tap-highlight-color: transparent;
   transition: transform 0.12s ease-out, filter 0.12s ease-out;

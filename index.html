@@ -117,16 +117,19 @@
            own a second band here and now lives at the bottom with every other notice (#90). -->
       <!-- #23: sound, pause and info live in the settings sheet; the gear sits in the controls corner
            over the warhorn, out of the way of the field and of the coin -->
-      <!-- #131: coin and the bag, stacked above the warhorn. They are the two numbers that change
-           while you play and the two the thumb is acting on, and they were in the far corner from it.
-           A readout, not a control: `pointer-events: none`, because a live target parked over the
-           canvas in the corner a right thumb rests in is how #128 happened. -->
+      <!-- #133: coin and the bag, under the minimap. #131 put them by the thumb, reasoning that they
+           are the two numbers the thumb is ACTING on. Played, the stronger pull is the other one: they
+           are numbers you READ constantly, and the eye is already in the top-right because the map is
+           there. Both arguments are good; this one comes from playing it, which beats reasoning about
+           it. Recorded rather than quietly swapped, so it does not read as churn later.
+           Still a readout and not a control -- `pointer-events: none`, because a live target parked
+           over the canvas in the corner a right thumb rests in is how #128 happened. -->
       <div id="purse">
-        <span class="hud-cell"><i id="coin-icon" data-icon="gold" data-size="24"></i><b id="coin-count">0</b></span>
+        <span class="hud-cell"><i id="coin-icon" data-icon="gold" data-size="30"></i><b id="coin-count">0</b></span>
         <span class="hud-cell bagcell" id="bag-cell">
           <span class="bagring">
             <svg class="ring" viewBox="0 0 40 40" aria-hidden="true"><circle class="ring-bg" cx="20" cy="20" r="17"/><circle id="load-ring" class="ring-fill" cx="20" cy="20" r="17"/></svg>
-            <i data-icon="sack" data-size="21"></i>
+            <i data-icon="sack" data-size="25"></i>
           </span>
           <b id="load-now">0</b>
         </span>
