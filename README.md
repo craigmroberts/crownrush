@@ -651,6 +651,15 @@ meant to spend walking beside him was a minute of looking at a balcony. Taking h
 the door rule (#106) put her straight back every frame, so it is gated on the premise having happened.
 Every count in the state was correct and only a screenshot showed it.
 
+### `?tour` — the morning holds
+
+Add `?tour` to the address and nobody comes. The clock does not run, the village stays up, and it can
+be walked around. It exists because the opening kingdom is meant to be **designed**, and it cannot be
+argued with while it keeps being pulled down half a minute in. A badge across the top says so, since a
+first minute that never ends and does not explain itself looks like a bug.
+
+Same shape as `?safe=1`, `?hq=1` and `?perf=1`: read once, off by default.
+
 ### And it is measured against the budgets, because it moved them
 
 A standing village is a great deal more on screen than an empty plot, and the first version was over.

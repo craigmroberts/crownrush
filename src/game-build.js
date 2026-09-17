@@ -263,13 +263,20 @@ export const BuildMethods = {
     for (const def of PADS) {
       if (def.tier !== undefined && def.tier > O.tier) continue;
       if (!def.structure && !def.wall && def.effect !== 'expand') continue;
-      if (def.id === 'stable') continue;             // the horse is the player's to earn
+      if (O.skip.includes(def.id)) continue;
       built[def.id] = true;
+    }
+    // the homes are marked built and given a spot, so `rebuildVillage` stands them where the morning
+    // wants them rather than where the tier-1 map would
+    const placedAt = {};
+    for (const [id, x, z] of O.homes) {
+      built[id] = true;
+      placedAt[id] = [x, z];
     }
     this.baseLevel = O.level;
     this.wallLevel = Math.min(CFG.wallLevels.length - 1, CFG.base.wallAt.filter((l) => l <= O.level).length - 1);
     this.built = { ...built };
-    this.rebuildVillage({ built, placedAt: {} });
+    this.rebuildVillage({ built, placedAt });
     // the towers are manned. `addTurret` is what a crew mat ends in, so this is the same archer on
     // the same deck the player would have paid for.
     for (const id of Object.keys(this.towers)) {
@@ -285,7 +292,16 @@ export const BuildMethods = {
     // beside him, and a Wren standing on a balcony is a Wren the player never had. Caught in a
     // screenshot, not in the state -- every count was correct and she was on the roof.
     this.queenLeaveKeep();
-    this.queen.mesh.position.set(this.king.mesh.position.x + 1.6, 0, this.king.mesh.position.z + 1.4);
+    // AND HE STANDS CLEAR OF IT. `reset` spawns him at [0, 2], which is inside the Keep's own
+    // footprint (`CFG.keep.half` is 2.9) -- fine on an empty plot, and on this morning `collideKeep`
+    // shoves him to the door at z 3.4. Her follow point is 1.9 BEHIND him, which then lands inside the
+    // Keep box too, so `collideKeep` squeezed her out sideways and she ended up 0.2 from him: standing
+    // inside the King, invisible, on the one screen whose whole job is that she is beside him.
+    //
+    // Measured, not guessed: king [0, 3.4], queen [0, 3.2], 0.2 apart, both "visible" and both on
+    // screen. Every count was right again.
+    this.king.mesh.position.set(0, 0, 8);
+    this.queen.mesh.position.set(0, 0, 10.2);
     this.refreshPads();
   },
 

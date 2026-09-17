@@ -684,6 +684,16 @@ sizeLine?.addEventListener('click', async () => {
   }
 });
 
+// #152: `?tour` holds the opening morning open for ever -- nobody comes, the village stays up, and it
+// can be walked around and looked at. A badge says so, because a game whose first minute never ends
+// and does not explain itself is a game that looks broken.
+if (CFG.opening.tourFlag) {
+  const t = document.createElement('div');
+  t.id = 'tour';
+  t.textContent = 'TOUR — the morning holds. Drop ?tour from the address to play.';
+  document.body.appendChild(t);
+}
+
 // Performance overlay: add ?perf=1 to the URL to see frame time, draw calls and triangles live.
 // Aim for under 16 ms (60 fps) on desktop and under 33 ms (30 fps) on phones.
 let perf = null;

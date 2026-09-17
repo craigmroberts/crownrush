@@ -95,7 +95,15 @@ export const CFG = {
   // against four men two ranks above night one -- rather than a footrace he was too slow for. Nobody
   // who loses this thinks he was slow; he thinks he needs soldiers, which is the next half hour.
   opening: {
-    calm: 14,          // seconds of quiet before they come
+    // Long enough to walk the whole plot and look at it. 14 was the first guess and played short --
+    // "the kingdom could stay up a while longer... so that the player can enjoy the scene and have a
+    // look around" -- and the scene is doing three jobs at once (it is the premise, it is the tutorial
+    // and it is the twist), none of which land if it is over before the player has turned round.
+    //
+    // 30 is about two laps of the tier-0 plot at `footSpeed` with stops. It is a lot of seconds to
+    // spend on a run you have played before, which is what `?tour` below is partly for and what a way
+    // to cut it short would be for -- see the note there.
+    calm: 30,          // seconds of quiet before they come
     from: [0, -44],    // they walk in from the north, which is where the camp is
     spread: 7,         // how wide they come in
     collectors: 4,
@@ -124,9 +132,31 @@ export const CFG = {
     // so showing him exactly it, finished, is a sharper promise than a sprawl he never gets back to.
     tier: 0,
     level: 5,
+    skip: ['stable'],              // the horse is the player's to earn
+    // THE PEOPLE, placed by hand inside the starting plot. A morning with nobody living in it is not
+    // a kingdom, and the homes are tier-1 pads standing at tier-1 coordinates -- outside the wall the
+    // opening has.
+    //
+    // Raising the tier was tried and is what the budget will not take: tier 1 measures 1095k triangles
+    // against the README's 1M, and it is the outer ring's own walls and towers rather than `expand2`.
+    // Tier 0 is 697k. So the houses come inside instead, which is a design decision rather than a
+    // compromise -- `rebuildVillage` already honours `placedAt`, and where a home stands in the
+    // opening is exactly the sort of thing the morning exists to let somebody judge.
+    homes: [
+      ['home-1', -12.5, 11.5],
+      ['home-2', -4.5, 13.5],
+      ['home-3', 4.5, 13.5],
+      ['home-4', 12.5, 11.5],
+    ],
     // how long a heap lies where a building stood. Long enough to be walked past on the way out and
     // gone before the first mat is bought back, so nothing he rebuilds has to be put down on a ruin.
     ruinFade: 26,
+    // #152: `?tour` holds the morning open for ever. Not a cheat and not a difficulty setting -- it is
+    // there so the kingdom can be LOOKED AT, because it is meant to be designed and it cannot be
+    // critiqued while it keeps being pulled down thirty seconds in. Same shape as `?safe=1`, `?hq=1`
+    // and `?perf=1`: a query flag, read once, off by default, and it says so on screen so a run that
+    // never starts is never a mystery.
+    tourFlag: /[?&]tour/.test(typeof location === 'undefined' ? '' : location.search),
   },
 
   // Opening: the Queen has been carried off. Find her, clear her captors, and she follows you home.

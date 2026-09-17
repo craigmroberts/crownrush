@@ -1071,6 +1071,16 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 .panel button { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; }
 
 /* ?perf=1 overlay */
+/* #152: the ?tour badge. Top-centre and out of the way of both thumbs -- it is a label, not a control,
+   and the corners are all spoken for. */
+#tour {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  top: calc(max(6px, env(safe-area-inset-top)) + 2px); z-index: 50;
+  padding: 4px 12px; border-radius: 999px; pointer-events: none;
+  background: rgba(0, 0, 0, 0.58); color: #ffd98a;
+  font: 700 11px/1.5 "Nunito", system-ui, sans-serif; letter-spacing: 0.06em;
+}
+
 #perf {
   position: fixed;
   left: 8px;

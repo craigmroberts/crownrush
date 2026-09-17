@@ -183,8 +183,12 @@ export const EnemiesMethods = {
   // fight to be measured, and a progress bar on something the player cannot win is a cruelty.
   updateOpening(dt) {
     if (this.snatched || this.queen.captive) return;
-    this.openT += dt;
     const O = CFG.opening;
+    // #152: `?tour` holds the morning open. The kingdom is meant to be designed and it cannot be
+    // judged while it keeps being pulled down half a minute in -- so the clock simply does not run,
+    // nobody comes, and the village stays up to be walked around and argued with.
+    if (O.tourFlag) return;
+    this.openT += dt;
     if (this.openT < O.calm) {
       // one line, once, a beat before they appear -- so the quiet has an edge on it rather than
       // simply ending
