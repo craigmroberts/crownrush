@@ -196,31 +196,52 @@ export function bake(g, keep = []) {
   }
   return g;
 }
-// Merge every baked mesh inside a static group into one mesh (scenery).
-export function mergeGroup(group) {
+// Merge the baked meshes inside a static group, per material and per patch of ground (scenery).
+//
+// TWO THINGS WERE WRONG AND THE FIRST HID THE SECOND.
+//
+// It collected meshes whose material is `BAKED_MAT`, and `bake` has always produced `BAKED_STD`.
+// So it found nothing, returned the group untouched, and the comment promising one draw call for the
+// trees was describing something that never ran. Measured before this: 284 separate meshes sharing
+// one vertex-coloured material, every visible one of them its own draw call.
+//
+// AND MERGING THEM ALL INTO ONE IS NOT THE FIX EITHER, which is why this is a grid rather than the
+// one-liner it looks like. A single mesh spanning 190 by 190 cannot be frustum-culled: every tree on
+// the map would be drawn every frame to save the draw calls of the dozen actually on screen. The
+// camera sees about 35 units, so a 30-unit cell means a handful of meshes in view, each of which is
+// most of it, and everything behind the camera culls itself out the way it does now.
+export function mergeGroup(group, cell = 30) {
   group.updateMatrixWorld(true);
   const inv = new THREE.Matrix4().copy(group.matrixWorld).invert();
   const parts = [];
   group.traverse((o) => {
-    if (o.isMesh && !o.isInstancedMesh && o.material === BAKED_MAT) parts.push(o);
+    if (o.isMesh && !o.isInstancedMesh && (o.material === BAKED_MAT || o.material === BAKED_STD)) parts.push(o);
   });
   if (!parts.length) return group;
-  const geos = parts.map((o) => {
+  const buckets = new Map();
+  const v = new THREE.Vector3();
+  for (const o of parts) {
+    o.getWorldPosition(v);
+    const key = `${o.material.uuid}|${Math.floor(v.x / cell)}|${Math.floor(v.z / cell)}`;
+    let b = buckets.get(key);
+    if (!b) buckets.set(key, (b = { mat: o.material, geos: [] }));
     const geo = o.geometry.clone();
     geo.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
-    return geo;
-  });
-  const m = new THREE.Mesh(mergeGeometries(geos, false), BAKED_MAT);
-  m.castShadow = true;
-  m.receiveShadow = true;
+    b.geos.push(geo);
+  }
   for (const o of parts) o.parent.remove(o);
+  for (const b of buckets.values()) {
+    const m = new THREE.Mesh(b.geos.length === 1 ? b.geos[0] : mergeGeometries(b.geos, false), b.mat);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    group.add(m);
+  }
   // drop now-empty groups
   const empties = [];
   group.traverse((o) => {
     if (o !== group && o.isGroup && o.children.length === 0) empties.push(o);
   });
   for (const o of empties) o.parent.remove(o);
-  group.add(m);
   return group;
 }
 
