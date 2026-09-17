@@ -66,10 +66,20 @@ function freePort(preferred) {
 }
 
 async function serve(port) {
-  const p = spawn('npx', ['vite', 'preview', '--port', String(port), '--strictPort'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
+  // `detached` makes the child a process-GROUP leader, which is the whole point: `npx vite preview`
+  // is three processes -- npx, a shell, and the node running vite -- and a signal to the first
+  // leaves the other two alive. They inherit the stdout pipe this process is still reading from, so
+  // the handle never closes and `node tools/probe/probe.mjs` does not return to the shell after
+  // printing its report. Measured: the run finished, the report printed, and the process sat there
+  // at 0% CPU until it was killed, leaving a preview server behind every time.
+  const p = spawn('npx', ['vite', 'preview', '--port', String(port), '--strictPort'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
   // A run that is interrupted — Ctrl-C, a timeout, a thrown error — must not leave its server behind.
-  // Twenty-three of them accumulated once before this was here.
-  const stop = () => { try { p.kill('SIGKILL'); } catch { /* already gone */ } };
+  // Twenty-three of them accumulated once before this was here, and they came back the moment the
+  // kill stopped reaching the whole group.
+  const stop = () => {
+    try { process.kill(-p.pid, 'SIGKILL'); } catch { /* already gone, or never grouped */ }
+    try { p.kill('SIGKILL'); } catch { /* already gone */ }
+  };
   process.on('exit', stop);
   for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => { stop(); process.exit(130); });
   process.on('uncaughtException', (e) => { stop(); console.error(e); process.exit(1); });
@@ -83,7 +93,13 @@ async function serve(port) {
     });
     p.on('exit', (code) => fail(new Error(`preview exited ${code}`)));
   });
+  p.stop = stop;
   return p;
+}
+
+// The server handle carries its own killer, because only `serve` knows the child is a whole group.
+function stopServer(p) {
+  if (p && p.stop) p.stop();
 }
 
 // ---------------------------------------------------------------- measure
@@ -508,5 +524,5 @@ try {
   }
   if (has('assert') && !assertBudgets(results)) process.exitCode = 1;
 } finally {
-  server.kill();
+  stopServer(server);
 }
