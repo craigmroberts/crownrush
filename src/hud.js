@@ -542,6 +542,15 @@ export class Hud {
   // filter, which is picking a board rather than a run, does not.
   renderLengths(el, current, sub = false) {
     if (!el) return;
+    // #58 parked. One guard, here, because all four pill rows are views of this one renderer -- the
+    // title screen, both endings and the scoreboard's board filter. Emptied as well as hidden: a
+    // `display: none` row of buttons is still four tab stops and four things a screen reader reads.
+    if (!CFG.lengthPick) {
+      el.innerHTML = '';
+      el.classList.add('hidden');
+      return;
+    }
+    el.classList.remove('hidden');
     el.innerHTML = Object.entries(CFG.lengths).map(([id, L]) => `
       <button type="button" class="seg-b${id === current ? ' on' : ''}" data-len="${id}" role="radio" aria-checked="${id === current}">
         <b>${esc(L.name)}</b>${sub ? `<span>${esc(L.sub)}</span>` : ''}
@@ -613,9 +622,13 @@ export class Hud {
       const label = start.querySelector('span') || start;
       if (saved) {
         // #58: which length the stored run is, because the pills below offer the other one and
-        // Continue does not obey them -- it picks the run back up as it was put down.
+        // Continue does not obey them -- it picks the run back up as it was put down. Parked with the
+        // pills: with nothing to choose between, naming the length is a word about a setting that is
+        // not there, on the screen the report called noisy.
         const was = CFG.lengths[saved.len || 'long'];
-        note.textContent = `Lv. ${saved.baseLevel} · ${saved.score.toLocaleString()} points · ${was.name}`;
+        note.textContent = CFG.lengthPick
+          ? `Lv. ${saved.baseLevel} · ${saved.score.toLocaleString()} points · ${was.name}`
+          : `Lv. ${saved.baseLevel} · ${saved.score.toLocaleString()} points`;
         label.textContent = 'New run';
       } else {
         label.textContent = 'Play';
@@ -974,7 +987,9 @@ export class Hud {
     if (!runs.length) {
       // #58: named, because the board is now one of two and "no finished runs yet" beside a pill
       // that says Short run reads as though the whole board were empty.
-      body.innerHTML = `<p class="hint">No finished ${esc(CFG.lengths[len].name.toLowerCase())}s yet. However a run ends, it lands here.</p>`;
+      body.innerHTML = CFG.lengthPick
+        ? `<p class="hint">No finished ${esc(CFG.lengths[len].name.toLowerCase())}s yet. However a run ends, it lands here.</p>`
+        : '<p class="hint">No finished runs yet. However a run ends, it lands here.</p>';
     } else {
       const when = (t) => new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
       body.innerHTML = runs.map((r, i) => `

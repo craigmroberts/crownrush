@@ -933,16 +933,24 @@ the panel is actually asking about. The names stay flavour behind it; the one th
 changed for being wrong rather than for being flavour (#115).
 
 The area is the card's **colour** too, so it can be read without being read: crimson, blue, brick,
-green and purple for the five pools, as saturated blocks with the same 5px dark bottom edge the game's
-big gold buttons use. They were cream cards on a beige border before, and the only two things about
-them that said *button* -- a gold border and a lift -- were both on `:hover`, which a touchscreen never
-enters; on a phone the cards had no button cues at all, ever. Everything that says button now is in
-the resting state. White text clears 4.5:1 on all five at the lightest point of the gradient (5.14 to
-5.78, measured), which is why the five are as dark as they are. Gold is deliberately not among them:
-it belongs to the primary button, and a gold card would read as the recommended one.
+green and purple for the five pools, as saturated blocks -- **and otherwise the same button as
+everything else** (#135): hairline edge, 5px corner, the CTA's shadow, and the accent ring on press.
+They carried a 5px dark bottom edge until then, sinking into it when pressed, which left them the last
+raised thing in the game long after `.panel button` was moved off exactly that idiom. The colour stays
+because the colour is the label; what went is the relief.
+
+They were cream cards on a beige border before that, and the only two things about them that said
+*button* -- a gold border and a lift -- were both on `:hover`, which a touchscreen never enters; on a
+phone the cards had no button cues at all, ever. Everything that says button is in the resting state
+now. White text clears 4.5:1 on all five at the lightest point of the gradient (5.14 to 5.78,
+measured), which is why the five are as dark as they are. Gold is deliberately not among them: it
+belongs to the primary button, and a gold card would read as the recommended one.
 
 Rare used to *be* a colour -- a purple card -- and purple is a pool now, so Volley wears a gold **RARE**
-badge and a gold ring instead. A word survives whatever colour is underneath it; a hue does not.
+badge instead. A word survives whatever colour is underneath it; a hue does not. #121 gave it a gold
+ring as well; #135 took the ring off, because that ring now means *the one being pressed* on every
+button in the game, and a card wearing it at rest was claiming to be chosen before anyone had chosen
+it. The badge was always the half that did the work.
 
 Behind the level number there is a burst of rays and four sparks, in CSS, because this panel is DOM
 and `burstFx` cannot reach it. It is all visible at rest and only *moves* when it animates, so a

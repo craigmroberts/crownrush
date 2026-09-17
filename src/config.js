@@ -321,8 +321,22 @@ export const CFG = {
     short: { nights: 15, costScale: 0.45, name: 'Short run', sub: '15 nights · about 19 min' },
     long: { nights: 30, costScale: 1, name: 'Long run', sub: '30 nights · about 37 min' },
   },
-  // Which one a player who has never chosen gets. Short, because that is the whole point of the
-  // ticket: the long run is the thing you graduate to, not the entry fee.
+  // #58 IS PARKED. The pair of pills was reported as noise on a title screen that should offer two
+  // things -- carry on, or start again -- so the choice is off and every run is `pinnedLength`.
+  //
+  // Off rather than deleted, and `defaultLength` below is left saying what it said. Nothing about the
+  // feature was wrong: `CFG.lengths` still holds both, `costScale` and `nights` still work, the
+  // scoreboard still keeps a board per length, and turning `lengthPick` back on is the whole of
+  // bringing it back. Deleting it would mean rebuilding it to find that out.
+  //
+  // `pinnedLength` is the long run because short is the one being disabled, and because a stored
+  // choice of 'short' must not strand anyone on a length they can no longer see or change:
+  // `readLength` answers with this while the pills are off, rather than with what is in storage.
+  lengthPick: false,
+  pinnedLength: 'long',
+  // Which one a player who has never chosen gets, when they are given the choice at all. Short,
+  // because that is the whole point of the ticket: the long run is the thing you graduate to, not the
+  // entry fee.
   defaultLength: 'short',
   // #56: what a lost run buys. Before this, `reset()` rebuilt from constants every time and the only
   // thing that outlived a run was two numbers -- so losing bought a number, which is not a reason to

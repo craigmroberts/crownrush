@@ -362,6 +362,10 @@ export const SAVE_VERSION = VERSION;
 // here: localStorage throws in private mode, and a game that will not start because it could not read
 // a preference is worse than one that starts on the default.
 export function readLength() {
+  // #58 parked: while the pills are off there is one length, and it is not whatever a player happened
+  // to choose before they went away. Asked here rather than at each of the five call sites, so the
+  // pin cannot be honoured in some of them and forgotten in the rest.
+  if (!CFG.lengthPick) return CFG.pinnedLength;
   try {
     const v = localStorage.getItem(LENGTH_KEY);
     return CFG.lengths[v] ? v : CFG.defaultLength;

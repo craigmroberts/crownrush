@@ -245,7 +245,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   text-shadow: 0 1px 2px rgba(0,0,0,0.6); -webkit-text-stroke: 0;
   -webkit-tap-highlight-color: transparent; transition: transform 0.12s ease-out, color 0.12s ease-out;
 }
-.panel .panel-x:active { transform: scale(0.85); color: #fff; border-bottom-width: 0; }
+.panel .panel-x:active { transform: scale(0.85); color: #fff; }
 .panel.info .panel-x, .panel.keep-sheet .panel-x { position: sticky; float: right; top: 0; margin: -8px -8px 0 0; }
 
 /* No background, no border, no box. The width caps that remain are not a card -- they are line
@@ -349,6 +349,11 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
    `.panel .seg .seg-b` rather than `.seg-b`, because `.panel button` is (0,1,1) and would otherwise
    win on the padding, the fill and the two diamonds -- which have to be turned off by name. */
 .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; margin: 2px 0 12px; }
+/* #58 parked: `renderLengths` empties the row and adds this. There is no blanket `.hidden` rule in
+   this stylesheet -- every element that needs one says so by name -- and an emptied `.seg` still
+   carries its own 14px of vertical margin, which is a gap on the title screen where two pills used
+   to be. */
+.seg.hidden { display: none; }
 .panel .seg .seg-b {
   display: block; text-align: center; gap: 0; padding: 8px 10px;
   background: rgba(12, 20, 10, 0.55); border: 2px solid rgba(255, 227, 163, 0.22); border-radius: 12px;
@@ -1247,30 +1252,44 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
   --pc: #6b7280; --pc-top: #79808d; --pc-edge: #404450;
   margin: 0; flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 4px;
   background: linear-gradient(var(--pc-top), var(--pc));
-  border: 0; border-bottom: 5px solid var(--pc-edge); border-radius: 16px;
+  /* #135: the same button as everything else, in the pool's colour. It was the last raised thing in
+     the game -- a 5px bottom bevel it sank into on press, three years of idiom after `.panel button`
+     was moved off exactly that. The colour stays because the colour is the label: `pickOffer` takes
+     one per pool, so the three on screen are always three different ones, and the block of colour is
+     the choice read without reading. What went is the relief: hairline edge, 5px corner, the CTA's
+     shadow. A card is now the button it always claimed to be. */
+  border: 1.5px solid color-mix(in srgb, #fff 26%, var(--pc)); border-radius: 5px;
   padding: 11px 10px; cursor: pointer; text-align: center; font-family: inherit; color: #fff;
-  position: relative; box-shadow: 0 3px 10px rgba(0,0,0,0.34);
+  position: relative; box-shadow: 0 5px 16px rgba(0,0,0,0.38);
   /* a card is a `<button>` inside `.panel`, so `.panel button` reaches it -- including the 1px
      `#8a5a00` stroke that makes the big gold buttons chunky. At 26px it is an outline; at this card's
      13px description it eats most of the glyph and leaves a thin core, which rendered the whole card
      gold-brown on its first build. Off here, and the weight comes from the fill instead. */
   -webkit-text-stroke: 0;
-  transition: transform 0.08s, filter 0.08s;
+  transition: border-color 0.12s ease-out, box-shadow 0.12s ease-out, filter 0.12s ease-out;
 }
 .panel.offer .offer-card.p-army    { --pc: var(--pool-army);    --pc-top: color-mix(in srgb, #fff 10%, var(--pool-army));    --pc-edge: color-mix(in srgb, #000 40%, var(--pool-army)); }
 .panel.offer .offer-card.p-towers  { --pc: var(--pool-towers);  --pc-top: color-mix(in srgb, #fff 10%, var(--pool-towers));  --pc-edge: color-mix(in srgb, #000 40%, var(--pool-towers)); }
 .panel.offer .offer-card.p-walls   { --pc: var(--pool-walls);   --pc-top: color-mix(in srgb, #fff 10%, var(--pool-walls));   --pc-edge: color-mix(in srgb, #000 40%, var(--pool-walls)); }
 .panel.offer .offer-card.p-economy { --pc: var(--pool-economy); --pc-top: color-mix(in srgb, #fff 10%, var(--pool-economy)); --pc-edge: color-mix(in srgb, #000 40%, var(--pool-economy)); }
 .panel.offer .offer-card.p-king    { --pc: var(--pool-king);    --pc-top: color-mix(in srgb, #fff 10%, var(--pool-king));    --pc-edge: color-mix(in srgb, #000 40%, var(--pool-king)); }
-.panel.offer .offer-card:hover { filter: brightness(1.09); transform: translateY(-3px); }
+.panel.offer .offer-card:hover { filter: brightness(1.09); border-color: color-mix(in srgb, #fff 48%, var(--pc)); }
 /* the same ring the top bar's groups use, so a keyboard lands somewhere it can see */
 .panel.offer .offer-card:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
-/* the press is the game's press: the button sinks into its own bottom border */
-.panel.offer .offer-card:active { transform: translateY(3px); border-bottom-width: 2px; }
+/* the press is the game's press, and the game's press is the accent ring -- the same one `.panel
+   button` makes, so "this is the one I am choosing" looks identical wherever it is said. The padding
+   gives back the 1.5px the thicker edge takes, so the card does not move under the thumb. */
+.panel.offer .offer-card:active {
+  border: 3px solid var(--accent); padding: 9.5px 8.5px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.55), 0 0 15px 2px rgba(255, 210, 74, 0.55);
+}
 /* #121: rare said itself in purple, and purple is now a pool. A word survives any card colour under
    it, which a hue cannot, so Volley wears one -- with the gold ring the cards deliberately do not
    have, so the two channels agree without either being the only one. */
-.panel.offer .offer-card.rare { box-shadow: 0 0 0 3px var(--accent), 0 3px 12px rgba(0,0,0,0.45); }
+/* #135: the gold ring came off. #121 gave rare BOTH a ring and a badge on the grounds that a word
+   survives any card colour under it -- which is true, and is the reason the badge alone is enough.
+   The ring now means "the one being pressed" on every button in the game, and a card wearing it at
+   rest was claiming to be chosen before anybody had chosen it. */
 .panel.offer .offer-card .orare {
   position: absolute; top: -9px; right: 10px; font-style: normal;
   background: linear-gradient(#ffd54a, #f5a800); color: #5a2a0c;
@@ -1476,7 +1495,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 }
 #start-update:hover { background: rgba(255,255,255,0.17); }
 /* there is no bottom border to sink into, so the press shrinks rather than dropping */
-#start-update:active { transform: scale(0.96); border-bottom-width: 0; }
+#start-update:active { transform: scale(0.96); }
 #start-update:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 #start-update .su-dot { width: 9px; height: 9px; border-radius: 50%; background: #e8342a; box-shadow: 0 0 0 2px rgba(255,246,224,0.92); }
 #start-update-note { margin: 7px 0 0; }
