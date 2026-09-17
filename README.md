@@ -610,6 +610,63 @@ And a mat no longer previews a building that is already standing. A translucent 
 out on top of the real one is the other half of that report, and a preview of something that exists
 is wrong whether or not anybody is looking at it.
 
+## The opening: you had a kingdom this morning
+
+A run does not begin on an empty plot any more (#152). It begins inside a **finished village** —
+walls, the Keep with the three service buildings around it, four manned watchtowers — with Wren
+walking a step behind the King and nothing happening at all for `CFG.opening.calm` seconds.
+
+Then they come from the north, **walk straight past him**, and take her. The walls come down with
+her, and he wakes on the plot the game used to start on.
+
+Three jobs in one scene, which is why it is the opening:
+
+- **It explains the empty plot.** A king with no village needs a reason.
+- **It is a tutorial that costs nothing.** The player has *seen* a working village, so every mat he
+  later stands on is a thing he remembers having. No tooltip teaches that.
+- **It plants the twist in behaviour.** `docs/story.md` turns on the raiders being collectors sent to
+  fetch her; the clue used to be a line Bramble says twenty nights later. Now a collector will not look
+  at anybody who is not her, and the player watches it in minute two. It also means the King cannot die
+  in a beat he is scripted to lose, so nothing has to protect him specially.
+
+It is the **real** village, not a set: `standOpeningVillage` marks the structural pads built and hands
+them to `rebuildVillage`, which is the same function every resumed run uses. So laying the opening out
+differently is a matter of which pads are in `built` — and eventually of playing a run and exporting
+the save, which is the only way a tableau can be designed by playing it.
+
+### Three things it took driving to find
+
+**A knight cannot catch the King.** 3.8 against his 5.6 on foot, so a player who simply walked away
+was never caught: the snatch never landed, the day clock never started (it is held until `snatched`),
+and the run sat in its first minute for ever. `CFG.opening.speed` is 6.2 — above him on foot, below the
+horse he does not have yet.
+
+**The speed needed its own stats object.** `spawnEnemy` assigns `CFG.enemy[type]` straight onto the
+enemy, so every knight in the game shares one; writing a speed onto it would have made every raider
+for the rest of the run a sprinter. The same shape as #43's ghost material and #109's `BAKED_STD`.
+
+**She was standing on the roof.** `buildStructure` ends a Keep with `queenEnterKeep`, and the King
+spawns at its door — so she was inside on the first frame and stayed there, and the minute she is
+meant to spend walking beside him was a minute of looking at a balcony. Taking her out was not enough;
+the door rule (#106) put her straight back every frame, so it is gated on the premise having happened.
+Every count in the state was correct and only a screenshot showed it.
+
+### And it is measured against the budgets, because it moved them
+
+A standing village is a great deal more on screen than an empty plot, and the first version was over.
+**Tier 1** pulled in `expand2` as well and gave a two-ring city — 17 buildings, 72 wall sections, 8
+towers, 24 crew:
+
+| | draw calls | triangles |
+| --- | --- | --- |
+| tier 1, level 8 | 334 peak | **1097k** — over the README's 1M |
+| tier 0, level 5 | 182 peak | 697k |
+| *(empty plot, before this)* | 81 peak | 92k |
+
+The probe asserts neither without `--crowd`, so the first version would have gone out quietly. Tier 0
+also reads better: the plot he rebuilds is this plot, so showing him exactly it, finished, is a
+sharper promise than a sprawl he never gets back to.
+
 ## Choosing where a building goes
 
 > **PARKED (#152).** `CFG.placeBuildings` is `false`, so every building goes where `buildAt` says and

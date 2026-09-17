@@ -196,6 +196,9 @@ export const EnemiesMethods = {
       return;
     }
     this.snatched = true;
+    // #152: and the kingdom goes with her. The player has spent the calm walking around this.
+    this.fallOfTheVillage();
+    audio.wave(true);
     const [fx, fz] = O.from;
     const make = (type, x, z, rank) => {
       const e = this.spawnEnemy(type, x, z, rank);
@@ -218,8 +221,7 @@ export const EnemiesMethods = {
     }
     if (O.captain) make('brute', fx, fz - 2.4, O.captainRank);
     this.raiseAlarm('They are coming for Wren!', 'fear');
-    this.hud.toast('They are not stopping for you. *Get her away from them.*', 4000, 'Wren');
-    audio.wave(true);
+    this.hud.toast('The walls are down and they are not stopping for you. *Get her away from them.*', 4200, 'Wren');
   },
 
   captureQueen() {
@@ -1062,7 +1064,12 @@ export const EnemiesMethods = {
     }
     // passing an intact Keep, she steps inside (#106: measured to its wall, and a distance she can
     // actually reach -- see CFG.queen.doorReach)
-    if (this.keep && this.keep.state === 'built' && this.keepWallGap(k.position) < CFG.queen.doorReach) return this.queenEnterKeep();
+    // #152: not before the premise. The door rule (#106) is for getting her away from raiders, and on
+    // the opening morning there are none -- the King starts at the Keep's own door, so without this
+    // she was inside on the first frame and stayed there, which makes the minute she is supposed to
+    // spend walking beside him a minute of looking at a balcony. Taking her out in
+    // `standOpeningVillage` was not enough: this put her straight back, every frame.
+    if (this.snatched && this.keep && this.keep.state === 'built' && this.keepWallGap(k.position) < CFG.queen.doorReach) return this.queenEnterKeep();
     q.moving = moving > 0.05;
     this.animateWalk(q, moving, dt);
   },

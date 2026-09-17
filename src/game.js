@@ -274,6 +274,7 @@ export class Game {
     this.bestScore = readNumber('crownrush-best-score', 0);
     this.mineTimer = 0;
     this.nodes = [];
+    this.ruins = [];        // #152: heaps where the opening's buildings stood, until they fade
     this.villagers = [];    // #48: one gatherer per villager home, working on their own
     this.tradePost = null;  // the bank, once its pad is paid for
     this.tradePos = null;   // and where you stand to sell at it: its own mat, not a constant
@@ -610,7 +611,11 @@ export class Game {
     // #56: the last unlock is a horse in the stable before the run begins. After `reset()`, because
     // `mountKing` swaps a mesh that has to exist first.
     if (this.has('stables')) this.mountKing();
-    this.hud.toast('Raiders have taken Wren. *Follow the pink arrow and free her.*', 3600, 'Wren');
+    // #152: the kingdom he has this morning. In `start` and not in `reset`, because `resumeRun` calls
+    // `reset` too and a restored run is a village that already exists -- standing this one up under it
+    // would put a second Keep on the field.
+    this.standOpeningVillage();
+    this.hud.toast('A quiet morning. *Wren walks with you.*', 3600, 'Wren');
     audio.init();
     audio.setActive(true);
   }
@@ -860,6 +865,7 @@ export class Game {
       if (this.gain && this.hud.tickGain(dt)) this.dismissGain();
       this.updatePads(dt);
       this.updateOpening(dt);   // #152: the calm, and the men who end it
+      this.updateRuins(dt);
       this.updateWaves(dt);
       this.updateFog(dt);
       this.updateChips(dt);

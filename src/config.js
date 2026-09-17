@@ -111,6 +111,22 @@ export const CFG = {
     // different kind of creature; the mounted King does 7.5, so a horse would still outrun them --
     // which is fine, because by the time anyone has a horse this beat is twenty minutes past.
     speed: 6.2,
+    // WHAT THE KINGDOM IS, on the morning it ends. The STARTING plot, finished: walls, the Keep, the
+    // three service buildings, four manned towers. Level 5, so the walls are stone and the Keep is
+    // well up, but not the whole thirty-night arc.
+    //
+    // TIER 1 WAS TRIED FIRST AND MEASURED OVER BUDGET. Including the expansions pulled `expand2` in
+    // too (it is a tier-1 pad), so the morning was a two-ring city: 17 buildings, 72 wall sections, 8
+    // towers, 24 crew -- and 1097k triangles against the README's 1M, at 334 draw calls against 400.
+    // The probe does not assert either without `--crowd`, so it would have gone out quietly.
+    //
+    // Tier 0 also reads better, which is the part worth keeping. The plot he rebuilds is this plot,
+    // so showing him exactly it, finished, is a sharper promise than a sprawl he never gets back to.
+    tier: 0,
+    level: 5,
+    // how long a heap lies where a building stood. Long enough to be walked past on the way out and
+    // gone before the first mat is bought back, so nothing he rebuilds has to be put down on a ruin.
+    ruinFade: 26,
   },
 
   // Opening: the Queen has been carried off. Find her, clear her captors, and she follows you home.

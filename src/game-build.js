@@ -246,6 +246,115 @@ export const BuildMethods = {
     return new THREE.Group();
   },
 
+  // #152: the kingdom the player has for one minute, built through the same functions the player
+  // builds through -- `rebuildVillage` replays every structural pad, wall, bridge and expansion,
+  // which is exactly the job and is already written and tested because every resumed run does it.
+  //
+  // A SET WOULD HAVE BEEN CHEAPER and was rejected: "then i can also design it better when its fully
+  // built". You cannot design a tableau by playing it. This stands real buildings on real coordinates
+  // with real crews and real villagers, so laying the opening out differently later is a matter of
+  // changing which pads are in `built` -- or, eventually, of playing a run and exporting the save.
+  //
+  // `announce: false` on the material pass, because nothing has happened yet as far as the player is
+  // concerned: the village has always been here.
+  standOpeningVillage() {
+    const O = CFG.opening;
+    const built = {};
+    for (const def of PADS) {
+      if (def.tier !== undefined && def.tier > O.tier) continue;
+      if (!def.structure && !def.wall && def.effect !== 'expand') continue;
+      if (def.id === 'stable') continue;             // the horse is the player's to earn
+      built[def.id] = true;
+    }
+    this.baseLevel = O.level;
+    this.wallLevel = Math.min(CFG.wallLevels.length - 1, CFG.base.wallAt.filter((l) => l <= O.level).length - 1);
+    this.built = { ...built };
+    this.rebuildVillage({ built, placedAt: {} });
+    // the towers are manned. `addTurret` is what a crew mat ends in, so this is the same archer on
+    // the same deck the player would have paid for.
+    for (const id of Object.keys(this.towers)) {
+      const t = this.towers[id];
+      for (const [x, z, y] of this.crewSpots({ tower: id, crew: CFG.tower.levels[t.level - 1].slots })) {
+        this.addTurret(x, z, y, id);
+        t.crew++;
+      }
+    }
+    this.rebuildStructures(false);
+    // SHE IS NOT IN THE KEEP. `buildStructure` ends a Keep with `queenEnterKeep`, which is right every
+    // other time it runs and exactly wrong here: the whole of this minute is that she is walking
+    // beside him, and a Wren standing on a balcony is a Wren the player never had. Caught in a
+    // screenshot, not in the state -- every count was correct and she was on the roof.
+    this.queenLeaveKeep();
+    this.queen.mesh.position.set(this.king.mesh.position.x + 1.6, 0, this.king.mesh.position.z + 1.4);
+    this.refreshPads();
+  },
+
+  // #152: and then it comes down. Not a cut to an empty plot -- the player watches the thing he was
+  // just walking around stop being there, which is the whole of why the next half hour is "rebuild"
+  // rather than "build".
+  //
+  // Rubble first, state second. Every building becomes a heap on the spot it stood, every wall breaks,
+  // the Keep breaks, and only then is the bookkeeping cleared -- so a frame of this is a ruin rather
+  // than a blank field, and `reset()` is never involved (it would take the King, the Queen and the men
+  // carrying her off with it).
+  fallOfTheVillage() {
+    for (const rec of this.structures) {
+      const p = rec.mesh.position;
+      this.root.remove(rec.mesh);
+      const heap = makeRubble(3.4, this.wallLevel);
+      heap.position.set(p.x, 0, p.z);
+      this.root.add(heap);
+      this.ruins.push({ mesh: heap, t: CFG.opening.ruinFade });
+    }
+    this.structures = [];
+    for (const w of this.walls) if (w.state !== 'broken') this.breakWall(w);
+    if (this.keep && this.keep.state === 'built') this.breakKeep();
+    // the crews go with their towers, and the people with their homes
+    for (const t of this.turrets) {
+      this.root.remove(t.mesh);
+      this.disposeEntity(t.mesh);
+    }
+    this.turrets = [];
+    this.towers = {};
+    for (const v of this.villagers) {
+      this.root.remove(v.mesh);
+      this.disposeEntity(v.mesh);
+    }
+    this.villagers = [];
+    if (this.world.clearSmokers) this.world.clearSmokers();
+    // and the ledger, so what he rebuilds he pays for
+    this.built = {};
+    this.buyCount = {};
+    this.baseLevel = 0;
+    this.wallLevel = 0;
+    this.tier = 0;
+    this.keep = null;
+    this.feedDef = null;
+    this.dynamicPads = [];
+    for (const pad of this.pads) { this.root.remove(pad.mesh); this.disposePad(pad); }
+    this.pads = [];
+    this.refreshPads();
+  },
+
+  // #152: the heaps sink back into the grass. They are the only thing the fall leaves behind, and a
+  // field of rubble the player has to build a village around would be the opening charging him rent
+  // for its own drama.
+  updateRuins(dt) {
+    if (!this.ruins.length) return;
+    for (let i = this.ruins.length - 1; i >= 0; i--) {
+      const r = this.ruins[i];
+      r.t -= dt;
+      if (r.t > 1.2) continue;
+      // the last beat is a sink rather than a fade: these are baked, opaque meshes and giving each one
+      // its own transparent material clone to fade would cost more than the heap is worth
+      r.mesh.position.y = Math.min(0, (r.t - 1.2) * 1.6);
+      if (r.t > 0) continue;
+      this.root.remove(r.mesh);
+      this.disposeEntity(r.mesh);
+      this.ruins.splice(i, 1);
+    }
+  },
+
   // #3: the Keep crossed a material boundary, so every standing building is rebuilt in the new one.
   // Towers keep their level and crew, the Keep keeps its health bar and the Queen on the balcony.
   rebuildStructures(announce = true) {

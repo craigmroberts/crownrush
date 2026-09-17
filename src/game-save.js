@@ -232,6 +232,13 @@ export const SaveMethods = {
     setHealthBar(k.bar, k.hp / k.maxHp);
     if (s.mounted && !this.mounted) this.mountKing();
 
+    // #152: a restored run is past its opening by definition, whatever the save says. A save CAN be
+    // taken during the calm -- the field is quiet and she is not captive, which is all
+    // `quietEnoughToSave` asks -- and coming back with `snatched` false would hold the day clock for
+    // ever and then snatch her a second time out of a village that has already been rebuilt.
+    this.snatched = true;
+    this.openingDone = true;
+
     const q = this.queen;
     q.captive = false;   // a run is never saved with her taken: dawn cannot arrive while she is, and
                          // the one other caller refuses unless the field is empty (quietEnoughToSave)
