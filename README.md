@@ -419,6 +419,64 @@ its level (`CFG.enemy.*.fromLevel`) so you meet one idea at a time:
 - **Shieldbearers** (Keep 7) take a quarter damage from the front. Hits show "blocked". Flank them,
   or let the horn scatter the fight.
 
+## The army holds the grounds
+
+Soldiers and archers do not follow the King any more (#116). They take posts on an ellipse just
+inside the current wall — `TIERS[tier].bounds`, so the ring grows with each expansion and nothing has
+to be told the village got bigger — and hold them until a raider comes inside. Then the **whole army
+forms one block** on that raider, rather than each soldier fighting whatever is nearest to itself.
+
+That last part is the ticket's own objection and it is the reason the feature nearly did not work.
+Enemies retarget to the nearest unit every 0.4 s, so an army fighting individually is as many losing
+fights as it has soldiers. Two things fix it: one shared target (the raider **deepest** into the
+grounds — a sapper at the Keep matters more than a knight outside the gate), and a **standoff**.
+
+The standoff is the number the whole idea turned on. The first version formed up *on* the raider,
+which marched 30-hitpoint archers with a 9.5 range into contact. Measured, 12 soldiers against 20
+raiders with the King away:
+
+| standoff | soldiers lost | raiders left | Keep damage |
+| --- | --- | --- | --- |
+| 0 (on the raider) | **12 of 12** | 18/20 | 421 |
+| **7** | **4 of 12** | 9/20 | **0** |
+| 11 | 8 of 12 | 10/20 | 432 |
+
+Too far back is nearly as bad as too far forward: at 11 the block sits behind the fight and the
+column walks through to the Keep.
+
+Against the old follow-the-King behaviour, soldiers lost and Keep damage over 45 game-seconds:
+
+| raiders | King away, follow | King away, hold | King home, follow | King home, hold |
+| --- | --- | --- | --- | --- |
+| 12 | 0 lost, **−421** | 2 lost, −0 | 2 lost, −0 | 2 lost, −0 |
+| 20 | 4 lost, **−421** | 7 lost, −89 | 9 lost, −19 | **3 lost, −0** |
+| 28 | 10 lost, **−421** | 8 lost, −429 | **12 lost**, −113 | **4 lost, −0** |
+
+The follow column only looks cheap because an army 34 units away with the King never fights at all —
+and the Keep pays 421 for it every time. With the King at home it is not close: a formed block beats
+a ring orbiting a man who keeps moving. (There is run-to-run variance; the direction is far bigger
+than the noise.)
+
+### The King's Guard
+
+What follows him instead is bought, at the Barracks, two soldiers at a time on a rising price. They
+are promoted out of the army rather than recruited, so a guard is **a soldier taken off the walls** —
+which is the decision the ticket wanted. Swordsmen are promoted first: a bodyguard is a body between
+him and a raider, and an archer is worth more on the wall it was standing on. The mat is shut, with a
+reason, when there is nobody left to promote.
+
+Measured with the King 34 units from the village: guards average **0.8** units from him, the rest of
+the army **48.4** — holding the grounds.
+
+Two things this renames or redefines. The old "Royal Guard" pad is now **Royal Armour**: it grants
++80 max HP and a full heal and never had anything to do with a guard, and two pads called Royal Guard
+and King's Guard two mats apart would be a trap. And `A.lost` — the distance at which a soldier counts
+as stuck and is put back — now returns him to his post rather than to the King, because a soldier
+holding a breach has no business reappearing wherever the King happens to be.
+
+`countFollowers` still counts everyone: the army cap is about how many soldiers the Keep supports, not
+about where they are standing.
+
 ## The King's three verbs: the warhorn, the dash and the banner
 
 All three live bottom-right, all three recharge as a ring filling around their button, and between

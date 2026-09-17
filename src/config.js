@@ -198,7 +198,50 @@ export const CFG = {
     slack: 1.15,  // how near its slot a soldier has to get before it stops walking
     ease: 4.0,    // the distance over which it eases back up to full speed (arrive, not skid)
     rallySlack: 0.3, // the horn gathers them tight: the one moment the formation SHOULD be rigid
-    lost: 26,     // how far behind before a soldier counts as stuck and is put back on the King
+    lost: 26,     // how far behind before a soldier counts as stuck and is put back where it belongs
+
+    // #116: the army holds the GROUNDS rather than the King. `false` is the behaviour before this
+    // ticket, and it is kept switchable because the ticket's own warning was that a scattered army
+    // might simply be picked off one soldier at a time -- enemies retarget to the nearest unit every
+    // 0.4s -- and that is a question for a measurement rather than an opinion.
+    //
+    // MEASURED. 12 soldiers, a fixed column from the south-west, 45 game-seconds, no other spawns,
+    // soldiers lost and Keep damage:
+    //
+    //                           King away                 King at home
+    //     raiders     follow          hold          follow          hold
+    //        12       0 lost, -421    2 lost,  -0    2 lost, -0     2 lost, -0
+    //        20       4 lost, -421    7 lost, -89    9 lost, -19    3 lost, -0
+    //        28      10 lost, -421    8 lost, -429  12 lost, -113   4 lost, -0
+    //
+    // Holding is better or level everywhere except 28 raiders with the King away, where twelve
+    // soldiers lose either way. The follow column only looks cheap because an army 34 units off with
+    // the King never fights at all -- and the Keep pays 421 for it every time. With the King AT HOME
+    // it is not even close: a formed block beats a ring orbiting a man who keeps moving.
+    //
+    // (There is run-to-run variance in these -- the raid rolls ranks and the aim wanders. The 12/away
+    // row read 1 lost on one run and 0 on the next. The direction is far bigger than the noise.)
+    holdGround: true,
+    // Posts sit on an ellipse this fraction of the way out to the current wall. 0.72 puts them just
+    // inside it. 0.4 was tried -- a tighter huddle near the Keep -- and was worse at 20 raiders
+    // (6 lost against 4), because the far side of the grounds is then undefended long enough for a
+    // column to walk in.
+    postSpread: 0.72,
+    // How far OUTSIDE the walls a raider still counts as the thing to go and fight. It has to be
+    // more than an archer's 9.5 range or the army would stand at its posts being shot at.
+    guardMargin: 12,
+    // How far SHORT of the raider the block forms up, measured back towards the middle of the
+    // grounds. THIS IS THE NUMBER THE WHOLE IDEA TURNED ON. The first version formed up ON him,
+    // which marched thirty-hitpoint archers with a 9.5 range into contact, and the measurement was
+    // brutal -- at 20 raiders the entire army died and the Keep fell anyway:
+    //
+    //     standoff  0   12 of 12 lost, 18 raiders left, Keep -421
+    //     standoff  7    4 of 12 lost,  9 raiders left, Keep -0
+    //     standoff 11    8 of 12 lost, 10 raiders left, Keep -432
+    //
+    // Too far back is nearly as bad as too far forward: at 11 the block sits behind the fight and
+    // lets the column through to the Keep.
+    standoff: 7,
   },
   archer: { hp: 30, range: 9.5, fireRate: 0.9, damage: 10, speed: 9 },
   swordsman: { hp: 70, range: 1.4, fireRate: 1.1, damage: 14, speed: 8.5, aggro: 5 },
@@ -697,7 +740,13 @@ export const PADS = [
   { ...T('tower-1-se', 1, [25.2, 24], 25, [30, 26]), requires: ['expand1'] },
   { id: 'barracks', tier: 1, pos: [5.2, 15.4], cost: 40, minLevel: 3, icon: 'swords', label: 'Barracks', requires: ['expand1'], structure: 'barracks', buildAt: [9.2, 9.2], desc: 'Lets you recruit swordsmen.', toast: 'Barracks built! Recruit swordsmen.' },
   { id: 'recruit-sword', tier: 1, pos: [5.2, 15.4], cost: 8, growth: 2, icon: 'swordsman', label: '+2 Swordsmen', requires: ['barracks'], repeatable: true, units: { type: 'swordsman', count: 2 }, desc: 'Two swordsmen: tough melee fighters who charge whatever comes near the King.' },
-  { id: 'crown', tier: 1, pos: [-12, -21], cost: 35, growth: 25, maxBuys: 3, icon: 'crown', label: 'Royal Guard', requires: ['expand1'], repeatable: true, effect: 'kinghp', desc: 'King max HP +80 and a full heal.', toast: 'King max HP +80 and fully healed' },
+  // #116 renamed this from "Royal Guard". It grants the King eighty max HP and a full heal and has
+  // never had anything to do with a guard -- and this ticket adds a pad that really is one, two mats
+  // away. Two pads called Royal Guard and King's Guard, one of them an HP buff, is a trap.
+  { id: 'crown', tier: 1, pos: [-12, -21], cost: 35, growth: 25, maxBuys: 3, icon: 'crown', label: 'Royal Armour', requires: ['expand1'], repeatable: true, effect: 'kinghp', desc: 'King max HP +80 and a full heal.', toast: 'King max HP +80 and fully healed' },
+  // #116: the retinue. Soldiers promoted here leave the grounds and stand with the King instead, so
+  // this is a real choice rather than a free upgrade -- every guard is a soldier taken off the walls.
+  { id: 'guard', tier: 1, pos: [-5.4, 15.4], cost: 26, growth: 18, maxBuys: 4, icon: 'shield', label: "King's Guard", requires: ['barracks'], repeatable: true, effect: 'guard', desc: 'Two soldiers leave their posts and march with the King wherever he goes. The rest of the army holds the grounds.', toast: 'Two soldiers join the King\u2019s Guard' },
   // #47: the village street. Two rows of three, evenly spaced and facing the east road, mirrored
   // across it -- built out from the citadel, so the street fills in from the near end as it grows.
   // They stand off the road further than a street normally would because the citadel decides it: a

@@ -365,6 +365,7 @@ export const BuildMethods = {
     if (def.feed) this.levelUp();
     if (def.effect === 'expand') this.expand();
     if (def.effect === 'horse') this.mountKing();
+    if (def.effect === 'guard') this.promoteGuard(2);
     if (def.bridge) {
       const m = this.world.buildBridge(def.bridge);
       if (m) this.popIn(m);
@@ -572,11 +573,39 @@ export const BuildMethods = {
     }
     // "Your army is full" stays: the chip puts that as a count, and a count is not the same as being
     // told you have hit the ceiling.
+    if (locked === 'noguard') return `There is nobody left to promote. Recruit soldiers first, then some of them can join the Guard.`;
     if (pad.def.units) return `Your army is full. Pay coin into the Keep to raise the limit.`;
     return `Pay coin into the Keep to raise it, then ${name} will open.`;
   },
 
+  // #116: how many soldiers could still be promoted to the Guard. Anything in the army that is not
+  // already a guard and is not posted to a tower -- a turret is not a man any more (see `assign`).
+  guardCandidates() {
+    let n = 0;
+    for (const u of this.units) if (u !== this.king && u !== this.queen && !u.assign && !u.guard) n++;
+    return n;
+  },
+
+  // #116: two soldiers leave the grounds and march with the King. Swordsmen first -- a bodyguard is
+  // a body between him and a raider, and an archer is worth more on the wall it was standing on.
+  // Returns how many it actually promoted, which is never more than there are.
+  promoteGuard(n) {
+    const pick = this.units.filter((u) => u !== this.king && u !== this.queen && !u.assign && !u.guard)
+      .sort((a, b) => (b.melee ? 1 : 0) - (a.melee ? 1 : 0));
+    let done = 0;
+    for (const u of pick) {
+      if (done >= n) break;
+      u.guard = true;
+      done++;
+    }
+    return done;
+  },
+
   padLocked(def) {
+    // #116: the Guard PROMOTES rather than recruits, so its gate is "is there anybody to promote"
+    // rather than a Keep level. A string where every other answer here is a level number or null:
+    // the two places that read this -- the "Level N needed" chip and `lockReason` -- both check.
+    if (def.effect === 'guard') return this.guardCandidates() > 0 ? null : 'noguard';
     if (!def.units) return null;
     const wanted = this.unitCount(def.units.type) + def.units.count;
     if (wanted <= this.unitCap(def.units.type)) return null;
@@ -615,7 +644,9 @@ export const BuildMethods = {
           const need = r.need - r.paid;
           chips.push({ icon: r.type, text: `${need} ${r.type} (have ${this.res[r.type]})`, state: need <= 0 || this.res[r.type] >= need ? 'ok' : this.res[r.type] > 0 ? '' : 'short' });
         }
-        if (locked) chips.push({ icon: 'keep', text: `Level ${locked} needed`, state: 'short' });
+        if (locked && locked !== 'noguard') chips.push({ icon: 'keep', text: `Level ${locked} needed`, state: 'short' });
+        // #116: the Guard says how big it already is, the way a recruit mat says how full the army is.
+        if (def.effect === 'guard') chips.push({ icon: 'shield', text: `${this.units.filter((u) => u.guard).length} in the Guard`, state: locked ? 'short' : 'ok' });
         if (def.units) chips.push({ icon: def.units.type, text: `${this.unitCount(def.units.type)} / ${this.unitCap(def.units.type)} ${def.units.type}s`, state: locked ? 'short' : 'ok' });
       }
       // #122: the cooldown says so. A mat that quietly ignores payment for a second reads as the game
@@ -623,7 +654,7 @@ export const BuildMethods = {
       // moving to pay". It goes above the blockers because it is the newest thing to have happened.
       const note = nearest.boughtT > 0 ? 'Bought — step off, or wait to buy another'
         : this.keep && this.keep.state !== 'built' && def.repairKeep ? 'It has to stand again before it can be raised'
-        : this.queen.captive ? (this.queen.taken ? 'Cut off the escort and bring her back' : 'Rescue Wren first') : locked ? 'Feed the Keep to raise the limit' : this.king.moving && (nearest.holdT || 0) < CFG.spend.walkHold ? 'Stop moving to pay' : def.feed ? `Pouring in coin…` : def.crew ? 'Sending archers…' : 'Paying…';
+        : this.queen.captive ? (this.queen.taken ? 'Cut off the escort and bring her back' : 'Rescue Wren first') : locked === 'noguard' ? 'Recruit soldiers before promoting any' : locked ? 'Feed the Keep to raise the limit' : this.king.moving && (nearest.holdT || 0) < CFG.spend.walkHold ? 'Stop moving to pay' : def.feed ? `Pouring in coin…` : def.crew ? 'Sending archers…' : 'Paying…';
       const total = nearest.cost + nearest.res.reduce((a, r) => a + r.need, 0);
       const paidAll = nearest.paid + nearest.res.reduce((a, r) => a + r.paid, 0);
       this.hud.showPadTip({

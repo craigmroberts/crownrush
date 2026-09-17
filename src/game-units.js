@@ -1,7 +1,7 @@
 // The King and the army he leads: recruiting, moving, fighting, and the small animation helpers
 // the code-built figures need. Everything here is attached to Game.prototype; see game.js.
 import * as THREE from 'three';
-import { CFG } from './config.js';
+import { CFG, TIERS } from './config.js';
 import { audio } from './audio.js';
 import { makeRigged } from './rig.js';
 import {
@@ -237,6 +237,53 @@ export const UnitsMethods = {
 
   // Everyone who marches with the King: the army, minus the royals and minus anyone already walking
   // off to a post. Counted rather than collected where only the number is wanted.
+  // #116: where one soldier stands when there is nothing to fight. An ellipse just inside the current
+  // wall, one slot per soldier, so the settlement is covered rather than the King. `TIERS[tier].bounds`
+  // is the grounds and it grows with each expansion, so the ring grows with it and nothing has to be
+  // told that the village got bigger.
+  // `out` is written into rather than returned fresh -- this runs once per soldier per frame, and the
+  // caller passes its own scratch because the one this file shares is about to be overwritten by the
+  // formation slot on the very next line.
+  postFor(i, n, out) {
+    const b = TIERS[this.tier].bounds;
+    const cx = (b.x0 + b.x1) / 2;
+    const cz = (b.z0 + b.z1) / 2;
+    const f = CFG.army.postSpread;
+    const a = (i / Math.max(1, n)) * Math.PI * 2;
+    return out.set(cx + Math.cos(a) * ((b.x1 - b.x0) / 2) * f, 0, cz + Math.sin(a) * ((b.z1 - b.z0) / 2) * f);
+  },
+
+  // #116: the raider the army goes to meet, or null to stand at posts.
+  //
+  // This one method is the answer to the ticket's own objection. Enemies retarget to the NEAREST unit
+  // every 0.4s, so an army that each fought whatever was closest to itself would spread into as many
+  // losing fights as it has soldiers. Instead the whole army is given ONE target -- the raider
+  // furthest INTO the grounds -- so a raid is met by a block rather than by whoever happened to be
+  // posted nearest to it. Deepest rather than nearest because that is the one doing damage: a sapper
+  // at the Keep matters more than a knight still outside the gate.
+  //
+  // Computed once a frame, not once a soldier.
+  groundThreat() {
+    const b = TIERS[this.tier].bounds;
+    const m = CFG.army.guardMargin;
+    let best = null;
+    let bd = Infinity;
+    for (const e of this.enemies) {
+      if (e.captor) continue;
+      const p = e.mesh.position;
+      if (p.x < b.x0 - m || p.x > b.x1 + m || p.z < b.z0 - m || p.z > b.z1 + m) continue;
+      // depth = how far in, measured from the middle of the grounds
+      const cx = (b.x0 + b.x1) / 2;
+      const cz = (b.z0 + b.z1) / 2;
+      const d = (p.x - cx) * (p.x - cx) + (p.z - cz) * (p.z - cz);
+      if (d < bd) {
+        bd = d;
+        best = e;
+      }
+    }
+    return best;
+  },
+
   countFollowers() {
     let n = 0;
     for (const u of this.units) if (u !== this.king && u !== this.queen && !u.assign) n++;
@@ -271,7 +318,36 @@ export const UnitsMethods = {
     // there is one, because a soldier holding a breach has no business running back to him.
     const cx = banner ? banner.x : kp.x;
     const cz = banner ? banner.z : kp.z;
-    followers.forEach((u, i) => {
+    // #116: who is holding the grounds and who is at the King's shoulder. The horn outranks
+    // everything (it is the one button that concentrates force) and a banner outranks the posts, so
+    // holding the grounds is what the army does when nothing else has been asked of it.
+    const hold = CFG.army.holdGround && !rallied && !banner;
+    const threat = hold ? this.groundThreat() : null;
+    // The unit vector from the threat back towards the middle of the grounds, worked out once rather
+    // than once a soldier; the block forms up `A.standoff` along it.
+    let mux = 0;
+    let muz = 0;
+    if (threat) {
+      const b = TIERS[this.tier].bounds;
+      const tx = (b.x0 + b.x1) / 2 - threat.mesh.position.x;
+      const tz = (b.z0 + b.z1) / 2 - threat.mesh.position.z;
+      const tl = Math.hypot(tx, tz) || 1;
+      mux = tx / tl;
+      muz = tz / tl;
+    }
+    // Slots are numbered within a GROUP, so the guard makes its own tidy ring around the King and the
+    // troops make theirs -- rather than the guard taking slots 0..2 of one ring and the rest of the
+    // army orbiting a gap.
+    let nGuard = 0;
+    let nTroop = 0;
+    for (const u of followers) {
+      if (hold && !u.guard) u.slot = nTroop++;
+      else u.slot = nGuard++;
+    }
+    const troopN = nTroop;
+    followers.forEach((u) => {
+      const i = u.slot;
+      const posted = hold && !u.guard;
       u.cooldown -= dt;
       if (u.popT > 0) {
         u.popT -= dt;
@@ -279,7 +355,7 @@ export const UnitsMethods = {
         u.mesh.scale.setScalar(Math.max(0.01, u.scale * s * (1 + Math.sin(s * Math.PI) * 0.25)));
         if (u.popT <= 0) u.mesh.scale.setScalar(u.scale);
       }
-      // formation slot: rings around the king
+      // formation slot: rings around whatever the army is formed on
       const ring = Math.floor(Math.sqrt(i / 6));
       const perRing = 6 + ring * 6;
       const idxInRing = i - ring * ring * 6;
@@ -287,13 +363,33 @@ export const UnitsMethods = {
       // sideways even while the King stood still.
       const ang = (idxInRing / perRing) * Math.PI * 2 + ring * 0.4;
       const rad = 1.7 + ring * 1.3;
-      tmp.set(ax + Math.cos(ang) * rad, 0, az + Math.sin(ang) * rad);
+      // #116: a posted soldier stands at its own post while the grounds are quiet, and joins the
+      // block on the deepest raider the moment one is inside. Everyone else forms on the King (or on
+      // the banner, or on the King when the horn goes) exactly as before.
+      let ox = ax;
+      let oz = az;
+      if (posted && threat) {
+        // Form up SHORT of him, on the village side, so the archers in the block are shooting rather
+        // than being stabbed. `standoff` is measured back towards the middle of the grounds.
+        ox = threat.mesh.position.x + mux * A.standoff;
+        oz = threat.mesh.position.z + muz * A.standoff;
+      } else if (posted) {
+        this.postFor(i, troopN, tmp2);
+        ox = tmp2.x;
+        oz = tmp2.z;
+      }
+      tmp.set(ox + Math.cos(ang) * rad, 0, oz + Math.sin(ang) * rad);
 
       const p = u.mesh.position;
       let target = null;
       if (u.melee) {
         target = this.nearestEnemy(p, u.stats.aggro);
-        if (target && Math.hypot(target.mesh.position.x - cx, target.mesh.position.z - cz) < u.stats.aggro + rad + 3) {
+        // What a melee soldier may chase away FROM: its own post or the block it is part of when it
+        // is holding the grounds, the King or the banner otherwise. A soldier defending a wall has no
+        // business running back to wherever the King happens to be standing.
+        const hx = posted ? ox : cx;
+        const hz = posted ? oz : cz;
+        if (target && Math.hypot(target.mesh.position.x - hx, target.mesh.position.z - hz) < u.stats.aggro + rad + 3) {
           tmp.copy(target.mesh.position);
         } else target = null;
       }
@@ -322,7 +418,7 @@ export const UnitsMethods = {
       // Only for the genuinely stuck -- the wrong side of a wall or a river. It used to fire at 14,
       // which a soldier allowed to trail properly reaches honestly, and a man blinking to the King's
       // feet reads far worse than one jogging to catch up.
-      if (d > A.lost) p.set(cx + rand(-1, 1), 0, cz + rand(-1, 1));
+      if (d > A.lost) p.set((posted ? ox : cx) + rand(-1, 1), 0, (posted ? oz : cz) + rand(-1, 1));
       u.moving = moving > 0.05;
       this.animateWalk(u, moving, dt);
 

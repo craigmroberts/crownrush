@@ -119,7 +119,10 @@ export const SaveMethods = {
       // the army. Anyone walking to a post is stored where they are going rather than where they got
       // to: they arrive on the next frame instead of the one after, and nobody is left mid-errand.
       units: this.units.filter((u) => u !== k && u !== q).map((u) => ({
-        type: u.type, veteran: !!u.veteran, hp: round(u.hp), maxHp: round(u.maxHp), at: pos(u.mesh),
+        // #116: `guard` is who marches with the King rather than holding the grounds. Added without
+        // bumping VERSION, like #58's `len` -- a save written before it simply has nobody in the
+        // Guard, which is exactly what a run from before this ticket had.
+        type: u.type, veteran: !!u.veteran, guard: !!u.guard, hp: round(u.hp), maxHp: round(u.maxHp), at: pos(u.mesh),
       })),
       turrets: this.turrets.map((t) => ({
         at: [round(t.pos.x), round(t.pos.y), round(t.pos.z)], tower: t.tower, hp: round(t.hp),
@@ -241,6 +244,7 @@ export const SaveMethods = {
     for (const u of s.units) {
       const spawned = this.spawnUnit(u.type, u.at[0], u.at[1], u.veteran);
       if (!spawned) continue;
+      spawned.guard = !!u.guard;   // #116
       spawned.maxHp = u.maxHp;
       spawned.hp = Math.min(u.hp, u.maxHp);
       spawned.popT = 0;
