@@ -197,8 +197,12 @@ document.getElementById('offer-cards').addEventListener('click', (e) => {
   const card = e.target.closest('.offer-card');
   if (card) game.takeUpgrade(card.dataset.id);
 });
-// #105: the button on the capability panel. Every way off it runs through `dismissGain`.
-document.getElementById('gain-close').addEventListener('click', () => game.dismissGain());
+// #132: the capability notice. One tap opens it and restarts its clock at the longer figure; a
+// second closes it outright, which is the dismissal. Every way off it still runs through
+// `dismissGain`, including its own countdown running out.
+document.getElementById('gain-toggle').addEventListener('click', () => {
+  if (game.hud.toggleGain()) game.dismissGain();
+});
 document.getElementById('horn-btn').addEventListener('pointerdown', (e) => {
   e.preventDefault();
   e.stopPropagation();
@@ -449,13 +453,13 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (game.offer) return; // an upgrade choice must be made before anything else
-  // #105: and the capability panel is read before anything else. It swallows the rest of the keyboard
-  // rather than sitting over a game that answers keys -- Escape would otherwise reach `togglePause`
-  // and resume the game behind it. Space is deliberately NOT one of the two that close it: it is the
-  // horn key, and a player holding it as the raid comes over the wall would blow the panel away in the
-  // frame it appeared without ever seeing it.
-  if (game.gain) {
-    if (e.key === 'Escape' || e.key === 'Enter') game.dismissGain();
+  // #132: the capability notice answers Escape and Enter and NOTHING else. It used to swallow the
+  // whole keyboard, which was right for a panel holding the game still and is exactly wrong for a
+  // notice over a game that is running: the player is playing, and every other key is his. Space is
+  // still not one of the two -- it is the horn key, and a player holding it as the raid comes over
+  // the wall would blow the notice away in the frame it appeared without ever seeing it.
+  if (game.gain && (e.key === 'Escape' || e.key === 'Enter')) {
+    game.dismissGain();
     return;
   }
   if (e.key === ' ' || e.key === 'e' || e.key === 'E') return game.useHorn();

@@ -166,6 +166,19 @@
         <div class="tip-bar"><i></i></div>
         <div class="tip-body"><div class="tip-desc"></div><div class="tip-note"></div></div>
       </div>
+      <!-- #132: what a capability purchase raises now. Same shape as the mat chip above and the same
+           slot, because it is the same kind of object: a line you can read at a glance and open if
+           you want the numbers. What it is NOT any more is a panel that stops the game -- the bar is
+           a countdown to it closing itself rather than payment progress, and nothing here pauses. -->
+      <div id="gain-note" class="hidden">
+        <button class="tip-head" id="gain-toggle">
+          <i class="tip-icon"></i>
+          <span class="tip-lines"><b class="tip-name"></b></span>
+          <i class="tip-more"></i>
+        </button>
+        <div class="tip-bar"><i></i></div>
+        <div class="tip-body"><div class="gain-rows"></div></div>
+      </div>
       <canvas id="minimap" width="160" height="160"></canvas>
     </div>
 
@@ -291,19 +304,6 @@
       </div>
     </div>
 
-    <!-- #105: a mat that changed what the player can do stops the game and says where he has got to,
-         and waits to be dismissed. The chip's `desc` said it behind a tap on `.tip-body` and the toast
-         said it for 3.2s over a running game, so neither reached him at the one moment he was looking:
-         just after paying for it. No corner close, the way the sheets you open by choice have one:
-         this one was not asked for, so it gets one deliberate button (Escape or Enter on a keyboard). -->
-    <div id="gain-screen" class="overlay hidden">
-      <div class="panel gain">
-        <h1 id="gain-title">Training 1 of 5</h1>
-        <p class="hint" id="gain-sub"></p>
-        <div id="gain-rows"></div>
-        <button id="gain-close">Back to the game</button>
-      </div>
-    </div>
     <!-- what the Keep plaque opens: where you are, what the next level costs, what it gives, and
          two levels past that so there is a reason to come back to it -->
     <div id="keep-screen" class="overlay hidden">

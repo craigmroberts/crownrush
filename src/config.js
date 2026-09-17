@@ -651,6 +651,23 @@ export const CFG = {
   // start when the notice appeared, which meant a long one spent a third of its life still arriving.
   notice: { lines: 3, letterMs: 18, readBase: 1400, readPerChar: 55, readMax: 7000 },
 
+  // #132: how long a capability notice stands before it closes itself. In GAME seconds, because it is
+  // ticked from the game's own dt -- so a paused game does not tick it away behind the pause screen,
+  // and one waiting its turn behind a toast keeps its full time.
+  //
+  // `ms` is the closed line: "Training 3 of 5 \u00B7 Your archers", 34 characters. The notice band next
+  // door reads at `readBase` 1.4s plus 55ms a character, which puts that line at 3.3s -- and this one
+  // has to be read AND decided about, since the chevron is an offer to open it. 5.5 is that plus the
+  // two seconds it takes to notice something arrived and move a thumb to it.
+  //
+  // `openMs` is the rows, which is where the panel's content went: four lines averaging 95 characters,
+  // so 6.6s of reading by the same measure. 12 leaves most of a second a line and does not strand a
+  // player who opened it to check one number and then looked back at the field.
+  //
+  // Both are a floor rather than a limit -- the tap that opens it restarts the clock at `openMs`, and
+  // a purchase arriving while one is up replaces it with a fresh one.
+  gainNotice: { ms: 5.5, openMs: 12 },
+
   arrow: { speed: 30, life: 2.0 },
 
   // #104: Wren's voice. `gap` is the least game time between two of her cries, on top of the alarm's

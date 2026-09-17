@@ -416,7 +416,10 @@ export class Hud {
   syncNoticeStack() {
     const t = this.toastEl.classList.contains('show') ? this.toastEl.offsetHeight : 0;
     const p = this.tip.classList.contains('hidden') ? 0 : this.tip.offsetHeight;
-    const h = Math.max(t, p);
+    // #132: three things can be on this line now, and the capability notice is the tall one when it
+    // is open -- four rows of text, where the chip is two lines at most.
+    const g = !this.gainEl || this.gainEl.classList.contains('hidden') ? 0 : this.gainEl.offsetHeight;
+    const h = Math.max(t, p, g);
     if (h === this.noticeStack) return;
     this.noticeStack = h;
     document.documentElement.style.setProperty('--notice-stack', `${h}px`);
@@ -639,7 +642,8 @@ export class Hud {
   // No re-trigger is needed on the other side. This is called every frame the King is on a mat, so
   // the first frame after the last notice clears puts the chip straight back up.
   showPadTip({ icon, name, sub, desc, chips, note, progress }) {
-    if (this.toastShowing) {
+    // #132: and for the capability notice, which is the lane's third speaker -- see `syncGainLane`.
+    if (this.toastShowing || this.gain) {
       if (!this.tip.classList.contains('hidden')) this.hidePadTip();
       return;
     }
@@ -1039,15 +1043,83 @@ export class Hud {
   // #105: what a capability purchase leaves the player able to do. The rows are the level-up summary's
   // (`.og-row`) because it is the same kind of news. Like `showOffer` this runs on an event and not on
   // a frame, so the innerHTML here is not the per-frame rule `Hud.set` lives under.
+  // #132: what a capability purchase raises. It used to be a panel that stopped the game; it is a
+  // notice with a countdown now, in the mat chip's slot and wearing the mat chip's clothes.
+  //
+  // The closed line is `title · sub` -- "Training 3 of 5 · Your archers" -- which is the whole of
+  // what most purchases need to say. The rows the panel used to show are behind the chevron,
+  // unchanged, because they were the good part of it: numbers the player now HAS rather than deltas.
   showGain(gain) {
-    document.getElementById('gain-title').textContent = gain.title;
-    document.getElementById('gain-sub').textContent = gain.sub || '';
-    document.getElementById('gain-rows').innerHTML = gain.rows
+    if (!this.gainEls) {
+      const el = document.getElementById('gain-note');
+      this.gainEl = el;
+      this.gainEls = {
+        icon: el.querySelector('.tip-icon'),
+        name: el.querySelector('.tip-name'),
+        rows: el.querySelector('.gain-rows'),
+        more: el.querySelector('.tip-more'),
+        bar: el.querySelector('.tip-bar i'),
+      };
+      this.gainEls.more.innerHTML = iconSvg('chev', 16);
+    }
+    this.gain = gain;
+    this.gainT = CFG.gainNotice.ms;
+    this.gainFor = CFG.gainNotice.ms;
+    this.gainEls.icon.innerHTML = iconSvg(gain.rows[0] ? gain.rows[0].icon : 'star', 26);
+    this.gainEls.name.textContent = gain.sub ? `${gain.title} \u00B7 ${gain.sub}` : gain.title;
+    this.gainEls.rows.innerHTML = gain.rows
       .map((r) => `<div class="og-row">${iconSvg(r.icon, 26)}<div>${esc(r.text)}</div></div>`).join('');
-    document.getElementById('gain-screen').classList.remove('hidden');
+    // A new one always arrives closed, even replacing an open one: it is a different purchase and
+    // the rows under it are different numbers.
+    this.gainEl.classList.remove('open');
+    this.gainEls.bar.style.width = '100%';
+    this.syncGainLane();
   }
   hideGain() {
-    document.getElementById('gain-screen').classList.add('hidden');
+    this.gain = null;
+    if (this.gainEl) {
+      this.gainEl.classList.add('hidden');
+      this.gainEl.classList.remove('open');
+    }
+    this.syncNoticeStack();
+  }
+  // Opened, it gets a longer clock rather than none at all. The ticket's own warning is the case
+  // where the player taps to expand and then never taps again -- so there is no state here that
+  // does not end by itself. A second tap closes it outright, which is the dismissal.
+  toggleGain() {
+    if (!this.gain || !this.gainEl) return;
+    if (this.gainEl.classList.contains('open')) return true;   // caller dismisses
+    this.gainEl.classList.add('open');
+    this.gainT = CFG.gainNotice.openMs;
+    this.gainFor = CFG.gainNotice.openMs;
+    this.gainEls.bar.style.width = '100%';
+    this.syncNoticeStack();
+    return false;
+  }
+  // The lane, in one place. #102 gave it two speakers and a rule -- a notice goes first and the mat
+  // chip takes its turn -- and this is the third. Same rule extended by the same reasoning: a toast
+  // is timed and unrepeatable, so it goes first; this is timed too but it can wait, because its
+  // clock STOPS while it waits rather than running out behind a notice nobody asked it to hide
+  // behind; the chip is neither timed nor unrepeatable and goes last.
+  syncGainLane() {
+    if (!this.gain || !this.gainEl) return;
+    const down = !!this.toastShowing;
+    const was = this.gainEl.classList.contains('hidden');
+    this.gainEl.classList.toggle('hidden', down);
+    if (was !== down) this.syncNoticeStack();
+  }
+  // Driven by the game's own dt, so a paused game does not tick a notice away behind its pause
+  // screen, and a notice waiting for a toast keeps its full time.
+  tickGain(dt) {
+    // `true` means "the game should clear its own `gain` too". Returning it when there is nothing
+    // here makes the two states self-healing: `hidePanels` and a restart both hide this notice from
+    // underneath the game, and neither should have to remember to tell it.
+    if (!this.gain) return true;
+    this.syncGainLane();
+    if (this.toastShowing) return false;
+    this.gainT -= dt;
+    this.gainEls.bar.style.width = `${Math.max(0, Math.round((this.gainT / this.gainFor) * 100))}%`;
+    return this.gainT <= 0;
   }
 
   showPause() {

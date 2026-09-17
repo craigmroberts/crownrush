@@ -321,8 +321,7 @@ export class Game {
     this.offerLevel = 0;
     this.offer = null;
     this.offerPaused = false;
-    this.gain = null;           // #105: the capability panel a purchase put up, until it is dismissed
-    this.gainPaused = false;
+    this.gain = null;           // #132: the capability notice a purchase put up, until it closes
     this.settingsOpen = false;
     this.settingsPaused = false;
     this.coinsCarried = 0; // the starting coins lie on the ground (#20): picking them up is the first thing you do
@@ -680,13 +679,6 @@ export class Game {
       this.hud.showOffer(this.offer, lv, this.offerQueue, this.levelGains(lv));
       return;
     }
-    // #105: same rule for the capability panel. Nothing resumes the game while it is owed -- it goes
-    // back on top instead, so the panel can never be left on screen over a game that is running again.
-    if (this.gain) {
-      this.hud.hidePause();
-      this.hud.showGain(this.gain);
-      return;
-    }
     this.paused = false;
     this.running = true;
     audio.setActive(true);
@@ -738,7 +730,6 @@ export class Game {
     this.offerLevels = [];
     this.offerPaused = false;
     this.gain = null;
-    this.gainPaused = false;
     this.keepOpen = false;
     this.scoresOpen = false;
     this.settingsOpen = false;
@@ -825,7 +816,9 @@ export class Game {
   // stops the world without setting `paused`, which is exactly the kind of stop this exists to catch.
   watchStuck(dt) {
     const excused = this.running || this.over || this.won || this.contextLost
-      || this.offer || this.gain || this.infoOpen || this.settingsOpen
+      // #132: `this.gain` is NOT here any more. It used to name a panel holding the pause; it names a
+      // notice over a running game now, so excusing it would excuse a genuinely stuck one.
+      || this.offer || this.infoOpen || this.settingsOpen
       || this.keepOpen || this.scoresOpen
       || !this.hud.startHidden() || this.hud.introOpen()   // #118: no run has started yet
       || !this.hud.pauseHidden();       // the player's own pause, with its screen up
@@ -842,7 +835,6 @@ export class Game {
     this.offer = null;
     this.offerPaused = false;
     this.gain = null;
-    this.gainPaused = false;
     this.hud.hideOffer();
     this.hud.hideGain();
     this.hud.hidePause();
@@ -866,6 +858,9 @@ export class Game {
       this.updatePiles(dt);
       this.updateTrade(dt);
       this.updateVillagers(dt);
+      // #132: the capability notice's own clock, before `updatePads` decides whether the mat chip
+      // gets the lane -- so a notice that closed on this frame hands the lane straight back.
+      if (this.gain && this.hud.tickGain(dt)) this.dismissGain();
       this.updatePads(dt);
       this.updateWaves(dt);
       this.updateFog(dt);

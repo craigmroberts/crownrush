@@ -388,7 +388,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
    them, so it can use the width without hard-coded gutters for each control in turn. */
 /* #90: the same caption the notices wear, and the same slot. #102 guarantees the two never share it:
    a chip waits while a notice is being read, so neither has to be lifted out of the other's way. */
-#pad-tip {
+#pad-tip, #gain-note {
   position: fixed; left: 50%; transform: translateX(-50%) translateY(0);
   bottom: var(--notice-bottom);
   width: max-content; max-width: min(420px, calc(100vw - 28px));
@@ -411,42 +411,53 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
    `visibility: hidden` takes the whole subtree out of hit testing, so no descendant can opt back in.
    The delayed transition is the overlays' own trick (`.overlay.hidden`): hold visible for exactly the
    length of the fade, then snap, so the chip still leaves the way it always did. */
-#pad-tip.hidden {
+#pad-tip.hidden, #gain-note.hidden {
   display: block; opacity: 0; transform: translateX(-50%) translateY(14px) scale(0.96);
   pointer-events: none; visibility: hidden;
   transition: transform 0.2s cubic-bezier(0.34, 1.4, 0.64, 1), opacity 0.16s ease-out, visibility 0s linear 0.16s;
 }
 /* the face of it: what this is, what it costs, and that there is more to read */
-#pad-tip .tip-head {
+#pad-tip .tip-head, #gain-note .tip-head {
   display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
   background: none; border: 0; padding: 7px 11px; cursor: pointer; color: inherit; font: inherit;
   pointer-events: auto; -webkit-tap-highlight-color: transparent;
 }
-#pad-tip .tip-head:active { background: rgba(255,255,255,0.1); }
-#pad-tip .tip-icon { flex: none; display: flex; }
-#pad-tip .tip-lines { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
-#pad-tip .tip-name { font-weight: 900; font-size: 16px; color: #f4f7ec; line-height: 1.15; }
+#pad-tip .tip-head:active, #gain-note .tip-head:active { background: rgba(255,255,255,0.1); }
+#pad-tip .tip-icon, #gain-note .tip-icon { flex: none; display: flex; }
+#pad-tip .tip-lines, #gain-note .tip-lines { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+#pad-tip .tip-name, #gain-note .tip-name { font-weight: 900; font-size: 16px; color: #f4f7ec; line-height: 1.15; }
 #pad-tip .tip-costs { display: flex; gap: 6px; flex-wrap: wrap; }
 /* the chips keep carrying their own state in colour, in the alpha the dark panel needs */
 #pad-tip .chip { font-weight: 800; font-size: 13px; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.13); color: #e7eeda; white-space: nowrap; display: inline-flex; align-items: center; gap: 3px; text-shadow: none; }
 #pad-tip .chip.ok { background: rgba(63,212,85,0.24); color: #c6f7c8; }
 #pad-tip .chip.short { background: rgba(232,52,42,0.26); color: #ffc0ba; }
 /* the chevron turns to say which way this goes */
-#pad-tip .tip-more { flex: none; display: flex; color: #a9bb96; transition: transform 0.2s ease-out; }
-#pad-tip.open .tip-more { transform: rotate(90deg); }
+#pad-tip .tip-more, #gain-note .tip-more { flex: none; display: flex; color: #a9bb96; transition: transform 0.2s ease-out; }
+#pad-tip.open .tip-more, #gain-note.open .tip-more { transform: rotate(90deg); }
 /* Payment progress stays on the face of it at all times. Standing on a mat spends coins one at a
    time and this bar is the only thing that shows it happening; behind a tap it would be useless. */
-#pad-tip .tip-bar { height: 5px; background: rgba(0,0,0,0.3); }
-#pad-tip .tip-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffd76a, #e8a91c); transition: width 0.12s linear; }
-#pad-tip .tip-body { display: none; padding: 8px 12px 10px; border-top: 1px solid rgba(0,0,0,0.08); }
-#pad-tip.open .tip-body { display: block; }
+#pad-tip .tip-bar, #gain-note .tip-bar { height: 5px; background: rgba(0,0,0,0.3); }
+#pad-tip .tip-bar i, #gain-note .tip-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffd76a, #e8a91c); transition: width 0.12s linear; }
+#pad-tip .tip-body, #gain-note .tip-body { display: none; padding: 8px 12px 10px; border-top: 1px solid rgba(0,0,0,0.08); }
+#pad-tip.open .tip-body, #gain-note.open .tip-body { display: block; }
 #pad-tip .tip-desc { font-size: 14px; color: #dde7cf; line-height: 1.35; }
 #pad-tip .tip-note { font-size: 12px; color: #a9bb96; margin-top: 5px; }
 @media (prefers-reduced-motion: reduce) {
   /* #128: the visibility hold stays even here -- it is hit testing, not motion */
-  #pad-tip { transition: opacity 0.18s linear; transform: translateX(-50%); }
-  #pad-tip.hidden { transition: opacity 0.18s linear, visibility 0s linear 0.18s; transform: translateX(-50%); }
+  #pad-tip, #gain-note { transition: opacity 0.18s linear; transform: translateX(-50%); }
+  #pad-tip.hidden, #gain-note.hidden { transition: opacity 0.18s linear, visibility 0s linear 0.18s; transform: translateX(-50%); }
 }
+/* #132: the capability notice. Everything above is shared with it -- same slot, same box, same
+   open/closed behaviour -- and only these three things differ.
+   The BAR DRAINS. On the mat chip it is payment filling up; here it is the time left before the
+   notice closes itself, which is the ticket's "countdown progress border". Same gold either way,
+   because it is the same fact in both places: this is how far through something you are.
+   The rows are the panel's rows, unchanged, because they were the good part of the panel. */
+#gain-note { z-index: 4; }
+#gain-note .tip-bar i { transition: width 0.1s linear; }
+#gain-note .gain-rows { display: grid; gap: 8px; }
+#gain-note .og-row { display: grid; grid-template-columns: 26px 1fr; gap: 9px; align-items: start; font-size: 13.5px; line-height: 1.34; color: #dde7cf; }
+#gain-note .og-row svg { margin-top: 1px; }
 /* #85: no gold ring. It was the last piece of furniture left on the field after #68 took the rest of
    the HUD down to glyphs and numbers.
    The ring was doing real work, though -- it is what stopped a near-black disc reading as a hole
@@ -1098,14 +1109,9 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
    are the whole panel rather than the preamble to three cards -- there is nothing below them to be
    pushed off the bottom, so they get the room. The cap is still there for a phone in landscape, where
    50vh is about 190px and four rows do not fit. */
-#gain-rows { display: grid; gap: 9px; max-height: 50vh; overflow-y: auto; margin: 12px 0 20px; text-align: left; }
-#gain-rows .og-row { grid-template-columns: 28px 1fr; gap: 10px; font-size: 14.5px; line-height: 1.34; }
-.panel.gain { max-width: 25rem; }
 /* 32px, not the panel's usual 40: "Royal Guard 1 of 3" is the longest title here and at 40px it was
    three lines' worth of height on a 390px phone. It still wraps at 32, which is why `capabilityGains`
    joins the count with non-breaking spaces -- the break lands before the number, not inside "1 of 3". */
-.panel.gain h1 { font-size: 32px; margin-bottom: 2px; text-wrap: balance; }
-#gain-sub:empty { display: none; }
 #offer-cards { display: flex; gap: 10px; margin: 14px 0 4px; }
 /* #121: the cards are the game's own button, in the pool's colour.
    They used to be cream on a `#cfc8ae` border -- the shape of an information card, not a control --

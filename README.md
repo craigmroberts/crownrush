@@ -138,6 +138,10 @@ the raids keep coming for a high score.
   space was spent in the same breath by the purse (#131), and the measurement said up by 13 rather
   than down by 25. Which is the point of having one value: the number moved once, and everything that
   speaks down there moved with it.
+  Three things share that band and they queue rather than dodge each other: a notice goes first
+  because it is timed and unrepeatable, then what a purchase just bought you, then the mat chip. The
+  middle one is a notice too, but its countdown STOPS while it waits, so nothing runs out behind
+  something else (#132).
   Everything in that band hides with `visibility` as well as opacity, and that is not tidiness: the
   drag that moves the King is bound to the canvas, so anything above it that is still hit-testable
   eats the whole gesture. The chip's head is a button, and `pointer-events: none` on the chip did not
@@ -148,6 +152,13 @@ the raids keep coming for a high score.
   armful you picked up and the number that changed are one event. The ledger is credited before the
   flight, not when it arrives: hanging a player's materials on a CSS transition completing would cost
   them the pickup on a backgrounded tab, and no animation is worth that.
+- **Buying a capability does not stop the game.** It used to raise a panel, on the reasoning that a
+  purchase only completes once the King has stopped. That premise was wrong: `updatePads` tests
+  `!king.moving || holdT > walkHold`, an OR, so payment completes mid-walk and the panel was landing
+  on a player in motion. It is a notice with a countdown border now -- the headline closed, the same
+  numbers one tap away, the music never interrupted because nothing pauses. A second purchase
+  replaces the first rather than queueing: the common case is the same mat twice, and "Training 4 of
+  5" already contains everything "Training 3 of 5" was going to say (#132).
 - A sheet that takes the screen -- settings, how to play, the Keep, pause, a reward to choose -- is its
   content on a gaussian-blurred world rather than a card sitting on one: no panel, no border, light
   text. It rises in and settles on the way up and leaves quicker and downward, the curve everything
@@ -160,7 +171,7 @@ the raids keep coming for a high score.
 - Sound is synthesised in the browser (no audio files): a looping background melody, arrow hits, coin
   pickups, the "ching" of coins being spent and wave horns. The speaker button mutes it. There is no
   build fanfare any more: a four-tone arpeggio played on every purchase, and because the level-up and
-  capability panels are opened BY a purchase, it was also the sound those panels came up to -- which
+  capability news is raised BY a purchase, it was also the sound that came up to -- which
   is where it was reported from. It went from all four of its callers rather than being muted on two,
   so winning is quiet now as well; a purchase is not, because the coins ching the whole way in (#130).
   Anything that stops the game suspends the audio context, which stops the loop and freezes

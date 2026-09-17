@@ -1591,46 +1591,42 @@ export const BuildMethods = {
     else this.endOfferPause();
   },
 
-  // #105: the capability panel. It pauses REGARDLESS of what is happening on the field, which is the
-  // level-up modal's rule and was the decision worth making rather than assuming:
+  // #132: the capability notice. It used to be a panel that stopped the game, and the argument for
+  // that is worth keeping because most of it still holds -- the answer to "what did I just buy"
+  // should arrive attached to the thing it explains, not minutes later after the wave, and the night
+  // holds open until the last raider is down (`CFG.cycle.holdDawn`) so "after the wave" is not a time
+  // anyone can point at. What did not hold was the premise that it never lands on a moving King:
   //
-  // - It is rare and it is the player's own doing. Nine times in a whole run at most -- Train Archers
-  //   five, Royal Guard three, the Warhorse once -- and each one happens because he walked onto a mat
-  //   and stood on it while the coins flew across. He is already stopped, and the pads only take
-  //   payment once the King has stopped (`CFG.spend`), so this never lands while he is running. A
-  //   level-up can, and pauses anyway.
-  // - Waiting for the wave to end was the alternative and it is worse. The answer to "what did I just
-  //   buy" would arrive minutes later attached to nothing, after the archers had already been fighting
-  //   with the numbers it is about to explain -- and the night holds open until the last raider is
-  //   down (`CFG.cycle.holdDawn`), so "after the wave" is not a time anyone can point at.
-  // - What it costs is the interruption and nothing else: the game is stopped, so the raiders on the
-  //   wall are exactly where he left them when he dismisses it.
+  //     const paying = inside && pad.holdT > CFG.spend.arm
+  //       && (!this.king.moving || pad.holdT > CFG.spend.walkHold);
   //
-  // It cannot land on top of another panel. `updatePads` only runs while `running`, so a purchase can
-  // only complete in a frame where nothing has the screen, and no second one can complete while this
-  // one holds the pause.
+  // The second clause is an OR. Once `holdT` passes `walkHold` the payment completes WHILE HE IS
+  // MOVING, so the panel was landing on a player mid-walk -- which is the "it interrupts my movement"
+  // in the report, and the thing #105 believed could not happen.
+  //
+  // So the news stays attached to the moment and the stop goes. It arrives in the notice lane, says
+  // the headline, and closes itself; the rows the panel carried are one tap away and unchanged. The
+  // music never stops because `audio.setActive` follows `this.running`, which nothing here touches
+  // any more.
+  //
+  // TWO IN QUICK SUCCESSION: the second REPLACES the first. The pause used to make this impossible --
+  // no purchase could complete while one held the screen -- and without it a second can land while
+  // the first is still up. Replacing is right rather than queueing because the common case by far is
+  // the same mat twice (Training is five buys on one spot), and "Training 4 of 5" already contains
+  // everything "Training 3 of 5" was going to say. A queue would make the player read a superseded
+  // number before the true one.
   showGain(gain) {
     if (this.over || this.won) return;
-    // Only claim the pause if the game was running. A pause the player asked for is his: `dismissGain`
-    // puts his screen back rather than resuming a game he stopped. (Reachable through a tab switch,
-    // which pauses under the panel.)
-    this.gainPaused = this.running;
-    if (this.gainPaused) this.pause(true);
-    else this.hud.hidePause();
     this.gain = gain;
     this.hud.showGain(gain);
   },
 
-  // #25: every way off this panel runs through here, and it always ends with something able to move
-  // the King -- either the game running again or the pause screen he opened it from back on top.
+  // #25's guarantee -- every way off this ends with something able to move the King -- is now free
+  // rather than arranged: nothing here ever stopped him.
   dismissGain() {
     if (!this.gain) return;
     this.gain = null;
     this.hud.hideGain();
-    if (this.gainPaused) {
-      this.gainPaused = false;
-      this.unpause();
-    } else this.hud.showPause();
   },
 
   // Give back the pause an offer took, and only that one: a pause the player asked for stays.
