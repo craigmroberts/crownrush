@@ -219,6 +219,9 @@ export class Game {
     // still hold a canvas texture each, and a player who restarts five times would be carrying five
     // runs' worth of them. Hand back what this run allocated before the next one starts.
     if (this.pads) for (const pad of this.pads) this.disposePad(pad);
+    // #57: and a banner still standing when a run restarts. Dropping the root unparents it but frees
+    // nothing, and it is a baked geometry and a material like everything else here.
+    if (this.banner) this.clearBanner();
     if (this.tradeMat) {
       this.tradeMat.geometry.dispose();
       if (this.tradeMat.material.map) this.tradeMat.material.map.dispose();
@@ -281,6 +284,10 @@ export class Game {
     this.dashUntil = 0;
     this.dashX = 0;
     this.dashZ = 1;
+    // #57: the rally banner. `banner` is { x, z, until, mesh } while one stands, null otherwise; the
+    // mesh itself was disposed at the top of this function, before the old root was dropped.
+    this.banner = null;
+    this.bannerT = 0;
     this.rallyUntil = 0;
     this.alertT = 0;
     this.queenHop = 0;
@@ -823,6 +830,11 @@ export class Game {
       // are the King's own verbs, and neither is his while somebody else has hold of Wren.
       this.dashT = Math.max(0, this.dashT - dt);
       this.hud.setDash(!this.queen.captive || this.queen.taken, this.dashT / CFG.dash.cooldown, this.dashT);
+      // #57: and the banner, which has a life of its own as well as a cooldown -- it is taken down
+      // the frame it runs out rather than being left standing for the army to ignore.
+      this.bannerT = Math.max(0, this.bannerT - dt);
+      if (this.banner && this.time >= this.banner.until) this.clearBanner();
+      this.hud.setBanner(!this.queen.captive || this.queen.taken, this.bannerT / CFG.banner.cooldown, this.bannerT, !!this.bannerStanding());
       this.hud.setCoinTier(this.coinTier());
       // #119: with one number on the HUD instead of two, the one case it could lie about is a player
       // falling behind -- the raid is fought at `raidLevel()`, which runs ahead of the Keep when the

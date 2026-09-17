@@ -313,6 +313,30 @@ export const CFG = {
   // 4.5s against the horn's 22 because they are different kinds of answer, and a verb the player
   // reaches for twice a minute is not a verb.
   dash: { speed: 2.8, duration: 0.3, cooldown: 4.5 },
+
+  // #57: the rally banner, and the only one of the King's three verbs that is a decision about a
+  // PLACE rather than a moment. The horn says "to me"; this says "hold here", and then lets him
+  // leave.
+  //
+  // It is planted where he STANDS rather than aimed. A one-thumb game has no room for a targeting
+  // mode -- tap the button, then tap the ground, with a raid running -- and "walk to the breach and
+  // plant it" is the same decision with none of that interface. It also means the banner cannot be
+  // put somewhere the King could not reach, which is a rule that needs no code.
+  //
+  // `duration` against a 75-second night: 18s is about a quarter of one. Long enough to hold a
+  // breach while he goes for the coin that pays for the wall, short enough to be a moment rather
+  // than a mode -- a banner that outlasted the night would just be the army's new home.
+  //
+  // `cooldown` runs from when it is PLANTED, not from when it falls, so the gap between one banner
+  // and the next is 28 - 18 = 10 seconds of the army being his again. That gap is the cost: an army
+  // committed to a place is an army not behind the King, and he has to spend some of every minute
+  // without the choice.
+  //
+  // The horn SUSPENDS a standing banner rather than tearing it down -- `rallied()` wins in the
+  // formation centre, and when the six seconds are up the army goes back to the banner if it is
+  // still there. Clearing it was the other option and it made the horn a trap: the emergency button
+  // would have cost the player the order they had just spent a cooldown on.
+  banner: { duration: 18, cooldown: 28 },
   // "Train Archers" pad at the range: each level makes every archer hit harder and tougher
   archerTraining: { damage: 0.25, hp: 0.2 },
 

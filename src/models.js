@@ -876,6 +876,28 @@ export function makeGate(level = 0) {
   return bake(g);
 }
 
+// #57: the rally banner the King plants. Blue and gold, the same as the gate's banner and his own
+// tunic, because it is his standard and the player has to read it as "ours" from across a field
+// without being told. Baked to one mesh like every other structure here: it is on the field for
+// eighteen seconds at a time and is not worth four draw calls.
+export function makeRallyBanner() {
+  const g = new THREE.Group();
+  const pole = cyl(0.07, 0.08, 2.7, C.darkWood, 0, 1.35, 0);
+  const finial = cone(0.13, 0.32, C.gold, 0, 2.82, 0, 6);
+  // Hung off one side of the pole rather than centred on it, the way a real standard hangs.
+  const cloth = box(0.86, 1.1, 0.07, C.blue, 0.47, 2.0, 0);
+  cloth.add(
+    box(0.9, 0.12, 0.1, C.gold, 0, 0.5, 0),
+    box(0.16, 0.66, 0.1, C.gold, 0, -0.04, 0.01),
+    box(0.5, 0.16, 0.1, C.gold, 0, 0.1, 0.01),
+  );
+  // A spur, so it reads as driven INTO the ground rather than standing on it.
+  const spur = cone(0.09, 0.32, C.steelDark, 0, 0.12, 0, 5);
+  spur.rotation.x = Math.PI;
+  g.add(pole, finial, cloth, spur);
+  return bake(g);
+}
+
 // ---- scenery ----
 export function makeTree(scale = 1) {
   const g = new THREE.Group();

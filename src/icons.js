@@ -48,6 +48,10 @@ export const ICONS = {
   horn: `<path d="M3 11l10-5v12L3 13z" fill="#f5b800" ${S}/><path d="M13 7c4 0 7 2 7 5s-3 5-7 5" fill="none" stroke="#c98a00" stroke-width="2.4"/><circle cx="20" cy="12" r="2.2" fill="#ffd23f" stroke="#c98a00" stroke-width="1.2"/><path d="M4 12h4" stroke="#8a5a00" stroke-width="1.4"/>`,
   sack: `<path d="M9.3 3.9h5.4l-.8 4.6h-3.8z" fill="#a9763c" ${S}/><path d="M7.3 8.5h9.4c1.8 1.9 2.8 4.2 2.8 6.4 0 3.6-2.8 5.8-7.5 5.8s-7.5-2.2-7.5-5.8c0-2.2 1-4.5 2.8-6.4z" fill="#c69a5e" ${S}/><path d="M9.6 11.2c-1.1 1.3-1.7 2.9-1.7 4.4" fill="none" stroke="#ecd4a8" stroke-width="1.9" stroke-linecap="round"/><rect x="6.7" y="7.2" width="10.6" height="2.9" rx="1.45" fill="#8a5a2b" stroke="${O}" stroke-width="1.5"/>`,
   chev: `<path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`,
+  // #57: the rally banner. A pennant on a pole, hung off one side the way the mesh is, with the
+  // gold cross the cloth carries in the world so the button and the thing on the field are the
+  // same object.
+  banner: `<path d="M6.5 3v18" stroke="#6b4a2b" stroke-width="2.4" stroke-linecap="round"/><path d="M7.6 4.2h10.8l-2.6 3.9 2.6 3.9H7.6z" fill="#2f6fd6" ${S}/><path d="M11.4 5.6h1.9v5.2h-1.9z" fill="#f5b800"/><path d="M9.9 7.4h4.9v1.6H9.9z" fill="#f5b800"/><circle cx="6.5" cy="2.6" r="1.3" fill="#ffd23f" ${S}/>`,
   // #57: the dash. A bolt with speed lines trailing it. The first attempt was a boot leaning into a
   // run, and rendered at the 26px the button actually uses it read as neither a boot nor anything
   // else -- an angular gold shape. A bolt is the one silhouette that survives that size, and it is

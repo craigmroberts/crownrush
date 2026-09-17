@@ -6,6 +6,7 @@ import { audio } from './audio.js';
 import { makeRigged } from './rig.js';
 import {
   makeKing, makeKingFoot, makeQueen, makeArcher, makeSwordsman, makeArrow, makeHealthBar, setHealthBar,
+  makeRallyBanner,
 } from './models.js';
 import { V3, tmp, tmp2, HAIR, rand } from './game-shared.js';
 
@@ -257,8 +258,19 @@ export const UnitsMethods = {
     const A = CFG.army;
     const want = this.king.moving && !rallied ? A.trail : 0;
     this.armyTrail = (this.armyTrail || 0) + (want - (this.armyTrail || 0)) * (1 - Math.exp(-dt * 3.5));
-    const ax = kp.x - Math.sin(this.king.mesh.rotation.y) * this.armyTrail;
-    const az = kp.z - Math.cos(this.king.mesh.rotation.y) * this.armyTrail;
+    // #57: the formation centre, and the whole of what the rally banner does. A standing banner is
+    // the centre instead of the King -- but the horn still outranks it, so "to me!" works while a
+    // banner stands and the army goes back to it when the rally ends rather than the banner being
+    // torn down (see CFG.banner for why suspending beats clearing).
+    const banner = rallied ? null : this.bannerStanding();
+    const ax = banner ? banner.x : kp.x - Math.sin(this.king.mesh.rotation.y) * this.armyTrail;
+    const az = banner ? banner.z : kp.z - Math.cos(this.king.mesh.rotation.y) * this.armyTrail;
+    // What a melee soldier is allowed to chase away from, and where a genuinely stuck one reappears.
+    // The King when there is no banner -- byte for byte the behaviour before #57, because the two
+    // differ by up to `A.trail` and that is a balance change nobody asked for -- the banner when
+    // there is one, because a soldier holding a breach has no business running back to him.
+    const cx = banner ? banner.x : kp.x;
+    const cz = banner ? banner.z : kp.z;
     followers.forEach((u, i) => {
       u.cooldown -= dt;
       if (u.popT > 0) {
@@ -281,7 +293,7 @@ export const UnitsMethods = {
       let target = null;
       if (u.melee) {
         target = this.nearestEnemy(p, u.stats.aggro);
-        if (target && target.mesh.position.distanceTo(kp) < u.stats.aggro + rad + 3) {
+        if (target && Math.hypot(target.mesh.position.x - cx, target.mesh.position.z - cz) < u.stats.aggro + rad + 3) {
           tmp.copy(target.mesh.position);
         } else target = null;
       }
@@ -310,7 +322,7 @@ export const UnitsMethods = {
       // Only for the genuinely stuck -- the wrong side of a wall or a river. It used to fire at 14,
       // which a soldier allowed to trail properly reaches honestly, and a man blinking to the King's
       // feet reads far worse than one jogging to catch up.
-      if (d > A.lost) p.set(kp.x + rand(-1, 1), 0, kp.z + rand(-1, 1));
+      if (d > A.lost) p.set(cx + rand(-1, 1), 0, cz + rand(-1, 1));
       u.moving = moving > 0.05;
       this.animateWalk(u, moving, dt);
 
@@ -513,6 +525,46 @@ export const UnitsMethods = {
 
   dashing() {
     return this.time < this.dashUntil;
+  },
+
+  // #57: the rally banner. Planted at the King's feet -- see CFG.banner for why it is not aimed --
+  // and from then on the army forms up on it rather than on him, until it falls.
+  plantBanner() {
+    if (!this.running || this.bannerT > 0 || this.queen.captive && !this.queen.taken) return;
+    const B = CFG.banner;
+    const kp = this.king.mesh.position;
+    this.clearBanner();
+    const mesh = makeRallyBanner();
+    mesh.position.set(kp.x, 0, kp.z);
+    this.root.add(mesh);
+    this.banner = { x: kp.x, z: kp.z, until: this.time + B.duration, mesh };
+    this.bannerT = B.cooldown;
+    audio.banner();
+    this.spawnFx(kp.x, kp.z, 0x2f6fd6);
+    this.hud.toast('Hold here!', 1100, 'The King');
+  },
+
+  // Standing, or null. A banner that has run out is taken down the frame it does, by `update`.
+  bannerStanding() {
+    return this.banner && this.time < this.banner.until ? this.banner : null;
+  },
+
+  // Takes the banner with it. A run can plant dozens of these, and each one is a merged geometry
+  // that nothing else refers to, so the field is not the place to leave them.
+  //
+  // GEOMETRY ONLY, and that is not a detail. `makeRallyBanner` ends in `bake()`, which returns the
+  // GROUP with one merged mesh inside it -- not a mesh, which is the first thing this got wrong --
+  // and that mesh wears `BAKED_STD`, a module-level material shared by every baked object in the
+  // game. Disposing it here would take the walls, the towers, the Keep and the trees with it the
+  // next time one was drawn. The geometry is this banner's alone; the material never is.
+  clearBanner() {
+    if (!this.banner) return;
+    const g = this.banner.mesh;
+    if (g) {
+      this.root.remove(g);
+      g.traverse((o) => { if (o.isMesh && o.geometry) o.geometry.dispose(); });
+    }
+    this.banner = null;
   },
 
   // archery speed grows with the Keep (archers, towers and the King's own bow)

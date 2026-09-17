@@ -189,7 +189,7 @@ same Wi-Fi and open the "Network" URL that Vite prints instead.
 - Phone: drag anywhere on the screen to move the King (virtual joystick).
 - Desktop: WASD or arrow keys, or drag with the mouse.
 - The warhorn is the horn button bottom-right, or Space. The dash is the bolt beside it, Shift, or a
-  double-tap on a phone.
+  double-tap on a phone. The rally banner is the flag beside that, or B.
 - Pause with the ⏸ button, P or Esc. The game also pauses when the tab goes into the background.
 - Everything else is automatic: the King and his archers shoot the nearest enemy, coins are picked up by
   walking near them, and standing on a build pad spends coins one at a time.
@@ -419,10 +419,12 @@ its level (`CFG.enemy.*.fromLevel`) so you meet one idea at a time:
 - **Shieldbearers** (Keep 7) take a quarter damage from the front. Hits show "blocked". Flank them,
   or let the horn scatter the fight.
 
-## The King's two verbs: the warhorn and the dash
+## The King's three verbs: the warhorn, the dash and the banner
 
-Both live bottom-right, both recharge as a ring filling around their button, and between them they
-are everything the player does in a fight that is not choosing where to stand.
+All three live bottom-right, all three recharge as a ring filling around their button, and between
+them they are everything the player does in a fight that is not choosing where to stand. Before #57
+there was only the horn, on a twenty-two second cooldown — about a hundred button presses in a
+thirty-seven minute run.
 
 The **warhorn** (`CFG.horn`) — the horn button, or Space — rallies the army: every soldier runs to
 the King and fights faster and harder for a few seconds, and the blast shoves nearby raiders back and
@@ -450,6 +452,32 @@ The other thing it fixes is the thief chase. A thief flees at 8.2 against 5.6 on
 used to be a speed check the King simply lost unless he had the horse. A dash closes about 2.2 units,
 and a thief's run is long enough for two of them — enough to catch one if they are spent well, not
 enough if they are not.
+
+The **rally banner** (`CFG.banner`, #57) — the banner button or B — is the one that is a decision
+about a *place*. The horn says "to me"; the banner says "hold here", and then lets him leave. It is
+planted where he stands rather than aimed: a one-thumb game has no room for a targeting mode with a
+raid running, and "walk to the breach and plant it" is the same decision with none of the interface.
+
+While it stands, the army's formation centre is the banner instead of the King — the same ring
+machinery, a different point — so he can leave a breach held and go and fetch the coin that pays for
+the wall. It flies for eighteen seconds of a seventy-five second night and recharges in twenty-eight
+*from when it is planted*, so the gap between one banner and the next is ten seconds of the army
+being his again. That gap is the cost.
+
+The horn **suspends** a standing banner rather than tearing it down: `rallied()` outranks it in the
+formation centre, and when the six seconds are up the army goes back to the banner if it is still
+there. Clearing it was the other option and it made the horn a trap — the emergency button would have
+cost the player the order they had just spent a cooldown on.
+
+Two things follow the banner rather than the King while it stands, and both matter: how far a melee
+soldier may chase a raider before turning back, and where a genuinely stuck one reappears (`A.lost`).
+A soldier holding a breach has no business running back to the King. With no banner both still read
+off the King exactly as they did before, because the formation centre trails him by up to `A.trail`
+and moving them to it would have been a balance change nobody asked for.
+
+Driven, with ten soldiers and the King walked 25 units away: the army sits 1.9 units from the banner
+and 33.4 from the King; the horn brings them to 0.9 from him; six seconds later they are 0.6 from the
+banner again; when it falls they are 0.5 from him.
 
 ## The Queen is taken, never hurt
 

@@ -741,6 +741,34 @@ export class Hud {
     }
   }
 
+  // #57: the banner button. Same shape as the two above, plus `flying` -- whether one is actually
+  // standing, which the ring cannot say because it is filling both while the banner is up and for
+  // the ten seconds after it falls. Dirty-checked like the rest: this runs every frame.
+  setBanner(show, frac, secs, flying) {
+    const b = this.bannerBtn || (this.bannerBtn = document.getElementById('banner-btn'));
+    b.classList.toggle('hidden', !show);
+    if (!show) return;
+    const ready = frac <= 0;
+    if (ready !== this.bannerReady) {
+      this.bannerReady = ready;
+      b.classList.toggle('ready', ready);
+    }
+    if (flying !== this.bannerFlying) {
+      this.bannerFlying = flying;
+      b.classList.toggle('flying', flying);
+    }
+    const pct = Math.round((1 - frac) * 100);
+    if (pct !== this.bannerPct) {
+      this.bannerPct = pct;
+      b.style.setProperty('--cd', `${pct}%`);
+    }
+    const label = ready ? '' : String(Math.ceil(secs));
+    if (label !== this.bannerLabel) {
+      this.bannerLabel = label;
+      document.getElementById('banner-cd').textContent = label;
+    }
+  }
+
   setCoinTier(tier) {
     if (tier === this.coinTier) return;
     this.coinTier = tier;

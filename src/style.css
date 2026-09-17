@@ -1171,18 +1171,25 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
    a primary and a secondary, sitting on the same centreline: (64-56)/2 = 4px of extra bottom.
    No ready-pulse. The horn pulses because it is worth waiting for; a verb that comes back every four
    and a half seconds pulsing at the corner of the eye for most of a run is a tic, not a cue. */
-#dash-btn {
-  position: fixed; right: max(84px, calc(72px + env(safe-area-inset-right))); bottom: max(16px, calc(4px + env(safe-area-inset-bottom)));
+#dash-btn, #banner-btn {
+  position: fixed; bottom: max(16px, calc(4px + env(safe-area-inset-bottom)));
   width: 56px; height: 56px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; pointer-events: auto;
   background: rgba(30, 40, 24, 0.7); box-shadow: 0 6px 16px rgba(0,0,0,0.35); z-index: 5;
   display: grid; place-items: center; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
 }
-#dash-btn.hidden { display: none; }
-#dash-btn .ring { position: absolute; inset: 0; border-radius: 50%;
+#dash-btn { right: max(84px, calc(72px + env(safe-area-inset-right))); }
+#banner-btn { right: max(148px, calc(136px + env(safe-area-inset-right))); }
+#dash-btn.hidden, #banner-btn.hidden { display: none; }
+#dash-btn .ring, #banner-btn .ring { position: absolute; inset: 0; border-radius: 50%;
   background: conic-gradient(#f5b800 var(--cd, 0%), rgba(255,255,255,0.18) 0); -webkit-mask: radial-gradient(circle, transparent 21px, #000 22px); mask: radial-gradient(circle, transparent 21px, #000 22px); }
-#dash-btn i { position: relative; opacity: 0.45; transition: opacity 0.15s, transform 0.15s; }
-#dash-btn.ready i { opacity: 1; transform: scale(1.1); }
-#dash-btn b { position: absolute; color: #fff; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 17px; text-shadow: 0 2px 0 rgba(0,0,0,0.5); }
+#dash-btn i, #banner-btn i { position: relative; opacity: 0.45; transition: opacity 0.15s, transform 0.15s; }
+#dash-btn.ready i, #banner-btn.ready i { opacity: 1; transform: scale(1.1); }
+#dash-btn b, #banner-btn b { position: absolute; color: #fff; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 17px; text-shadow: 0 2px 0 rgba(0,0,0,0.5); }
+/* #57: while the banner is actually STANDING the button says so, because the cooldown ring cannot --
+   it is filling for the ten seconds after the banner falls as well as the eighteen it is up for, and
+   those are opposite states. A steady blue edge, not a pulse: it is a status, not a summons. */
+#banner-btn.flying { background: rgba(28, 46, 78, 0.85); box-shadow: 0 0 0 2px #2f6fd6, 0 6px 16px rgba(0,0,0,0.35); }
+#banner-btn.flying i { opacity: 1; }
 /* the horn has the corner, so the pad tip sits above it */
 
 /* #65: the virtual joystick. This used to be a <style> element the Input constructor built and

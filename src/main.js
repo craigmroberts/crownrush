@@ -120,7 +120,7 @@ const INTRO = [
   // #57: two verbs, one step. A sixth card would make the opening longer for something the player
   // learns faster by pressing it, and these two belong together: they are the only buttons in the
   // game that are the King's own rather than a building's.
-  { icon: 'horn', title: 'Horn and dash', text: 'The horn button (or Space) rallies your army to you and drives them for a few seconds, and the blast throws nearby raiders back — save it for a breach. The bolt beside it (Shift, or double-tap) is a short burst of speed: out of a scrum, or after a thief.' },
+  { icon: 'horn', title: 'The King\u2019s three buttons', text: 'The horn (Space) rallies your army to you and throws nearby raiders back — save it for a breach. The bolt (Shift, or double-tap) is a short burst of speed: out of a scrum, or after a thief. The banner (B) plants where you stand and the army holds that spot instead of following you, so you can go and mine while they defend it.' },
   { icon: 'hammer', title: 'Build', text: 'Stop on a floor marker to spend coins. Square markers build; round ones recruit and upgrade. Walking across a marker costs nothing.' },
   // #125: this step used to say wood, stone and straw went into the Keep, which stopped being true
   // when the material lists were priced into coin -- the first thing a new player reads, sending them
@@ -209,6 +209,11 @@ document.getElementById('dash-btn').addEventListener('pointerdown', (e) => {
   e.preventDefault();
   e.stopPropagation();
   game.useDash();
+});
+document.getElementById('banner-btn').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  game.plantBanner();
 });
 // #75: the mat chip opens to its description rather than showing one unasked.
 document.getElementById('tip-toggle').addEventListener('click', (e) => {
@@ -446,6 +451,9 @@ window.addEventListener('keydown', (e) => {
   // `e.repeat` because a held key fires until it is let go, which would spend the dash again on the
   // exact frame its cooldown ended, forever, without the player pressing anything.
   if (e.key === 'Shift' && !e.repeat) return game.useDash();
+  // #57: B for banner. Not a modifier like the dash, because it is a deliberate order rather than a
+  // reflex, and nothing else in the game uses it.
+  if ((e.key === 'b' || e.key === 'B') && !e.repeat) return game.plantBanner();
   if (e.key === 'i' || e.key === 'I') game.toggleInfo();
   else if (e.key === 'k' || e.key === 'K') game.toggleKeep();
   else if (e.key === 'Escape' && game.settingsOpen) {

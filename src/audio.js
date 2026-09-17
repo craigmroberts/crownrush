@@ -711,6 +711,14 @@ class Audio {
     this.noise({ t, dur: 0.16, gain: 0.07, type: 'bandpass', f: 900, q: 0.8 });
     this.noise({ t: t + 0.04, dur: 0.12, gain: 0.04, type: 'highpass', f: 2200, q: 0.7 });
   }
+  // #57: the banner going in. A low wooden knock and a short cloth snap -- the pole driven into the
+  // ground, not a fanfare. The horn is the fanfare, and two of those a minute would fight.
+  banner() {
+    if (!this.ready()) return;
+    const t = this.now;
+    this.tone({ f: 96, t, dur: 0.16, type: 'triangle', gain: 0.1, attack: 0.004, release: 0.12, lp: 900 });
+    this.noise({ t: t + 0.03, dur: 0.22, gain: 0.05, type: 'bandpass', f: 1500, q: 0.6 });
+  }
   unlock() {
     if (!this.ready()) return;
     const t = this.now;
