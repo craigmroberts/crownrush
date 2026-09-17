@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CFG, MAP, TIERS, NODES } from './config.js';
+import { CFG, MAP, TIERS, NODES, PADS } from './config.js';
 import {
   mat, matFlat, swayMaterial, setSwayUniform, makeTree, makeBush, makeRock, makeSpikes, makeCliff, makePeak, makeBridge, makeHayBale, makeWheatField, mergeGroup,
 } from './models.js';
@@ -363,6 +363,29 @@ export function buildWorld(scene) {
   const inCamp = (x, z) => Math.hypot(x - CFG.finale.pos[0], z - CFG.finale.pos[1]) < CFG.finale.radius + 3;
   const free = (x, z, m = 1.5) => !inVillage(x, z) && !inCliffs(x, z) && !inCamp(x, z) && !nearRiver(x, z, m + 1.5) && !nearRoad(x, z, m) && !nearNode(x, z);
   world.free = free;
+
+  // GRASS GETS ITS OWN RULE, and the reason is that `free` was answering the wrong question for it.
+  //
+  // `inVillage` is the OUTER tier's footprint padded by 3 -- a rectangle 82 by 70 -- and keeping trees
+  // and rocks out of it is right, because the player will eventually build over all of it. Applied to
+  // grass it meant the one part of the map that had none was the part a run is actually played in: at
+  // tier 0 the walls are a ring of radius 19 and everything out to 41 by 35 was bare ground for no
+  // reason the player can see.
+  //
+  // What should be bare is the CITADEL -- the ring the Keep and the three service buildings stand in,
+  // which is packed, paved and walked over all game. Everything outside it is countryside, and the
+  // outer walls enclose "farmland, workshops, homes and all" (see TIERS), so grass inside THOSE is
+  // what a village's own fields look like rather than something that escaped.
+  //
+  // The margins are tighter than `free`'s too. A tree needs 1.5 of clearance from a track; grass
+  // growing up to the edge of one is what a track through a field looks like.
+  const citadel = TIERS[0].ring;
+  const inCitadel = (x, z) => Math.hypot(x - citadel.x, z - citadel.z) < citadel.r + 2;
+  // and off the mats, which carry a name and a price. `spend.padSize` is 3.6 across, so 2.6 keeps a
+  // blade out of the lettering without drawing a bald circle around every pad.
+  const nearPad = (x, z) => PADS.some((p) => Math.abs(p.pos[0] - x) < 2.6 && Math.abs(p.pos[1] - z) < 2.6);
+  const grassFree = (x, z) => !inCitadel(x, z) && !inCliffs(x, z) && !inCamp(x, z)
+    && !nearRiver(x, z, 1.2) && !nearRoad(x, z, 0.5) && !nearNode(x, z) && !nearPad(x, z);
   const half = size / 2 - 6;
   const scenery = new THREE.Group();
   const place = (maker, count, margin = 1.5, minDist = 0) => {
@@ -426,17 +449,32 @@ export function buildWorld(scene) {
     blades.push(b);
   }
   const tuftGeo = mergeGeometries(blades, false);
-  const tufts = new THREE.InstancedMesh(tuftGeo, swayMaterial(0x88bd5a), 700);
+  // 700 over the whole map was one clump every 43 square metres -- scattered dots on a flat plane
+  // rather than a field. 9000 is roughly one every two, which is what reads as grass rather than as
+  // decoration at the game's camera. 5200 was tried first and looked like a meadow somebody had
+  // mostly mown.
+  //
+  // IT IS STILL ONE DRAW CALL, because they are instanced: the count costs triangles and nothing
+  // else. 18 triangles a tuft, so 162k measured, against a scene that measures 824k in open field
+  // and 2.6M under the probe's forced crowd. Draw calls were 187 at 5200 and 209 at 9000 -- that
+  // rise is the extra scenery in frame, not the grass, which is one call at any count.
+  //
+  // THE THING IT COULD HAVE BROKEN IS COINS. They rest at about y 0.25 and a tuft stands 0.55 to
+  // 1.05, so grass is taller than the thing the player walks over to collect. Checked on screen with
+  // 26 coins dropped in open field at both densities: gold on green keeps its separation and no coin
+  // is lost in it. That is the number to revisit first if this ever goes higher.
+  const TUFTS = 9000;
+  const tufts = new THREE.InstancedMesh(tuftGeo, swayMaterial(0x88bd5a), TUFTS);
   const flowerGeo = new THREE.SphereGeometry(0.14, 6, 5);
   const flowerColors = [0xffffff, 0xffd54a, 0xff8aa8];
   const flowers = flowerColors.map((c) => new THREE.InstancedMesh(flowerGeo, mat(c), 70));
   const m4 = new THREE.Matrix4();
   let ti = 0;
   const fi = [0, 0, 0];
-  for (let tries = 0; tries < 6000 && ti < 700; tries++) {
+  for (let tries = 0; tries < TUFTS * 6 && ti < TUFTS; tries++) {
     const x = (rand() * 2 - 1) * half;
     const z = (rand() * 2 - 1) * half;
-    if (!free(x, z, 0.5)) continue;
+    if (!grassFree(x, z)) continue;
     m4.makeRotationY(rand() * Math.PI);
     m4.scale(new THREE.Vector3(1, 0.8 + rand() * 0.6, 1));
     m4.setPosition(x, 0, z);

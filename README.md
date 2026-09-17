@@ -45,6 +45,12 @@ the raids keep coming for a high score.
 - The map has a river that raiders (and the King) can only cross at the bridges where the curved roads
   meet it, so each bridge is a natural choke point. Mesas and snow peaks sit to the north-west, with
   forests, boulders, barricades, a wheat field and flower patches across the meadow.
+- **Grass, and where it is not.** 9000 instanced tufts in one draw call, thick enough outside the
+  walls to read as a field. What is kept bare is the **citadel** -- the tight first ring the Keep and
+  its three service buildings stand in, which is paved and walked over all game. Everything beyond it
+  is countryside, including the ground inside the later walls, because those enclose farmland and
+  homes rather than a city. The mats are kept clear too: `spend.padSize` is 3.6 across and grass is
+  held 2.6 off, so nothing grows through a price.
 - The village starts as a small plot. "Expand Village" pads grow it in three stages, each with its own
   wall ring. When the outer ring is complete the old inner wall is torn down.
 - Walls are real: raiders are blocked and bash at short sections. A battered section degrades to the
