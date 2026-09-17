@@ -755,10 +755,12 @@ export class Hud {
       }
       if (night !== this.raidNight) {
         this.raidNight = night;
-        // Night 0 is the prologue -- the men carrying Wren off, before there is a night to count.
-        // "Night 0" is a counter showing its working; the rescue has a name and this is it.
+        // #146: night 0 no longer means the rescue -- that party is out of the count now, so the bar
+        // cannot come up for it. The only fight left that can happen before night 1 is the camp,
+        // which wakes on proximity with no wave gate; a thief needs `wave >= 2`. So night 0 IS the
+        // camp, and saying so beats "Night 0", which is a counter showing its working.
         (this.rbNight || (this.rbNight = document.getElementById('rb-night'))).textContent =
-          night > 0 ? `Night ${night}` : 'The rescue';
+          night > 0 ? `Night ${night}` : 'The camp';
       }
       // The Warlord is the one enemy the player has a word for, so he gets his name on the bar and
       // everybody else is "Raiders". A boss arriving mid-night rewrites the line under way, which is

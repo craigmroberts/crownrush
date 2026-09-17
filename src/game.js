@@ -366,6 +366,9 @@ export class Game {
       const a = (i / CFG.rescue.captors) * Math.PI * 2 + 0.6;
       const e = this.spawnEnemy('knight', CFG.rescue.pos[0] + Math.cos(a) * 2.3, CFG.rescue.pos[1] + Math.sin(a) * 2.3, CFG.rescue.captorRank || 0);
       e.captor = true;
+      // #146: and a flag that is never cleared. `captor` is, the moment they charge (`updateCaptive`),
+      // so it cannot answer "is this the opening" for anything that outlives the alert.
+      e.rescue = true;
       e.orbit = a;
       e.orbitDir = i % 2 ? -1 : 1;
       e.mesh.rotation.y = Math.atan2(-Math.cos(a), -Math.sin(a));
@@ -374,6 +377,7 @@ export class Game {
       // #30: the one who actually holds her. A brute, so the rescue has to be fought rather than walked.
       const cap = this.spawnEnemy('brute', CFG.rescue.pos[0], CFG.rescue.pos[1] - 2.6, CFG.rescue.captainRank || 1);
       cap.captor = true;
+      cap.rescue = true;
       cap.orbit = -Math.PI / 2;
       cap.orbitDir = 1;
       cap.mesh.rotation.y = Math.PI;

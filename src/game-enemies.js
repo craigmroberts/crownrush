@@ -286,12 +286,27 @@ export const EnemiesMethods = {
   // what had not landed yet would climb while they walked on and only then start falling -- it would
   // be measuring the spawner rather than the fight.
   //
-  // The Queen's guards count. They are not a raid, but they are a fight -- the FIRST one, before
-  // anything has been explained -- and "how many are left" is the same question there. Leaving them
-  // out taught a new player that the meter does not apply to fights before they learned it applies
-  // to raids. The camp is different and stays out while it sleeps: its garrison stands across the
-  // map from the opening frame, and counting it would put a meter on screen for a fight nobody is
-  // in. It counts itself in the moment updateCampSleeper wakes it and clears `camp`.
+  // Two kinds of enemy are out of it, for the same reason by different routes: nobody is fighting
+  // them yet.
+  //
+  // The CAMP stands across the map from the opening frame and counting it would put a bar on screen
+  // for a fight nobody is in. It counts itself in the moment `updateCampSleeper` wakes it and clears
+  // `camp`.
+  //
+  // The QUEEN'S GUARDS used to count, deliberately, and #146 is that decision being wrong now. The
+  // argument was that the rescue is the first fight and "how many are left" is the same question
+  // there -- which was fair when this was a ring in the corner of the top bar, and is not once it is
+  // a full-width bar reading "Night 1 / Raiders / 7 left" over a run the player has not started. The
+  // report is exactly that: "the enemy meter is shown before i interact".
+  //
+  // `rescue` rather than `captor`, and rather than the `night > 0` the ticket proposed. `captor` is
+  // cleared the moment the guards charge, so it would hide the bar until the King is spotted and then
+  // raise it mid-rescue -- the same bug arriving late. `night > 0` looks right and quietly breaks the
+  // one other fight that can happen before night 1: walking north wakes the camp on proximity alone
+  // (`updateCampSleeper`, no wave gate -- there is a toast written for it, "The whole camp is up and
+  // you are one man"), and that is a fight where the count matters a great deal. `rescue` is set once
+  // at spawn and never cleared, so it means the opening party and nothing else: a mid-run recapture
+  // chase (#16) is ordinary raiders and keeps its bar.
   raidRemaining(out) {
     out.hp = 0;
     out.count = 0;
@@ -300,7 +315,7 @@ export const EnemiesMethods = {
     // rather than a second pass over the same list.
     out.boss = false;
     for (const e of this.enemies) {
-      if (e.camp) continue;
+      if (e.camp || e.rescue) continue;
       out.hp += Math.max(0, e.hp);
       out.count++;
       if (e.type === 'boss') out.boss = true;
