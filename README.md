@@ -663,6 +663,13 @@ Built with [Three.js](https://threejs.org/) and [Vite](https://vitejs.dev/). No 
 `tools/blender/make_character.py` builds a rigged chibi character from primitives, gives it Idle, Walk and
 Attack clips, exports a GLB and renders a preview:
 
+Three clips is all there is, and it is the gap in the game's motion: **there is no death, hit, run or
+mine clip** (#55). `bakeBones` already takes an arbitrary number -- it names those three and appends
+whatever else it finds -- and a clip costs 25 to 60 rows of the bone texture, tens of kilobytes. So
+this is authoring work in the script above, not engineering. Two of the things that gap caused have
+been fixed without clips, and are described under the crowd below: how a character falls over, and
+the rate its walk cycle plays at.
+
 ```bash
 blender -b -P tools/blender/make_character.py -- king public/models/king.glb .shots/king.png
 npm run models    # then re-compress; Blender cannot write the format the game loads
@@ -732,9 +739,24 @@ currently clears. The rule is: what the opening needs stays JPEG, everything aft
 `tools/models/compress.mjs` holds the same split (#51). Measured: nothing of the transcoder arrives
 before Play, and both devices report the same 2972 kB.
 
+Two things the lack of clips used to cost, fixed without any (#55):
+
+- **A character falls over when it dies.** It used to rotate on X at a constant rate, sink and shrink,
+  so everything corkscrewed into the floor at whatever angle the clock left it -- the payoff for every
+  one of the ~143 kills in a night-30 wave. It topples about its feet now, away from whatever killed
+  it, with gravity in the curve and one small bounce as it lands, and only sinks under the fade at the
+  very end. The Euler order changes to `YXZ` for a body: the default applies the tip before the
+  facing, so a raider looking east would have fallen north whatever hit it.
+- **The walk cycle plays at the speed its owner is moving.** Speeds here run from the boss's 2.3 to an
+  army archer's 9.0 and every one of them played the same cycle at the same rate, so most of the field
+  was either moonwalking or paddling. The stride is baked into the clip, so the rate is
+  `speed / CFG.walkAnim.refSpeed`, clamped. The crowd carries it as a per-instance attribute because
+  an `InstancedMesh` has no mixer; the skinned path uses `timeScale`.
+
 What keeps it fast:
 - The crowd — raiders, archers, swordsmen, elites, brutes, the boss — is ONE instanced draw per model,
-  animated on the GPU from a baked bone-matrix texture (`src/crowd.js`). 181 characters cost 6 draw
+  animated on the GPU from a baked bone-matrix texture (`src/crowd.js`), each instance carrying its own
+  clip, phase and **playback rate**. 181 characters cost 6 draw
   calls and no bone textures where they used to cost about 360 and one texture each. The King and the
   Queen stay on the skinned path. `?crowd=0` puts everything back on it.
 - Every character on the skinned path is ONE skinned mesh with vertex colours and a per-vertex

@@ -815,6 +815,11 @@ export class Game {
         ent.animAcc = 0;
       } else rig.mixer.update(dt);
       if (!ent.rigOnce || ent.rigOnce <= this.time) rig.play(ent.moving ? 'Walk' : 'Idle');
+      // #55: and at the speed it is actually travelling. Everything shared one Walk cycle at one
+      // rate, across speeds from the boss's 2.3 to an army archer's 9.0, so most of the field was
+      // either moonwalking or paddling. The stride is baked into the clip, so the rate that stops
+      // the feet sliding is just speed / the speed it was baked for -- see CFG.walkAnim.
+      if (rig.setRate) rig.setRate(ent.moving ? this.walkRate(ent) : 1);
     }
     // Instanced characters have a mixer that does nothing, so the loop above costs them a call and
     // leaves. Their poses come from here instead: one matrix and four floats each, no skeletons.
@@ -908,12 +913,13 @@ export class Game {
       // boom
       const wall = hit || (reachedKeep ? this.keep : null);
       if (wall) this.damageWall(wall, e.damage * e.stats.blast);
-      for (const u of this.units) if (u.mesh.position.distanceTo(p) < 2.2) this.damageUnit(u, e.damage);
+      // #55: a sapper's blast throws everyone it catches outwards from where it went off
+      for (const u of this.units) if (u.mesh.position.distanceTo(p) < 2.2) this.damageUnit(u, e.damage, p);
       this.burstFx(tmp.copy(p).setY(1.0), '#ffb347', 5, 0.45);
       this.shake = 0.3;
       audio.wallHit();
       e.hp = 0;
-      this.killEnemy(e);
+      this.killEnemy(e, p);
     }
   }
 

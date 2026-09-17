@@ -360,7 +360,7 @@ export const UnitsMethods = {
     }
   },
 
-  damageUnit(u, dmg) {
+  damageUnit(u, dmg, from = null) {
     // #83: nothing hurts the Queen. She used to be worn down like anyone else and her health
     // reaching zero was a capture wearing a health bar -- so she flinched, flashed red and cried out
     // on the way to a thing that was never a death. Raiders take her by getting hold of her instead
@@ -385,7 +385,7 @@ export const UnitsMethods = {
       if (u.type === 'king') this.gameOver(u.type);
       this.units.splice(this.units.indexOf(u), 1);
       u.bar.visible = false;
-      this.dying.push({ mesh: u.mesh, t: 0.4 });
+      this.fell(u.mesh, from, 0.5);
     }
   },
 
@@ -539,7 +539,7 @@ export const UnitsMethods = {
     setHealthBar(t.bar, Math.max(0, t.hp / t.maxHp));
     if (t.hp > 0) return;
     this.turrets.splice(this.turrets.indexOf(t), 1);
-    this.dying.push({ mesh: t.mesh, t: 0.4 });
+    this.fell(t.mesh, null, 0.5);
     if (t.tower && this.towers[t.tower]) {
       const tw = this.towers[t.tower];
       tw.crew = Math.max(0, tw.crew - 1);
@@ -563,7 +563,7 @@ export const UnitsMethods = {
         if (d < CFG.arrow.speed * dt + (t.radius || 0.5) * 0.5) {
           if (a.hostile) {
             if (t.isTurret) this.damageTurret(t, a.damage);
-            else this.damageUnit(t, a.damage);
+            else this.damageUnit(t, a.damage, a.from && a.from.mesh ? a.from.mesh.position : null);
           } else this.damageEnemy(t, a.damage, tmp, a.from);
           this.root.remove(a.mesh);
           this.arrows.splice(i, 1);

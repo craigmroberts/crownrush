@@ -410,6 +410,24 @@ export const CFG = {
   // -- see `addPad`, where it went 1 -> 4 in 5.3 seconds.
   spend: { tick: 0.07, fastTick: 0.022, crewTick: 0.28, padRadius: 1.7, arm: 0.25, bought: 1.0, walkHold: 0.8, showRadius: 10, showNew: 7 },
 
+  // #55: the Walk clip plays at the speed its owner is actually moving.
+  //
+  // Every character shared one cycle at one rate. The speeds in this file run from the boss's 2.3 to
+  // an army archer's 9.0 -- 3.9x apart -- so most of the field was either moonwalking (feet too slow
+  // for the ground going past) or paddling. The stride length is baked into the clip, so the rate
+  // that stops the feet sliding is speed / the speed it was baked for, and nothing else.
+  //
+  // `refSpeed` is that baked speed. 3.8 is the knight, which is both the median of the enemy table and
+  // the character there are seventy of on a bad night -- so the commonest thing on screen plays at
+  // exactly 1.0 and looks the way it always did. Everything else moves relative to it.
+  //
+  // Clamped at both ends because linear is only right in the middle. Below 0.55 a walk stops reading
+  // as walking and becomes a mime; above 1.9 the legs blur and it reads as a bug rather than as
+  // speed. The boss lands on the floor (2.3/3.8 = 0.61) and the army archer on the ceiling
+  // (9.0/3.8 = 2.37 -> 1.9), which is the right way round: the extremes are the two the eye is least
+  // often on.
+  walkAnim: { refSpeed: 3.8, min: 0.55, max: 1.9 },
+
   // #95/#97: how a notice is read out.
   // `lines` is the cap: past three, the rest becomes another page behind a bobbing arrow. Three is
   // what fits over the world at phone width without the notice becoming the screen.

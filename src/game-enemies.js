@@ -589,12 +589,12 @@ export const EnemiesMethods = {
           this.attackAnim(e);
           if (e.stats.aoe) {
             for (const u of this.units) {
-              if (u.mesh.position.distanceTo(p) < e.stats.aoe + 1) this.damageUnit(u, e.damage);
+              if (u.mesh.position.distanceTo(p) < e.stats.aoe + 1) this.damageUnit(u, e.damage, p);
             }
             if (this.keep && this.keep.state === 'built' && this.keep.mesh.position.distanceTo(p) < e.stats.aoe + 2.5) this.damageWall(this.keep, e.damage * 2);
             this.shake = 0.25;
           } else if (t.isKeep) this.damageWall(t, e.damage);
-          else this.damageUnit(t, e.damage);
+          else this.damageUnit(t, e.damage, e.mesh.position);
         }
       }
       if (e.mesh.userData.body && e.mesh.userData.body.rotation.x > 0) e.mesh.userData.body.rotation.x = Math.max(0, e.mesh.userData.body.rotation.x - dt * 3);
@@ -973,14 +973,15 @@ export const EnemiesMethods = {
     this.burstFx(hitPos, '#dff4ff', 0.9, 0.18);
     setHealthBar(e.bar, Math.max(0, e.hp / e.maxHp));
     this.popup(`-${Math.round(dmg)}`, hitPos, e.type === 'boss' ? '#ffffff' : '#ffe27a', e.type === 'boss' ? 2.6 : 1.4, e, dmg);
-    if (e.hp <= 0) this.killEnemy(e);
+    // #55: the body falls away from whatever killed it, so the blow is readable in the fall
+    if (e.hp <= 0) this.killEnemy(e, (from && from.mesh && from.mesh.position) || hitPos || null);
   },
 
-  killEnemy(e) {
+  killEnemy(e, from = null) {
     this.enemies.splice(this.enemies.indexOf(e), 1);
     if (e.escort && this.queen.taken && !this.enemies.some((x) => x.escort)) this.rescueTaken();
     e.bar.visible = false;
-    this.dying.push({ mesh: e.mesh, t: 0.5 });
+    this.fell(e.mesh, from, 0.5);
     tmp.copy(e.mesh.position).setY(e.type === 'boss' ? 2.5 : 1.0);
     this.burstFx(tmp, '#ffffff', e.type === 'boss' ? 6 : 2.6, 0.38);
     if (e.carrying) {

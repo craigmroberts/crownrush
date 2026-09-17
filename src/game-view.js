@@ -873,15 +873,71 @@ export const ViewMethods = {
     });
   },
 
+  // #55: what rate this character's walk cycle should play at. Its own speed against the speed the
+  // clip was baked for -- see CFG.walkAnim for why 3.8 and why it is clamped.
+  //
+  // `stats.speed` rather than the distance it moved this frame: a soldier pushing through a scrum is
+  // still walking, and reading the frame delta would have the whole crowd stuttering between rates
+  // every time anyone bumped into anyone.
+  walkRate(ent) {
+    const base = (ent.stats && ent.stats.speed) || CFG.walkAnim.refSpeed;
+    const boost = ent === this.king ? 1 : (this.mods && this.mods.unitSpeed) || 1;
+    const w = CFG.walkAnim;
+    return Math.min(w.max, Math.max(w.min, (base * boost) / w.refSpeed));
+  },
+
+  // #55: how a body goes down, in one place, so the three things that die all die the same way.
+  //
+  // `from` is where the blow came from and the body falls AWAY from it, which is the whole of what
+  // makes this read as a death rather than an animation: an archer shot from the front goes over
+  // backwards, one cut down from the side goes sideways. `pitch` and `roll` are that direction in the
+  // character's OWN frame, which is why the Euler order changes -- the default XYZ applies the tip
+  // before the facing, so a raider looking east would fall north whatever hit it.
+  fell(mesh, from = null, dur = 0.5) {
+    let pitch = 1;
+    let roll = 0;
+    if (from) {
+      const a = Math.atan2(mesh.position.x - from.x, mesh.position.z - from.z) - mesh.rotation.y;
+      pitch = Math.cos(a);
+      roll = -Math.sin(a);
+    }
+    mesh.rotation.order = 'YXZ';
+    this.dying.push({ mesh, t: dur, dur, pitch, roll, y0: mesh.position.y, s0: mesh.scale.x });
+  },
+
   updateEffects(dt) {
     for (const w of this.walls) if (w.mesh && w.mesh.position.y > 0) w.mesh.position.y = Math.max(0, w.mesh.position.y - dt * 0.4);
     if (this.keep && this.keep.mesh.position.y > 0) this.keep.mesh.position.y = Math.max(0, this.keep.mesh.position.y - dt * 0.4);
+    // #55: a character falls over now instead of spinning into the floor.
+    //
+    // What was here rotated on X at a constant rate, sank, and shrank -- so everything died by
+    // corkscrewing downwards through the ground, at whatever angle the clock happened to leave it.
+    // That is the payoff for every one of the ~143 kills in a night-30 wave, and it read as a bug.
+    //
+    // There is still no death CLIP: the clips are authored in `tools/blender/make_character.py` and
+    // baked by `npm run models`, and that needs Blender. This is the clipless half -- a topple about
+    // the feet, which is the one thing a rigid body can do that looks deliberate. It keeps the same
+    // `dying` entry and the same cleanup, so when a real clip does arrive it replaces the rotation
+    // here and nothing else.
+    //
+    // `ease` is the fall: slow to tip, then quick, then a small settle past 90 degrees and back. A
+    // linear fall looks like a felled tree in a vacuum; the overshoot is what makes it land.
     for (let i = this.dying.length - 1; i >= 0; i--) {
       const d = this.dying[i];
       d.t -= dt;
-      d.mesh.rotation.x += dt * 4;
-      d.mesh.position.y -= dt * 1.5;
-      d.mesh.scale.multiplyScalar(1 - dt * 1.5);
+      const p = 1 - Math.max(0, d.t) / d.dur;
+      const tip = p < 0.72
+        ? (p / 0.72) ** 1.7                                      // tipping: gravity, not a constant rate
+        : 1 + Math.sin((p - 0.72) / 0.28 * Math.PI) * 0.055;     // landed: one small bounce and still
+      d.mesh.rotation.x = d.pitch * tip * (Math.PI / 2);
+      d.mesh.rotation.z = d.roll * tip * (Math.PI / 2);
+      // It only sinks at the very end, under the fade, so the body is lying ON the ground for most of
+      // the half second rather than through it.
+      if (p > 0.78) {
+        const g = (p - 0.78) / 0.22;
+        d.mesh.position.y = d.y0 - g * 0.55;
+        d.mesh.scale.setScalar(Math.max(0.01, d.s0 * (1 - g * 0.85)));
+      }
       if (d.t <= 0) {
         this.root.remove(d.mesh);
         this.disposeEntity(d.mesh);

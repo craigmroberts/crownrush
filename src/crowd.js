@@ -146,6 +146,7 @@ function addPartAttribute(geometry, parts) {
 // shadows, so a character's shadow can never drift out of step with the character.
 const SKIN_CHUNK = /* glsl */`
 attribute vec4 aAnim;    // x: first row of the clip, y: frames in it, z: when it started, w: 1 loop / 0 clamp
+attribute float aRate;   // #55: playback speed, 1 = the rate the clip was baked at
 attribute float aRow;    // this instance's row in the palette
 attribute float aPart;   // which part of the body this vertex belongs to
 uniform sampler2D uBones;
@@ -165,7 +166,12 @@ mat4 crowdBone(float index, float row) {
 }
 
 mat4 crowdSkinMatrix() {
-  float elapsed = (uTime - aAnim.z) * uFps;
+  // #55: uFps is the bake rate and is the same for every character of a model; aRate is this one's
+  // own. A boss moves at 2.3 and an army archer at 9.0 -- 3.9x apart, and both used to play the same
+  // walk cycle at the same speed, so one moonwalked and the other paddled. The stride is baked into
+  // the clip, so matching the rate to the speed is what stops the feet sliding.
+  // (No backticks in here: this whole chunk is a template literal, and one would end it.)
+  float elapsed = (uTime - aAnim.z) * uFps * aRate;
   float frame = aAnim.w > 0.5 ? mod(elapsed, aAnim.y) : clamp(elapsed, 0.0, aAnim.y - 1.0);
   float row = aAnim.x + floor(max(frame, 0.0));
   return crowdBone(skinIndex.x, row) * skinWeight.x
@@ -271,10 +277,13 @@ class CrowdModel {
 
     const anim = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 4), 4);
     const row = new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1);
+    const rate = new THREE.InstancedBufferAttribute(new Float32Array(capacity).fill(1), 1);
     anim.setUsage(THREE.DynamicDrawUsage);
     row.setUsage(THREE.DynamicDrawUsage);
+    rate.setUsage(THREE.DynamicDrawUsage);
     mesh.geometry.setAttribute('aAnim', anim);
     mesh.geometry.setAttribute('aRow', row);
+    mesh.geometry.setAttribute('aRate', rate);
 
     // Shadows: the depth pass has to run the same skinning, or the shadow is of the bind pose.
     const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
@@ -290,6 +299,7 @@ class CrowdModel {
     this.mesh = mesh;
     this.anim = anim;
     this.row = row;
+    this.rate = rate;
     this.capacity = capacity;
   }
 
@@ -351,6 +361,7 @@ class CrowdModel {
     const matrix = this.mesh.instanceMatrix.array;
     const anim = this.anim.array;
     const row = this.row.array;
+    const rate = this.rate.array;
     let n = 0;
     for (let i = 0; i < live.length; i++) {
       const e = live[i];
@@ -368,12 +379,14 @@ class CrowdModel {
       anim[n * 4 + 2] = e.startedAt;
       anim[n * 4 + 3] = e.loop ? 1 : 0;
       row[n] = e.row;
+      rate[n] = e.rate;
       n++;
     }
     this.mesh.count = n;
     this.mesh.instanceMatrix.needsUpdate = true;
     this.anim.needsUpdate = true;
     this.row.needsUpdate = true;
+    this.rate.needsUpdate = true;
     return n;
   }
 
@@ -446,6 +459,7 @@ export class Crowd {
       startedAt: this.time - Math.random() * (idle.frames / FPS),
       current: 'Idle',
       until: 0,
+      rate: 1,
     };
     model.entries.push(entry);
 
@@ -469,7 +483,11 @@ export class Crowd {
 
     const tint = (part, hex) => model.writeTint(entry.row, part, hex);
 
-    const rig = { mesh: proxy, mixer: NULL_MIXER, actions: model.baked.clips, play, tint };
+    // #55: one number, written every frame by the same loop that picks the clip. A one-shot keeps its
+    // own rate -- an Attack does not get faster because its owner is running.
+    const setRate = (r) => { entry.rate = entry.loop ? r : 1; };
+
+    const rig = { mesh: proxy, mixer: NULL_MIXER, actions: model.baked.clips, play, tint, setRate };
     proxy.userData.rig = rig;
     proxy.userData.crowd = true;
     return rig;

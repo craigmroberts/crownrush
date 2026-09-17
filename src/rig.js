@@ -337,6 +337,10 @@ export function makeRigged(name, tints = null) {
     a.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.15).play();
     current = a;
   };
+  // #55: the skinned path's half of the playback rate. The crowd carries it as a per-instance
+  // attribute because an InstancedMesh has no mixer; here there is one, and `timeScale` is it. Only
+  // the looping clip is scaled -- a one-shot Attack does not get faster because its owner is running.
+  const setRate = (r) => { if (current) current.timeScale = r; };
   // Recolour one named part (e.g. 'hair'). Gives this clone its own colour attribute; every other
   // attribute stays shared with the template so no extra GPU memory is used.
   const tint = (part, hex) => {
@@ -359,6 +363,6 @@ export function makeRigged(name, tints = null) {
     for (const r of ranges) for (let i = r.start; i < r.start + r.count; i++) col.setXYZ(i, c.r, c.g, c.b);
     col.needsUpdate = true;
   };
-  mesh.userData.rig = { mixer, actions, play, tint };
-  return { mesh, mixer, actions, play, tint };
+  mesh.userData.rig = { mixer, actions, play, tint, setRate };
+  return { mesh, mixer, actions, play, tint, setRate };
 }
