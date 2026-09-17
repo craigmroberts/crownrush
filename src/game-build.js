@@ -492,6 +492,10 @@ export const BuildMethods = {
   },
 
   leaveEditMode() {
+    // #138: the pan goes with the mode. One place, because every way out of a placement -- confirm,
+    // cancel, restart -- already runs through here, and a camera left off the King is a game whose
+    // own player is off screen.
+    this.camPan = null;
     if (this.input) this.input.suspended = false;
     document.body.classList.remove('placing');
     this.hidePlaceGrid();
@@ -537,6 +541,52 @@ export const BuildMethods = {
     if (!g) return;
     pl.at.x = this.snapPlace(g.x);
     pl.at.z = this.snapPlace(g.z);
+  },
+
+  // #138: is this press on the ghost, or on the ground beside it? One box test decides which gesture
+  // the drag is, which is the whole of giving edit mode two of them.
+  //
+  // The box is the footprint plus `CFG.place.grab`, and the margin is not politeness: a watchtower is
+  // 2.50 x 3.32 world units, which at the game's camera is a target about a thumb wide and no more.
+  // Without it the ghost would be the harder thing to hit of the two, and it is the one the player
+  // came here to move.
+  onPlacingGhost(clientX, clientY) {
+    const pl = this.placing;
+    if (!pl) return false;
+    const g = this.groundAt(clientX, clientY);
+    if (!g) return false;
+    const [w, d] = CFG.footprint[pl.def.structure] || [3, 3];
+    const m = CFG.place.grab;
+    return Math.abs(g.x - pl.at.x) <= w / 2 + m && Math.abs(g.z - pl.at.z) <= d / 2 + m;
+  },
+
+  // #138: drag the ground and the ground follows the finger.
+  //
+  // The arithmetic is the self-correcting kind rather than a pixels-to-world scale, because the
+  // camera it is reading through is the one it is moving. `groundAt` answers in the CURRENT camera's
+  // space, and that space is the un-panned one shifted by `camPan` -- so the pan that puts the
+  // grabbed world point back under the finger is `grabbed - (here - camPan)`. Any drift corrects
+  // itself on the next move rather than accumulating.
+  //
+  // Held to the tier's own bounds, which is the rectangle a building may legally stand in and the
+  // one the grid draws. A pan that can wander to the far quarries is a pan you have to walk back.
+  panPlacingTo(clientX, clientY) {
+    const pan = this.camPan;
+    if (!pan) return;
+    const here = this.groundAt(clientX, clientY);
+    if (!here) return;
+    const b = TIERS[this.tier].bounds;
+    const m = CFG.place.panMargin;
+    const kp = this.king.mesh.position;
+    pan.x = Math.min(Math.max(pan.grabX - (here.x - pan.x), b.x0 - m - kp.x), b.x1 + m - kp.x);
+    pan.z = Math.min(Math.max(pan.grabZ - (here.z - pan.z), b.z0 - m - kp.z), b.z1 + m - kp.z);
+  },
+
+  beginPlacingPan(clientX, clientY) {
+    const g = this.groundAt(clientX, clientY);
+    if (!g || !this.placing) return false;
+    this.camPan = { x: this.camPan ? this.camPan.x : 0, z: this.camPan ? this.camPan.z : 0, grabX: g.x, grabZ: g.z };
+    return true;
   },
 
   // #43, the moving half. A building already standing is picked up and put down again, and the

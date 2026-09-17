@@ -243,6 +243,8 @@ document.getElementById('place-btn').addEventListener('pointerdown', (e) => {
 let dragId = null;      // the pointer now dragging a ghost
 let holdTimer = 0;      // the long press that has not fired yet
 let holdAt = null;      // where it went down, so travel can cancel it
+let panId = null;       // #138: the finger dragging the view, which is never the one dragging the ghost
+let panFrom = null;     // and how far it has travelled, so a press that never moved can be a tap
 const endHold = () => {
   clearTimeout(holdTimer);
   holdTimer = 0;
@@ -251,9 +253,17 @@ const endHold = () => {
 canvas.addEventListener('pointerdown', (e) => {
   if (!game) return;
   if (game.placing) {
-    // Already in hand: this press takes over the drag. Not moved on the down itself -- a tap meant
-    // for the tick that lands slightly off it should not fling the building across the village.
-    dragId = e.pointerId;
+    // #138: edit mode has two gestures now. On the ghost moves the building; anywhere else pans the
+    // camera, which is what it could not do at all -- the King is frozen during a placement, so the
+    // view was pinned to whatever was on screen when it started.
+    //
+    // Still not moved on the down itself: a tap meant for the tick that lands slightly off it should
+    // not fling the building across the village.
+    if (game.onPlacingGhost(e.clientX, e.clientY)) dragId = e.pointerId;
+    else if (game.beginPlacingPan(e.clientX, e.clientY)) {
+      panId = e.pointerId;
+      panFrom = { x: e.clientX, y: e.clientY, moved: 0 };
+    }
     return;
   }
   holdAt = { x: e.clientX, y: e.clientY, id: e.pointerId };
@@ -272,12 +282,31 @@ window.addEventListener('pointermove', (e) => {
     game.dragPlacingTo(e.clientX, e.clientY);
     return;
   }
+  if (panId === e.pointerId && game.placing) {
+    // Nothing moves until the press has travelled, so a tap is perfectly still. Without it the four
+    // pixels a thumb rolls on the way up slid the view before the tap landed. Same `longSlop` that
+    // already separates a hold on a building from a drag.
+    if (panFrom) panFrom.moved = Math.max(panFrom.moved, Math.hypot(e.clientX - panFrom.x, e.clientY - panFrom.y));
+    if (panFrom && panFrom.moved < CFG.place.longSlop) return;
+    game.panPlacingTo(e.clientX, e.clientY);
+    return;
+  }
   // A press that travels is a drag on the joystick, not a hold on a building.
   if (holdAt && e.pointerId === holdAt.id
       && Math.hypot(e.clientX - holdAt.x, e.clientY - holdAt.y) > CFG.place.longSlop) endHold();
 });
 const dropDrag = (e) => {
   if (dragId === e.pointerId) dragId = null;
+  if (panId === e.pointerId) {
+    // #138: a press on the ground that never travelled is a TAP, and a tap puts the building there.
+    // Without this, panning is a trap: pan far enough to find the spot and the ghost is off screen
+    // behind you, so "drag the object" -- the thing the ticket asks for -- is a gesture you can no
+    // longer start. Pan to the place, tap it, then drag the ghost to fine-tune if you want to.
+    // `longSlop` is the same 14px that already separates a hold on a building from a drag.
+    if (panFrom && panFrom.moved < CFG.place.longSlop && game.placing) game.dragPlacingTo(e.clientX, e.clientY);
+    panId = null;
+    panFrom = null;
+  }
   if (holdAt && e.pointerId === holdAt.id) endHold();
 };
 window.addEventListener('pointerup', dropDrag);

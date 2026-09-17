@@ -279,14 +279,25 @@ export const ViewMethods = {
   updateCamera(dt) {
     const kp = this.king.mesh.position;
     const d = this.camDist;
-    tmp.set(kp.x, d * 0.92, kp.z + d * 0.8);
+    // #138: the only thing that ever moves the camera off the King, and it exists only while a
+    // building is in hand. Edit mode spent the canvas's one gesture on the ghost and the King is
+    // frozen for the duration, so the view was pinned to whatever happened to be on screen when the
+    // placement started -- you could only build on the patch you were already looking at. `camPan`
+    // is written by a drag on the ground and cleared when the placement ends, so nothing outside
+    // edit mode can leave the camera somewhere the King is not.
+    const px = this.camPan ? this.camPan.x : 0;
+    const pz = this.camPan ? this.camPan.z : 0;
+    tmp.set(kp.x + px, d * 0.92, kp.z + pz + d * 0.8);
     if (this.shake > 0) {
       this.shake -= dt;
       tmp.x += (Math.random() - 0.5) * 0.5;
       tmp.z += (Math.random() - 0.5) * 0.5;
     }
-    this.camera.position.lerp(tmp, 1 - Math.exp(-dt * 6));
-    tmp2.set(kp.x, 0, kp.z - 2);
+    // A pan follows the finger rather than easing after it: the ground has to stay under the thumb
+    // or the drag reads as slipping. The King's own follow keeps its ease.
+    if (this.camPan) this.camera.position.copy(tmp);
+    else this.camera.position.lerp(tmp, 1 - Math.exp(-dt * 6));
+    tmp2.set(kp.x + px, 0, kp.z + pz - 2);
     this.camera.lookAt(tmp2);
     this.sun.position.set(kp.x + 18 + (34 - this.sunHeight) * 0.6, this.sunHeight, kp.z + 12 + (34 - this.sunHeight) * 0.4);
     this.sun.target.position.set(kp.x, 0, kp.z);

@@ -677,7 +677,20 @@ export const CFG = {
   // up. It has to clear TAP_TIME (200ms, input.js) by enough that a slow tap is never a pick-up, and
   // stay under the point where a player assumes nothing is going to happen. 450 was tried against 300
   // and 600: at 300 a deliberate tap on a tower sometimes lifted it, at 600 it reads as broken.
-  place: { grid: 2, longPress: 450, longSlop: 14 },
+  // #138: `grab` is how far outside its own footprint a press still counts as grabbing the ghost, and
+  // `panMargin` is how far past the buildable rectangle the view may be dragged.
+  //
+  // A press on the ghost moves the building; a press anywhere else pans the camera, which edit mode
+  // had no way to do at all -- the King is frozen during a placement and the camera is a fixed offset
+  // from him, so you could only build on the patch of ground that happened to be on screen when you
+  // started. 1.2 because the smallest movable building is the watchtower at 2.50 x 3.32, and half of
+  // the short side is 1.25: the margin roughly doubles the narrow axis rather than being a round
+  // number picked off the buildable grid, which is 2.
+  //
+  // `panMargin` 6 lets the edge of the plot sit clear of the screen edge rather than exactly on it,
+  // and stops the pan wandering to the far quarries -- a view you have to walk back from is worse
+  // than one that will not go there.
+  place: { grid: 2, longPress: 450, longSlop: 14, grab: 1.2, panMargin: 6 },
 
   // #144: `showRadius` was 10 and the field read as a car park of floor markers -- "they appear too
   // early and I can see a lot of mats". Swept on a field of eight pads, counting the most that stand

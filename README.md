@@ -626,6 +626,25 @@ is what all three halves of that bug had in common. A tower's mats also sit at `
 wherever it actually stands; they used to sit at the pad coordinate in `config.js`, which meant a
 tower placed across the village had its upgrade mat 31 units away from it.
 
+**Edit mode has three gestures** (#138), because #137's one was not enough: the whole canvas dragged
+the ghost, the King is frozen while a placement is live and the camera is a fixed offset from him, so
+you could only build on the patch of ground that happened to be on screen when you started. A drag on
+the ghost moves the building; a drag on the ground pans the view; a **tap** on the ground puts the
+building there.
+
+That third one is not decoration. Pan far enough to find the spot and the ghost is off screen behind
+you, so "drag the object" — the thing actually asked for — is a gesture you can no longer start. The
+tap is what makes panning usable, and the target is the destination rather than the small thing being
+moved. The ghost's grab box is its footprint plus `place.grab`, because a watchtower is 2.50 × 3.32
+world units and at this camera that is about a thumb; nothing pans until the press has travelled
+`longSlop`, so a tap is perfectly still. The pan is held to the tier's own bounds plus a margin — a
+view you have to walk back from is worse than one that will not go there — and it is cleared in
+`leaveEditMode`, which every way out of a placement already runs through, so a camera can never be
+left somewhere the King is not.
+
+It also retires an asymmetry: WASD moved the King during a placement and a phone had nothing, so a
+desktop player could look around and a phone player could not.
+
 **The ghost follows the finger** (#137), and getting there took two goes.
 
 The first version had it follow the King: walk to the spot, tap to confirm. That was a deliberate
