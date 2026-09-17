@@ -220,12 +220,44 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .panel p { color: #dde7cf; margin-bottom: 14px; line-height: 1.4; }
 .panel .hint { font-size: 13px; color: #a9bb96; }
 .panel .best { font-size: 14px; color: #a9bb96; margin-top: 14px; margin-bottom: 0; }
+/* #112: the framed CTA. One rule paints every button in the game -- Play, Continue, Play Again, Next,
+   Back to the game -- so this moves all of them at once, which is why it is worth getting right here
+   rather than per panel.
+   It was a block of flat yellow with a darker strip under it. Gold on gold at 26px is a lot of the
+   screen given to a control, and on the title screen -- the first thing anybody sees -- it sat on a
+   blurred photograph of the game and flattened it. The frame keeps the gold where gold does the work
+   (the edge, the glyph, the word) and gives the middle back to the world behind it.
+   The frame is a gradient, which a `border-color` cannot be: the fill is painted to `padding-box` and
+   the gold to `border-box`, so a 2px transparent border shows the second layer as an edge. No extra
+   element, no image, nothing to download -- and this screen is measured in bytes to a clickable Play
+   (#53), so ornament that arrives as a request is ornament that costs the thing it decorates. */
 .panel button {
-  background: linear-gradient(#ffd54a, #f5a800); border: 0; border-bottom: 5px solid #b07a00; color: #fff;
-  font-size: 26px; font-weight: 900; padding: 12px 40px; border-radius: 14px; cursor: pointer;
-  text-shadow: 0 2px 0 rgba(0,0,0,0.3); -webkit-text-stroke: 1px #8a5a00;
+  position: relative; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 11px;
+  background:
+    linear-gradient(180deg, rgba(26, 38, 20, 0.8), rgba(12, 20, 10, 0.88)) padding-box,
+    linear-gradient(180deg, #ffe694, #d8a63c 48%, #8a6316) border-box;
+  border: 2px solid transparent; border-radius: 15px;
+  padding: 12px 34px; color: #ffe3a3; font-size: 25px; font-weight: 900;
+  text-shadow: 0 2px 0 rgba(0,0,0,0.5); -webkit-text-stroke: 0;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.13), inset 0 -10px 18px rgba(0,0,0,0.28), 0 6px 18px rgba(0,0,0,0.42);
+  transition: transform 0.1s ease-out, filter 0.1s ease-out;
 }
-.panel button:active { transform: translateY(3px); border-bottom-width: 2px; }
+/* the diamonds at each end. Rotated squares rather than a glyph, so they cost nothing and scale with
+   the button; they sit inside the padding, which is why the padding is 34 and not 40. */
+.panel button::before, .panel button::after {
+  content: ''; position: absolute; top: 50%; width: 7px; height: 7px;
+  background: linear-gradient(135deg, #ffe694, #c9962a); transform: translateY(-50%) rotate(45deg);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.35);
+}
+.panel button::before { left: 11px; }
+.panel button::after { right: 11px; }
+.panel button .icon { flex: 0 0 auto; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.55)); }
+.panel button:hover { filter: brightness(1.12); }
+/* it has no bottom strip to sink into any more, so the press is the whole thing settling */
+.panel button:active { transform: translateY(2px); filter: brightness(1.15); }
+.panel button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.panel button[disabled] { opacity: 0.55; cursor: default; }
 
 
 #indicators { position: fixed; inset: 0; pointer-events: none; z-index: 3; }
@@ -1132,15 +1164,49 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .panel.title .heroes img { width: 132px; height: auto; flex: 0 0 auto; filter: drop-shadow(0 8px 10px rgba(0,0,0,0.25)); }
 .panel.title .heroes img:not([src]) { visibility: hidden; }
 .panel.title .lockup { display: flex; flex-direction: column; align-items: center; gap: 0; padding-bottom: 26px; }
+/* #112: a hairline that fades out from a gold diamond in the middle, above the wordmark and below it.
+   One element, one background, no image. 60% of the panel so it reads as a rule under the crown
+   rather than a line across the screen. */
+.panel.title .flourish {
+  /* `align-self: stretch` rather than a width, and that is not a style choice: the lockup sits BETWEEN
+     the two hero portraits, so anything in it with a width of its own widens that row. `min(62%, 280px)`
+     pushed the title panel 4px past the right edge of a 320px screen -- measured, and the panel was
+     the only thing that did not fit. A stretched item takes its width from the box around it and
+     contributes nothing back to it. */
+  position: relative;
+  align-self: stretch; width: auto; max-width: 280px; height: 9px; margin: 5px auto; flex: none;
+  background: linear-gradient(90deg, transparent, rgba(255,214,122,0.55) 26%, rgba(255,214,122,0.55) 74%, transparent) center / 100% 1px no-repeat;
+}
+/* the diamond is a rotated element and not a background square: a background-image cannot be turned,
+   and a 135deg gradient only tilts the COLOUR inside a shape that stays square -- which is what the
+   first build of this drew, and it read as a full stop rather than an ornament. */
+.panel.title .flourish::after {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 7px; height: 7px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  background: linear-gradient(135deg, #ffe694, #c9962a); box-shadow: 0 0 0 1px rgba(0,0,0,0.3);
+}
 .panel.title h1 {
   font-size: 52px; line-height: 1; margin: 2px 0 0; letter-spacing: 1px;
-  background: linear-gradient(#ffe27a, #f5a800 55%, #c97a00); -webkit-background-clip: text; background-clip: text; color: transparent;
+  /* #112: four stops rather than three -- a pale highlight across the top third, then the drop into
+     the deep gold -- which is what gives the wordmark its metal against the reference's flat ramp. */
+  background: linear-gradient(#fff3c4, #ffe27a 26%, #f5a800 58%, #b96a00); -webkit-background-clip: text; background-clip: text; color: transparent;
   -webkit-text-stroke: 1.5px #6a3a10; text-shadow: none; filter: drop-shadow(0 4px 0 #6a3a10) drop-shadow(0 8px 12px rgba(0,0,0,0.3));
 }
 .panel.title p { margin-bottom: 8px; }
-#load-bar { position: relative; height: 26px; border-radius: 13px; background: rgba(0,0,0,0.12); margin: 10px auto 12px; max-width: 320px; overflow: hidden; border: 2px solid rgba(0,0,0,0.08); }
-#load-bar i { display: block; height: 100%; width: 0; background: linear-gradient(#ffd54a, #f5a800); transition: width 0.25s ease-out; }
-#load-bar span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 13px; font-weight: 800; color: #5a4a10; }
+/* #112: the loading state is held to the button's standard, because it is literally the first thing
+   anyone sees and it was a pale track on a dark panel -- the one piece of the title screen that still
+   looked like a default. Same gradient frame, same dark fill, so the bar and the button under it read
+   as one set. */
+#load-bar {
+  position: relative; height: 26px; border-radius: 13px; margin: 10px auto 12px; max-width: 320px; overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(12, 20, 10, 0.86), rgba(8, 14, 7, 0.9)) padding-box,
+    linear-gradient(180deg, #ffe694, #c9962a 55%, #8a6316) border-box;
+  border: 2px solid transparent;
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.45);
+}
+#load-bar i { display: block; height: 100%; width: 0; background: linear-gradient(180deg, #ffe27a, #f5a800 60%, #d88a00); transition: width 0.25s ease-out; box-shadow: 0 0 10px rgba(245,184,0,0.45); }
+#load-bar span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 13px; font-weight: 800; color: #ffe3a3; text-shadow: 0 1px 2px rgba(0,0,0,0.75); }
 #load-bar.done { display: none; }
 #start-btn.hidden { display: none; }
 /* There is no blanket `.hidden` in this stylesheet (see the settings sheet above), and these three had
@@ -1168,6 +1234,24 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 @media (max-width: 480px) {
   .panel.title .heroes img { width: 88px; }
   .panel.title h1 { font-size: 38px; }
+  /* #112: the framed button is taller than the flat one it replaced -- a 2px frame, more padding and
+     a glyph beside the word -- and two flourishes are another 38px of panel. Measured at 320x568 that
+     was enough to push the title screen off the bottom, so the narrow case takes the treatment at a
+     size that fits rather than a scaled-down version of a layout that does not. */
+  .panel.title { padding: 14px 18px 16px; }
+  .panel.title .lockup { padding-bottom: 14px; }
+  .panel.title .flourish { margin: 3px 0; }
+  .panel.title button { font-size: 21px; padding: 9px 26px; gap: 9px; }
+  .panel.title button::before { left: 9px; }
+  .panel.title button::after { right: 9px; }
+}
+/* The smallest phones still in use. The title panel has overflowed its own screen here since long
+   before this ticket -- measured at 320x568 it ran 12px past the right edge, because the row is two
+   88px portraits with the wordmark wedged between them and "Crown" at 38px will not go under about
+   115. The framed treatment took it to 4px over on its own; this is the rest of it. */
+@media (max-width: 360px) {
+  .panel.title .heroes img { width: 64px; }
+  .panel.title h1 { font-size: 31px; }
 }
 
 /* the raider camp, once the march is open */

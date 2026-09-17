@@ -60,6 +60,10 @@ export const ICONS = {
   // An arrow round three quarters of a circle. Drawn as a dark arc with a gold one laid over it,
   // because a stroked path takes no outline of its own and the sheet rows it sits on are near-white.
   restart: `<path d="M12 4.5a7.5 7.5 0 1 0 7.5 7.5" fill="none" stroke="${O}" stroke-width="5.2" stroke-linecap="round"/><path d="M12 4.5a7.5 7.5 0 1 0 7.5 7.5" fill="none" stroke="#f5b800" stroke-width="2.6" stroke-linecap="round"/><path d="M10.6 0.4l5.2 4.1-5.2 4.1z" fill="#f5b800" ${S}/>`,
+  // #112: a sprig for New Run. The reference put a leaf in that button and there was nothing in this
+  // set that meant "a fresh one" -- `star` is the generic marker and `swords` is the war, not the
+  // start of it. Two strokes and a pair of halves, drawn at the same weight as everything else here.
+  leaf: `<path d="M19.5 4.5C10 4 4.5 8.5 4.5 15c0 2.2.8 3.9 2 5.1C11 24 20 19 19.5 4.5z" fill="#4f9e42" ${S}/><path d="M18.4 6.2C13 10 9 14.5 6.4 19.6" fill="none" stroke="${O}" stroke-width="1.4" stroke-linecap="round"/><path d="M15.6 8.9c-2 .1-3.6.5-5 1.2M13 12.6c-1.7.2-3.1.7-4.3 1.5" fill="none" stroke="${O}" stroke-width="1.2" stroke-linecap="round"/>`,
   download: `<path d="M3.5 14.5V20h17v-5.5" fill="#8a5a2b" ${S}/><path d="M12 3v9" fill="none" stroke="${O}" stroke-width="5.4" stroke-linecap="round"/><path d="M12 3.4v8.2" fill="none" stroke="#3fd455" stroke-width="2.6" stroke-linecap="round"/><path d="M6.8 10.2L12 16l5.2-5.8z" fill="#3fd455" ${S}/>`,
 };
 

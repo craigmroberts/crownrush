@@ -538,11 +538,16 @@ export class Hud {
     if (cont && note && start) {
       cont.classList.toggle('hidden', !saved);
       note.classList.toggle('hidden', !saved);
+      // #112: the LABEL, not the button. `start.textContent = ...` wiped the glyph beside it -- the
+      // button is an icon and a span now, and assigning textContent to the button replaces both.
+      // Measured: Play came up with no leaf on it and Continue kept its crown, which is the shape of
+      // that mistake.
+      const label = start.querySelector('span') || start;
       if (saved) {
         note.textContent = `Lv. ${saved.baseLevel} · ${saved.score.toLocaleString()} points`;
-        start.textContent = 'New run';
+        label.textContent = 'New run';
       } else {
-        start.textContent = 'Play';
+        label.textContent = 'Play';
       }
     }
     this.startScreen.classList.remove('hidden');

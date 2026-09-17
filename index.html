@@ -168,20 +168,28 @@
       <div class="panel title">
         <div class="heroes">
           <img id="hero-king" alt="" draggable="false">
-          <div class="lockup"><i data-icon="crown" data-size="44"></i><h1>Crown Rush</h1></div>
+          <!-- #112: a crown between two flourishes above the wordmark and a second rule under it.
+               Pure CSS -- a hairline that fades out from a gold diamond -- because anything that
+               arrives as a request or a font is spent from the bytes-to-Play budget this screen IS. -->
+          <div class="lockup">
+            <i data-icon="crown" data-size="44"></i>
+            <span class="flourish" aria-hidden="true"></span>
+            <h1>Crown Rush</h1>
+            <span class="flourish" aria-hidden="true"></span>
+          </div>
           <img id="hero-queen" alt="" draggable="false">
         </div>
         <p>Rescue Queen Wren, level up the Keep, then march on the raider camp and end the war.</p>
         <p class="hint">Drag anywhere to move · or use WASD / arrow keys.</p>
         <div id="load-bar"><i></i><span id="load-text">Loading…</span></div>
-        <button id="continue-run-btn" class="hidden">Continue</button>
+        <button id="continue-run-btn" class="hidden"><i data-icon="crown" data-size="22"></i><span>Continue</span></button>
         <p id="continue-note" class="hint hidden"></p>
         <!-- #53: `disabled` and `hidden` belong here, not only in main.js. main.js sets both, but a
              module script runs after the document is parsed, so between the parser reaching this line
              and that assignment there is a window in which Play is a live, enabled button on a game
              that has loaded nothing. A fast finger loses; a probe measuring "bytes to a clickable Play
              button" measured 17 kB. -->
-        <button id="start-btn" class="hidden" disabled>Play</button>
+        <button id="start-btn" class="hidden" disabled><i data-icon="leaf" data-size="22"></i><span>Play</span></button>
         <!-- #119: the best run, in the currency the rest of the game now uses. This said "Best: night
              30", which would have left the title screen as the one surface still keeping score in
              nights. Filled from the scoreboard's top row, so nothing new is stored for it. -->

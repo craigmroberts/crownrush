@@ -252,6 +252,24 @@ fight and collect, build, raise the Keep) with Next and a Skip. Enter, Space or 
 advance. It is remembered in `localStorage`, so replays go straight in. The start screen itself is one
 line.
 
+## The buttons
+
+One rule paints every call to action in the game -- Play, Continue, Play Again, Next, Back to the
+game -- so the treatment is decided once. It is a **gold frame on a dark translucent fill**, with a
+small diamond at each end and a glyph beside the word: a crown on Continue, a leaf on New Run. It was
+a block of flat yellow, which at 26px is a lot of the screen given to a control, and on the title
+screen it sat on a blurred photograph of the game and flattened it. The frame keeps the gold where
+gold does the work -- the edge, the glyph, the word -- and gives the middle back to the world behind.
+
+The frame is a gradient, which `border-color` cannot be: the fill paints to `padding-box` and the gold
+to `border-box`, so a 2px transparent border shows the second layer as an edge. No extra element, no
+image, nothing to download -- and the title screen is the one measured in bytes to a clickable Play
+(#53), so ornament arriving as a request would cost the thing it decorates. The flourishes above and
+below the wordmark are the same deal: a hairline that fades out from a rotated 7px diamond.
+
+The loading bar is held to the same standard, because it is the first thing anyone sees and it was
+the last piece of that screen still looking like a default (#112).
+
 ## The opening: rescue the Queen
 
 The run opens with an empty coin stack and the starting coins scattered along the road west, so
