@@ -701,6 +701,24 @@ on a CPU. Budgets:
 | Triangles per character | ~5k (King 6.5k) | 100+ characters can be on screen |
 | Load | < 3 MB to the Play button | first play on mobile data; measured **on the wire**, which is what that reason means |
 
+`.github/workflows/budgets.yml` runs that assertion and the linter on every pull request, at
+`--crowd 120`, because "late game" is what the draw-call and triangle budgets mean and a plain run
+never leaves night one. It does **not** run on pushes to `main`: a budget that fails after the merge
+is a red deploy and the thing it was meant to stop has already happened.
+
+Two of those budgets are **waived** rather than asserted today, named in `probe.mjs` with the ticket
+that will lift them (#52 -- the crowd models came back from Meshy at ~8.7k triangles against a stated
+~5k, and they are the ones drawn seventy times). A guard that is red for a reason everyone already
+knows teaches everyone to stop reading the guard; waived, it goes green today and starts failing the
+day something *new* breaks, which is the only state in which it is worth having.
+
+`npm run lint` is the other half. It is **correctness rules only** -- a name that is not defined, a
+key written twice, a branch that cannot be reached, a `const` assigned to. Nothing in it has an
+opinion about how code looks, because this repo's style is written down in CLAUDE.md and is not
+something a tool should argue with. That was the objection to adding a linter at all, and it turned
+out to be an objection to a different linter: the correctness half found eight things on its first
+run, every one of them dead code, and nothing else.
+
 What keeps it fast:
 - The crowd — raiders, archers, swordsmen, elites, brutes, the boss — is ONE instanced draw per model,
   animated on the GPU from a baked bone-matrix texture (`src/crowd.js`). 181 characters cost 6 draw

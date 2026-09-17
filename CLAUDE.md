@@ -31,8 +31,9 @@ Then push the working branch as well, so the two do not drift.
 
 ## Checking a change
 
-There is no test suite and no linter (see issue #53, which is about wiring the probe into CI). So
-"verified" means driven in a real browser:
+There is a linter and a CI budget check now (#53) -- `npm run lint` is correctness rules only, no
+style opinions, and `.github/workflows/budgets.yml` runs it and the probe on every pull request.
+There is still no test suite, so "verified" means driven in a real browser:
 
 ```bash
 npm install && npm run build      # dist/

@@ -4,7 +4,7 @@
 # This does NOT run on pushes to main. A budget that fails after merge is a red deploy and a broken
 # Pages build, and the thing it was supposed to stop has already happened; the only moment the answer
 # is useful is before the merge.
-name: Budgets
+name: Budgets and lint
 
 on:
   pull_request:
@@ -23,6 +23,12 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # #53 asked for lint as well, and this is the half of it that is not an argument about style.
+      # Correctness rules only -- see eslint.config.js for why. It runs FIRST because it takes two
+      # seconds and the probe takes twenty minutes, and a name that is not defined is worth knowing
+      # about before a browser is downloaded to find out.
+      - name: Lint
+        run: npm run lint
       # The probe's findChromium() falls back to Playwright's own cache when PLAYWRIGHT_BROWSERS_PATH
       # is unset, which is what this puts there.
       - name: Install Chromium

@@ -213,66 +213,12 @@ export function mergeGroup(group) {
   return group;
 }
 
-// ---- faces (drawn once per style, shared) ----
-const faceCache = new Map();
-function faceMaterial(style = 'normal') {
-  if (faceCache.has(style)) return faceCache.get(style);
-  const c = document.createElement('canvas');
-  c.width = 128;
-  c.height = 128;
-  const ctx = c.getContext('2d');
-  const angry = style === 'angry';
-  const eye = (x) => {
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.ellipse(x, 66, 13, angry ? 12 : 16, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#23232b';
-    ctx.beginPath();
-    ctx.ellipse(x + 2, 68, 7, angry ? 8 : 10, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.ellipse(x + 5, 63, 2.5, 3, 0, 0, Math.PI * 2);
-    ctx.fill();
-  };
-  eye(42);
-  eye(86);
-  // heavy determined brows
-  ctx.strokeStyle = '#1c1c22';
-  ctx.lineCap = 'round';
-  ctx.lineWidth = angry ? 10 : 8;
-  ctx.beginPath();
-  ctx.moveTo(24, angry ? 36 : 42);
-  ctx.lineTo(54, angry ? 50 : 48);
-  ctx.moveTo(104, angry ? 36 : 42);
-  ctx.lineTo(74, angry ? 50 : 48);
-  ctx.stroke();
-  // mouth
-  ctx.strokeStyle = '#7a4a3a';
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  if (angry) {
-    ctx.moveTo(52, 100);
-    ctx.lineTo(76, 100);
-  } else {
-    ctx.moveTo(54, 96);
-    ctx.quadraticCurveTo(64, 104, 74, 96);
-  }
-  ctx.stroke();
-  const tex = new THREE.CanvasTexture(c);
-  const m = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
-  faceCache.set(style, m);
-  return m;
-}
-function face(w, h, x, y, z, style) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), faceMaterial(style));
-  m.position.set(x, y, z);
-  m.userData.face = true;
-  m.renderOrder = 2;
-  return m;
-}
-
+// ---- faces live in characters.js, and so does the code that draws them ----
+// #53: there was a second `faceMaterial` here, with its own 128x128 canvas, its own cache and a
+// `face()` that hung it on a plane. Nothing had called either since the characters became smooth
+// painted figures with the face on the head itself -- `characters.js` holds the one that is used.
+// The linter found it by pulling a thread: `face` was unused, removing it left `faceMaterial`
+// unused, and removing that left the cache and fifty lines of canvas drawing with nothing to draw.
 // ---- characters live in characters.js (smooth, painted-face figures) ----
 export { makeArcher, makeSwordsman, makeVillager, makeKnight, makeElite, makeBrute, makeBoss, makeKing, makeKingFoot, makeQueen } from './characters.js';
 

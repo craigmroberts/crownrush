@@ -14,7 +14,7 @@
 // meshopt is 308 kB behind a 7 kB one. Uncompressed was 439 kB with no decoder at all. Meshopt wins
 // on both halves of the sum, and decodes faster besides.
 import { spawnSync } from 'node:child_process';
-import { readdirSync, statSync, renameSync, mkdtempSync, rmSync, copyFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
+import { readdirSync, mkdtempSync, rmSync, copyFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';

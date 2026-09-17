@@ -7,7 +7,7 @@ import { audio } from './audio.js';
 import { UPGRADES } from './upgrades.js';
 import { readScores } from './scores.js';
 import {
-  makeLumberTree, makeOreRock, makeIronSeam, makeGemNode, makeResourceCube, RES_MATS, CHIP_GEO, makeTool, drawPad, disposeHealthBar, makePopup, makeTag, makeHeap, makeSpawnFx, makeBurst, makeHeart, COIN_TIER_COLORS,
+  makeLumberTree, makeOreRock, makeIronSeam, makeGemNode, makeResourceCube, RES_MATS, CHIP_GEO, makeTool, disposeHealthBar, makePopup, makeTag, makeHeap, makeSpawnFx, makeBurst, makeHeart, COIN_TIER_COLORS,
 } from './models.js';
 import { tmp, tmp2, tmpM, cap, rand } from './game-shared.js';
 
@@ -104,7 +104,6 @@ export const ViewMethods = {
   drawMinimap(force) {
     const el = this.hud.minimap;
     if (!el) return;
-    const big = el.classList.contains('big');
     const ctx = el.getContext('2d');
     const { canvas: fogCanvas, terrain, tx, tz, poly } = this.fog;
     ctx.clearRect(0, 0, 160, 160);

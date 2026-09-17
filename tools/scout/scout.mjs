@@ -12,7 +12,7 @@
 // Read tools/scout/README.md before turning it loose.
 
 import { execFile, execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ROLES, jsonContract } from './roles.mjs';

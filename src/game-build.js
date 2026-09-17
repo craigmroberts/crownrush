@@ -777,7 +777,6 @@ export const BuildMethods = {
   },
 
   breakKeep() {
-    const k = this.keep;
     const sheltering = this.queen.inKeep && !this.queen.captive;
     this.queenLeaveKeep();
     audio.wave(true);

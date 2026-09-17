@@ -7,7 +7,7 @@ import { recordRun, readNumber, writeNumber } from './scores.js';
 import { buildWorld, setupLights } from './world.js';
 import { Input } from './input.js';
 import { setHealthBar, HealthBars, CoinField, clearHealthBars, makeRing, makeCoinStack, makeCamp } from './models.js';
-import { V3, tmp, tmp2, cap, rand } from './game-shared.js';
+import { V3, tmp, tmp2, rand } from './game-shared.js';
 import { BuildMethods } from './game-build.js';
 import { EnemiesMethods } from './game-enemies.js';
 import { UnitsMethods } from './game-units.js';
