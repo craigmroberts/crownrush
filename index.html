@@ -74,10 +74,17 @@
         <!-- #140: the wrapper exists so the bar has a height to animate. A grid row eases from 0fr to
              1fr; the content inside has to be in a box that can be clipped while that happens. -->
         <div class="rb-inner">
-          <div class="rb-eye"><i data-icon="swords" data-size="15"></i><span id="rb-night">Night 1</span><i data-icon="swords" data-size="15"></i></div>
+          <!-- #151: the count rides the eyebrow, and the track is the last row.
+               It used to have a row of its own under the track -- 19px of full width carrying 43px of
+               centred text -- and the hearts and the purse were pushed a whole row down to clear ink
+               that was nowhere near them: 74px of empty on its left flank, 67px on its right.
+               Beside the track was the obvious fix and the wrong one: that puts the number on the
+               RIGHT flank, which is exactly where the purse wants to rise into. Both flanks have
+               furniture -- hearts left, purse right -- so the only place ink can sit without taking
+               somebody's room is the middle, and the eyebrow is already there. -->
+          <div class="rb-eye"><i data-icon="swords" data-size="15"></i><span id="rb-night">Night 1</span><span class="rb-dot">·</span><span class="rb-left"><b id="rb-count">0</b> left</span><i data-icon="swords" data-size="15"></i></div>
           <div class="rb-name" id="rb-name">Raiders</div>
           <div class="rb-track"><i id="rb-fill"></i></div>
-          <div class="rb-left"><b id="rb-count">0</b> left</div>
         </div>
       </div>
       <!-- #22: one slim bar instead of the corner plaque, so the playfield is clear -->

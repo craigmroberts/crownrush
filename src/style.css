@@ -636,10 +636,13 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
    below were re-measured with the bar up and down rather than derived from the old ones. */
 .no-map #minimap { display: none; }
 .no-map #purse { top: max(12px, env(safe-area-inset-top)); }
-.no-map #raid-bar:not(.hidden) ~ #purse { top: calc(max(12px, env(safe-area-inset-top)) + 104px); }
+/* #151: re-measured. The bar lost its bottom row when the count moved into the eyebrow -- 92px tall
+   to 74 -- and this number was still clearing a row that is not there. 70 puts the purse 8px under the
+   track, which is exactly where the hearts sit on the other flank; they were 8 and 42 before. */
+.no-map #raid-bar:not(.hidden) ~ #purse { top: calc(max(12px, env(safe-area-inset-top)) + 70px); }
 @media (max-width: 430px) {
   .no-map #purse { top: max(12px, env(safe-area-inset-top)); }
-  .no-map #raid-bar:not(.hidden) ~ #purse { top: calc(max(12px, env(safe-area-inset-top)) + 98px); }
+  .no-map #raid-bar:not(.hidden) ~ #purse { top: calc(max(12px, env(safe-area-inset-top)) + 64px); }
 }
 
 #vignette { position: fixed; inset: 0; pointer-events: none; z-index: 1;
@@ -1634,8 +1637,9 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
   font-size: 33px; line-height: 1.08; letter-spacing: 0.02em; color: #fff; margin-top: 1px;
   text-shadow: 0 2px 0 rgba(0,0,0,0.45), 0 3px 14px rgba(0,0,0,0.65);
 }
+/* #151: the track is the last row now, so what sits below the bar only has 5px of ink to clear. */
 .rb-track {
-  position: relative; height: 5px; margin-top: 9px; background: rgba(0,0,0,0.62);
+  position: relative; margin-top: 9px; height: 5px; background: rgba(0,0,0,0.62);
   box-shadow: 0 1px 3px rgba(0,0,0,0.5);
 }
 .rb-track i {
@@ -1647,8 +1651,12 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
    the same distinction the ring this replaced drew, and the one cue worth keeping from it. */
 #raid-bar.last .rb-track i { background: #f0a020; box-shadow: 0 0 8px rgba(240, 160, 32, 0.6); }
 #raid-bar.last .rb-left b { color: var(--figure); }
+/* #151: in the eyebrow now, so it takes the eyebrow's size and sits on its baseline. The tabular
+   figures matter more here than they did on a row of its own: the line is centred, so a number that
+   changed width would slide the night and the swords sideways every time a raider fell. */
+.rb-dot { opacity: 0.5; }
 .rb-left {
-  margin-top: 5px; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800;
+  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800;
   font-size: 12px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-dim);
   text-shadow: 0 1px 2px rgba(0,0,0,0.7); font-variant-numeric: tabular-nums;
 }
