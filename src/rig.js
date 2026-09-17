@@ -323,12 +323,22 @@ export function makeRigged(name, tints = null) {
   const actions = {};
   for (const clip of gltf.animations) actions[clip.name] = mixer.clipAction(clip);
   let current = null;
-  const play = (n, once = false) => {
+  // `hold` is for Death and nothing else: the body has to STAY in the clip's last pose while `fell`
+  // carries it to the ground. Without `clampWhenFinished` three fades the one-shot out as it finishes
+  // and the corpse stands back up into whatever was looping underneath.
+  //
+  // `stopAllAction` rather than stopping `current`, and that took a second look: the killing blow
+  // calls `hitAnim` before `killEnemy`, so Hit is usually still in flight when Death starts. A
+  // one-shot is not `current` -- only looping clips are -- so stopping `current` alone left the
+  // corpse blended 50/50 with a flinch for the first fifth of a second. The crowd path cannot have
+  // this bug at all: it has no blending, so Death simply replaces whatever was playing.
+  const play = (n, once = false, hold = false) => {
     const a = actions[n];
     if (!a) return;
     if (once) {
+      if (hold) { mixer.stopAllAction(); current = null; }
       a.reset().setLoop(THREE.LoopOnce, 1);
-      a.clampWhenFinished = false;
+      a.clampWhenFinished = hold;
       a.play();
       return;
     }

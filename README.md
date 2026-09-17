@@ -1023,21 +1023,36 @@ on the wire, fetched the first time one is decoded -- so compressing the three t
 hand would drag that download onto the critical path and put bytes-to-a-clickable-Play over a budget it
 currently clears. The rule is: what the opening needs stays JPEG, everything after it is ETC1S, and
 `tools/models/compress.mjs` holds the same split (#51). Measured: nothing of the transcoder arrives
-before Play, and both devices report the same 2972 kB.
+before Play, and both devices report the same 3003 kB (2972 before the #55 clips added 31).
 
-Two things the lack of clips used to cost, fixed without any (#55):
+How a character dies, and how it reacts (#55):
 
-- **A character falls over when it dies.** It used to rotate on X at a constant rate, sink and shrink,
-  so everything corkscrewed into the floor at whatever angle the clock left it -- the payoff for every
-  one of the ~143 kills in a night-30 wave. It topples about its feet now, away from whatever killed
-  it, with gravity in the curve and one small bounce as it lands, and only sinks under the fade at the
-  very end. The Euler order changes to `YXZ` for a body: the default applies the tip before the
-  facing, so a raider looking east would have fallen north whatever hit it.
+- **A death is two halves that compose.** The **topple** is code: the body goes over about its feet,
+  *away from whatever killed it*, with gravity in the curve and one small bounce as it lands, and only
+  sinks under the fade at the very end. The Euler order changes to `YXZ` for a body -- the default
+  applies the tip before the facing, so a raider looking east would have fallen north whatever hit it.
+  The **`Death` clip** is the body-local half: a snap back on the blow, the knees giving, the arms
+  dropping wide, the head lolled onto a shoulder. The clip cannot do the topple, because which way a
+  body goes over depends on where the blow came from and that is not knowable when the clip is baked;
+  the topple cannot do the slump, because a rigid body has no slump. Together the field after a wave
+  is bodies lying in four directions with their limbs sprawled, instead of planks at four angles.
+- **A `Hit` clip replaces the squash, where it will read.** A flinch: rocked back, half turned, feet
+  braced, and back to the bind pose by the end. It plays only on a character standing still, which is
+  the crowd path's constraint rather than a taste call -- a one-shot there *replaces* the looping clip
+  instead of blending with it, so playing it over a Walk snapped the legs out of mid-stride and back
+  inside a fifth of a second. Anything moving keeps the old scale squash, which still says "that
+  landed".
 - **The walk cycle plays at the speed its owner is moving.** Speeds here run from the boss's 2.3 to an
   army archer's 9.0 and every one of them played the same cycle at the same rate, so most of the field
   was either moonwalking or paddling. The stride is baked into the clip, so the rate is
   `speed / CFG.walkAnim.refSpeed`, clamped. The crowd carries it as a per-instance attribute because
   an `InstancedMesh` has no mixer; the skinned path uses `timeScale`.
+
+The clips are authored as numbers rather than posed in Blender, because there is no Blender here and
+the rig is seven bones. `tools/models/clips.mjs` writes them into the GLBs and
+[`tools/models/README.md`](tools/models/README.md) has how to look at one and what the frames changed.
+They cost **21 rows of the bone texture per model** -- 115 to 136, 50.3 kB to 59.5 kB, so 301.9 kB to
+357.0 kB across the six crowd models -- and **13.7 kB brotli'd on the wire**.
 
 What keeps it fast:
 - The crowd — raiders, archers, swordsmen, elites, brutes, the boss — is ONE instanced draw per model,

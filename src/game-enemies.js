@@ -984,7 +984,16 @@ export const EnemiesMethods = {
       }
     }
     e.hp -= dmg;
-    e.flash = 0.12;
+    // #55: a real flinch if it will read, the old squash if it will not. `hitAnim` declines on
+    // anything mid-stride and the squash covers exactly that case -- see there for why.
+    if (this.hitAnim(e)) {
+      // Cancelling a squash has to UNDO it as well. The scale is only put back on the frame `flash`
+      // crosses zero, so setting it to zero from anywhere above skips that frame and leaves the
+      // body squashed for good -- which is two arrows, one landing while it walks and one after it
+      // has stopped.
+      if (e.flash > 0) e.mesh.scale.setScalar(e.scale);
+      e.flash = 0;
+    } else e.flash = 0.12;
     audio.hit();
     this.burstFx(hitPos, '#dff4ff', 0.9, 0.18);
     setHealthBar(e.bar, Math.max(0, e.hp / e.maxHp));

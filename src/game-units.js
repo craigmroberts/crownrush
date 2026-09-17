@@ -497,6 +497,7 @@ export const UnitsMethods = {
     if (u.inKeep || u.captive) return;
     u.hp -= dmg;
     u.lastHit = this.time;
+    this.hitAnim(u);
     if (u.type === 'king') audio.hurt();
     setHealthBar(u.bar, Math.max(0, u.hp / u.maxHp));
     if (u.hp <= 0) {
@@ -698,6 +699,25 @@ export const UnitsMethods = {
       rig.play('Attack', true);
       ent.rigOnce = this.time + 0.6;
     } else if (ent.mesh.userData.body) ent.mesh.userData.body.rotation.x = 0.6;
+  },
+
+  // #55: a hit reaction, and the other half of what used to be a squash.
+  //
+  // ONLY ON A CHARACTER STANDING STILL, and that is the crowd path's constraint rather than a taste
+  // call. A one-shot there REPLACES the looping clip for its duration instead of blending with it --
+  // an InstancedMesh has no mixer to blend with -- so playing Hit over a Walk snaps the legs out of
+  // mid-stride to the bind pose and back again inside a fifth of a second, on every arrow, all
+  // night. Standing still the pose it comes from is Idle, which is near enough the bind pose that
+  // there is nothing to see. The callers keep the squash for the moving case: it says "that landed"
+  // where the clip cannot, and something has to.
+  //
+  // Returns whether it played, so the caller knows which of the two it got.
+  hitAnim(ent) {
+    const rig = ent.mesh.userData.rig;
+    if (!rig || ent.moving) return false;
+    rig.play('Hit', true);
+    ent.rigOnce = this.time + 0.22;      // the clip's own length -- tools/models/clips.mjs
+    return true;
   },
 
   // ---------- small helpers ----------

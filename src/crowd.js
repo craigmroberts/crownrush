@@ -463,7 +463,7 @@ export class Crowd {
     };
     model.entries.push(entry);
 
-    const play = (clipName, once = false) => {
+    const play = (clipName, once = false, hold = false) => {
       const clip = model.baked.clips[clipName];
       if (!clip) return;
       if (once) {
@@ -471,7 +471,10 @@ export class Crowd {
         entry.loop = false;
         entry.startedAt = this.time;
         entry.current = clipName;
-        entry.until = this.time + clip.frames / FPS;
+        // The shader already clamps a non-looping clip on its last row (aAnim.w), so `hold` is only
+        // ever "and never let anything choose another clip": the corpse keeps its last pose for as
+        // long as the body exists, which on this path costs nothing at all.
+        entry.until = hold ? Infinity : this.time + clip.frames / FPS;
         return;
       }
       if (entry.current === clipName || this.time < entry.until) return;

@@ -894,6 +894,17 @@ export const ViewMethods = {
   // character's OWN frame, which is why the Euler order changes -- the default XYZ applies the tip
   // before the facing, so a raider looking east would fall north whatever hit it.
   fell(mesh, from = null, dur = 0.5) {
+    // #55: the clip half. `Death` is body-local throes only -- a snap back on the blow, the knees
+    // giving, the arms dropping wide, the head lolled onto a shoulder -- and everything below is
+    // still the directional topple, because which way a body goes over depends on where the blow
+    // came from and that cannot be baked into a clip. They compose: the clip is in the character's
+    // own frame and the topple is the frame itself.
+    //
+    // It is authored to be exactly this half second (`tools/models/clips.mjs`) so the body reaches
+    // its slump as it reaches the ground, and held, so it lies in that slump rather than standing
+    // back up into Idle for the last of the fade.
+    const rig = mesh.userData.rig;
+    if (rig) rig.play('Death', true, true);
     let pitch = 1;
     let roll = 0;
     if (from) {
@@ -914,11 +925,11 @@ export const ViewMethods = {
     // corkscrewing downwards through the ground, at whatever angle the clock happened to leave it.
     // That is the payoff for every one of the ~143 kills in a night-30 wave, and it read as a bug.
     //
-    // There is still no death CLIP: the clips are authored in `tools/blender/make_character.py` and
-    // baked by `npm run models`, and that needs Blender. This is the clipless half -- a topple about
-    // the feet, which is the one thing a rigid body can do that looks deliberate. It keeps the same
-    // `dying` entry and the same cleanup, so when a real clip does arrive it replaces the rotation
-    // here and nothing else.
+    // This is the topple: the half of a death that a clip cannot do, because it depends on where the
+    // blow came from. `fell` plays the `Death` clip alongside it and the two compose -- see there.
+    // The clip does NOT replace this, which is what the first plan for it assumed: a baked clip is
+    // in the body's own frame, so a baked fall would send every raider over in the same direction
+    // whatever killed it, which is the thing this replaced.
     //
     // `ease` is the fall: slow to tip, then quick, then a small settle past 90 degrees and back. A
     // linear fall looks like a felled tree in a vacuum; the overshoot is what makes it land.
