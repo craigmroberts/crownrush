@@ -359,10 +359,14 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
    the daytime lull, not for the whole run -- and it is a button somebody is looking for, so a tap
    landing on it is usually the tap they meant. It also sits at 24px rather than the horn's 12, which
    keeps the very bottom strip of the corner, where a thumb actually rests, clear. */
+/* #134: no icon. Crossed swords at 20px on a button that also carries a countdown and the word
+   "skip" -- the two text parts already say what it does and the glyph was the only ambiguous thing on
+   it. The left padding was 11px to balance the icon's optical weight and goes back to matching the
+   right, or the label sits off-centre in its own button. `title` stays as the accessible name. */
 #next-wave-btn {
   position: fixed; left: max(12px, env(safe-area-inset-left)); bottom: max(24px, env(safe-area-inset-bottom));
   pointer-events: auto; display: inline-flex; align-items: center; gap: 7px;
-  border: 0; border-bottom: 4px solid #8a1a22; border-radius: 14px; padding: 7px 14px 7px 11px;
+  border: 0; border-bottom: 4px solid #8a1a22; border-radius: 14px; padding: 7px 14px;
   background: linear-gradient(#f05a4a, #d8262c); color: #fff; cursor: pointer;
   font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 17px;
   box-shadow: 0 6px 16px rgba(0,0,0,0.3); text-shadow: 0 2px 0 rgba(0,0,0,0.3);
