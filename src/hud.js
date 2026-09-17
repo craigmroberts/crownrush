@@ -113,7 +113,11 @@ export class Hud {
     this.tip = document.getElementById('pad-tip');
     this.nextBtn = document.getElementById('next-wave-btn');
     this.alarmEl = document.getElementById('alarm');
-    this.minimap = document.getElementById('minimap');
+    // #145: null when parked, which is the whole of turning it off in JS -- `drawMinimap` already
+    // returns on a missing element, so nothing downstream needs a second test. The class is what the
+    // stylesheet keys off to hide the canvas and move the purse up into the corner it leaves.
+    this.minimap = CFG.minimap ? document.getElementById('minimap') : null;
+    document.documentElement.classList.toggle('no-map', !CFG.minimap);
     this.matKey = '';
     this.loadTrack = document.getElementById('load-track');
     this.loadNow = document.getElementById('load-now');

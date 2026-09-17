@@ -62,7 +62,10 @@ export const ViewMethods = {
     plane.frustumCulled = false;
     this.scene.add(plane);
     this.fog = { canvas, tex, plane, scale: 256 / size, half: size / 2 };
-    // minimap terrain layer, drawn once
+    // minimap terrain layer, drawn once. #145: still baked while the map is parked, deliberately --
+    // `tx`, `tz` and `poly` are set at the end of this block and `revealFog` needs them, so skipping
+    // it turns the fog of war off. It is one canvas once; what actually cost anything was the redraw
+    // twice a second, and that is what stops.
     const mm = document.createElement('canvas');
     mm.width = 256;
     mm.height = 256;
@@ -128,10 +131,12 @@ export const ViewMethods = {
       this.lastFogPos.copy(kp);
       this.revealFog(kp.x, kp.z, 17);
     }
-    this.minimapTimer -= 0.25;
-    if (this.minimapTimer <= 0) {
-      this.minimapTimer = 0.5;
-      this.drawMinimap();
+    if (CFG.minimap) {
+      this.minimapTimer -= 0.25;
+      if (this.minimapTimer <= 0) {
+        this.minimapTimer = 0.5;
+        this.drawMinimap();
+      }
     }
   },
 

@@ -185,10 +185,14 @@ document.getElementById('victory-restart').addEventListener('click', (e) => {
 });
 
 document.getElementById('next-wave-btn').addEventListener('click', () => game.callWave());
-document.getElementById('minimap').addEventListener('click', (e) => {
-  e.target.classList.toggle('big');
-  game.drawMinimap(true);
-});
+// #145: only while the map exists. `hud.minimap` is null when it is parked, and a listener on a
+// canvas nothing can see would open a big blank one.
+if (hud.minimap) {
+  hud.minimap.addEventListener('click', (e) => {
+    e.target.classList.toggle('big');
+    game.drawMinimap(true);
+  });
+}
 document.getElementById('resume-btn').addEventListener('click', () => game.unpause());
 document.getElementById('pause-restart').addEventListener('click', (e) => {
   e.preventDefault();

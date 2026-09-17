@@ -33,7 +33,11 @@ the raids keep coming for a high score.
   a notice: the moment the bag actually filled, nothing was said and the swings went on landing (#129).
 - Roads grow out of the gates as you wall the village, and bridges over the river are built from pads at the
   crossings. Until a bridge exists, raiders only come from your side of the river.
-- Unexplored land is hidden under fog that clears as the King travels; the minimap in the top-right (tap to
+- Unexplored land is hidden under fog that clears as the King travels. The minimap that read it is
+  **parked** (#145, `CFG.minimap`) -- it owned the top-right corner and was not earning it. Off rather
+  than deleted, the same shape as the run-length pills: a terrain bake, a fog layer and a big/small
+  state are a lot to rebuild to find out, and turning the flag back on is the whole of bringing it
+  back. The fog itself is untouched. When it is on, the map in the top-right (tap to
   enlarge) shows what you have discovered. After each wave there is a breather before the next, or press
   "Send next wave" for bonus points.
 - A blue arrow points home whenever the village is off-screen, and a score tracks kills, coins, materials,
@@ -63,7 +67,8 @@ the raids keep coming for a high score.
 - Red arrows at the screen edge point at raiders you can't see, with a count and a skull for bosses.
 - The HUD floats on the scene: no plaque, no capsule, no panel behind any of it. Everything that reads
   as *status* stacks down the top-left in three lines -- what you carry, then the King's health, then
-  what is happening right now -- and the minimap takes the top-right corner that leaves. It used to be
+  what is happening right now -- and coin and bag take the top-right corner that leaves (the minimap
+  had it until #145 parked it). It used to be
   two groups held apart across the top, and splitting status across two corners meant reading two
   places to answer one question.
   - **Coin and bag.** The bag's ring is how full it is: one continuous arc running green to yellow to
@@ -145,7 +150,7 @@ the raids keep coming for a high score.
   staggered, so the box cannot re-wrap or re-centre partway through; the hold starts when the last
   letter lands rather than when the notice appears. Reduced motion gets the whole line at once.
 - **The four corners.** Health, the Keep's level and the night's count hang from the top-left; the
-  minimap is top-right with coin and the bag directly under it; the settings cog is bottom-right above
+  coin and the bag are top-right, in the corner the parked minimap left (#145); the settings cog is bottom-right above
   the warhorn, beside the thumb; and the skip button anchors bottom-left, so
   the two actions are on opposite thumbs. What is at the top is state you read, what is at the bottom
   is what changes while you play. The bottom-centre is left empty on purpose, because it is the only
@@ -337,7 +342,9 @@ everything the player *has* is written down directly and only five builders are 
 the buildings, the walls, the expansions, the bridges and the horse -- the ones whose output is a
 mesh in a place rather than a number. Enemies, loose coins, arrows and half-mined piles are not
 stored; at dawn there are none, which is what makes dawn the place to do this. The fog of war is,
-as a 256x256 PNG, because the minimap is most of how the map gets read and coming back blind would
+as a 256x256 PNG. That was for the minimap, which is parked now (#145) -- the fog on the ground still
+reads off it, and it is stored anyway so that parking the map is a flag rather than a save migration,
+because coming back blind would
 undo a good part of what the player did. A saved run runs about 17 kB.
 
 Replaying the five builders is what makes the one rule the restore has to hold: **after a load, the

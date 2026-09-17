@@ -343,6 +343,20 @@ export const CFG = {
   // `readLength` answers with this while the pills are off, rather than with what is in storage.
   lengthPick: false,
   pinnedLength: 'long',
+  // #145: the minimap, parked. It owned the top-right corner and was not earning it -- "disable and
+  // remove for now, it takes up too much space and isn't too useful at the moment".
+  //
+  // OFF RATHER THAN DELETED, the same shape as `lengthPick` above and for the same reason: "for now"
+  // is in the request, and a minimap is a terrain bake, a fog layer and a big/small state to rebuild
+  // from nothing if it comes back. Turning this back on is the whole of bringing it back.
+  //
+  // What goes with it is the overview of where you have walked, where the seams are and where the
+  // camp is; the fog of war itself is `buildFog` and is untouched. The march on the camp (#19) is the
+  // trip most likely to want it back, being the one that crosses the whole map.
+  //
+  // It also stops a 2D canvas being redrawn every half second all run. Not a budget item -- the probe
+  // counts draw calls and triangles and this is neither -- but it is real CPU that stops.
+  minimap: false,
   // Which one a player who has never chosen gets, when they are given the choice at all. Short,
   // because that is the whole point of the ticket: the long run is the thing you graduate to, not the
   // entry fee.

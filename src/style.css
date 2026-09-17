@@ -624,6 +624,19 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 /* #140: opening the map is its own move and must not inherit the raid bar's easing on `top`. */
 #minimap.big { transition: width 0.2s, height 0.2s; }
 
+/* #145: the map, parked (`CFG.minimap`). `Hud` puts `no-map` on the root, so everything that has to
+   move when the corner empties is one selector each rather than a JS pass over the HUD.
+   The purse takes the corner the map leaves -- it was hanging off the map's height, and an offset
+   pointing at where a map used to be is the kind of number that goes stale silently. Both figures
+   below were re-measured with the bar up and down rather than derived from the old ones. */
+.no-map #minimap { display: none; }
+.no-map #purse { top: max(12px, env(safe-area-inset-top)); }
+.no-map #raid-bar:not(.hidden) ~ #purse { top: calc(max(12px, env(safe-area-inset-top)) + 104px); }
+@media (max-width: 430px) {
+  .no-map #purse { top: max(12px, env(safe-area-inset-top)); }
+  .no-map #raid-bar:not(.hidden) ~ #purse { top: calc(max(12px, env(safe-area-inset-top)) + 98px); }
+}
+
 #vignette { position: fixed; inset: 0; pointer-events: none; z-index: 1;
   background: radial-gradient(ellipse at center, rgba(0,0,0,0) 58%, rgba(20,30,10,0.32) 100%); }
 
