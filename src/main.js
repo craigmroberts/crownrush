@@ -718,6 +718,9 @@ requestAnimationFrame(frame);
 
 // expose for poking around in the console
 window.game = game;
+// #144: the balance table too. Sweeping a tuning number in a live game is how the figures beside it
+// in config.js get pinned, and rebuilding once per candidate value is the alternative.
+window.CFG = CFG;
 window.audio = audio;
 
 // Add to Home Screen. The service worker holds the whole game — the bundle, the models and the

@@ -679,7 +679,26 @@ export const CFG = {
   // and 600: at 300 a deliberate tap on a tower sometimes lifted it, at 600 it reads as broken.
   place: { grid: 2, longPress: 450, longSlop: 14 },
 
-  spend: { tick: 0.07, fastTick: 0.022, crewTick: 0.28, padRadius: 1.7, padSize: 3.6, arm: 0.25, bought: 1.0, walkHold: 0.8, showRadius: 10, showNew: 7 },
+  // #144: `showRadius` was 10 and the field read as a car park of floor markers -- "they appear too
+  // early and I can see a lot of mats". Swept on a field of eight pads, counting the most that stand
+  // up at once with the King parked at each mat in turn:
+  //
+  //     showRadius 10 -> 3 mats up      6 -> 2      4 -> 1      3 -> 1
+  //
+  // So 4 is where it stops being a car park, and 3 buys nothing further. 4 over 3 is about the fade
+  // rather than the count: walking in from 8 units, a mat is at 0.95 opacity as the King crosses
+  // `padRadius` 1.7 -- the circle it takes payment in -- and full by 0.88. It is arrived by the time
+  // he can use it, which at 3 it would still be doing.
+  //
+  // `showAfford` is the other half and is why the radius could be cut at all. NOTHING POINTS AT A
+  // BUILD MAT -- `updateIndicators` draws arrows for enemies, for home and for the camp, and there is
+  // no arrow for a pad -- so at 10 the radius WAS the discovery. Cutting it without replacing that
+  // trades one complaint for another: a player who misses `showNew` has no way to be reminded a mat
+  // exists short of walking the village. So a mat shows itself again for `showAfford` seconds the
+  // moment it becomes payable, which is exactly the moment it is worth pointing at. A pulse on the
+  // TRANSITION rather than a test of affordability: a mat you can afford and have not bought would
+  // otherwise stand up forever and put the car park straight back.
+  spend: { tick: 0.07, fastTick: 0.022, crewTick: 0.28, padRadius: 1.7, padSize: 3.6, arm: 0.25, bought: 1.0, walkHold: 0.8, showRadius: 4, showNew: 7, showAfford: 4 },
 
   // #55: the Walk clip plays at the speed its owner is actually moving.
   //

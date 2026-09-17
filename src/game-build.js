@@ -1085,7 +1085,14 @@ export const BuildMethods = {
       // standing on the field at once is what made the village look like a car park. A pad you are
       // paying into stays up however far you drift, and a brand new one shows itself for a few
       // seconds wherever you are, because otherwise the only clue it exists is a toast.
-      const show = dist < CFG.spend.showRadius || pad.active || this.time - pad.bornAt < CFG.spend.showNew;
+      // #144: and again for a few seconds when it first becomes payable. See CFG.spend.showAfford --
+      // the radius used to BE the discovery, and nothing else points at a build mat.
+      const canPay = this.padAffordable(pad);
+      if (canPay && !pad.couldPay) pad.affordT = CFG.spend.showAfford;
+      pad.couldPay = canPay;
+      if (pad.affordT > 0) pad.affordT -= dt;
+      const show = dist < CFG.spend.showRadius || pad.active
+        || this.time - pad.bornAt < CFG.spend.showNew || pad.affordT > 0;
       pad.fade += ((show ? 1 : 0) - pad.fade) * Math.min(1, dt * 7);
       pad.mesh.visible = pad.fade > 0.02;
       pad.mesh.material.opacity = pad.fade;
@@ -1189,6 +1196,18 @@ export const BuildMethods = {
 
   padPaid(pad) {
     return pad.paid >= pad.cost && pad.res.every((r) => r.paid >= r.need);
+  },
+
+  // #144: could the player pay the REST of this mat right now? What that means depends on what the
+  // mat takes -- coin, materials, or archers out of the army -- and all three have to answer, because
+  // a mat that only ever pulsed for coin would leave the wall and crew mats with no discovery at all
+  // now the radius is 4. `locked` is deliberately not consulted: a mat you cannot buy yet because the
+  // Keep is too low is not news, and it would pulse the moment the money arrived regardless.
+  padAffordable(pad) {
+    const def = pad.def;
+    if (def.crew) return this.units.some((u) => u.type === 'archer' && !u.assign);
+    for (const r of pad.res) if ((this.res[r.type] || 0) < r.need - r.paid) return false;
+    return this.coinsCarried >= pad.cost - pad.paid;
   },
 
   // #126: the one place that knows where she stands when she is home. Three callers had their own

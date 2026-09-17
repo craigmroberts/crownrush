@@ -571,6 +571,19 @@ mistaken for a man. The crew mats keep theirs, because position does the work tr
 a figure standing in mid-air on a tower deck is plainly a diagram, and hiding one of them per archer
 dispatched is the only progress a crew mat shows.
 
+**A mat shows when you are nearly standing on it** (#144). `spend.showRadius` was 10, which is almost
+six times the 1.7 you have to be inside for it to take payment, and the field read as a car park of
+floor markers. Measured on a field of eight pads, counting the most that stand up at once: **10 gives
+3, 6 gives 2, 4 gives 1**, and 3 buys nothing further — so 4, chosen over 3 for the fade rather than
+the count, since a mat reaches 0.95 opacity as the King crosses the pay circle and is full by 0.88
+units out.
+
+Cutting that radius on its own would trade one complaint for another, because **nothing points at a
+build mat** — there are edge arrows for enemies, for home and for the camp, and none for a pad, so the
+radius *was* the discovery. So a mat shows itself again for `showAfford` seconds the moment it becomes
+payable, which is exactly when it is worth pointing at. A pulse on the transition, not a test: a mat
+you can afford and have not bought would otherwise stand up forever and put the car park back.
+
 The preview used to be switched on and off outright:
 
 ```js
