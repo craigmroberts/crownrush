@@ -1228,8 +1228,10 @@ on the wire, fetched the first time one is decoded -- so compressing the three t
 hand would drag that download onto the critical path and put bytes-to-a-clickable-Play over a budget it
 currently clears. The rule is: what the opening needs stays JPEG, everything after it is ETC1S, and
 `tools/models/compress.mjs` holds the same split (#51). Measured: nothing of the transcoder arrives
-before Play, and both devices report the same 3006 kB (2972 before the #55 clips added 31, 3003
-before #135's palette block and raid bar added 3).
+before Play, and both devices report the same 3007 kB (2972 before the #55 clips added 31, 3003
+before #135's palette block and raid bar added 3, and 3006 before the #138-#146 round added 1).
+65 kB of headroom left against the 3072 budget, which is the figure to watch: nothing since #51 has
+moved an asset, so every kilobyte of that drift is source.
 
 How a character dies, and how it reacts (#55):
 
