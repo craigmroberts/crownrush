@@ -194,7 +194,16 @@ export const ViewMethods = {
     // #27: night stays cool and moonlit, never truly dark. A playtester could not read the field
     // after nightfall, so the night keys carry more light than the scene wants for realism: this is
     // a game you have to fight in at night, and losing sight of the raiders is not a fair difficulty.
-    const blood = this.night && this.wave > 0 && this.wave % CFG.waves.bossEvery === 0;
+    // #149: and night one, because he has just found out. The sky and the boss are two conditions in
+    // two files that happen to share `bossEvery` -- the boss comes from `waveList`, not from here --
+    // so widening this one gives the first night the red sky and no boss with it, which is the only
+    // way a level-nothing player can be handed this night at all.
+    //
+    // Reusing the blood moon rather than authoring a second red sky, deliberately. It costs the
+    // colour its single meaning and buys a callback: the first red sky has nothing behind it, the
+    // second one has a boss, and a player who has seen the first reads the second before it lands.
+    // A colour that has only ever meant one thing cannot do that.
+    const blood = this.night && (this.wave === 1 || (this.wave > 0 && this.wave % CFG.waves.bossEvery === 0));
     const keys = blood ? [
       { p: 0.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x6cbd55, exp: 1.22, h: 34, tint: 0xffffff },
       { p: 0.3, sun: 0xffffff, sunI: 1.42, sky: 0xffffff, ground: 0x9ec97a, fog: 0x74c45c, exp: 1.26, h: 42, tint: 0xffffff },

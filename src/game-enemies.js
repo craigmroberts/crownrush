@@ -145,7 +145,15 @@ export const EnemiesMethods = {
     this.thiefTimer = CFG.waves.thieves.every * 0.6;   // #35: first chance shortly into the night
     const boss = list.includes('boss');
     audio.wave(boss);
-    this.hud.toast(boss ? `Blood moon! Night ${w} brings a boss.` : `Night ${w} falls.`, 2200, 'Raid');
+    // #149: night one has the red sky and no boss, so "Night 1 falls." would be the game declining to
+    // explain the most dramatic thing on screen. It gets the reason instead -- the first raid is not
+    // weather, it is the Warlord hearing what happened this morning and answering it.
+    this.hud.toast(
+      w === 1 ? 'The sky is wrong tonight. *He has heard what you did.*'
+        : boss ? `Blood moon! Night ${w} brings a boss.`
+          : `Night ${w} falls.`,
+      w === 1 ? 3000 : 2200, 'Raid',
+    );
   },
 
   // The level the RAID is fought at, as opposed to the level the Keep stands at. The higher of the
