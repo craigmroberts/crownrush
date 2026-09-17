@@ -1441,8 +1441,17 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
    offsets of half their own size, so the transform puts their centres under the thumb. Input toggles
    `display` directly when a finger goes down and up. */
 #joystick { position: fixed; left: 0; top: 0; width: 0; height: 0; pointer-events: none; display: none; z-index: 5; }
+/* #153: no ring. It was a 3px stroke at 0.55 white around a 0.18 disk, and it read as a second object
+   sitting on the grass rather than as the edge of the first -- reported as "a filled circle dot and
+   then a borderline circle around it".
+   The disk stays, and so does its size: 128px across is a 64px radius, which is `Input.maxR` to the
+   pixel (input.js) -- the stick's travel clamp and the divisor that decides when the King is at full
+   speed. So the shape still says where the stick ends; it just stops drawing a line on it. Nothing in
+   input.js changes, which is the point: the clamp is felt, not read.
+   `box-sizing` is `border-box` globally, so dropping the stroke moves nothing -- the background was
+   already painting out to 128px underneath it. */
 #joystick .base { position: absolute; left: -64px; top: -64px; width: 128px; height: 128px; border-radius: 50%;
-  background: rgba(255,255,255,0.18); border: 3px solid rgba(255,255,255,0.55); }
+  background: rgba(255,255,255,0.18); }
 #joystick .knob { position: absolute; left: -26px; top: -26px; width: 52px; height: 52px; border-radius: 50%;
   background: rgba(255,255,255,0.85); box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
 
