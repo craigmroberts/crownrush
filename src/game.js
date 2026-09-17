@@ -354,34 +354,22 @@ export class Game {
     // king (on foot until he earns a horse) and the Queen he must protect
     this.king = this.spawnUnit('king', 0, 2);
     this.keep = null;
-    // the Queen starts captive out in the wilds; the King's first job is to bring her home
-    this.queen = this.spawnUnit('queen', CFG.rescue.pos[0], CFG.rescue.pos[1]);
+    // #152: she starts BESIDE him, free, in the daylight. The run used to open with her already
+    // gone and a toast explaining it -- arriving in the middle of somebody else's emergency. Now the
+    // player has her for a minute before anyone takes her, which is the only way the loss lands.
+    this.queen = this.spawnUnit('queen', 1.6, 3.4);
     this.queen.inKeep = false;
-    this.queen.captive = true;
+    this.queen.captive = false;
     // #83: how much of her the raiders have. Hers alone -- nothing else in the game is taken this
     // way -- so it lives here rather than on every unit spawnUnit makes.
     this.queen.seize = 0;
     this.queen.held = false;
-    for (let i = 0; i < CFG.rescue.captors; i++) {
-      const a = (i / CFG.rescue.captors) * Math.PI * 2 + 0.6;
-      const e = this.spawnEnemy('knight', CFG.rescue.pos[0] + Math.cos(a) * 2.3, CFG.rescue.pos[1] + Math.sin(a) * 2.3, CFG.rescue.captorRank || 0);
-      e.captor = true;
-      // #146: and a flag that is never cleared. `captor` is, the moment they charge (`updateCaptive`),
-      // so it cannot answer "is this the opening" for anything that outlives the alert.
-      e.rescue = true;
-      e.orbit = a;
-      e.orbitDir = i % 2 ? -1 : 1;
-      e.mesh.rotation.y = Math.atan2(-Math.cos(a), -Math.sin(a));
-    }
-    if (CFG.rescue.captain) {
-      // #30: the one who actually holds her. A brute, so the rescue has to be fought rather than walked.
-      const cap = this.spawnEnemy('brute', CFG.rescue.pos[0], CFG.rescue.pos[1] - 2.6, CFG.rescue.captainRank || 1);
-      cap.captor = true;
-      cap.rescue = true;
-      cap.orbit = -Math.PI / 2;
-      cap.orbitDir = 1;
-      cap.mesh.rotation.y = Math.PI;
-    }
+    // #152: the opening clock. `openT` counts the calm out; `snatched` is what the rest of the game
+    // reads to know the premise has happened -- the day does not start until it has.
+    this.openT = 0;
+    this.snatched = false;
+    this.openWarned = false;
+    this.openingDone = false;
     const hc = TIERS[0].bounds;
     this.homeSide = this.world.riverInfo((hc.x0 + hc.x1) / 2, (hc.z0 + hc.z1) / 2).side;
 
@@ -871,6 +859,7 @@ export class Game {
       // gets the lane -- so a notice that closed on this frame hands the lane straight back.
       if (this.gain && this.hud.tickGain(dt)) this.dismissGain();
       this.updatePads(dt);
+      this.updateOpening(dt);   // #152: the calm, and the men who end it
       this.updateWaves(dt);
       this.updateFog(dt);
       this.updateChips(dt);

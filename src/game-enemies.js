@@ -175,10 +175,65 @@ export const EnemiesMethods = {
   // #16: losing the Queen starts a chase, not a lose screen. Raiders pick her up and carry her toward
   // the edge; cut the escort down before they get there and she is back, wounded, and the Keep pays.
   // It can happen once per run. The second time is the end.
+  // #152: the calm, and then the men who come for her. Called every frame of a run that has not had
+  // its premise yet, and does nothing for `CFG.opening.calm` seconds -- that silence is the point.
+  //
+  // They come from the north because that is where the camp is, they walk in abreast, and they are
+  // marked `rescue` so the raid bar leaves them alone: this is a scripted beat with an outcome, not a
+  // fight to be measured, and a progress bar on something the player cannot win is a cruelty.
+  updateOpening(dt) {
+    if (this.snatched || this.queen.captive) return;
+    this.openT += dt;
+    const O = CFG.opening;
+    if (this.openT < O.calm) {
+      // one line, once, a beat before they appear -- so the quiet has an edge on it rather than
+      // simply ending
+      if (this.openT >= O.calm - 3 && !this.openWarned) {
+        this.openWarned = true;
+        this.hud.toast('Riders on the north road.', 2600, 'Wren');
+        audio.alarm();
+      }
+      return;
+    }
+    this.snatched = true;
+    const [fx, fz] = O.from;
+    const make = (type, x, z, rank) => {
+      const e = this.spawnEnemy(type, x, z, rank);
+      // #152: a collector wants one thing and it is not him. `updateEnemy` walks an enemy at whatever
+      // `target` it was given, and the retarget pass below refuses to give these anything but her.
+      e.collector = true;
+      // out of the raid count: this is the premise, not a raid (#146's flag, reused for the same
+      // reason it was added -- it is never cleared).
+      e.rescue = true;
+      // ITS OWN STATS OBJECT. `spawnEnemy` assigns `CFG.enemy[type]` straight onto the enemy, so
+      // every knight in the game shares one -- writing a speed onto it here would have made every
+      // raider for the rest of the run a sprinter. Same shape as the ghost material in #43 and
+      // BAKED_STD in #109: a shared thing quietly mutated per-object.
+      e.stats = { ...e.stats, speed: O.speed };
+      return e;
+    };
+    for (let i = 0; i < O.collectors; i++) {
+      const t = O.collectors === 1 ? 0.5 : i / (O.collectors - 1);
+      make('knight', fx + (t - 0.5) * O.spread, fz, O.rank);
+    }
+    if (O.captain) make('brute', fx, fz - 2.4, O.captainRank);
+    this.raiseAlarm('They are coming for Wren!', 'fear');
+    this.hud.toast('They are not stopping for you. *Get her away from them.*', 4000, 'Wren');
+    audio.wave(true);
+  },
+
   captureQueen() {
     const q = this.queen;
-    if (this.recaptures >= CFG.rescue.recaptures) return this.gameOver('queen');
-    this.recaptures++;
+    // #152: the opening snatch is the premise and not a mistake, so it does not spend one of the two
+    // chances a run gets. `recaptures` is what ends a run when she is lost for the third time; taking
+    // her in the first two minutes must not start the player one short of everybody who played before
+    // this.
+    const premise = !this.openingDone;
+    if (premise) this.openingDone = true;
+    else {
+      if (this.recaptures >= CFG.rescue.recaptures) return this.gameOver('queen');
+      this.recaptures++;
+    }
     q.captive = true;
     q.taken = true;
     q.inKeep = false;
@@ -579,6 +634,10 @@ export const EnemiesMethods = {
         let bd = Infinity;
         for (const u of this.units) {
           if (u.inKeep || u.captive) continue;
+          // #152: a collector will not look at anybody else. He walks past the King, around the
+          // archers shooting him, and goes to her -- which is the twist, shown rather than told, two
+          // minutes into the first run.
+          if (e.collector && u.type !== 'queen') continue;
           let d = e.mesh.position.distanceToSquared(u.mesh.position);
           if (u.type === 'queen') d *= CFG.queen.targetWeight;
           if (d < bd) {
@@ -699,7 +758,9 @@ export const EnemiesMethods = {
     const cleared = !this.anyActiveEnemy() && this.spawnQueue.length === 0;
     // Nothing attacks the King until he takes the Queen back (#12): the raids ARE the enemy coming
     // for her, so while she is captive the clock stands still and it stays daylight.
-    if (this.queen.captive) return;
+    // #152: and it does not start before the premise either. The calm at the top of a run is a held
+    // morning, not a day ticking away toward a night the player has not been told about yet.
+    if (this.queen.captive || !this.snatched) return;
 
     // #15: the sun is the timer. Raids come at nightfall and the wave number is the night number.
     const cy = CFG.cycle;

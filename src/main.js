@@ -118,7 +118,7 @@ Promise.all([
 // #6: the first time through, Play opens a short stepped intro; after that it goes straight in
 const INTRO_KEY = 'crownrush-intro-seen';
 const INTRO = [
-  { icon: 'tiara', title: 'Find the Queen', text: 'Raiders have taken Wren, your Queen. Follow the pink arrow, clear her guards and bring her home. Nothing can be built, and no raid comes, until she is free.' },
+  { icon: 'tiara', title: 'Keep Wren safe', text: 'Wren walks with you. Men are coming for her and they will not stop for you — get her back when they take her. Nothing can be built, and no raid comes, until she is home.' },
   { icon: 'coin', title: 'Fight and collect', text: 'Your archers shoot on their own. Raiders drop coins: walk over them to pick them up. The colour a raider wears tells you how dangerous it is.' },
   // #57: two verbs, one step. A sixth card would make the opening longer for something the player
   // learns faster by pressing it, and these two belong together: they are the only buttons in the

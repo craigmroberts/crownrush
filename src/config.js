@@ -78,6 +78,41 @@ export const CFG = {
     // which reads wrong. The range that was tuned is one to four, which is where a fight lives.
     seize: { grip: 1.2, grab: 3.4, perExtra: 0.55, slip: 2.0, shaken: 0.45 },
   },
+  // #152: the opening is a SNATCH, not a pen. She starts beside him in the daylight, they come for
+  // her, and the player watches it happen instead of arriving after it.
+  //
+  // `calm` is the minute before. Nothing spawns, the sun does not move, and she walks a step behind
+  // him -- because you cannot feel a loss if you never had the thing, and the old opening began with
+  // her already gone and a toast explaining it.
+  //
+  // THEY DO NOT TARGET THE KING. That is the whole of the twist, planted as behaviour rather than as
+  // a line of dialogue twenty nights later: they walk past him, around him, through his archers, and
+  // go to her. `docs/story.md` turns on the raiders being collectors sent to fetch her, and this is
+  // what a collector looks like. It also means he cannot die in a beat he is scripted to lose, so
+  // nothing has to protect him specially.
+  //
+  // `rank` is high on purpose. The loss has to be arithmetic the player can see -- no army yet
+  // against four men two ranks above night one -- rather than a footrace he was too slow for. Nobody
+  // who loses this thinks he was slow; he thinks he needs soldiers, which is the next half hour.
+  opening: {
+    calm: 14,          // seconds of quiet before they come
+    from: [0, -44],    // they walk in from the north, which is where the camp is
+    spread: 7,         // how wide they come in
+    collectors: 4,
+    rank: 2,
+    captain: true,
+    captainRank: 3,
+    // ABOVE `king.footSpeed` (5.6), and this is not a difficulty number -- it is what stops the
+    // opening from having a hole in it. A knight moves at 3.8 and she follows him at his own pace, so
+    // a player who simply walks away is never caught: the snatch never lands, the day clock never
+    // starts (it is held until `snatched`), and the run sits in its first minute for ever.
+    //
+    // 6.2 rather than something enormous. It has to beat him on foot and it must not look like a
+    // different kind of creature; the mounted King does 7.5, so a horse would still outrun them --
+    // which is fine, because by the time anyone has a horse this beat is twenty minutes past.
+    speed: 6.2,
+  },
+
   // Opening: the Queen has been carried off. Find her, clear her captors, and she follows you home.
   // Nobody attacks the King until he takes the Queen back: the raids are the enemy coming to get
   // her, so nothing spawns while she is captive and `firstRaid` is the grace period after the rescue.
