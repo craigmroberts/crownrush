@@ -98,6 +98,23 @@ the raids keep coming for a high score.
   place that height is written down, and the real price of the change: about 104px of the top of the
   screen while a raid is on.
 
+  It **arrives and leaves** rather than appearing between two frames (#140), and three things have to
+  move in step for that to read: the bar's own height, the top bar sliding under it, and those two
+  `top` offsets easing to theirs. If only the bar animated, the map and the purse would still jump and
+  the result would be worse than the pop. The height is a grid row going `0fr` to `1fr`, because
+  `display: none` cannot be transitioned and the height is content-sized rather than a number.
+
+  It is capped at **30rem** and centred (#143). Uncapped it filled the viewport less 32px, which at
+  2560 wide is a 2528x5px hairline. 30rem is what `.panel` already caps itself at, so the bar and the
+  sheets agree rather than this inventing a number.
+
+  It is **not up for the rescue** (#146). The opening party used to be counted on the reasoning that
+  the rescue is the first fight and "how many are left" is the same question -- fair for a 30px ring
+  in the corner, wrong for a full-width bar reading "Night 1 / Raiders / 7 left" over a run nobody has
+  started. They carry a flag set once at spawn and never cleared, rather than the night number: the
+  camp wakes on proximity with no wave gate, so gating on the night would have hidden the bar for the
+  one other fight that can happen before night 1.
+
   The King has no bar in the corner: his own is over his head, where everyone else's is.
 - Nothing on the field carries a frame. The minimap and the settings gear both used to wear a gold
   ring; the gear is just a gear now, which is what let it grow to fill the space the border was using,

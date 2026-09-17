@@ -621,6 +621,8 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
    rule set -- `left`/`bottom` are `auto` now, so neutralising them would leave the map pinned to the
    corner it came from and the expansion would land off-centre. Anchor and translate both flip. */
 #minimap.big { width: min(70vw, 70vh); height: min(70vw, 70vh); right: 50%; top: 50%; transform: translate(50%, -50%); z-index: 6; border-radius: 18px; }
+/* #140: opening the map is its own move and must not inherit the raid bar's easing on `top`. */
+#minimap.big { transition: width 0.2s, height 0.2s; }
 
 #vignette { position: fixed; inset: 0; pointer-events: none; z-index: 1;
   background: radial-gradient(ellipse at center, rgba(0,0,0,0) 58%, rgba(20,30,10,0.32) 100%); }
@@ -1559,12 +1561,39 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 #raid-bar {
   flex: 0 0 auto; pointer-events: none; text-align: center; color: var(--ink);
   padding: max(4px, env(safe-area-inset-top)) 16px 0;
+  /* #140: the bar arrives and leaves instead of appearing between two frames. `display: none` cannot
+     be transitioned, so what animates is a grid row collapsing to nothing -- `0fr -> 1fr` on a
+     wrapper whose child is `overflow: hidden` and `min-height: 0`, which is the only way to ease a
+     height that is content-sized rather than a number. `padding` and `opacity` ride the same curve
+     or the bar would slide out of a box that still had its padding. */
+  display: grid; grid-template-rows: 1fr;
+  transition: grid-template-rows 0.28s cubic-bezier(0.34, 1.26, 0.64, 1), opacity 0.2s ease-out,
+    padding-top 0.28s cubic-bezier(0.34, 1.26, 0.64, 1);
 }
-#raid-bar.hidden { display: none; }
+#raid-bar > .rb-inner { overflow: hidden; min-height: 0; }
+/* #140: `display: none` is gone. The row collapses to zero instead, and `visibility` takes the whole
+   subtree out of hit testing when it is down -- the same trick the notice band uses (#128), and it
+   matters for the same reason: the drag that moves the King is bound to the canvas underneath. */
+#raid-bar.hidden {
+  grid-template-rows: 0fr; opacity: 0; padding-top: 0; visibility: hidden;
+  transition: grid-template-rows 0.28s cubic-bezier(0.34, 1.26, 0.64, 1), opacity 0.2s ease-out,
+    padding-top 0.28s cubic-bezier(0.34, 1.26, 0.64, 1), visibility 0s linear 0.28s;
+}
+/* #143: a width cap. `.rb-track` is `position: relative` with no width of its own, so it filled the
+   viewport less 32px -- a 2528x5px hairline at 2560 wide. 30rem is the house width: it is what
+   `.panel` caps itself at, so the bar and every sheet in the game agree rather than this inventing a
+   number. The eyebrow and the count are already centred, so nothing else moves. */
+#raid-bar .rb-inner > * { max-width: 30rem; margin-inline: auto; }
 /* the topbar carries the safe area when the bar is down and must not carry it twice when it is up */
 #raid-bar:not(.hidden) + #topbar { padding-top: 8px; }
 /* the map and the purse are `fixed`, so the flow cannot move them. This is the one place the bar's
-   height is written as a number; it is measured, and it is why the block above is not free. */
+   height is written as a number; it is measured, and it is why the block above is not free.
+   #140: and they EASE to it, matched to the bar's own curve and duration. Three things move when the
+   bar arrives -- the bar growing, the top bar sliding under it, and these two -- and if only the bar
+   animates the map and the purse still jump, which is worse than the pop it replaced. */
+#raid-bar ~ #minimap, #raid-bar ~ #purse {
+  transition: top 0.28s cubic-bezier(0.34, 1.26, 0.64, 1), width 0.2s, height 0.2s;
+}
 #raid-bar:not(.hidden) ~ #minimap { top: calc(max(12px, env(safe-area-inset-top)) + 104px); }
 #raid-bar:not(.hidden) ~ #purse { top: calc(max(12px, env(safe-area-inset-top)) + 184px); }
 .rb-eye {
@@ -1595,6 +1624,13 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
   margin-top: 5px; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800;
   font-size: 12px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-dim);
   text-shadow: 0 1px 2px rgba(0,0,0,0.7); font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* #140: no easing, but `visibility` still has to be held for a frame -- that is hit testing, not
+     motion, and dropping it puts an invisible block back over the canvas. */
+  #raid-bar { transition: opacity 0.12s linear; }
+  #raid-bar.hidden { transition: opacity 0.12s linear, visibility 0s linear 0.12s; }
+  #raid-bar ~ #minimap, #raid-bar ~ #purse { transition: none; }
 }
 @media (max-width: 430px) {
   .rb-name { font-size: 29px; }

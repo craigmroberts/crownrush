@@ -71,10 +71,14 @@
            two fixed things -- the map and the purse -- cannot be pushed, so they are offset off a
            sibling selector below; that is the only place the height is written down. -->
       <div id="raid-bar" class="hidden" aria-hidden="true">
-        <div class="rb-eye"><i data-icon="swords" data-size="15"></i><span id="rb-night">Night 1</span><i data-icon="swords" data-size="15"></i></div>
-        <div class="rb-name" id="rb-name">Raiders</div>
-        <div class="rb-track"><i id="rb-fill"></i></div>
-        <div class="rb-left"><b id="rb-count">0</b> left</div>
+        <!-- #140: the wrapper exists so the bar has a height to animate. A grid row eases from 0fr to
+             1fr; the content inside has to be in a box that can be clipped while that happens. -->
+        <div class="rb-inner">
+          <div class="rb-eye"><i data-icon="swords" data-size="15"></i><span id="rb-night">Night 1</span><i data-icon="swords" data-size="15"></i></div>
+          <div class="rb-name" id="rb-name">Raiders</div>
+          <div class="rb-track"><i id="rb-fill"></i></div>
+          <div class="rb-left"><b id="rb-count">0</b> left</div>
+        </div>
       </div>
       <!-- #22: one slim bar instead of the corner plaque, so the playfield is clear -->
       <!-- lane 1. The left plaque IS the Keep: tapping it opens the level sheet, which is where the
