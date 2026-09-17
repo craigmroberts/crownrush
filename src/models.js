@@ -21,7 +21,9 @@ gradientMap.colorSpace = THREE.NoColorSpace;
 
 const matCache = new Map();
 export function mat(color, opts = {}) {
-  const key = color + JSON.stringify(opts);
+  // A THREE.Color stringifies to "[object Object]", so keying on it directly hands every caller the
+  // same material whatever colour they asked for -- silently, and it looks like one deliberate colour.
+  const key = (color && color.isColor ? color.getHex() : color) + JSON.stringify(opts);
   if (!matCache.has(key)) matCache.set(key, new THREE.MeshStandardMaterial({ color, roughness: 0.88, metalness: 0, ...opts }));
   return matCache.get(key);
 }
@@ -32,6 +34,11 @@ export function setSwayUniform(u) {
 }
 export function swayMaterial(color) {
   const m = new THREE.MeshStandardMaterial({ color, roughness: 0.9, flatShading: true });
+  // Same guard, and this one has been exposed the whole time: `matFlat` also makes a flat-shaded
+  // MeshStandardMaterial with no vertex colours, so the defines match and the grass could be handed a
+  // program compiled for a rock. Roughness and colour are uniforms rather than defines, so they do
+  // not separate them. It has evidently been winning the race; it should not have to.
+  m.customProgramCacheKey = () => 'sway';
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uSway = swayUniform;
     shader.vertexShader = shader.vertexShader
@@ -133,6 +140,38 @@ export function ghostify(group) {
 // ---- baking: collapse a model's static parts into one vertex-coloured mesh (one draw call) ----
 export const BAKED_MAT = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.88, metalness: 0, vertexColors: true });
 export const BAKED_STD = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, metalness: 0.05, vertexColors: true });
+// Wind for things that are NOT instanced. `swayMaterial` takes its phase from `instanceMatrix`, which
+// grass and wheat have and a merged tree does not -- every tree would have swung in unison, which is
+// worse than not moving at all.
+//
+// So the phase is baked per OBJECT into `uv.x`. That attribute exists on every baked geometry, is
+// written to zero by `prepGeo`, and nothing has ever read it: these materials carry no map. It cannot
+// come from the vertex position, which was the obvious idea and is wrong -- a canopy is two units
+// across, so one side would lead the other by radians and the tree would shear rather than sway.
+//
+// The bend is linear in height, so a three-metre canopy travels about 0.13 and a knee-high bush
+// barely moves. That is not a compromise either; it is what the two actually do.
+export const BAKED_SWAY = (() => {
+  const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, metalness: 0.05, vertexColors: true });
+  m.userData.isSway = true;   // so a test can tell this apart from BAKED_STD, which is otherwise identical
+  // A GUARD, not a fix for anything observed. `onBeforeCompile` is not part of Three's program cache
+  // key -- that is built from the material's DEFINES, and BAKED_STD is a MeshStandardMaterial with
+  // `vertexColors` exactly as this one is. Nothing separates them, so whether this material gets its
+  // own program or BAKED_STD's comes down to compile order, and the failure is silent: the injected
+  // vertex code is simply not there and the trees stand still. Cheap to make impossible.
+  m.customProgramCacheKey = () => 'baked-sway';
+  m.onBeforeCompile = (shader) => {
+    shader.uniforms.uSway = swayUniform;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nuniform float uSway;')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        float ph = uv.x;
+        float bend = max(transformed.y, 0.0);
+        transformed.x += sin(uSway * 1.15 + ph) * 0.038 * bend;
+        transformed.z += cos(uSway * 0.9 + ph * 1.3) * 0.022 * bend;`);
+  };
+  return m;
+})();
 function prepGeo(geo) {
   const g = geo.index ? geo.toNonIndexed() : geo.clone();
   for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
@@ -140,6 +179,16 @@ function prepGeo(geo) {
   if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
   return g;
 }
+// The per-object wind phase, written into `uv.x` on every vertex. See BAKED_SWAY for why it lives
+// there and why it cannot be derived from the vertex position.
+function phaseize(geo, ph) {
+  const n = geo.attributes.position.count;
+  const arr = new Float32Array(n * 2);
+  for (let i = 0; i < n; i++) arr[i * 2] = ph;
+  geo.setAttribute('uv', new THREE.BufferAttribute(arr, 2));
+  return geo;
+}
+
 function colorize(geo, color) {
   const n = geo.attributes.position.count;
   const arr = new Float32Array(n * 3);
@@ -160,12 +209,21 @@ export function bake(g, keep = []) {
     return false;
   };
   const parts = [];
+  const sways = [];
   const outlines = [];
+  // One phase for the whole object, picked here rather than from where it ends up: `bake` runs inside
+  // the maker, before the caller has placed it, so there is no world position to read yet. Random is
+  // better anyway -- two trees that happen to grow side by side should not lean together.
+  const phase = Math.random() * Math.PI * 2;
   g.traverse((o) => {
     if (!o.isMesh || o.isInstancedMesh || o.isSprite || o.userData.face || Array.isArray(o.material)) return;
     if (isKept(o)) return;
     if (o.material === OUTLINE_MAT) {
       outlines.push(o);
+      return;
+    }
+    if (o.userData.sway) {
+      sways.push(o);
       return;
     }
     const m = o.material;
@@ -182,6 +240,13 @@ export function bake(g, keep = []) {
     geo.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
     return color ? colorize(geo, color) : geo;
   };
+  if (sways.length) {
+    const m = new THREE.Mesh(mergeGeometries(sways.map((o) => phaseize(toGeo(o, o.material.color), phase)), false), BAKED_SWAY);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    for (const o of sways) o.parent.remove(o);
+    g.add(m);
+  }
   if (parts.length) {
     const m = new THREE.Mesh(mergeGeometries(parts.map((o) => toGeo(o, o.material.color)), false), BAKED_STD);
     m.castShadow = true;
@@ -215,7 +280,7 @@ export function mergeGroup(group, cell = 30) {
   const inv = new THREE.Matrix4().copy(group.matrixWorld).invert();
   const parts = [];
   group.traverse((o) => {
-    if (o.isMesh && !o.isInstancedMesh && (o.material === BAKED_MAT || o.material === BAKED_STD)) parts.push(o);
+    if (o.isMesh && !o.isInstancedMesh && (o.material === BAKED_MAT || o.material === BAKED_STD || o.material === BAKED_SWAY)) parts.push(o);
   });
   if (!parts.length) return group;
   const buckets = new Map();
@@ -931,29 +996,76 @@ export function makeRallyBanner() {
 }
 
 // ---- scenery ----
+// A WOOD, NOT EIGHTY COPIES OF TWO TREES. Every tree used to be one of two silhouettes wearing the
+// same three greens, which at this camera reads as one object stamped across the map.
+//
+// The variation is free, and that is the whole reason it is worth doing: `bake` turns each tree into
+// vertex colours, so a tree with its own greens costs exactly what a shared one costs -- no extra
+// material, no extra draw call. `tint` shifts hue and lightness a little per tree, which is what the
+// eye reads as "these are different trees" long before it notices the shape.
+// TWO TRAPS IN FIVE LINES, both found by looking at the trees rather than at the numbers, because
+// both produce a perfectly valid colour that is simply the wrong one.
+//
+// 1. THE COLOUR SPACES MUST MATCH. `getHSL` reports in the WORKING space (linear) by default and
+//    `setHSL` reads the SRGB one, so the obvious round trip moves the colour a long way: it turned
+//    every canopy in the game brown. Both calls name their space here.
+// 2. IT MUST RETURN A NUMBER. `mat()` caches on `color + JSON.stringify(opts)`, and a THREE.Color
+//    stringifies to "[object Object]" -- so every tinted green in the world collapsed onto one cache
+//    entry and every tree wore whichever one was built first. (`mat` no longer allows that either.)
+function tint(hex, h, l) {
+  const c = new THREE.Color(hex);
+  const hsl = { h: 0, s: 0, l: 0 };
+  c.getHSL(hsl, THREE.SRGBColorSpace);
+  c.setHSL((hsl.h + h + 1) % 1, hsl.s, Math.min(0.92, Math.max(0.06, hsl.l + l)), THREE.SRGBColorSpace);
+  return c.getHex(THREE.SRGBColorSpace);
+}
+
 export function makeTree(scale = 1) {
   const g = new THREE.Group();
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.26, 1.1, 7), matFlat(C.mane));
-  trunk.position.y = 0.55;
+  // one tree's own greens: +/- 5 degrees of hue and a little value either way
+  const dh = (Math.random() - 0.5) * 0.028;
+  const dl = (Math.random() - 0.5) * 0.1;
+  const leaf = tint(C.leaf, dh, dl);
+  const dark = tint(C.leafDark, dh, dl);
+  const top = tint(0x4fb56a, dh, dl + 0.04);
+  const bark = tint(C.mane, (Math.random() - 0.5) * 0.02, (Math.random() - 0.5) * 0.08);
+  const trunkH = 1.1 * (0.85 + Math.random() * 0.4);
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.26, trunkH, 7), matFlat(bark));
+  trunk.position.y = trunkH / 2;
   trunk.castShadow = true;
   g.add(trunk);
-  if (Math.random() < 0.55) {
-    // round canopy: a cluster of faceted blobs in two greens
-    const blobs = [[0, 2.0, 0, 1.05, C.leaf], [-0.55, 1.6, 0.3, 0.7, C.leafDark], [0.6, 1.7, -0.25, 0.72, C.leafDark], [0.1, 2.6, 0.2, 0.62, 0x4fb56a], [-0.2, 1.5, -0.6, 0.6, C.leafDark]];
+  const foliage = (m) => {
+    // `sway` is what routes this into BAKED_SWAY at bake time: the canopy moves and the trunk does not
+    m.userData.sway = true;
+    m.castShadow = true;
+    g.add(m);
+    return m;
+  };
+  const kind = Math.random();
+  if (kind < 0.42) {
+    // round canopy: a cluster of faceted blobs
+    const blobs = [[0, 2.0, 0, 1.05, leaf], [-0.55, 1.6, 0.3, 0.7, dark], [0.6, 1.7, -0.25, 0.72, dark], [0.1, 2.6, 0.2, 0.62, top], [-0.2, 1.5, -0.6, 0.6, dark]];
     for (const [x, y, z, r, c] of blobs) {
-      const b = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), matFlat(c));
-      b.position.set(x, y, z);
+      const b = foliage(new THREE.Mesh(new THREE.DodecahedronGeometry(r * (0.85 + Math.random() * 0.3), 0), matFlat(c)));
+      b.position.set(x, y + trunkH - 1.1, z);
       b.rotation.set(Math.random(), Math.random(), Math.random());
-      b.castShadow = true;
-      g.add(b);
+    }
+  } else if (kind < 0.8) {
+    // pine: faceted tiers, lighter towards the top
+    for (const [y, r, h, c] of [[1.4, 1.25, 1.5, dark], [2.2, 0.95, 1.35, leaf], [2.95, 0.62, 1.1, top]]) {
+      const t = foliage(new THREE.Mesh(new THREE.ConeGeometry(r, h, 7), matFlat(c)));
+      t.position.y = y + trunkH - 1.1;
     }
   } else {
-    // pine: three faceted tiers, lighter towards the top
-    for (const [y, r, h, c] of [[1.4, 1.25, 1.5, C.leafDark], [2.2, 0.95, 1.35, C.leaf], [2.95, 0.62, 1.1, 0x4fb56a]]) {
-      const t = new THREE.Mesh(new THREE.ConeGeometry(r, h, 7), matFlat(c));
-      t.position.y = y;
-      t.castShadow = true;
-      g.add(t);
+    // #env: the third silhouette, and the one that does the most work -- tall, narrow and open, so a
+    // wood made of the other two stops reading as a single repeating mass. Four small tiers up a bare
+    // trunk rather than a cone of foliage sitting on a stump.
+    const lean = (Math.random() - 0.5) * 0.18;
+    for (let i = 0; i < 4; i++) {
+      const r = 0.82 - i * 0.16;
+      const t = foliage(new THREE.Mesh(new THREE.ConeGeometry(r, 0.95, 6), matFlat(i % 2 ? leaf : dark)));
+      t.position.set(lean * i, trunkH + 0.35 + i * 0.62, lean * i * 0.6);
+      t.rotation.y = i * 0.9;
     }
   }
   g.scale.setScalar(scale);
@@ -963,12 +1075,15 @@ export function makeTree(scale = 1) {
 
 export function makeBush() {
   const g = new THREE.Group();
+  const dh = (Math.random() - 0.5) * 0.03;
+  const dl = (Math.random() - 0.5) * 0.12;
   for (let i = 0; i < 3; i++) {
     const r = 0.45 + Math.random() * 0.25;
-    const m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), matFlat(i === 1 ? C.leaf : C.leafDark));
+    const m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), matFlat(tint(i === 1 ? C.leaf : C.leafDark, dh, dl)));
     m.position.set((Math.random() - 0.5) * 0.9, r * 0.7, (Math.random() - 0.5) * 0.9);
     m.rotation.set(Math.random(), Math.random(), 0);
     m.castShadow = true;
+    m.userData.sway = true;
     g.add(m);
   }
   // a couple of berries
