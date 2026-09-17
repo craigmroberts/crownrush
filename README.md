@@ -45,6 +45,20 @@ the raids keep coming for a high score.
 - The map has a river that raiders (and the King) can only cross at the bridges where the curved roads
   meet it, so each bridge is a natural choke point. Mesas and snow peaks sit to the north-west, with
   forests, boulders, barricades, a wheat field and flower patches across the meadow.
+- **Wind, and what does not have it.** Only grass and wheat ever swayed, so the world read as a still
+  photograph with an animated carpet on it. Canopies and bushes move now. The catch is that
+  `swayMaterial` takes its phase from `instanceMatrix`, which a merged tree has not got -- every tree
+  would have swung in unison, which is worse than standing still -- so the phase is baked per object
+  into `uv.x`, an attribute every baked geometry carries and nothing reads. It cannot come from the
+  vertex position: a canopy is two units across, so one side would lead the other by radians and the
+  tree would shear. Both sway materials carry a `customProgramCacheKey`, because `onBeforeCompile` is
+  not part of Three's program cache key and a material with matching DEFINES can silently be handed
+  somebody else's compiled shader.
+- **Contact shadows, which on a phone are the only ones.** `shadowMap.enabled` is
+  `!(safe || (mobile && !hq))`, so on an ordinary phone nothing casts: characters get their instanced
+  blob and every tree, rock, bush and bale floats. 671 instanced discs, sized from each object's own
+  bounding box so nothing has to be plumbed through the call sites. Heavier (0.42) where they are the
+  only shadow, fainter (0.2) where the sun casts too and they are doing ambient occlusion instead.
 - **Grass, and where it is not.** 13,000 instanced tufts in one draw call. What is kept bare is the
   **citadel** -- the tight first ring the Keep and its three service buildings stand in, which is
   paved and walked over all game. Everything beyond it is countryside, including the ground inside the

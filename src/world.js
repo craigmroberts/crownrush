@@ -204,7 +204,9 @@ function groundTexture() {
   return tex;
 }
 
-export function buildWorld(scene) {
+// `soleShadows` is true when nothing else casts -- see the contact-shadow block below for what it
+// changes and why it has to be told rather than worked out here.
+export function buildWorld(scene, soleShadows = false) {
   const size = CFG.world.size;
   const rand = rng(1337);
   const world = { river: null, bridges: [], crossings: [], roads: [], fields: [], foam: [], time: 0, sway: { value: 0 }, flowerSpots: [], focus: new THREE.Vector3() };
@@ -411,11 +413,35 @@ export function buildWorld(scene) {
     && !nearRiver(x, z, 1.2) && !nearRoad(x, z, 0.5) && !nearNode(x, z) && !nearPad(x, z);
   const half = size / 2 - 6;
   const scenery = new THREE.Group();
-  const place = (maker, count, margin = 1.5, minDist = 0) => {
+  // CLUMPED, like the grass and the trees, and for the same reason: uniform random gives every square
+  // metre the same amount of everything, which is the one thing real ground never does. `patches` is
+  // how many centres to scatter and `spread` how far from one a thing may land; a quarter of them
+  // still go loose, so the ground between clumps is not bald.
+  const patchSets = new Map();
+  const patchesFor = (n) => {
+    if (!patchSets.has(n)) {
+      const list = [];
+      for (let i = 0; i < n; i++) list.push([(rand() * 2 - 1) * half, (rand() * 2 - 1) * half]);
+      patchSets.set(n, list);
+    }
+    return patchSets.get(n);
+  };
+  const place = (maker, count, margin = 1.5, minDist = 0, clump = null) => {
     let tries = 0;
-    for (let i = 0; i < count && tries < count * 30; tries++) {
-      const x = (rand() * 2 - 1) * half;
-      const z = (rand() * 2 - 1) * half;
+    for (let i = 0; i < count && tries < count * 40; tries++) {
+      let x;
+      let z;
+      if (clump && rand() < 0.75) {
+        const [px, pz] = patchesFor(clump.patches)[(rand() * clump.patches) | 0];
+        const a = rand() * Math.PI * 2;
+        const d = (rand() ** 0.6) * clump.spread;
+        x = px + Math.cos(a) * d;
+        z = pz + Math.sin(a) * d;
+        if (Math.abs(x) > half || Math.abs(z) > half) continue;
+      } else {
+        x = (rand() * 2 - 1) * half;
+        z = (rand() * 2 - 1) * half;
+      }
       if (!free(x, z, margin) || Math.hypot(x, z) < minDist) continue;
       const o = maker(x, z);
       o.position.x = x;
@@ -424,30 +450,37 @@ export function buildWorld(scene) {
       i++;
     }
   };
-  // forests come in clumps
+  // Forests come in clumps, and there are more of them with more in each. The old map held about 90
+  // trees, 45 bushes and 40 rocks across 36,100 square metres -- one bush per 800 -- which is why the
+  // ground between the features has always been empty. These are the same numbers the grass was
+  // taught: instanced or merged, the cost is triangles, and the draw calls were the thing that used
+  // to make density expensive (see `mergeGroup`, which now makes it not).
   const clumps = [];
-  for (let i = 0; i < 14; i++) clumps.push([(rand() * 2 - 1) * half, (rand() * 2 - 1) * half]);
+  for (let i = 0; i < 22; i++) clumps.push([(rand() * 2 - 1) * half, (rand() * 2 - 1) * half]);
   let placedTrees = 0;
   for (const [cx, cz] of clumps) {
-    for (let k = 0; k < 9; k++) {
-      const x = cx + (rand() * 2 - 1) * 9;
-      const z = cz + (rand() * 2 - 1) * 9;
-      if (Math.abs(x) > half || Math.abs(z) > half || !free(x, z, 2)) continue;
-      const t = makeTree(0.8 + rand() * 0.7);
+    for (let k = 0; k < 13; k++) {
+      // denser at the heart of a wood than at its edge, so it has a shape rather than a boundary
+      const a = rand() * Math.PI * 2;
+      const d = (rand() ** 0.65) * 10;
+      const x = cx + Math.cos(a) * d;
+      const z = cz + Math.sin(a) * d;
+      if (Math.abs(x) > half || Math.abs(z) > half || !free(x, z, 1.4)) continue;
+      const t = makeTree(0.75 + rand() * 0.85);
       t.position.set(x, 0, z);
       scenery.add(t);
       placedTrees++;
     }
   }
-  place(() => makeTree(0.9 + rand() * 0.5), Math.max(0, 50 - placedTrees), 2);
-  place(() => makeBush(), 45, 1);
-  place(() => makeRock(0.7 + rand() * 1.0), 40, 1);
+  place(() => makeTree(0.9 + rand() * 0.5), Math.max(0, 210 - placedTrees), 1.6);
+  place(() => makeBush(), 230, 0.9, 0, { patches: 70, spread: 7 });
+  place(() => makeRock(0.55 + rand() * 1.1), 150, 0.9, 0, { patches: 55, spread: 6 });
   place(() => {
     const s = makeSpikes();
     s.rotation.y = rand() * Math.PI;
     return s;
-  }, 22, 1.5);
-  place(() => makeHayBale(), 10, 1);
+  }, 55, 1.5, 0, { patches: 26, spread: 5 });
+  place(() => makeHayBale(), 16, 1);
 
   // wheat fields with fences (straw comes from these)
   for (const f of MAP.fields) {
@@ -560,7 +593,49 @@ export function buildWorld(scene) {
     scenery.add(f);
   });
   scenery.add(tufts);
-  mergeGroup(scenery); // one draw call for all the trees, bushes, rocks and barricades
+  // CONTACT SHADOWS, and on a phone they are the only ones there are. `shadowMap.enabled` is
+  // `!(safe || (mobile && !hq))`, so on an ordinary phone -- the device this game is played on --
+  // nothing casts at all: characters get their instanced blob and every tree, rock, bush and bale
+  // floats. A soft dark disc under each one puts it on the ground.
+  //
+  // They are drawn either way, at two strengths, because they are doing two different jobs. Where the
+  // sun casts they are ambient occlusion -- the darkness in the contact between a trunk and the grass,
+  // which is a real thing and not the same shadow twice, so it stays faint. Where nothing else casts
+  // they ARE the shadow and have to carry it alone, so they go heavier.
+  //
+  // Sized from what is actually there rather than passed in at each call site. Every scenery object
+  // is a group at its own position, so its bounding box IS its footprint, and one pass over them at
+  // the end catches anything anyone adds later without a second place to remember.
+  {
+    const box = new THREE.Box3();
+    const spots = [];
+    for (const o of scenery.children) {
+      if (!o.isGroup && !o.isMesh) continue;
+      box.setFromObject(o);
+      if (!Number.isFinite(box.min.x)) continue;
+      const r = Math.max(box.max.x - box.min.x, box.max.z - box.min.z) * 0.42;
+      // wheat fields and their fences are metres across; a disc that size is a stain, not a shadow
+      if (r < 0.25 || r > 2.6) continue;
+      spots.push([(box.min.x + box.max.x) / 2, (box.min.z + box.max.z) / 2, r]);
+    }
+    if (spots.length) {
+      const geo = new THREE.CircleGeometry(1, 12);
+      geo.rotateX(-Math.PI / 2);
+      const shade = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({
+        color: 0x24401c, transparent: true, opacity: soleShadows ? 0.42 : 0.2, depthWrite: false,
+      }), spots.length);
+      const m4 = new THREE.Matrix4();
+      spots.forEach(([x, z, r], i) => {
+        m4.makeScale(r, 1, r * 0.92);
+        m4.setPosition(x, 0.03, z);
+        shade.setMatrixAt(i, m4);
+      });
+      shade.renderOrder = -1;   // under the grass, which is also transparent-adjacent and drawn after
+      scenery.add(shade);
+    }
+  }
+
+  mergeGroup(scenery); // trees, bushes, rocks and barricades, merged per material and per 30-unit cell
   scene.add(scenery);
   mergeGroup(cliffs);
 

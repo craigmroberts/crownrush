@@ -59,7 +59,9 @@ export class Game {
     this.night = false;
     this.sunHeight = 34;
     if (this.mobile) sun.shadow.mapSize.set(1024, 1024);
-    this.world = buildWorld(this.scene);
+    // `plain` is exactly "the shadow map is off", which is the ordinary phone: see the line above
+    // that sets it. The world needs to know, because then its contact shadows are the only ones.
+    this.world = buildWorld(this.scene, plain);
     this.buildFog();
     // every health bar in the game is drawn by this one instanced mesh
     this.bars = new HealthBars(600);

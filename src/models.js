@@ -1087,7 +1087,7 @@ export function makeBush() {
     g.add(m);
   }
   // a couple of berries
-  for (let i = 0; i < 2; i++) g.add(new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), mat(0xe8342a)).translateX((Math.random() - 0.5) * 0.8).translateY(0.6 + Math.random() * 0.3).translateZ(0.3));
+  for (let i = 0; i < 2; i++) g.add(new THREE.Mesh(new THREE.SphereGeometry(0.08, 4, 3), mat(0xe8342a)).translateX((Math.random() - 0.5) * 0.8).translateY(0.6 + Math.random() * 0.3).translateZ(0.3));
   return bake(g);
 }
 
@@ -1098,7 +1098,7 @@ export function makeRock(scale = 1) {
   m.position.y = 0.3 * scale;
   m.castShadow = true;
   m.receiveShadow = true;
-  const cap = new THREE.Mesh(new THREE.DodecahedronGeometry(0.34, 0), matFlat(0xa9aeb5));
+  const cap = new THREE.Mesh(new THREE.DodecahedronGeometry(0.34, 0), matFlat(0xc3b49f));  // warmed with the rest of the stone
   cap.scale.set(scale * 1.1, scale * 0.45, scale * 0.9);
   cap.position.y = 0.55 * scale;
   g.add(m, cap);
