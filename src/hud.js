@@ -826,6 +826,14 @@ export class Hud {
     }
   }
 
+  // #43: the move button. One class toggle behind a comparison, like everything else called per frame.
+  setMove(on) {
+    if (on === this.moveOn) return;
+    this.moveOn = on;
+    const b = this.moveBtn || (this.moveBtn = document.getElementById('move-btn'));
+    b.classList.toggle('hidden', !on);
+  }
+
   setCoinTier(tier) {
     if (tier === this.coinTier) return;
     this.coinTier = tier;

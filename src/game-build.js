@@ -442,8 +442,96 @@ export const BuildMethods = {
     this.hud.toast('Walk to where it should stand, then tap the hammer.', 4200, 'Village');
   },
 
+  // #43, the moving half. A building already standing is picked up and put down again, and the
+  // things it owns at an absolute position come with it -- a tower's crew, a chimney's smoke, the
+  // villager whose home it is. Free, because the walk there and the walk back is the cost and a coin
+  // fee on undoing your own mistake is a tax on learning the game.
+  //
+  // DAYTIME ONLY. Not a balance number, a rule with a reason: a crewed watchtower that can be picked
+  // up mid-raid is a tower that dodges a sapper, and builders not working at night is a sentence that
+  // explains itself. It is also why nothing here has to think about what a raid is doing.
+  canMove(rec) {
+    return !!rec && !this.night && !this.placing && !!(PADS.find((d) => d.id === rec.id) || {}).place;
+  },
+
+  // The movable building he is standing next to, or null. One pass, once a frame.
+  nearMovable() {
+    if (this.night || this.placing) return null;
+    const kp = this.king.mesh.position;
+    let best = null;
+    let bd = 4.5;
+    for (const st of this.structures) {
+      const d = Math.hypot(st.mesh.position.x - kp.x, st.mesh.position.z - kp.z);
+      if (d < bd && (PADS.find((x) => x.id === st.id) || {}).place) {
+        bd = d;
+        best = st;
+      }
+    }
+    return best;
+  },
+
+  beginMoving(rec) {
+    if (!this.canMove(rec)) return;
+    const def = PADS.find((d) => d.id === rec.id);
+    if (!def) return;
+    this.beginPlacing(def);
+    if (!this.placing) return;
+    this.placing.moving = rec;
+    this.placing.from = [rec.mesh.position.x, rec.mesh.position.z];
+    // Out of the pop-in animation first. `updatePopping` sets `visible = true` on everything still
+    // popping, every frame, so a building picked up within half a second of being built would refuse
+    // to disappear -- measured, `realHidden` came back false. Its pop is over as far as this is
+    // concerned, so finish it rather than fight it.
+    const i = this.popping.indexOf(rec.mesh);
+    if (i >= 0) {
+      this.popping.splice(i, 1);
+      rec.mesh.scale.setScalar(rec.mesh.userData.baseScale || 1);
+    }
+    rec.mesh.visible = false;   // picked up: the ghost is where it is now
+    this.hud.toast('Carry it somewhere else, then tap the hammer.', 4200, 'Village');
+  },
+
+  // Everything the building owns at an absolute position, shifted by the same delta. A delta rather
+  // than a teardown and rebuild, because rebuilding would lose the tower's crew and the villager's
+  // identity and would have to put both back by hand.
+  moveStructure(rec, to) {
+    const fx = rec.mesh.position.x;
+    const fz = rec.mesh.position.z;
+    const dx = to[0] - fx;
+    const dz = to[1] - fz;
+    rec.mesh.position.set(to[0], 0, to[1]);
+    rec.mesh.visible = true;
+    const t = this.towers[rec.id];
+    if (t) {
+      t.x = to[0];
+      t.z = to[1];
+      // the crew standing on its deck
+      for (const tu of this.turrets) {
+        if (tu.tower !== rec.id) continue;
+        tu.mesh.position.x += dx;
+        tu.mesh.position.z += dz;
+        tu.pos.x += dx;
+        tu.pos.z += dz;
+      }
+    }
+    const c = rec.mesh.userData.chimney;
+    if (c && this.world.moveSmoker) this.world.moveSmoker(fx + c.x, fz + c.z, to[0] + c.x, to[1] + c.z);
+    if (rec.kind === 'house') {
+      for (const v of this.villagers) {
+        if (Math.abs(v.home.x - fx) > 0.01 || Math.abs(v.home.z - fz) > 0.01) continue;
+        v.home.set(to[0], 0, to[1]);
+        v.mesh.position.x += dx;
+        v.mesh.position.z += dz;
+        v.node = null;     // it will pick the nearest seam to where it lives now
+      }
+    }
+  },
+
   cancelPlacing() {
     if (!this.placing) return;
+    // A move that never finished puts the building back. The only way here is a restart, but a
+    // building left invisible because a run ended mid-carry is a bug waiting for a save to find it.
+    if (this.placing.moving) this.placing.moving.mesh.visible = true;
     this.root.remove(this.placing.mesh);
     // The clone above is ours and nothing else refers to it. The GEOMETRY is not -- an imported
     // building's ghost borrows the loaded model's buffers, the same rule `releaseGhosts` follows --
@@ -471,8 +559,12 @@ export const BuildMethods = {
     tmp.set(x, 0, z);
     this.collideWalls(tmp, half, false);
     if (tmp.x !== x || tmp.z !== z) return false;
-    // clear of anything already standing, its footprint against theirs
+    // clear of anything already standing, its footprint against theirs. The one being MOVED does not
+    // count against itself, or it would collide with the ground it is currently standing on and no
+    // spot near home would ever be legal (#43).
+    const self = this.placing && this.placing.moving;
     for (const st of this.structures) {
+      if (st === self) continue;
       const [sw, sd] = CFG.footprint[st.kind] || [3, 3];
       if (Math.abs(st.mesh.position.x - x) < (w + sw) / 2 && Math.abs(st.mesh.position.z - z) < (d + sd) / 2) return false;
     }
@@ -493,8 +585,12 @@ export const BuildMethods = {
     const pl = this.placing;
     if (!pl) {
       this.hud.setPlacing(false);   // also the path that clears the button after a restart
+      this.movable = this.nearMovable();
+      this.hud.setMove(!!this.movable);
       return;
     }
+    this.movable = null;
+    this.hud.setMove(false);
     const kp = this.king.mesh.position;
     pl.mesh.position.set(kp.x, 0, kp.z);
     const ok = this.placeOk(pl.def.structure, kp.x, kp.z);
@@ -516,7 +612,8 @@ export const BuildMethods = {
     // #43: remembered, because `rebuildVillage` replays structural pads on a restore and would
     // otherwise put every one of them back on the spot the map suggested.
     this.placedAt[pl.def.id] = at;
-    this.buildStructure(pl.def, at);
+    if (pl.moving) this.moveStructure(pl.moving, at);
+    else this.buildStructure(pl.def, at);
     this.refreshPads();
     for (const p2 of this.pads) this.drawPad(p2);
   },

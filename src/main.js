@@ -222,6 +222,11 @@ document.getElementById('place-btn').addEventListener('pointerdown', (e) => {
   e.stopPropagation();
   game.confirmPlacing();
 });
+document.getElementById('move-btn').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  game.beginMoving(game.movable);
+});
 // #75: the mat chip opens to its description rather than showing one unasked.
 document.getElementById('tip-toggle').addEventListener('click', (e) => {
   e.preventDefault();
@@ -462,6 +467,7 @@ window.addEventListener('keydown', (e) => {
   // reflex, and nothing else in the game uses it.
   if ((e.key === 'b' || e.key === 'B') && !e.repeat) return game.plantBanner();
   if (e.key === 'Enter' && game.placing) return game.confirmPlacing();   // #43
+  if ((e.key === 'm' || e.key === 'M') && !e.repeat && game.movable) return game.beginMoving(game.movable);
   if (e.key === 'i' || e.key === 'I') game.toggleInfo();
   else if (e.key === 'k' || e.key === 'K') game.toggleKeep();
   else if (e.key === 'Escape' && game.settingsOpen) {

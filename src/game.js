@@ -253,7 +253,8 @@ export class Game {
     // spot. Read by `rebuildVillage` on a restore, which would otherwise replay every structural pad
     // onto the coordinates in config and undo the whole feature.
     this.placedAt = {};
-    this.placing = null;  // { def, mesh, ok } while one is being put down
+    this.placing = null;  // { def, mesh, ok, moving? } while one is being put down
+    this.movable = null;  // #43: the building he is standing beside, if it can be picked up
     this.dynamicPads = [];
     this.built = {};
     this.buyCount = {};

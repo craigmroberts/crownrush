@@ -497,7 +497,31 @@ tinting it to say "this spot is taken" turned every preview in the village red a
 ghost gets its own clone now, and there is a check that the others stay white. (The rally banner had
 the identical bug against `BAKED_STD`, one ticket earlier.)
 
-Still to do on that ticket: **moving** a building after it is built, which is the other half.
+### Moving one afterwards
+
+Stand beside a tower or a home in daylight and a move button appears; tap it and the building is in
+your hands, ghost and all, on exactly the same rules as placing it new.
+
+It is a **delta**, not a teardown and rebuild. Everything a building owns sits at an absolute
+position — a tower's crew on its deck, a chimney's smoke, the villager whose home it is — so the
+whole set shifts by the same vector and nothing has to be put back by hand. Rebuilding would have
+lost the crew and the villager and then had to recreate them. Measured: a crewed tower carried from
+`[13, -13]` to `[0, 14]` arrives with both archers still on it, and a home takes its smoke and its
+villager with it.
+
+The three questions the ticket left open, answered:
+
+- **Does it cost anything?** No. The walk there and the walk back is the cost, and a coin fee on
+  undoing your own mistake is a tax on learning the game.
+- **During a raid?** No — daylight only. Not a balance number but a rule with a reason: a crewed
+  watchtower that can be picked up mid-raid is a tower that dodges a sapper, and "builders do not work
+  at night" explains itself. It is also why none of this has to think about what a raid is doing.
+- **Does a tower keep its crew?** Yes, and that is most of why it is a delta.
+
+One bug worth recording. `updatePopping` sets `visible = true` on everything still popping in, every
+frame, so a building picked up within half a second of being built refused to disappear — the ghost
+was in hand and the building was still standing there. Picking one up now takes it out of the pop-in
+list first. Not reachable by walking to a building, but a save would have found it eventually.
 
 ## The army holds the grounds
 

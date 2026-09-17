@@ -566,6 +566,15 @@ export function buildWorld(scene) {
     if (world.smokers.some((s) => Math.abs(s.x - x) < 0.1 && Math.abs(s.z - z) < 0.1)) return;
     world.smokers.push({ x, y, z, next: 0, puffs: Array.from({ length: PUFFS }, () => ({ t: 99, life: 3.6, ox: 0 })) });
   };
+  // #43: a chimney that moved. The smoker was given an absolute position when its building went up,
+  // so a building that is picked up and put down elsewhere would otherwise leave its smoke behind --
+  // the ticket names this. Matched on where it was, the same tolerance `addSmoker` dedupes with.
+  world.moveSmoker = (fromX, fromZ, toX, toZ) => {
+    const s = world.smokers.find((o) => Math.abs(o.x - fromX) < 0.1 && Math.abs(o.z - fromZ) < 0.1);
+    if (!s) return;
+    s.x = toX;
+    s.z = toZ;
+  };
   world.clearSmokers = () => {
     world.smokers.length = 0;
     smoke.count = 0;
