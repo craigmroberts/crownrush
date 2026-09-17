@@ -9,7 +9,7 @@ import {
   makeKing, makeKeep, makeResourceCube, makeArcher, makeSwordsman, makeCoin, makeHut, makeTower, makeTowerLevelBits, makeBarracks, makeWallSegment, makeGate, makeRubble, makeBridge, makePad, drawPad, ghostify, makeHealthBar, setHealthBar, makeBank, makeGatePost,
 } from './models.js';
 import { makeProp } from './props.js';
-import { V3, HAIR, plural, PAD_STYLE, rand } from './game-shared.js';
+import { V3, HAIR, plural, PAD_STYLE, rand, tmp } from './game-shared.js';
 
 // Clear of the castle's crown, which is the tallest thing on it. The built Keep is shorter, but the
 // bar sitting a little high over it costs nothing and one number is easier to keep true than two.
@@ -351,7 +351,10 @@ export const BuildMethods = {
         this.root.add(m);
       }
     }
-    if (def.structure) this.buildStructure(def);
+    // #43: a placeable structure is paid for here and PUT DOWN later -- the score, the toast and the
+    // unlock all belong to the purchase, and only the spot is still an open question.
+    if (def.structure && def.place) this.beginPlacing(def);
+    else if (def.structure) this.buildStructure(def, this.placedAt[def.id] || def.buildAt);
     if (def.wall) this.buildWall(def.wall.tier, def.wall.side);
     if (def.repair) this.restoreWall(def.repair);
     if (def.repairKeep) this.restoreKeep();
@@ -406,10 +409,127 @@ export const BuildMethods = {
     if (gain) this.showGain(gain);
   },
 
-  buildStructure(def) {
+  // ---------- #43: putting a building where the player wants it ----------
+  //
+  // The ticket asks for a ghost that follows the finger. This follows the KING instead, and that is a
+  // deliberate departure: the game's only input is drag-anywhere-to-move-him, so a cursor tracking
+  // the finger would be fighting the joystick for the same gesture on the same canvas -- which is
+  // exactly the shape of #128, where something over the canvas swallowed the drag and the King would
+  // not move. Walking to the spot and confirming is the same decision without a second input mode,
+  // it matches the rally banner (#57) which is planted where he stands, and it makes one rule free:
+  // a building can never end up somewhere he could not reach.
+  //
+  // Opt-in per pad (`place: true`), which for this pass is the watchtowers and the homes. The
+  // ticket's own line is that "towers especially want to be placed by the player", and the four
+  // service buildings and the Keep are structural enough that moving them is a separate argument.
+
+  beginPlacing(def) {
+    this.cancelPlacing();
+    const mesh = ghostify(this.makeStructureMesh(def.structure));
+    // ITS OWN MATERIAL, and this is not a detail. `ghostify` assigns `GHOST_MAT`, which is a
+    // module-level material shared by every ghost in the game -- the preview on each build mat is
+    // wearing it too. Tinting that to say "this spot is taken" would have turned every ghost in the
+    // village red at the same time. One clone, shared within this ghost only, disposed with it.
+    let mat = null;
+    mesh.traverse((o) => {
+      if (!o.isMesh || !o.material) return;
+      mat = mat || o.material.clone();
+      o.material = mat;
+    });
+    mesh.position.set(this.king.mesh.position.x, 0, this.king.mesh.position.z);
+    this.root.add(mesh);
+    this.placing = { def, mesh, mat, ok: null };
+    this.hud.toast('Walk to where it should stand, then tap the hammer.', 4200, 'Village');
+  },
+
+  cancelPlacing() {
+    if (!this.placing) return;
+    this.root.remove(this.placing.mesh);
+    // The clone above is ours and nothing else refers to it. The GEOMETRY is not -- an imported
+    // building's ghost borrows the loaded model's buffers, the same rule `releaseGhosts` follows --
+    // so it is left exactly where it is.
+    if (this.placing.mat) this.placing.mat.dispose();
+    this.placing = null;
+  },
+
+  // Is this a spot a building may stand on? Every rule here is one the player can see the reason for
+  // once it is refused, which is why the ghost turns red rather than the button just going dead.
+  placeOk(kind, x, z) {
+    const b = TIERS[this.tier].bounds;
+    const [w, d] = CFG.footprint[kind] || [3, 3];
+    const half = Math.max(w, d) / 2;
+    // inside the grounds, with its whole footprint
+    if (x - half < b.x0 || x + half > b.x1 || z - half < b.z0 || z + half > b.z1) return false;
+    // not on the mesas
+    if (x - half < CFG.cliffs.x && z - half < CFG.cliffs.z) return false;
+    // Not in the river, and not straddling a wall. Both are asked by running the real collision and
+    // seeing whether it moved the point -- a second copy of either rule is a second copy to get
+    // wrong, and these are the rules that already decide where the King himself may stand.
+    tmp.set(x, 0, z);
+    this.collideRiver(tmp, half);
+    if (tmp.x !== x || tmp.z !== z) return false;
+    tmp.set(x, 0, z);
+    this.collideWalls(tmp, half, false);
+    if (tmp.x !== x || tmp.z !== z) return false;
+    // clear of anything already standing, its footprint against theirs
+    for (const st of this.structures) {
+      const [sw, sd] = CFG.footprint[st.kind] || [3, 3];
+      if (Math.abs(st.mesh.position.x - x) < (w + sw) / 2 && Math.abs(st.mesh.position.z - z) < (d + sd) / 2) return false;
+    }
+    if (this.tradePost) {
+      const [sw, sd] = CFG.footprint.bank;
+      if (Math.abs(this.tradePost.position.x - x) < (w + sw) / 2 && Math.abs(this.tradePost.position.z - z) < (d + sd) / 2) return false;
+    }
+    // and clear of the mats, so a building never lands on something the player has to stand on
+    for (const pad of this.pads) {
+      if (Math.abs(pad.mesh.position.x - x) < (w + CFG.spend.padSize) / 2 && Math.abs(pad.mesh.position.z - z) < (d + CFG.spend.padSize) / 2) return false;
+    }
+    return true;
+  },
+
+  // Called every frame a placement is in progress: the ghost stands where he stands, and turns red
+  // where it may not go.
+  updatePlacing() {
+    const pl = this.placing;
+    if (!pl) {
+      this.hud.setPlacing(false);   // also the path that clears the button after a restart
+      return;
+    }
+    const kp = this.king.mesh.position;
+    pl.mesh.position.set(kp.x, 0, kp.z);
+    const ok = this.placeOk(pl.def.structure, kp.x, kp.z);
+    if (ok !== pl.ok) {
+      pl.ok = ok;
+      if (pl.mat && pl.mat.color) pl.mat.color.setHex(ok ? 0x6fd36f : 0xe05a46);
+    }
+    this.hud.setPlacing(true, ok);
+  },
+
+  // The tap that puts it down. Refused on a red ghost, so the only way to finish is a legal spot --
+  // and `def.buildAt` is always one of those, so there is no way to be stuck.
+  confirmPlacing() {
+    const pl = this.placing;
+    if (!pl || !pl.ok) return;
+    const at = [pl.mesh.position.x, pl.mesh.position.z];
+    this.cancelPlacing();
+    this.hud.setPlacing(false);
+    // #43: remembered, because `rebuildVillage` replays structural pads on a restore and would
+    // otherwise put every one of them back on the spot the map suggested.
+    this.placedAt[pl.def.id] = at;
+    this.buildStructure(pl.def, at);
+    this.refreshPads();
+    for (const p2 of this.pads) this.drawPad(p2);
+  },
+
+  // #43: `at` is where it actually goes, and `def.buildAt` is only the suggestion it defaults to.
+  // Every reader below used to go to `def.buildAt` directly -- the mesh, the tower's own x/z, the
+  // villager who moves into a house, the chimney's smoke and the Keep's position, six of them -- so
+  // the building stood where the map said and nothing else was possible. One parameter is the whole
+  // of what makes a building placeable; the placement mode above it is just a way of choosing `at`.
+  buildStructure(def, at = def.buildAt) {
     const kind = def.structure;
     const m = this.makeStructureMesh(kind);
-    m.position.set(def.buildAt[0], 0, def.buildAt[1]);
+    m.position.set(at[0], 0, at[1]);
     this.popIn(m);
     this.root.add(m);
     if (kind !== 'bank') this.structures.push({ kind, id: def.id, mesh: m });
@@ -419,17 +539,17 @@ export const BuildMethods = {
       this.addTradeMat(def);
     }
     if (kind === 'tower') {
-      this.towers[def.id] = { id: def.id, x: def.buildAt[0], z: def.buildAt[1], top: m.userData.top, level: 1, mesh: m, crew: 0, pos: def.pos };
+      this.towers[def.id] = { id: def.id, x: at[0], z: at[1], top: m.userData.top, level: 1, mesh: m, crew: 0, pos: def.pos };
       this.queueTowerPad(def.id, 'crew');
     }
     // #48: a home is not just a roof. Someone moves in, and they work.
-    if (kind === 'house') this.addVillager(def.buildAt[0], def.buildAt[1]);
+    if (kind === 'house') this.addVillager(at[0], at[1]);
     if (m.userData.chimney) {
       const c = m.userData.chimney;
-      this.world.addSmoker(def.buildAt[0] + c.x, c.y, def.buildAt[1] + c.z);
+      this.world.addSmoker(at[0] + c.x, c.y, at[1] + c.z);
     }
     if (kind === 'keep') {
-      this.keep = { isKeep: true, x: def.buildAt[0], z: def.buildAt[1], mesh: m, state: 'built', hp: 0, maxHp: 0, radius: CFG.keep.radius, level: this.wallLevel };
+      this.keep = { isKeep: true, x: at[0], z: at[1], mesh: m, state: 'built', hp: 0, maxHp: 0, radius: CFG.keep.radius, level: this.wallLevel };
       this.keep.maxHp = this.keep.hp = this.keepHp();
       this.keep.bar = makeHealthBar(3.0, false, true);
       this.keep.bar.position.y = KEEP_BAR_Y;
@@ -615,6 +735,7 @@ export const BuildMethods = {
   },
 
   updatePads(dt) {
+    this.updatePlacing();   // #43: the ghost stands where he stands
     const kp = this.king.mesh.position;
     this.spendTimer = Math.max(this.spendTimer - dt, -0.1);
     // #8: the costs panel belongs to the pad you are STANDING ON. The marker on the floor carries the

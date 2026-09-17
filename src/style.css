@@ -283,6 +283,21 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .panel .seg .seg-b:active { transform: translateY(1px); }
 #sc-pick { margin-bottom: 0; }
 
+/* #43: the build-here button. It sits exactly where the horn does, and the horn is hidden while a
+   placement is in progress -- one corner, one job. Green when the spot is legal, red and
+   unclickable when it is not, which is the same answer the ghost on the ground is giving. */
+#place-btn {
+  position: fixed; right: 12px; right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom));
+  width: 64px; height: 64px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; pointer-events: auto;
+  background: rgba(30, 40, 24, 0.7); box-shadow: 0 6px 16px rgba(0,0,0,0.35); z-index: 5;
+  display: grid; place-items: center; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+#place-btn.hidden { display: none; }
+#place-btn.ok { box-shadow: 0 0 0 3px #7ad17a, 0 6px 16px rgba(0,0,0,0.35); animation: placeReady 1.2s ease-in-out infinite alternate; }
+#place-btn.no { box-shadow: 0 0 0 3px #d85a4a, 0 6px 16px rgba(0,0,0,0.35); cursor: default; }
+#place-btn.no i { opacity: 0.4; }
+@keyframes placeReady { from { box-shadow: 0 0 0 3px #7ad17a, 0 6px 16px rgba(0,0,0,0.35); } to { box-shadow: 0 0 0 3px #7ad17a, 0 0 22px rgba(122,209,122,0.8); } }
+
 /* #56: the legacy strip -- what previous runs earned, on the title screen and both endings. A row of
    small badges and one line of progress, not a panel: it is a status the player glances at, and the
    title screen is measured in bytes to a clickable Play. */

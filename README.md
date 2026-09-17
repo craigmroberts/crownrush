@@ -462,6 +462,43 @@ its level (`CFG.enemy.*.fromLevel`) so you meet one idea at a time:
 - **Shieldbearers** (Keep 7) take a quarter damage from the front. Hits show "blocked". Flank them,
   or let the horn scatter the fight.
 
+## Choosing where a building goes
+
+Watchtowers and villager homes are **placed by the player** (#43). `buildAt` in `src/config.js` is
+still where each one suggests standing; it is no longer the only place it can stand. Pay for the mat
+and a translucent ghost of the building appears — then walk to the spot and tap the hammer.
+
+**The ghost follows the King, not the finger**, and that is a deliberate departure from what the
+ticket describes. The game's only input is drag-anywhere-to-move-him, so a cursor tracking the finger
+would be fighting the joystick for the same gesture on the same canvas — which is the exact shape of
+#128, where something over the canvas swallowed the drag and the King would not move. Walking there
+and confirming is the same decision without a second input mode, it matches the rally banner which is
+planted where he stands, and it makes one rule free: a building can never end up somewhere he could
+not reach.
+
+The ghost is green where it may stand and red where it may not, and the hammer button says the same
+thing. A spot is refused if it would put the footprint outside the current grounds, on the mesas, in
+the river, across a wall, on top of another building, or on a build mat — a mat you cannot stand on
+is a mat you cannot buy from. The last two are footprint against footprint, from `CFG.footprint`,
+which `tools/layout/check.mjs` now imports rather than keeping its own copy: two tables measured off
+the same meshes is one table that goes stale.
+
+`def.buildAt` is always a legal spot by construction, so there is no way to be stuck with a building
+that cannot be put down.
+
+Where each one was actually put is stored in the save (`placedAt`), because `rebuildVillage` replays
+structural pads on a restore and would otherwise return every building to the coordinates in the
+config. No save VERSION bump: a save from before this has no `placedAt` and falls back to `buildAt`,
+which is exactly where that run's buildings were standing.
+
+Two bugs worth recording, because both were the same mistake and neither was visible from reading the
+code. `ghostify` assigns `GHOST_MAT`, a module-level material shared by **every** ghost in the game —
+tinting it to say "this spot is taken" turned every preview in the village red at once. The placement
+ghost gets its own clone now, and there is a check that the others stay white. (The rally banner had
+the identical bug against `BAKED_STD`, one ticket earlier.)
+
+Still to do on that ticket: **moving** a building after it is built, which is the other half.
+
 ## The army holds the grounds
 
 Soldiers and archers do not follow the King any more (#116). They take posts on an ellipse just

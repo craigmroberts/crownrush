@@ -254,6 +254,18 @@ export const CFG = {
     upgrade: [{ cost: 30 }, { cost: 60 }],
   },
   gatePost: { height: 1.55 },
+
+  // #43: how much ground each building actually covers, width x depth, measured off the built meshes.
+  // This lived only in `tools/layout/check.mjs`, which was fine while the only thing that needed it
+  // was a script checking the hand-written plan. Now that a building can be put somewhere the plan
+  // did not choose, the GAME needs the same numbers to say whether a spot is free -- and two copies
+  // of a table measured off meshes is one copy that goes stale. The tool imports these.
+  //
+  // Update them when a model is re-baked at a different size, and re-run `node tools/layout/check.mjs`.
+  footprint: {
+    bank: [3.46, 3.46], barracks: [7.68, 7.96], hut: [5.58, 4.49],
+    keep: [6.02, 5.38], tower: [2.50, 3.32], house: [4.03, 3.71],
+  },
   // #19: the raider camp. Raids come from it; the war ends when the King marches on it and kills
   // the Warlord. The march opens at Keep `level`, or on the run's last night, whichever comes first.
   // #58 took the night out of here: it was `night: 30` and there is no longer one answer, because a
@@ -606,7 +618,10 @@ export const CFG = {
   // them only while it is open: they all take coin, and the King is still standing on the mat when it
   // closes, so the hold is what covers the far side. The feed mat is the one that matters most there
   // -- see `addPad`, where it went 1 -> 4 in 5.3 seconds.
-  spend: { tick: 0.07, fastTick: 0.022, crewTick: 0.28, padRadius: 1.7, arm: 0.25, bought: 1.0, walkHold: 0.8, showRadius: 10, showNew: 7 },
+  // #43: `padSize` is the mat's own 3.6 x 3.6 footprint, which `tools/layout/check.mjs` has always
+  // known and the game never had to, because nothing was ever placed near one by hand. A building the
+  // player puts down has to keep off them -- a mat you cannot stand on is a mat you cannot buy from.
+  spend: { tick: 0.07, fastTick: 0.022, crewTick: 0.28, padRadius: 1.7, padSize: 3.6, arm: 0.25, bought: 1.0, walkHold: 0.8, showRadius: 10, showNew: 7 },
 
   // #55: the Walk clip plays at the speed its owner is actually moving.
   //
@@ -728,12 +743,16 @@ export const TIERS = [
 // `buildAt` is where a structure appears; its pad sits right in front of it (pads for units spawn on the
 // pad). Watchtowers stand in the fort's corners: their pad turns into "man the tower" and then "upgrade"
 // pads on the same spot. Gate Guards get small posts beside each gate.
-const T = (id, tier, pos, cost, buildAt) => ({ id, tier, pos, cost, icon: 'tower', label: 'Watchtower', structure: 'tower', buildAt, desc: 'Corner watchtower. Man it with archers, then upgrade it for more crew and sharper arrows.', toast: 'Watchtower built. It needs a crew!' });
+// #43: `place: true` -- where a watchtower stands is a tactical decision and the map was making it.
+// `buildAt` is still the corner it suggests; the player may put it anywhere legal instead.
+const T = (id, tier, pos, cost, buildAt) => ({ id, tier, pos, cost, place: true, icon: 'tower', label: 'Watchtower', structure: 'tower', buildAt, desc: 'Corner watchtower. Man it with archers, then upgrade it for more crew and sharper arrows. You choose where it goes.', toast: 'Watchtower paid for. Walk to where it should stand.' });
 // Villager homes. They are separate pads rather than one repeatable pad because each one stands in
 // its own place: a repeatable pad builds at the same spot every time, and a village is the one thing
 // that has to spread. Each needs the one before it, so only one home mat is ever on the field.
 const HOME = (n, pos, cost, buildAt, requires) => ({
-  id: `home-${n}`, tier: 1, pos, cost, icon: 'home', label: 'Villager Home', structure: 'house', buildAt, requires,
+  // #43: homes are placeable too -- a villager walks to the nearest node from wherever the house is,
+  // so where it stands is a real decision about which seams get worked.
+  id: `home-${n}`, tier: 1, pos, cost, place: true, icon: 'home', label: 'Villager Home', structure: 'house', buildAt, requires,
   desc: `A family moves in. Every home raises the army limit by ${CFG.home.archers} archers and ${CFG.home.swordsmen} swordsmen, on top of whatever your level allows.`,
   toast: 'A family moves in. Room for more soldiers.',
 });

@@ -14,9 +14,12 @@
 // anything in PADS or TIERS.
 import { PADS, TIERS, MAP, CFG, NODES } from '../../src/config.js';
 
-// width x depth, measured off the built meshes (see props.js / models.js)
-const SIZE = { bank: [3.46, 3.46], barracks: [7.68, 7.96], hut: [5.58, 4.49], keep: [6.02, 5.38], tower: [2.50, 3.32], house: [4.03, 3.71] };
-const PAD = 3.6;
+// #43: width x depth, measured off the built meshes (see props.js / models.js). These moved into
+// `CFG.footprint` when the game itself started needing them -- a building can be placed by the
+// player now, so the running game has to answer the same "is this spot free" question this script
+// does, and two copies of a table measured off meshes is one copy that goes stale.
+const SIZE = CFG.footprint;
+const PAD = CFG.spend.padSize;   // #43: the game needs this too now, so it lives in config
 const FEED = CFG.keep.padOffset;   // matches addFeedPad in game-build.js
 
 const items = [];

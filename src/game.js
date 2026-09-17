@@ -249,6 +249,11 @@ export class Game {
     this.walls = [];
     this.towers = {};
     this.structures = []; // standing buildings, so they can be rebuilt in a new material (#3)
+    // #43: where the player actually put each building, by pad id, when it was not the suggested
+    // spot. Read by `rebuildVillage` on a restore, which would otherwise replay every structural pad
+    // onto the coordinates in config and undo the whole feature.
+    this.placedAt = {};
+    this.placing = null;  // { def, mesh, ok } while one is being put down
     this.dynamicPads = [];
     this.built = {};
     this.buyCount = {};
@@ -889,16 +894,20 @@ export class Game {
       this.alarmT -= dt;
       this.hud.showAlarm(this.alarmT > 0 ? this.alarmText : null);
       this.hornT = Math.max(0, this.hornT - dt);
-      this.hud.setHorn(!this.queen.captive || this.queen.taken, this.hornT / CFG.horn.cooldown, this.hornT);
+      // #43: and all three stand down while a building is being put down -- the place button takes
+      // the horn's own corner, and choosing between a warhorn and a hammer is not a choice anyone
+      // should be offered mid-placement.
+      const verbs = (!this.queen.captive || this.queen.taken) && !this.placing;
+      this.hud.setHorn(verbs, this.hornT / CFG.horn.cooldown, this.hornT);
       // #57: the dash sits beside the horn and follows the same rule about when it is offered -- both
       // are the King's own verbs, and neither is his while somebody else has hold of Wren.
       this.dashT = Math.max(0, this.dashT - dt);
-      this.hud.setDash(!this.queen.captive || this.queen.taken, this.dashT / CFG.dash.cooldown, this.dashT);
+      this.hud.setDash(verbs, this.dashT / CFG.dash.cooldown, this.dashT);
       // #57: and the banner, which has a life of its own as well as a cooldown -- it is taken down
       // the frame it runs out rather than being left standing for the army to ignore.
       this.bannerT = Math.max(0, this.bannerT - dt);
       if (this.banner && this.time >= this.banner.until) this.clearBanner();
-      this.hud.setBanner(!this.queen.captive || this.queen.taken, this.bannerT / CFG.banner.cooldown, this.bannerT, !!this.bannerStanding());
+      this.hud.setBanner(verbs, this.bannerT / CFG.banner.cooldown, this.bannerT, !!this.bannerStanding());
       this.hud.setCoinTier(this.coinTier());
       // #119: with one number on the HUD instead of two, the one case it could lie about is a player
       // falling behind -- the raid is fought at `raidLevel()`, which runs ahead of the Keep when the

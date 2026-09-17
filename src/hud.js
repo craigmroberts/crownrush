@@ -810,6 +810,22 @@ export class Hud {
     }
   }
 
+  // #43: the build-here button, and the horn getting out of its way. Dirty-checked like the rest --
+  // `updatePlacing` calls this every frame a placement is in progress.
+  setPlacing(on, ok = false) {
+    const b = this.placeBtn || (this.placeBtn = document.getElementById('place-btn'));
+    if (on !== this.placingOn) {
+      this.placingOn = on;
+      b.classList.toggle('hidden', !on);
+    }
+    if (!on) return;
+    if (ok !== this.placingOk) {
+      this.placingOk = ok;
+      b.classList.toggle('ok', ok);
+      b.classList.toggle('no', !ok);
+    }
+  }
+
   setCoinTier(tier) {
     if (tier === this.coinTier) return;
     this.coinTier = tier;

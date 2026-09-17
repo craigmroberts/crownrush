@@ -217,6 +217,11 @@ document.getElementById('banner-btn').addEventListener('pointerdown', (e) => {
   e.stopPropagation();
   game.plantBanner();
 });
+document.getElementById('place-btn').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  game.confirmPlacing();
+});
 // #75: the mat chip opens to its description rather than showing one unasked.
 document.getElementById('tip-toggle').addEventListener('click', (e) => {
   e.preventDefault();
@@ -456,6 +461,7 @@ window.addEventListener('keydown', (e) => {
   // #57: B for banner. Not a modifier like the dash, because it is a deliberate order rather than a
   // reflex, and nothing else in the game uses it.
   if ((e.key === 'b' || e.key === 'B') && !e.repeat) return game.plantBanner();
+  if (e.key === 'Enter' && game.placing) return game.confirmPlacing();   // #43
   if (e.key === 'i' || e.key === 'I') game.toggleInfo();
   else if (e.key === 'k' || e.key === 'K') game.toggleKeep();
   else if (e.key === 'Escape' && game.settingsOpen) {

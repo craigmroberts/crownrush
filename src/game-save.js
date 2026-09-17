@@ -105,6 +105,10 @@ export const SaveMethods = {
       recaptures: this.recaptures,
       finaleOpen: this.finaleOpen,
       built: { ...this.built },
+      // #43: and where they were put, for the ones the player chose. Added without bumping VERSION:
+      // a save from before this has none, and `rebuildVillage` falls back to `def.buildAt`, which is
+      // exactly where that run's buildings were standing.
+      placedAt: { ...this.placedAt },
       buyCount: { ...this.buyCount },
       mods: { ...this.mods },
       taken: { ...this.taken },
@@ -206,6 +210,7 @@ export const SaveMethods = {
     this.recaptures = s.recaptures;
     this.finaleOpen = !!s.finaleOpen;
     this.built = { ...s.built };
+    this.placedAt = { ...(s.placedAt || {}) };   // #43
     this.buyCount = { ...s.buyCount };
     this.mods = { ...this.mods, ...s.mods };
     this.taken = { ...s.taken };
@@ -314,7 +319,8 @@ export const SaveMethods = {
     for (const def of PADS) {
       if (!s.built[def.id]) continue;
       if (def.effect === 'expand') this.expand();
-      if (def.structure) this.buildStructure(def);
+      // #43: back where the player put it, not where the map suggested.
+      if (def.structure) this.buildStructure(def, s.placedAt && s.placedAt[def.id] ? s.placedAt[def.id] : def.buildAt);
       if (def.wall) this.buildWall(def.wall.tier, def.wall.side);
       if (def.bridge && this.world.buildBridge) {
         const m = this.world.buildBridge(def.bridge);
