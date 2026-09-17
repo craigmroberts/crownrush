@@ -274,6 +274,13 @@ export class Game {
     this.finaleOpen = false;
     this.recaptures = 0;
     this.hornT = 0; // cooldown remaining
+    // #57: the dash. `dashT` is the cooldown, `dashUntil` the moment it ends, and dashX/dashZ the
+    // direction it was committed to -- fixed when it is pressed, because a steerable dash is a speed
+    // boost and a committed one is a decision.
+    this.dashT = 0;
+    this.dashUntil = 0;
+    this.dashX = 0;
+    this.dashZ = 1;
     this.rallyUntil = 0;
     this.alertT = 0;
     this.queenHop = 0;
@@ -812,6 +819,10 @@ export class Game {
       this.hud.showAlarm(this.alarmT > 0 ? this.alarmText : null);
       this.hornT = Math.max(0, this.hornT - dt);
       this.hud.setHorn(!this.queen.captive || this.queen.taken, this.hornT / CFG.horn.cooldown, this.hornT);
+      // #57: the dash sits beside the horn and follows the same rule about when it is offered -- both
+      // are the King's own verbs, and neither is his while somebody else has hold of Wren.
+      this.dashT = Math.max(0, this.dashT - dt);
+      this.hud.setDash(!this.queen.captive || this.queen.taken, this.dashT / CFG.dash.cooldown, this.dashT);
       this.hud.setCoinTier(this.coinTier());
       // #119: with one number on the HUD instead of two, the one case it could lie about is a player
       // falling behind -- the raid is fought at `raidLevel()`, which runs ahead of the Keep when the

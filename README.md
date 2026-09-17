@@ -188,6 +188,8 @@ same Wi-Fi and open the "Network" URL that Vite prints instead.
 
 - Phone: drag anywhere on the screen to move the King (virtual joystick).
 - Desktop: WASD or arrow keys, or drag with the mouse.
+- The warhorn is the horn button bottom-right, or Space. The dash is the bolt beside it, Shift, or a
+  double-tap on a phone.
 - Pause with the ⏸ button, P or Esc. The game also pauses when the tab goes into the background.
 - Everything else is automatic: the King and his archers shoot the nearest enemy, coins are picked up by
   walking near them, and standing on a build pad spends coins one at a time.
@@ -417,12 +419,37 @@ its level (`CFG.enemy.*.fromLevel`) so you meet one idea at a time:
 - **Shieldbearers** (Keep 7) take a quarter damage from the front. Hits show "blocked". Flank them,
   or let the horn scatter the fight.
 
-## The warhorn
+## The King's two verbs: the warhorn and the dash
 
-The King's one ability (`CFG.horn`). The horn button bottom-right, or Space on a keyboard, rallies
-the army: every soldier runs to the King and fights faster and harder for a few seconds, and the
-blast shoves nearby raiders back and stuns them. It recharges over about twenty seconds, shown as a
-ring filling around the button, so using it at the right moment matters more than using it often.
+Both live bottom-right, both recharge as a ring filling around their button, and between them they
+are everything the player does in a fight that is not choosing where to stand.
+
+The **warhorn** (`CFG.horn`) — the horn button, or Space — rallies the army: every soldier runs to
+the King and fights faster and harder for a few seconds, and the blast shoves nearby raiders back and
+stuns them. It recharges over about twenty seconds, so using it at the right moment matters more than
+using it often.
+
+The **dash** (`CFG.dash`, #57) — the bolt button, Shift on a keyboard, or a double-tap on a phone —
+is a committed burst of speed in the direction he is already going, or the way he is facing if he is
+standing still. It is about the next second where the horn is about the next minute, and it recharges
+in four and a half.
+
+Measured, driven rather than watched: a dash covers **4.44 units at 60fps** against a walk's 1.68 over
+the same 0.3s, and 6.42 against 2.38 mounted. That is just inside the horn's own 7.5 blast radius —
+far enough to leave a scrum he was standing in, short enough to be a step rather than a teleport. It
+is why it matters that raiders do not block the King: nothing collides him with an enemy, so being
+surrounded is a damage problem, and the answer is leaving quickly rather than pushing through.
+
+It is a velocity, never a teleport, so every collision a walk answers to still holds — a dash straight
+at the Keep stops 3.4 units from its centre, which is exactly where a walk into it stops, and one at
+the map edge lands on the clamp rather than past it. The direction is fixed when it is pressed and
+does not steer: a steerable dash is a speed boost, a committed one is a decision, including the
+decision to put it into a wall and spend the cooldown on nothing.
+
+The other thing it fixes is the thief chase. A thief flees at 8.2 against 5.6 on foot, so catching one
+used to be a speed check the King simply lost unless he had the horse. A dash closes about 2.2 units,
+and a thief's run is long enough for two of them — enough to catch one if they are spent well, not
+enough if they are not.
 
 ## The Queen is taken, never hurt
 

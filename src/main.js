@@ -117,7 +117,10 @@ const INTRO_KEY = 'crownrush-intro-seen';
 const INTRO = [
   { icon: 'tiara', title: 'Find the Queen', text: 'Raiders have taken Wren, your Queen. Follow the pink arrow, clear her guards and bring her home. Nothing can be built, and no raid comes, until she is free.' },
   { icon: 'coin', title: 'Fight and collect', text: 'Your archers shoot on their own. Raiders drop coins: walk over them to pick them up. The colour a raider wears tells you how dangerous it is.' },
-  { icon: 'horn', title: 'Sound the horn', text: 'The horn button (or Space) rallies your army to you and drives them for a few seconds, and the blast throws nearby raiders back. It takes a while to recharge, so save it for a breach.' },
+  // #57: two verbs, one step. A sixth card would make the opening longer for something the player
+  // learns faster by pressing it, and these two belong together: they are the only buttons in the
+  // game that are the King's own rather than a building's.
+  { icon: 'horn', title: 'Horn and dash', text: 'The horn button (or Space) rallies your army to you and drives them for a few seconds, and the blast throws nearby raiders back — save it for a breach. The bolt beside it (Shift, or double-tap) is a short burst of speed: out of a scrum, or after a thief.' },
   { icon: 'hammer', title: 'Build', text: 'Stop on a floor marker to spend coins. Square markers build; round ones recruit and upgrade. Walking across a marker costs nothing.' },
   // #125: this step used to say wood, stone and straw went into the Keep, which stopped being true
   // when the material lists were priced into coin -- the first thing a new player reads, sending them
@@ -198,6 +201,14 @@ document.getElementById('horn-btn').addEventListener('pointerdown', (e) => {
   e.preventDefault();
   e.stopPropagation();
   game.useHorn();
+});
+// #57: the dash. `stopPropagation` for the same reason the horn has it -- the canvas under these
+// buttons listens for the drag that moves the King, and a press that reaches it would start walking
+// him at the same time (#128 is what that bug looks like from the player's side).
+document.getElementById('dash-btn').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  game.useDash();
 });
 // #75: the mat chip opens to its description rather than showing one unasked.
 document.getElementById('tip-toggle').addEventListener('click', (e) => {
@@ -431,6 +442,10 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (e.key === ' ' || e.key === 'e' || e.key === 'E') return game.useHorn();
+  // #57: Shift, the binding every game with a sprint already uses, and next to WASD for either hand.
+  // `e.repeat` because a held key fires until it is let go, which would spend the dash again on the
+  // exact frame its cooldown ended, forever, without the player pressing anything.
+  if (e.key === 'Shift' && !e.repeat) return game.useDash();
   if (e.key === 'i' || e.key === 'I') game.toggleInfo();
   else if (e.key === 'k' || e.key === 'K') game.toggleKeep();
   else if (e.key === 'Escape' && game.settingsOpen) {

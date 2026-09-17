@@ -701,6 +701,16 @@ class Audio {
       this.tone({ f: f * 2 * 0.97, t: t + at, dur, type: 'square', gain: 0.03, attack: 0.05, release: 0.25, lp: 2400, slideTo: f * 2 });
     }
   }
+  // #57: the dash. A short filtered sweep -- cloth and grass rather than a note, because it happens
+  // up to twice a minute and a pitched sound that often becomes a tune nobody asked for. This is the
+  // lesson #130 left behind: the level-up chime was removed for being a sound you could not stop
+  // hearing, so a new one had better be brief, quiet and un-melodic.
+  dash() {
+    if (!this.ready()) return;
+    const t = this.now;
+    this.noise({ t, dur: 0.16, gain: 0.07, type: 'bandpass', f: 900, q: 0.8 });
+    this.noise({ t: t + 0.04, dur: 0.12, gain: 0.04, type: 'highpass', f: 2200, q: 0.7 });
+  }
   unlock() {
     if (!this.ready()) return;
     const t = this.now;

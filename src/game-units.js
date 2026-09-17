@@ -146,9 +146,20 @@ export const UnitsMethods = {
 
   updatePlayer(dt) {
     const k = this.king;
+    // #57: the double-tap, taken BEFORE `k.vel` is overwritten below. `useDash` reads the direction
+    // off the velocity, and the second tap of the gesture is a stick at zero displacement -- so
+    // consuming it after the line below would dash him in whatever direction "not moving" means
+    // rather than the one he was walking in when he asked.
+    if (this.input.takeDash()) this.useDash();
     const inp = this.input.read();
     const speed = (this.mounted ? k.stats.speed : k.stats.footSpeed) * this.mods.kingSpeed;
-    k.vel.set(inp.x * speed, 0, inp.z * speed);
+    // #57: a dash overrides the stick for its third of a second, in the direction it was committed
+    // to. Everything below is unchanged -- the same clamp, the same wall, river and Keep collision --
+    // so a dash into a wall stops against it and the cooldown is spent, which is the cost of a bad
+    // one. It is a velocity, never a teleport, for exactly that reason.
+    const dashing = this.dashing();
+    if (dashing) k.vel.set(this.dashX * speed * CFG.dash.speed, 0, this.dashZ * speed * CFG.dash.speed);
+    else k.vel.set(inp.x * speed, 0, inp.z * speed);
     if (k.mesh.userData.body && k.mesh.userData.body.rotation.x > 0) k.mesh.userData.body.rotation.x = Math.max(0, k.mesh.userData.body.rotation.x - dt * 3);
     const p = k.mesh.position;
     p.x += k.vel.x * dt;
@@ -164,8 +175,11 @@ export const UnitsMethods = {
     this.collideWalls(p, 0.55, true);
     this.collideRiver(p, 0.5);
     this.collideKeep(p, 0.5);
-    k.moving = inp.mag > 0.05;
-    this.animateWalk(k, inp.mag, dt);
+    // #57: a dashing King is moving whatever the stick says -- a dash from a standstill would
+    // otherwise slide him four units in his idle pose. `walkRate` (#55) scales the clip to how fast
+    // he is actually going, so the legs whirl for the length of it without a clip of their own.
+    k.moving = dashing || inp.mag > 0.05;
+    this.animateWalk(k, dashing ? 1 : inp.mag, dt);
     // king fires his own bow
     k.cooldown -= dt;
     const target = this.nearestEnemy(p, k.stats.range);
@@ -195,6 +209,10 @@ export const UnitsMethods = {
           k.rigOnce = this.time + 0.6;
         }
       }
+    } else if (dashing) {
+      // Snapped, not lerped: he is committed to this direction and the turn has already happened as
+      // far as the player is concerned.
+      k.mesh.rotation.y = Math.atan2(this.dashX, this.dashZ);
     } else if (inp.mag > 0.05) {
       k.mesh.rotation.y = this.lerpAngle(k.mesh.rotation.y, Math.atan2(inp.x, inp.z), 1 - Math.exp(-dt * 12));
     }
@@ -459,6 +477,42 @@ export const UnitsMethods = {
 
   rallied() {
     return this.time < this.rallyUntil;
+  },
+
+  // #57: the dash. A short committed burst in the direction he is already going, or the way he is
+  // facing if he is standing still -- a dash with no direction would be a cooldown thrown away, and
+  // the facing is the one direction the player can see without guessing.
+  //
+  // The direction comes off `king.vel`, which `updatePlayer` filled from the stick this same frame,
+  // rather than from `input.read()`: read() hands back one shared object to one caller by design
+  // (#65), and a second reader in the same frame is exactly the kind of thing that stops being true
+  // later.
+  useDash() {
+    if (!this.running || this.dashT > 0 || this.queen.captive && !this.queen.taken) return;
+    const D = CFG.dash;
+    const k = this.king;
+    let dx = k.vel.x;
+    let dz = k.vel.z;
+    const m = Math.hypot(dx, dz);
+    if (m > 0.05) {
+      dx /= m;
+      dz /= m;
+    } else {
+      dx = Math.sin(k.mesh.rotation.y);
+      dz = Math.cos(k.mesh.rotation.y);
+    }
+    this.dashT = D.cooldown;
+    this.dashUntil = this.time + D.duration;
+    this.dashX = dx;
+    this.dashZ = dz;
+    audio.dash();
+    // The dust goes where he LEFT, not where he is: the burst reads as a push-off that way, and by
+    // the time it has faded he is the better part of five units away from it.
+    this.burstFx(tmp.copy(k.mesh.position).setY(0.35), '#cfc09a', 5, 0.34);
+  },
+
+  dashing() {
+    return this.time < this.dashUntil;
   },
 
   // archery speed grows with the Keep (archers, towers and the King's own bow)
