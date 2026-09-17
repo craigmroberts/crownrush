@@ -553,8 +553,18 @@ its level (`CFG.enemy.*.fromLevel`) so you meet one idea at a time:
 
 ## Build previews fade, they do not pop
 
-Every mat previews what it would buy — archers standing on it, a wall along the edge, a translucent
-copy of the building it puts up. The preview used to be switched on and off outright:
+Every mat previews what it would buy — a wall along the edge, a translucent copy of the building it
+puts up, a crew standing on the tower deck they would be sent to. **Not the recruit mats** (#142):
+those used to stand two archers on the grass beside the mat, built from the real rig and ghostified,
+so they had the same mesh, silhouette and size as the archers that fight for you. On a field with
+your army walking about that is a unit the player keeps trying to command, and translucency is not a
+strong enough signal at a glance. The mat's own canvas already carries the icon, the label and the
+price, and the chip says it again — the ghosts were the third telling and the only one that could be
+mistaken for a man. The crew mats keep theirs, because position does the work translucency could not:
+a figure standing in mid-air on a tower deck is plainly a diagram, and hiding one of them per archer
+dispatched is the only progress a crew mat shows.
+
+The preview used to be switched on and off outright:
 
 ```js
 for (const g of pad.ghosts) g.visible = pad.fade > 0.4;

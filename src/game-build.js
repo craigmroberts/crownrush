@@ -6,7 +6,7 @@ import { audio } from './audio.js';
 import { makeRigged } from './rig.js';
 import { pickOffer } from './upgrades.js';
 import {
-  makeKing, makeKeep, makeResourceCube, makeArcher, makeSwordsman, makeCoin, makeHut, makeTower, makeTowerLevelBits, makeBarracks, makeWallSegment, makeGate, makeRubble, makeBridge, makePad, drawPad, ghostify, makeHealthBar, setHealthBar, makeBank, makeGatePost,
+  makeKing, makeKeep, makeResourceCube, makeArcher, makeCoin, makeHut, makeTower, makeTowerLevelBits, makeBarracks, makeWallSegment, makeGate, makeRubble, makeBridge, makePad, drawPad, ghostify, makeHealthBar, setHealthBar, makeBank, makeGatePost,
 } from './models.js';
 import { makeProp } from './props.js';
 import { V3, HAIR, plural, PAD_STYLE, rand, tmp } from './game-shared.js';
@@ -86,13 +86,21 @@ export const BuildMethods = {
       pad.ghosts.push(g);
       return g;
     };
-    if (def.units) {
-      for (let i = 0; i < def.units.count; i++) {
-        const r = makeRigged(def.units.type === 'archer' ? 'archer' : 'swordsman');
-        const g = ghost(r ? r.mesh : def.units.type === 'archer' ? makeArcher() : makeSwordsman(), !r);
-        g.position.set(def.pos[0] - 0.6 + i * 0.7 + (i > 1 ? -1.1 : 0), 0, def.pos[1] + (i > 1 ? 0.8 : 0));
-      }
-    } else if (def.crew) {
+    // #142: NO GHOSTS ON A RECRUIT MAT. They used to stand two archers on the grass beside it, built
+    // from the real rig and ghostified -- same mesh, same silhouette, same size as the archers that
+    // fight for you, only translucent. On a field that already has your army walking about, that is a
+    // unit the player keeps trying to command, and this game is played at a glance.
+    //
+    // Nothing is lost: `drawPad` paints the icon, the label and the price onto the mat's own canvas,
+    // and the chip says it again with the description when the King stands there. The ghosts were the
+    // third telling of the same thing and the only one that could be mistaken for a man.
+    //
+    // THE CREW MATS KEEP THEIRS, and that is a decision rather than an oversight -- the ticket asks
+    // for it to be made. Two reasons. Position does the work translucency could not: a crew ghost
+    // stands on the tower's deck at `t.top` (2.72, measured) or on a gate post, and a figure standing
+    // in mid-air on a structure is plainly a diagram. And they are load-bearing -- `updatePads` hides
+    // one per archer dispatched, which is the only per-archer progress a crew mat shows.
+    if (def.crew) {
       for (const [x, z, y] of this.crewSpots(def)) {
         const r = makeRigged('archer');
         const g = ghost(r ? r.mesh : makeArcher(), !r);
