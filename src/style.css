@@ -258,7 +258,14 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
      between runs and materials, and a diamond-age village blurs much lighter than grass */
   text-shadow: 0 1px 0 rgba(0,0,0,0.55), 0 2px 10px rgba(0,0,0,0.65);
 }
-.panel h1 { font-size: 40px; color: #ffb347; -webkit-text-stroke: 1px #5a2a0c; text-shadow: 0 3px 0 #b07a00, 0 4px 14px rgba(0,0,0,0.6); margin-bottom: 12px; }
+/* #135: the heading was orange with a 1px stroke and a hard gold drop under it -- enough ornament
+   that it read as a different typeface from everything around it, which is what was reported. It is
+   the same Baloo 2 it always was; what went is the costume. Panel text colour, one soft shadow to
+   hold it over a blurred world, and the size does the emphasis. */
+.panel h1 {
+  font-size: 40px; color: var(--ink); -webkit-text-stroke: 0;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.55); margin-bottom: 12px;
+}
 .panel p { color: var(--ink); margin-bottom: 14px; line-height: 1.4; }
 .panel .hint { font-size: 13px; color: var(--ink-dim); }
 .panel .best { font-size: 14px; color: var(--ink-dim); margin-top: 14px; margin-bottom: 0; }
@@ -284,7 +291,6 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
   box-shadow: 0 5px 16px rgba(0,0,0,0.38);
   transition: border-color 0.12s ease-out, box-shadow 0.12s ease-out, transform 0.1s ease-out;
 }
-.panel button .icon { flex: 0 0 auto; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.55)); }
 .panel button:hover { border-color: rgba(255, 255, 255, 0.45); }
 /* #135: the press IS the selected state. The old button said "button" with a gold frame and a
    diamond at each end on every single one of them, so the ornament was spent on the resting state
@@ -465,13 +471,18 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 #next-wave-btn {
   position: fixed; left: max(12px, env(safe-area-inset-left)); bottom: max(24px, env(safe-area-inset-bottom));
   pointer-events: auto; display: inline-flex; align-items: center; gap: 7px;
-  border: 0; border-bottom: 4px solid var(--danger-edge); border-radius: 14px; padding: 7px 14px;
-  background: linear-gradient(var(--danger-hi), var(--danger-lo)); color: #fff; cursor: pointer;
-  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 17px;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.3); text-shadow: 0 2px 0 rgba(0,0,0,0.3);
+  /* #135: the same button as everything else -- dark fill, hairline edge, italic label -- with the
+     edge in the danger colour rather than a red fill, so red still means "this interrupts" without
+     the button being a different species. It kept the 4px bottom bevel long after `.panel button`
+     was moved off it, which made the one control that interrupts play the one that looked oldest. */
+  border: 1.5px solid var(--danger-hi); border-radius: 5px; padding: 9px 15px;
+  background: linear-gradient(180deg, var(--fill-hi), var(--fill-lo)); color: var(--btn-ink);
+  cursor: pointer; font-style: italic;
+  font-family: "Nunito", "Trebuchet MS", system-ui, sans-serif; font-weight: 800; font-size: 17px;
+  box-shadow: 0 5px 16px rgba(0,0,0,0.38); text-shadow: 0 1px 2px rgba(0,0,0,0.6);
 }
 #next-wave-btn b { font-variant-numeric: tabular-nums; }
-#next-wave-btn span { font-size: 13px; opacity: 0.78; font-family: "Nunito", system-ui, sans-serif; font-weight: 700; }
+#next-wave-btn span { font-size: 13px; opacity: 0.78; font-weight: 700; }
 #next-wave-btn.hidden { display: none; }
 /* #8: anchored bottom-right, clear of the minimap and the night button, never over the middle */
 /* #31: the pad panel is a sheet across the bottom edge rather than a card floating over the field,
@@ -1316,7 +1327,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 /* the stepped intro */
 .panel.intro { max-width: 380px; padding: 26px 26px 20px; }
 .panel.intro .intro-icon { height: 60px; display: grid; place-items: center; margin-bottom: 4px; }
-.panel.intro h2 { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 28px; color: #ffb347; margin: 0 0 8px; }
+.panel.intro h2 { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 28px; color: var(--ink); margin: 0 0 8px; }
 .panel.intro p { font-size: 16px; line-height: 1.45; color: var(--ink); min-height: 4.4em; margin-bottom: 10px; }
 .panel.intro .intro-dots { display: flex; justify-content: center; gap: 7px; margin-bottom: 14px; }
 .panel.intro .intro-dots i { width: 9px; height: 9px; border-radius: 50%; background: #d9d0b0; display: inline-block; }
@@ -1334,7 +1345,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 }
 #horn-btn.hidden { display: none; }
 #horn-btn .ring { position: absolute; inset: 0; border-radius: 50%;
-  background: conic-gradient(#f5b800 var(--cd, 0%), rgba(255,255,255,0.18) 0); -webkit-mask: radial-gradient(circle, transparent 25px, #000 26px); mask: radial-gradient(circle, transparent 25px, #000 26px); }
+  background: conic-gradient(var(--accent) var(--cd, 0%), rgba(255,255,255,0.18) 0); -webkit-mask: radial-gradient(circle, transparent 25px, #000 26px); mask: radial-gradient(circle, transparent 25px, #000 26px); }
 #horn-btn i { position: relative; opacity: 0.45; transition: opacity 0.15s, transform 0.15s; }
 #horn-btn.ready i { opacity: 1; transform: scale(1.1); }
 #horn-btn.ready { animation: hornReady 1.2s ease-in-out infinite alternate; }
@@ -1355,7 +1366,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 #banner-btn { right: max(148px, calc(136px + env(safe-area-inset-right))); }
 #dash-btn.hidden, #banner-btn.hidden { display: none; }
 #dash-btn .ring, #banner-btn .ring { position: absolute; inset: 0; border-radius: 50%;
-  background: conic-gradient(#f5b800 var(--cd, 0%), rgba(255,255,255,0.18) 0); -webkit-mask: radial-gradient(circle, transparent 21px, #000 22px); mask: radial-gradient(circle, transparent 21px, #000 22px); }
+  background: conic-gradient(var(--accent) var(--cd, 0%), rgba(255,255,255,0.18) 0); -webkit-mask: radial-gradient(circle, transparent 21px, #000 22px); mask: radial-gradient(circle, transparent 21px, #000 22px); }
 #dash-btn i, #banner-btn i { position: relative; opacity: 0.45; transition: opacity 0.15s, transform 0.15s; }
 #dash-btn.ready i, #banner-btn.ready i { opacity: 1; transform: scale(1.1); }
 #dash-btn b, #banner-btn b { position: absolute; color: #fff; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 17px; text-shadow: 0 2px 0 rgba(0,0,0,0.5); }
@@ -1560,3 +1571,10 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
    clause worth finding. Colour only -- no italic: the display face has no italic cut, so it would be
    synthesised, and the colour is what was asked for and what does the work. */
 .tw-em, .emph { color: var(--emph); }
+
+/* #135: the ring is the COOLDOWN, so when there is no cooldown there is no ring. It used to close
+   into a full gold circle at the moment the ability came back and then sit there -- a finished
+   progress bar reading as a permanent border, and three of them made a row of gold hoops. The glyph
+   coming up to full opacity and the pulse already say "ready"; the ring saying it too was the same
+   news three ways. */
+#horn-btn.ready .ring, #dash-btn.ready .ring, #banner-btn.ready .ring { display: none; }

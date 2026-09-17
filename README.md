@@ -128,8 +128,8 @@ the raids keep coming for a high score.
   staggered, so the box cannot re-wrap or re-centre partway through; the hold starts when the last
   letter lands rather than when the notice appears. Reduced motion gets the whole line at once.
 - **The four corners.** Health, the Keep's level and the night's count hang from the top-left; the
-  minimap is top-right with the settings cog directly under it; coin and the bag sit above the warhorn
-  in the bottom-right, beside the thumb that spends them; and the skip button anchors bottom-left, so
+  minimap is top-right with coin and the bag directly under it; the settings cog is bottom-right above
+  the warhorn, beside the thumb; and the skip button anchors bottom-left, so
   the two actions are on opposite thumbs. What is at the top is state you read, what is at the bottom
   is what changes while you play. The bottom-centre is left empty on purpose, because it is the only
   place a notice and a button would have to negotiate for space (#124, #131).
@@ -142,11 +142,12 @@ the raids keep coming for a high score.
   and is meant to be: an alarm and a notice are the shout and the sentence, and several beats raise
   both, so the alarm keeps a slot directly above. That slot is measured rather than assumed -- it
   clears whatever is on the line, which is the only thing that holds when a notice can be one line or
-  four. The line is at 129 rather than 116: #124 came to bring it *down*, on the grounds that 116 was
-  pinned against a minimap that moved to the top-right in #123 and left the space behind -- but the
-  space was spent in the same breath by the purse (#131), and the measurement said up by 13 rather
-  than down by 25. Which is the point of having one value: the number moved once, and everything that
-  speaks down there moved with it.
+  four. The line is at 147, and it has moved twice for the same reason: #124 found 116 pinned against
+  a minimap that had already gone to the top-right, but the space was spent in the same breath by the
+  purse (#131), so it went *up* to 129 rather than down. #133 then traded the purse for the settings
+  cog in that corner -- a 48px thumb target where a 28px row of text had been -- and 147 is the first
+  figure that clears the cog's box rather than its glyph. Which is the point of having one value: the
+  number moved, and everything that speaks down there moved with it.
   Three things share that band and they queue rather than dodge each other: a notice goes first
   because it is timed and unrepeatable, then what a purchase just bought you, then the mat chip. The
   middle one is a notice too, but its countdown STOPS while it waits, so nothing runs out behind
@@ -361,7 +362,9 @@ line.
 
 One rule paints every call to action in the game -- Play, Continue, Play Again, Next, Back to the
 game -- so the treatment is decided once. It is a **near-black fill with a hairline edge and an
-italic label**: no frame, no ornament, nothing to say "button" except being one.
+italic label**: no frame, no ornament, **no glyph**, nothing to say "button" except being one. The
+icons went with the frame (#135) -- a crown on Continue and a leaf on Play were the last of the
+decoration, and a word a player is about to tap does not need illustrating.
 
 That is a repaint (#135). It was a gold frame on a dark fill with a rotated diamond at each end, and
 the frame was the affordance -- which meant every button in the game had to wear the full ornament to
@@ -710,7 +713,10 @@ about where they are standing.
 
 ## The King's three verbs: the warhorn, the dash and the banner
 
-All three live bottom-right, all three recharge as a ring filling around their button, and between
+All three live bottom-right, all three recharge as a ring filling around their button -- which
+**disappears the moment it completes** (#135), because a finished progress bar sitting there reads as
+a permanent gold border, and three of them made a row of hoops. The glyph coming up to full opacity
+and the pulse already say "ready". Between
 them they are everything the player does in a fight that is not choosing where to stand. Before #57
 there was only the horn, on a twenty-two second cooldown — about a hundred button presses in a
 thirty-seven minute run.
