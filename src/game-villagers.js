@@ -20,14 +20,14 @@ const ORDER = ['farmer', 'lumberjack', 'miner', 'farmer', 'lumberjack', 'miner']
 export const VillagerMethods = {
   // A home is built: someone moves into it. The trade follows the order homes are raised in rather
   // than the home's position, so a village of two is a farmer and a lumberjack and not two farmers.
-  addVillager(homeX, homeZ) {
+  addVillager(homeX, homeZ, homeId = null) {
     const kind = ORDER[this.villagers.length % ORDER.length];
     const mesh = makeVillager(kind);
     mesh.position.set(homeX + rand(-1.2, 1.2), 0, homeZ + rand(1.8, 2.6));
     mesh.scale.setScalar(0.01);
     this.root.add(mesh);
     const v = {
-      kind, mesh, home: new V3(homeX, 0, homeZ), state: 'idle', node: null,
+      kind, mesh, home: new V3(homeX, 0, homeZ), homeId, state: 'idle', node: null,
       carry: 0, work: 0, walkT: 0, popT: 0.5, scale: 1.05, idleT: rand(0, 2),
     };
     this.villagers.push(v);

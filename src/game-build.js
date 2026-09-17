@@ -306,11 +306,11 @@ export const BuildMethods = {
     if (kind === 'crew') {
       const add = lv.slots + this.mods.towerSlots - t.crew;
       if (add <= 0) return this.queueTowerPad(id, 'up');
-      this.dynamicPads.push({ id: `crew-${id}-${t.level}`, pos: t.pos, crew: add, icon: 'archer', label: 'Man the Tower', tower: id, toast: 'Tower manned!' });
+      this.dynamicPads.push({ id: `crew-${id}-${t.level}`, pos: [t.pos[0], t.pos[1]], crew: add, icon: 'archer', label: 'Man the Tower', tower: id, toast: 'Tower manned!' });
     } else if (t.level < CFG.tower.levels.length) {
       const up = CFG.tower.upgrade[t.level - 1];
       const next = CFG.tower.levels[t.level];
-      this.dynamicPads.push({ id: `up-${id}-${t.level + 1}`, pos: t.pos, cost: up.cost, coin: up.coin, icon: 'tower', label: `Tower Level ${t.level + 1}`, towerUp: id, toast: `Watchtower level ${t.level + 1}: ${next.slots} crew, sharper arrows.` });
+      this.dynamicPads.push({ id: `up-${id}-${t.level + 1}`, pos: [t.pos[0], t.pos[1]], cost: up.cost, coin: up.coin, icon: 'tower', label: `Tower Level ${t.level + 1}`, towerUp: id, toast: `Watchtower level ${t.level + 1}: ${next.slots} crew, sharper arrows.` });
     }
     this.refreshPads();
   },
@@ -600,6 +600,7 @@ export const BuildMethods = {
     if (t) {
       t.x = to[0];
       t.z = to[1];
+      t.pos = [t.pos[0] + dx, t.pos[1] + dz];
       // the crew standing on its deck
       for (const tu of this.turrets) {
         if (tu.tower !== rec.id) continue;
@@ -608,12 +609,41 @@ export const BuildMethods = {
         tu.pos.x += dx;
         tu.pos.z += dz;
       }
+      // #139: and the crew still WALKING to it. A crew archer is not a turret yet -- `updatePads`
+      // gives it an absolute deck position and it walks there under its own pass in `updateArmy`,
+      // becoming a turret only on arrival. Nothing moved those, so an archer dispatched before the
+      // move and arriving after it was stood up at `y = t.top` over the empty ground the tower used
+      // to be on: an archer hanging in the air, which is exactly what was reported and why it was
+      // "some of the archers" -- the ones already on the deck came along.
+      //
+      // Found by `assignTower` rather than by comparing its destination to the old deck. The ticket
+      // is right that coordinate-matching is the shared cause of every bug in it.
+      for (const u of this.units) {
+        if (u.assignTower !== rec.id || !u.assign) continue;
+        u.assign = [u.assign[0] + dx, u.assign[1] + dz, u.assign[2]];
+      }
+      // #139: and its MATS. `pos` is copied into each pad def rather than shared, so these are the
+      // only references and one shift is one move. Ghosts go with them: a crew mat previews its
+      // archers at `crewSpots`, which reads the deck this just moved.
+      for (const d of this.dynamicPads) {
+        if (d.tower !== rec.id && d.towerUp !== rec.id) continue;
+        d.pos = [d.pos[0] + dx, d.pos[1] + dz];
+      }
+      for (const pad of this.pads) {
+        if (pad.def.tower !== rec.id && pad.def.towerUp !== rec.id) continue;
+        pad.mesh.position.x += dx;
+        pad.mesh.position.z += dz;
+        for (const g of pad.ghosts) { g.position.x += dx; g.position.z += dz; }
+      }
     }
     const c = rec.mesh.userData.chimney;
     if (c && this.world.moveSmoker) this.world.moveSmoker(fx + c.x, fz + c.z, to[0] + c.x, to[1] + c.z);
     if (rec.kind === 'house') {
       for (const v of this.villagers) {
-        if (Math.abs(v.home.x - fx) > 0.01 || Math.abs(v.home.z - fz) > 0.01) continue;
+        // #139: by the home's id. Matching on the coordinate was safe -- two homes cannot stand on
+        // one spot -- but it is the same "found by where it is rather than by what it is" that both
+        // halves of this ticket were, and the ticket is right that an id retires all three.
+        if (v.homeId !== rec.id) continue;
         v.home.set(to[0], 0, to[1]);
         v.mesh.position.x += dx;
         v.mesh.position.z += dz;
@@ -779,11 +809,17 @@ export const BuildMethods = {
       this.addTradeMat(def);
     }
     if (kind === 'tower') {
-      this.towers[def.id] = { id: def.id, x: at[0], z: at[1], top: m.userData.top, level: 1, mesh: m, crew: 0, pos: def.pos };
+      // #139: `pos` is derived from where the tower ACTUALLY went, not read off the config. It used
+      // to be `def.pos` -- the pad coordinate -- so a placed tower's mats stayed at the spot the
+      // config nominated and the player had to walk back across the village to upgrade it. A fresh
+      // array, never the config's own: `def.pos` is shared with `CFG` and mutating it would move the
+      // mat for every future run in this session.
+      const P = CFG.tower.padOffset;
+      this.towers[def.id] = { id: def.id, x: at[0], z: at[1], top: m.userData.top, level: 1, mesh: m, crew: 0, pos: [at[0] + P[0], at[1] + P[1]] };
       this.queueTowerPad(def.id, 'crew');
     }
     // #48: a home is not just a roof. Someone moves in, and they work.
-    if (kind === 'house') this.addVillager(at[0], at[1]);
+    if (kind === 'house') this.addVillager(at[0], at[1], def.id);
     if (m.userData.chimney) {
       const c = m.userData.chimney;
       this.world.addSmoker(at[0] + c.x, c.y, at[1] + c.z);

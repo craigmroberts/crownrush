@@ -586,6 +586,16 @@ Watchtowers and villager homes are **placed by the player** (#43). `buildAt` in 
 still where each one suggests standing; it is no longer the only place it can stand. Pay for the mat
 and a translucent ghost of the building appears — then walk to the spot and tap the hammer.
 
+A building that moves takes **everything it owns** with it (#139): its own mats, the crew standing on
+its deck, and the crew still walking to it. That last one is the least obvious and was the visible
+half of the bug — a crew archer is not a turret yet, it is a unit with an absolute deck position that
+becomes a turret on arrival, so one dispatched before a move and arriving after it used to be stood
+up in mid-air over the ground the tower had left. Everything is found by **identity** now — the
+tower's id on the archer, the home's id on the villager — rather than by comparing coordinates, which
+is what all three halves of that bug had in common. A tower's mats also sit at `tower.padOffset` from
+wherever it actually stands; they used to sit at the pad coordinate in `config.js`, which meant a
+tower placed across the village had its upgrade mat 31 units away from it.
+
 **The ghost follows the finger** (#137), and getting there took two goes.
 
 The first version had it follow the King: walk to the spot, tap to confirm. That was a deliberate

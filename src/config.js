@@ -249,6 +249,15 @@ export const CFG = {
   // watchtowers: level 1 -> 3. Each level adds crew slots and sharpens the tower's arrows.
   turret: { hp: 40 },
   tower: {
+    // #139: where the tower's own mats sit relative to it, the way `keep.padOffset` does for the
+    // Keep. Before this the mats were placed at the pad coordinate out of this file while the tower
+    // stood wherever the player put it -- a watchtower placed at [-12, 10] had its crew mat 31 units
+    // away, which has been true since placement landed and only became easy to hit once a tower
+    // could be dragged (#137).
+    // 3.6 is the two halves plus air: the tower's footprint is 2.50 x 3.32 (1.66 deep from centre)
+    // and a mat is `spend.padSize` 3.6 across (1.8), so 3.46 is touching and this clears it. South,
+    // because that is the face the camera looks at and the side a player walks up to.
+    padOffset: [0, 3.6],
     range: 14, fireRate: 0.7, damage: 12,
     levels: [{ slots: 3, damage: 1, range: 1 }, { slots: 5, damage: 1.35, range: 1.15 }, { slots: 7, damage: 1.8, range: 1.3 }],
     upgrade: [{ cost: 30 }, { cost: 60 }],
