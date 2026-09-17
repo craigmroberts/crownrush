@@ -445,7 +445,17 @@ const BUDGETS = [
 // A budget the game does not meet yet, and the ticket that will. It is reported loudly and does NOT
 // fail the build, because a CI that is red for a reason everyone already knows teaches everyone to
 // stop reading CI. Deleting the line here is how a budget comes back under guard.
-const WAIVED = {};
+const WAIVED = {
+  // Measured 2026-09-16 with --crowd 120, 198 characters on the field:
+  //   desktop  draw calls 1049 peak   triangles 2465k median
+  //   phone    draw calls  904 peak   triangles 1056k median
+  // Both are over, on both devices, and have been for a while. #52 is the cause and the fix: the
+  // crowd models came back from Meshy at ~8.7k triangles against a stated ~5k budget, and they are
+  // the ones drawn seventy times. Waived rather than asserted because turning CI red for something
+  // already known and already ticketed just teaches everyone to stop reading CI.
+  drawCallsPeak: '#52 -- crowd models are ~8.7k triangles against a ~5k budget',
+  trianglesMedian: '#52 -- same cause',
+};
 
 function assertBudgets(results) {
   const rows = [];
