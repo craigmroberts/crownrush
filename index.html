@@ -148,10 +148,18 @@
       <button id="banner-btn" class="hidden" title="Rally banner (B): the army holds this spot"><span class="ring"></span><i data-icon="banner" data-size="26"></i><b id="banner-cd"></b></button>
       <!-- #43: put the building down where the King is standing. It takes the horn's own corner while
            a placement is in progress, because it is the only thing the player should be doing. -->
-      <button id="place-btn" class="hidden" title="Build here (Enter)"><i data-icon="hammer" data-size="30"></i></button>
+      <!-- #137: a tick, not a hammer. The hammer said "build", which is right for a new watchtower and
+           wrong for a house being nudged two squares left; a tick says "this spot, yes" either way,
+           and it is the half of a tick/cross pair that the cross beside it only makes sense against. -->
+      <button id="place-btn" class="hidden" title="Put it here (Enter)"><i data-icon="check" data-size="30"></i></button>
+      <!-- #136: and the way back out. Only shown while an existing building is being MOVED, because
+           that is the only case with somewhere to go back to -- a new building has already been paid
+           for by the time the ghost appears (`completePad` scores it, toasts it and unlocks it before
+           calling `beginPlacing`), so there is nothing to cancel, only somewhere to put it. -->
+      <button id="cancel-place-btn" class="hidden" title="Leave it where it was (Esc)"><i data-icon="cross" data-size="26"></i></button>
       <!-- #43: pick this building up and carry it somewhere else. Contextual -- it is only here when
            he is standing beside one of his own towers or homes, in daylight. -->
-      <button id="move-btn" class="hidden" title="Move this building (M)"><i data-icon="expand" data-size="24"></i></button>
+      <button id="move-btn" class="hidden" title="Move this building (M), or hold it on the field"><i data-icon="expand" data-size="24"></i></button>
       <!-- #75: a chip, not a sheet. The village is made of mats, so a full panel across the bottom
            every time the King stops near one was covering the field to say something usually already
            known. What it costs and how far the payment has got stay on the face of it -- those are

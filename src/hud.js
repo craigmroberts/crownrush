@@ -816,11 +816,19 @@ export class Hud {
 
   // #43: the build-here button, and the horn getting out of its way. Dirty-checked like the rest --
   // `updatePlacing` calls this every frame a placement is in progress.
-  setPlacing(on, ok = false) {
+  setPlacing(on, ok = false, canCancel = false) {
     const b = this.placeBtn || (this.placeBtn = document.getElementById('place-btn'));
+    const x = this.cancelBtn || (this.cancelBtn = document.getElementById('cancel-place-btn'));
     if (on !== this.placingOn) {
       this.placingOn = on;
       b.classList.toggle('hidden', !on);
+    }
+    // #136: the cross rides the same dirty-check. Hidden outright when the mode is off, so a
+    // placement that ends any way at all takes both buttons with it.
+    const showX = on && canCancel;
+    if (showX !== this.placingCancel) {
+      this.placingCancel = showX;
+      x.classList.toggle('hidden', !showX);
     }
     if (!on) return;
     if (ok !== this.placingOk) {

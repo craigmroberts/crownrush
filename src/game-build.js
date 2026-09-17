@@ -436,7 +436,7 @@ export const BuildMethods = {
   // ticket's own line is that "towers especially want to be placed by the player", and the four
   // service buildings and the Keep are structural enough that moving them is a separate argument.
 
-  beginPlacing(def) {
+  beginPlacing(def, quiet = false) {
     this.cancelPlacing();
     const mesh = ghostify(this.makeStructureMesh(def.structure));
     // ITS OWN MATERIAL, and this is not a detail. `ghostify` assigns `GHOST_MAT`, which is a
@@ -449,10 +449,86 @@ export const BuildMethods = {
       mat = mat || o.material.clone();
       o.material = mat;
     });
-    mesh.position.set(this.king.mesh.position.x, 0, this.king.mesh.position.z);
+    const kp = this.king.mesh.position;
+    // #137: the ghost has a position of its own now instead of being pinned to the King every frame.
+    // It starts where he is standing -- he has just paid for it there, or he is about to pick up the
+    // building he is next to -- and from then on the finger owns it.
+    const at = { x: this.snapPlace(kp.x), z: this.snapPlace(kp.z) };
+    mesh.position.set(at.x, 0, at.z);
     this.root.add(mesh);
-    this.placing = { def, mesh, mat, ok: null };
-    this.hud.toast('Walk to where it should stand, then tap the hammer.', 4200, 'Village');
+    this.placing = { def, mesh, mat, ok: null, at };
+    this.enterEditMode();
+    // `quiet` for the moving half, which says its own thing a line later: without it one pick-up fired
+    // two notices, and the second had to wait out the first before it could be read.
+    if (!quiet) this.hud.toast('Drag it where it should stand, then tap the tick.', 4200, 'Village');
+  },
+
+  // #137: centres land on multiples of `CFG.place.grid`, and the grid drawn under them is the same
+  // spacing -- see the note in config.js for why 2 and not 1 or 4.
+  snapPlace(v) {
+    const g = CFG.place.grid;
+    return Math.round(v / g) * g;
+  },
+
+  // #137: what makes the finger safe to use. The joystick is suspended for as long as a placement is
+  // live, so the drag that moves the ghost is not also the drag that moves the King -- which is the
+  // whole of #43's objection to finger-dragging, and it goes away once the two are sequential rather
+  // than simultaneous. The class on `body` fades everything else (see style.css).
+  enterEditMode() {
+    if (this.input) {
+      this.input.release();
+      this.input.suspended = true;
+    }
+    document.body.classList.add('placing');
+    this.showPlaceGrid();
+  },
+
+  leaveEditMode() {
+    if (this.input) this.input.suspended = false;
+    document.body.classList.remove('placing');
+    this.hidePlaceGrid();
+  },
+
+  // The squares, drawn over exactly the ground a building is allowed to stand on: the current tier's
+  // bounds, which is the same rectangle `placeOk` tests against. So the grid stopping IS the rule,
+  // rather than a decoration that happens to sit near it.
+  //
+  // One LineSegments, one draw call, and only while a placement is live -- the steady-state budget in
+  // the README is untouched.
+  showPlaceGrid() {
+    this.hidePlaceGrid();
+    const b = TIERS[this.tier].bounds;
+    const g = CFG.place.grid;
+    const pts = [];
+    const y = 0.06;   // clear of the ground and under every mat, which sit at 0.03 and draw over it
+    const x0 = Math.ceil(b.x0 / g) * g;
+    const z0 = Math.ceil(b.z0 / g) * g;
+    for (let x = x0; x <= b.x1; x += g) pts.push(x, y, b.z0, x, y, b.z1);
+    for (let z = z0; z <= b.z1; z += g) pts.push(b.x0, y, z, b.x1, y, z);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    const mat = new THREE.LineBasicMaterial({ color: 0xf4f7ec, transparent: true, opacity: 0.22, depthWrite: false });
+    this.placeGrid = new THREE.LineSegments(geo, mat);
+    this.root.add(this.placeGrid);
+  },
+
+  hidePlaceGrid() {
+    if (!this.placeGrid) return;
+    this.root.remove(this.placeGrid);
+    this.placeGrid.geometry.dispose();
+    this.placeGrid.material.dispose();
+    this.placeGrid = null;
+  },
+
+  // #137: the finger moved. Screen point to ground point to grid square, and the ghost follows.
+  // Refused off the ground plane (the sky above the horizon), where `groundAt` has no answer.
+  dragPlacingTo(clientX, clientY) {
+    const pl = this.placing;
+    if (!pl) return;
+    const g = this.groundAt(clientX, clientY);
+    if (!g) return;
+    pl.at.x = this.snapPlace(g.x);
+    pl.at.z = this.snapPlace(g.z);
   },
 
   // #43, the moving half. A building already standing is picked up and put down again, and the
@@ -487,10 +563,16 @@ export const BuildMethods = {
     if (!this.canMove(rec)) return;
     const def = PADS.find((d) => d.id === rec.id);
     if (!def) return;
-    this.beginPlacing(def);
+    this.beginPlacing(def, true);
     if (!this.placing) return;
     this.placing.moving = rec;
     this.placing.from = [rec.mesh.position.x, rec.mesh.position.z];
+    // #137: a building being MOVED starts under the ghost that is already standing there, rather than
+    // jumping to the King's feet the moment it is picked up. Not snapped: it goes back on cancel
+    // exactly where it was, and a building placed before the grid existed (or by `def.buildAt`, which
+    // is off-grid for most of them) must not shuffle sideways just for being touched.
+    this.placing.at.x = rec.mesh.position.x;
+    this.placing.at.z = rec.mesh.position.z;
     // Out of the pop-in animation first. `updatePopping` sets `visible = true` on everything still
     // popping, every frame, so a building picked up within half a second of being built would refuse
     // to disappear -- measured, `realHidden` came back false. Its pop is over as far as this is
@@ -501,7 +583,7 @@ export const BuildMethods = {
       rec.mesh.scale.setScalar(rec.mesh.userData.baseScale || 1);
     }
     rec.mesh.visible = false;   // picked up: the ghost is where it is now
-    this.hud.toast('Carry it somewhere else, then tap the hammer.', 4200, 'Village');
+    this.hud.toast('Drag it somewhere else, then tap the tick — or the cross to leave it.', 4200, 'Village');
   },
 
   // Everything the building owns at an absolute position, shifted by the same delta. A delta rather
@@ -551,6 +633,53 @@ export const BuildMethods = {
     // so it is left exactly where it is.
     if (this.placing.mat) this.placing.mat.dispose();
     this.placing = null;
+    this.leaveEditMode();
+  },
+
+  // #136: the way out, and the only one that existed was the hammer. `cancelPlacing` above is the
+  // teardown and was never reachable from outside -- nothing bound it to a key or a button, and
+  // `Escape` fell through the chain in main.js to `togglePause`. So a player who tapped move on a
+  // tower to see what it did was committed to putting it down somewhere.
+  //
+  // A move goes back to `from`, which `beginMoving` has recorded since the day it was written and
+  // nothing has ever read. It is a legal spot by construction -- the building was standing on it a
+  // moment ago -- so this can never refuse.
+  //
+  // A NEW building has no way back: `completePad` scores it, toasts it, unlocks it and marks it built
+  // before `beginPlacing` is ever called, so by the time the ghost is in hand the purchase is spent.
+  // There is nothing to cancel, only somewhere to put it -- hence no cross on that path at all,
+  // rather than a cross that quietly means something else.
+  // Whether there is anything to abort, asked without doing it. main.js needs this to decide whether
+  // Escape belongs to the placement or should carry on down the chain to `togglePause` -- swallowing
+  // it either way would leave the key dead for the whole of a new building's placement.
+  canAbortPlacing() {
+    return !!(this.placing && this.placing.moving);
+  },
+
+  abortPlacing() {
+    const pl = this.placing;
+    if (!pl || !pl.moving) return false;
+    const rec = pl.moving;
+    const from = pl.from;
+    this.cancelPlacing();
+    this.hud.setPlacing(false);
+    this.moveStructure(rec, from);
+    this.hud.toast('Left where it was.', 2000, 'Village');
+    return true;
+  },
+
+  // #137: hold a finger on one of your own buildings and it comes up in your hands. The proximity
+  // button stays -- it is how anyone who has already learned it still works, and it is the only route
+  // on a keyboard -- but reaching for the thing you want to move is what a player expects to do.
+  //
+  // A long press is free to take: it is not a tap (input.js needs one under 200ms that did not
+  // travel), and a press that has not moved is steering the King nowhere, so nothing is given up.
+  longPressAt(clientX, clientY) {
+    if (this.placing || this.night || !this.running) return false;
+    const rec = this.structureAt(clientX, clientY);
+    if (!this.canMove(rec)) return false;
+    this.beginMoving(rec);
+    return !!this.placing;
   },
 
   // Is this a spot a building may stand on? Every rule here is one the player can see the reason for
@@ -604,14 +733,15 @@ export const BuildMethods = {
     }
     this.movable = null;
     this.hud.setMove(false);
-    const kp = this.king.mesh.position;
-    pl.mesh.position.set(kp.x, 0, kp.z);
-    const ok = this.placeOk(pl.def.structure, kp.x, kp.z);
+    // #137: where the finger left it, not where the King is standing.
+    pl.mesh.position.set(pl.at.x, 0, pl.at.z);
+    const ok = this.placeOk(pl.def.structure, pl.at.x, pl.at.z);
     if (ok !== pl.ok) {
       pl.ok = ok;
       if (pl.mat && pl.mat.color) pl.mat.color.setHex(ok ? 0x6fd36f : 0xe05a46);
     }
-    this.hud.setPlacing(true, ok);
+    // #136: the cross is only offered on a move, which is the only case with somewhere to go back to.
+    this.hud.setPlacing(true, ok, !!pl.moving);
   },
 
   // The tap that puts it down. Refused on a red ghost, so the only way to finish is a legal spot --

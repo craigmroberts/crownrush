@@ -253,7 +253,12 @@ export class Game {
     // spot. Read by `rebuildVillage` on a restore, which would otherwise replay every structural pad
     // onto the coordinates in config and undo the whole feature.
     this.placedAt = {};
-    this.placing = null;  // { def, mesh, ok, moving? } while one is being put down
+    // #137: through `cancelPlacing`, not by nulling the field. A restart during an edit would otherwise
+    // leave the ghost and the grid in the scene and `body.placing` on, so the new run would start
+    // faded out with the joystick suspended and nothing on screen to explain it.
+    this.cancelPlacing();
+    this.placing = null;  // { def, mesh, ok, at, moving? } while one is being put down
+    this.placeGrid = null;
     this.movable = null;  // #43: the building he is standing beside, if it can be picked up
     this.dynamicPads = [];
     this.built = {};
@@ -891,8 +896,9 @@ export class Game {
       this.hud.showAlarm(this.alarmT > 0 ? this.alarmText : null);
       this.hornT = Math.max(0, this.hornT - dt);
       // #43: and all three stand down while a building is being put down -- the place button takes
-      // the horn's own corner, and choosing between a warhorn and a hammer is not a choice anyone
-      // should be offered mid-placement.
+      // the horn's own corner, and choosing between a warhorn and a tick is not a choice anyone
+      // should be offered mid-placement. #137: the cross takes the dash's slot for the same reason,
+      // which is why all three of these have to stand down and not only the horn.
       const verbs = (!this.queen.captive || this.queen.taken) && !this.placing;
       this.hud.setHorn(verbs, this.hornT / CFG.horn.cooldown, this.hornT);
       // #57: the dash sits beside the horn and follows the same rule about when it is offered -- both

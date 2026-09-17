@@ -6,6 +6,7 @@ import { preloadProps, usePropRenderer, releasePropTranscoder } from './props.js
 import { preloadIcons, mountIcons, iconSvg } from './icons.js';
 import { readScores } from './scores.js';
 import { SAVE_VERSION, readLength, writeLength } from './game-save.js';
+import { CFG } from './config.js';
 
 const canvas = document.getElementById('game');
 const hud = new Hud();
@@ -225,6 +226,63 @@ document.getElementById('place-btn').addEventListener('pointerdown', (e) => {
   e.preventDefault();
   e.stopPropagation();
   game.confirmPlacing();
+});
+// #137: the two gestures the edit mode needs, both on the canvas and both alongside the joystick
+// rather than instead of it.
+//
+// They cannot live in Input: it deliberately has no reference to the game (see its note on `dashTap`),
+// and both of these are questions only the game can answer -- what is under this point, and is
+// anything being placed. So they sit here, where the game is, and Input stays a joystick.
+//
+// While a placement is live the stick is suspended, so `pointerdown` reaching both of these is not
+// two handlers fighting: exactly one of them is listening at a time.
+let dragId = null;      // the pointer now dragging a ghost
+let holdTimer = 0;      // the long press that has not fired yet
+let holdAt = null;      // where it went down, so travel can cancel it
+const endHold = () => {
+  clearTimeout(holdTimer);
+  holdTimer = 0;
+  holdAt = null;
+};
+canvas.addEventListener('pointerdown', (e) => {
+  if (!game) return;
+  if (game.placing) {
+    // Already in hand: this press takes over the drag. Not moved on the down itself -- a tap meant
+    // for the tick that lands slightly off it should not fling the building across the village.
+    dragId = e.pointerId;
+    return;
+  }
+  holdAt = { x: e.clientX, y: e.clientY, id: e.pointerId };
+  holdTimer = setTimeout(() => {
+    holdTimer = 0;
+    if (!holdAt || !game.longPressAt(holdAt.x, holdAt.y)) return;
+    // Picked up under a finger that is still down, so that finger keeps carrying it -- hold, then
+    // drag, without lifting in between, which is what the gesture reads as.
+    dragId = holdAt.id;
+    holdAt = null;
+  }, CFG.place.longPress);
+});
+window.addEventListener('pointermove', (e) => {
+  if (!game) return;
+  if (dragId === e.pointerId && game.placing) {
+    game.dragPlacingTo(e.clientX, e.clientY);
+    return;
+  }
+  // A press that travels is a drag on the joystick, not a hold on a building.
+  if (holdAt && e.pointerId === holdAt.id
+      && Math.hypot(e.clientX - holdAt.x, e.clientY - holdAt.y) > CFG.place.longSlop) endHold();
+});
+const dropDrag = (e) => {
+  if (dragId === e.pointerId) dragId = null;
+  if (holdAt && e.pointerId === holdAt.id) endHold();
+};
+window.addEventListener('pointerup', dropDrag);
+window.addEventListener('pointercancel', dropDrag);
+
+document.getElementById('cancel-place-btn').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  game.abortPlacing();
 });
 document.getElementById('move-btn').addEventListener('pointerdown', (e) => {
   e.preventDefault();
@@ -478,6 +536,9 @@ window.addEventListener('keydown', (e) => {
     disarmRestart();
     game.hideSettings();
   }
+  // #136: ahead of `togglePause` in the chain, which is where Escape used to end up while a building
+  // was in hand -- the game paused and the placement was still there underneath it.
+  else if (e.key === 'Escape' && game.canAbortPlacing()) game.abortPlacing();
   else if (e.key === 'Escape' && game.keepOpen) game.hideKeep();
   else if (e.key === 'Escape' && game.infoOpen) game.hideInfo();
   else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') game.togglePause();

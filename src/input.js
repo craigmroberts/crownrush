@@ -10,6 +10,7 @@ export class Input {
     this.el = el;
     this.keys = new Set();
     this.stick = null; // { id, ox, oy, x, y }
+    this.suspended = false;  // #137: true while a placement owns the drag
     this.maxR = 64;
     // #65: read() fills this rather than returning a new object. It is called once a frame from
     // updatePlayer and there is exactly one caller, which is what makes handing back the same object
@@ -51,6 +52,11 @@ export class Input {
 
   onDown(e) {
     if (this.stick) return;
+    // #137: suspended while a building is being placed. The same drag that steers the King is the one
+    // that moves the ghost, so for the length of an edit the stick simply does not exist -- which is
+    // what lets the two share a gesture without fighting for it (#43 rejected finger-dragging on
+    // exactly that ground, and this is the answer to it). No stick, no joystick UI, no capture.
+    if (this.suspended) return;
     // #57: a second tap, soon enough and close enough to the last one, is a dash. The thresholds are
     // the usual double-tap ones and they have to stay tight: a player walking with short repeated
     // stabs at the screen must not dash by accident, and 40px is about a thumb.
@@ -108,6 +114,16 @@ export class Input {
     this.ui.style.display = 'none';
   }
 
+  // #137: drop whatever is held, now. A long press that turns into a pick-up happens with the finger
+  // still down and a stick already started, so suspending alone would have left the King walking on
+  // the last direction that stick was pointing for as long as the edit lasted.
+  release() {
+    if (!this.stick) return;
+    try { this.el.releasePointerCapture(this.stick.id); } catch (err) { /* already gone */ }
+    this.stick = null;
+    this.ui.style.display = 'none';
+  }
+
   // Raised by a double-tap and cleared by whoever asks, so one gesture is one dash however many
   // frames pass before the game gets to it.
   takeDash() {
@@ -125,7 +141,20 @@ export class Input {
   read() {
     let x = 0;
     let z = 0;
-    if (this.stick) {
+    // #137: the STICK is suspended during a placement; the keys are not, and that asymmetry is
+    // deliberate. The conflict being avoided is one gesture on one canvas meaning two things, and a
+    // keyboard is not that gesture -- a desktop player can walk with WASD while dragging the ghost
+    // with the mouse and the two never touch.
+    //
+    // It also leaves an escape. Suspending everything froze the King until he put the building down,
+    // which is fine at noon and not fine with a sapper on the wall, and a new placement has no cross
+    // to back out through. On a phone that exposure is real and bounded -- one tap on the tick ends
+    // it -- and it is the price of the finger owning the screen; on a keyboard it costs nothing, so
+    // it is not charged.
+    //
+    // The ghost is anchored in world space, so a King who walks off does not drag it with him: the
+    // ground scrolls under a building that stays where it was put.
+    if (this.stick && !this.suspended) {
       const dx = this.stick.x - this.stick.ox;
       const dy = this.stick.y - this.stick.oy;
       const d = Math.hypot(dx, dy);

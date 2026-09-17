@@ -508,16 +508,37 @@ Watchtowers and villager homes are **placed by the player** (#43). `buildAt` in 
 still where each one suggests standing; it is no longer the only place it can stand. Pay for the mat
 and a translucent ghost of the building appears — then walk to the spot and tap the hammer.
 
-**The ghost follows the King, not the finger**, and that is a deliberate departure from what the
-ticket describes. The game's only input is drag-anywhere-to-move-him, so a cursor tracking the finger
-would be fighting the joystick for the same gesture on the same canvas — which is the exact shape of
-#128, where something over the canvas swallowed the drag and the King would not move. Walking there
-and confirming is the same decision without a second input mode, it matches the rally banner which is
-planted where he stands, and it makes one rule free: a building can never end up somewhere he could
-not reach.
+**The ghost follows the finger** (#137), and getting there took two goes.
 
-The ghost is green where it may stand and red where it may not, and the hammer button says the same
-thing. A spot is refused if it would put the footprint outside the current grounds, on the mesas, in
+The first version had it follow the King: walk to the spot, tap to confirm. That was a deliberate
+departure from what the ticket asked for, on a real objection — the game's only input is
+drag-anywhere-to-move-him, so a cursor tracking the finger would be fighting the joystick for the same
+gesture on the same canvas, which is the exact shape of #128, where something over the canvas
+swallowed the drag and the King would not move.
+
+What answers that objection is the thing the second ticket asked for almost in passing: **fade the
+rest of the UI**. It reads like decoration and it is not. Making placement a mode — the stick
+suspended, the keys quiet, everything but the two buttons at 12% — makes the two gestures
+*sequential* rather than simultaneous, and then there is nothing left to fight over. The fade is what
+buys the drag.
+
+So a placement now takes the screen: the HUD stands down, a grid is drawn over exactly the ground a
+building may stand on (the current tier's bounds, which is the same rectangle `placeOk` tests, so the
+grid stopping **is** the rule), and the ghost snaps to it as the finger moves. `CFG.place.grid` is 2,
+and the note beside it says why it is not 1 or 4: the footprints are measured off the real models and
+are not modular, so what a grid buys is that centres line up, and at 4 two houses can only ever be 8
+apart on a plot 38 across.
+
+One rule was lost and had to be replaced. Following the King made it free that *a building can never
+end up somewhere he could not reach*; a finger can reach anywhere on screen. In practice `placeOk`
+already carries it — nothing outside the grounds, in the river, across a wall or on the mesas is
+legal, and what is left is walkable — but it is now a property of that function rather than of the
+input, which is where it should be written down.
+
+The ghost is green where it may stand and red where it may not, and the tick button says the same
+thing. (It was a hammer. A hammer says *build*, which is right for a new watchtower and wrong for a
+house being nudged two squares left; a tick says *this spot, yes* either way, and it is the half of a
+pair that the cross beside it only makes sense against.) A spot is refused if it would put the footprint outside the current grounds, on the mesas, in
 the river, across a wall, on top of another building, or on a build mat — a mat you cannot stand on
 is a mat you cannot buy from. The last two are footprint against footprint, from `CFG.footprint`,
 which `tools/layout/check.mjs` now imports rather than keeping its own copy: two tables measured off
@@ -542,6 +563,14 @@ the identical bug against `BAKED_STD`, one ticket earlier.)
 Stand beside a tower or a home in daylight and a move button appears; tap it and the building is in
 your hands, ghost and all, on exactly the same rules as placing it new.
 
+Or **hold a finger on the building itself** (#137), which is what most people try first. A long press
+is free to take: `input.js` needs a press under 200 ms that did not travel before it counts as a tap,
+and a press that has not moved is steering the King nowhere, so nothing is given up by claiming it.
+`CFG.place.longPress` is 450 ms — measured against 300, where a deliberate tap on a tower sometimes
+lifted it, and 600, which reads as broken. The building comes up under a finger that is still down,
+so that finger carries it straight on without lifting. The proximity button stays: it is how anyone
+who already learned it still works, and it is the only route on a keyboard.
+
 It is a **delta**, not a teardown and rebuild. Everything a building owns sits at an absolute
 position — a tower's crew on its deck, a chimney's smoke, the villager whose home it is — so the
 whole set shifts by the same vector and nothing has to be put back by hand. Rebuilding would have
@@ -557,6 +586,23 @@ The three questions the ticket left open, answered:
   watchtower that can be picked up mid-raid is a tower that dodges a sapper, and "builders do not work
   at night" explains itself. It is also why none of this has to think about what a raid is doing.
 - **Does a tower keep its crew?** Yes, and that is most of why it is a delta.
+
+### And a way back out
+
+There was not one (#136). `cancelPlacing` existed and **nothing outside the module ever called it** —
+the hammer and Enter both confirmed, and Escape fell through the chain in `main.js` to `togglePause`.
+So tapping move on a tower to see what it did committed you to putting it down somewhere, on a
+continuous coordinate space with no marker showing where it came from.
+
+The cross restores the building to `from`, which `beginMoving` has recorded since the day it was
+written and which nothing had ever read. It cannot refuse: the building was standing there a moment
+ago, so the spot is legal by construction.
+
+**Only on a move.** A new building has nowhere to go back to — `completePad` scores it, toasts it,
+unlocks it and marks it built *before* `beginPlacing` is ever called, so by the time the ghost is in
+hand the purchase is spent and the only open question is where it lands. Rather than a cross that
+quietly means something else, there is no cross on that path, and Escape carries on down to the pause
+it used to reach instead of dying silently.
 
 One bug worth recording. `updatePopping` sets `visible = true` on everything still popping in, every
 frame, so a building picked up within half a second of being built refused to disappear — the ghost

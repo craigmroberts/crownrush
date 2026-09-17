@@ -11,7 +11,41 @@ import {
 } from './models.js';
 import { tmp, tmp2, tmpM, cap, rand } from './game-shared.js';
 
+const GROUND = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const RAY = new THREE.Raycaster();
+const NDC = new THREE.Vector2();
+
 export const ViewMethods = {
+  // #137: where on the ground a screen point is. The camera is a perspective one at a fixed offset
+  // from the King (`updateCamera`), so a pixel near the top of the screen is a great deal further away
+  // in world units than one near the bottom -- which is why this unprojects through the camera and
+  // intersects the ground plane rather than scaling a pixel delta by some constant. Scaling was tried
+  // first and the ghost slid away from the finger as it went up the screen.
+  //
+  // Returns null when the ray does not meet the ground at all, which is the sky above the horizon.
+  groundAt(clientX, clientY) {
+    const r = this.renderer.domElement.getBoundingClientRect();
+    NDC.x = ((clientX - r.left) / r.width) * 2 - 1;
+    NDC.y = -((clientY - r.top) / r.height) * 2 + 1;
+    RAY.setFromCamera(NDC, this.camera);
+    return RAY.ray.intersectPlane(GROUND, tmp2.set(0, 0, 0)) ? { x: tmp2.x, z: tmp2.z } : null;
+  },
+
+  // #137: which of the player's own movable buildings is under a screen point, or null. Asked once per
+  // long press rather than per frame, so it walks the list and tests the footprint box directly --
+  // a raycast against the meshes would hit whichever roof the ray met first, and the answer wanted
+  // here is "the building whose ground this is", which is the same question `placeOk` asks.
+  structureAt(clientX, clientY) {
+    const g = this.groundAt(clientX, clientY);
+    if (!g) return null;
+    for (const st of this.structures) {
+      if (!(PADS.find((x) => x.id === st.id) || {}).place) continue;
+      const [w, d] = CFG.footprint[st.kind] || [3, 3];
+      if (Math.abs(st.mesh.position.x - g.x) <= w / 2 && Math.abs(st.mesh.position.z - g.z) <= d / 2) return st;
+    }
+    return null;
+  },
+
   // ---------- fog of war ----------
   buildFog() {
     const size = CFG.world.size;

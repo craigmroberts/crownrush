@@ -315,6 +315,42 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 #place-btn.no i { opacity: 0.4; }
 @keyframes placeReady { from { box-shadow: 0 0 0 3px #7ad17a, 0 6px 16px rgba(0,0,0,0.35); } to { box-shadow: 0 0 0 3px #7ad17a, 0 0 22px rgba(122,209,122,0.8); } }
 
+/* #136: the cross, left of the tick. Smaller and quieter than it on purpose -- one of these two is
+   the thing the player came to do and the other is the way out, and a cancel that shouts as loudly as
+   the confirm is a cancel that gets pressed by mistake. */
+#cancel-place-btn {
+  position: fixed; right: max(88px, calc(76px + env(safe-area-inset-right)));
+  bottom: max(16px, calc(4px + env(safe-area-inset-bottom)));
+  width: 56px; height: 56px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; pointer-events: auto;
+  background: rgba(30, 40, 24, 0.7); box-shadow: 0 0 0 2px rgba(255,227,163,0.25), 0 6px 16px rgba(0,0,0,0.35);
+  z-index: 5; display: grid; place-items: center; touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+#cancel-place-btn.hidden { display: none; }
+
+/* #137: edit mode gets the screen to itself.
+   This is not decoration -- it is what makes dragging the ghost with a finger possible at all. #43
+   rejected finger-dragging because a cursor tracking the finger would fight the joystick for the same
+   gesture on the same canvas, which is exactly #128. Fading the HUD and suspending the stick makes
+   the two gestures SEQUENTIAL rather than simultaneous, and then there is nothing left to fight.
+   Everything goes except the two buttons that end the mode and the mat chip, which is how the player
+   knows what they are holding. `visibility` follows the opacity so a faded readout cannot be tapped
+   through, and the transition is short enough not to feel like a scene change.
+   The class goes on `body`, not on `#hud`: the indicators, the alarm lane and the toast are siblings
+   of the HUD rather than children of it, so a `#hud.placing` selector would have reached five of the
+   eight things that need to stand down and silently missed the three that float over the field. */
+body.placing #topbar,
+body.placing #purse,
+body.placing #minimap,
+body.placing #settings-btn,
+body.placing #next-wave-btn,
+body.placing #indicators,
+body.placing #alarm-lane {
+  opacity: 0.12; pointer-events: none;
+  transition: opacity 0.18s ease-out;
+}
+body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
+
 /* #56: the legacy strip -- what previous runs earned, on the title screen and both endings. A row of
    small badges and one line of progress, not a panel: it is a status the player glances at, and the
    title screen is measured in bytes to a clickable Play. */

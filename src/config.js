@@ -621,6 +621,27 @@ export const CFG = {
   // #43: `padSize` is the mat's own 3.6 x 3.6 footprint, which `tools/layout/check.mjs` has always
   // known and the game never had to, because nothing was ever placed near one by hand. A building the
   // player puts down has to keep off them -- a mat you cannot stand on is a mat you cannot buy from.
+  // #137: the placement mode. The ghost is dragged with the finger now rather than carried by the
+  // King, and these are the two numbers that decide how that feels.
+  //
+  // `grid` is what the ghost snaps to, and it is drawn at the same spacing while a placement is in
+  // progress, so the squares on the ground are the squares it lands on -- a grid you snap to but
+  // cannot see is just input lag with extra steps.
+  //
+  // 2 rather than 1 or 4. The footprints are measured off the real models and are not modular
+  // (tower 2.50 x 3.32, house 4.03 x 3.71, barracks 7.68 x 7.96), so no spacing makes them tile; what
+  // a grid buys here is that centres line up, which is what reads as a laid-out village from above.
+  // At 1 the snap cannot be felt and the drawn lines are a haze at this camera distance. At 4 two
+  // houses can only ever be 8 apart -- `placeOk` refuses the 4 that would touch -- and the tier-0
+  // grounds are only about 38 across, so a quarter of the plot goes to gaps you did not choose.
+  // At 2 the snap is unmistakable, the lines read, and two houses sit 6 apart, which is a street.
+  //
+  // `longPress` is how long a finger has to be still on one of your own buildings before it is picked
+  // up. It has to clear TAP_TIME (200ms, input.js) by enough that a slow tap is never a pick-up, and
+  // stay under the point where a player assumes nothing is going to happen. 450 was tried against 300
+  // and 600: at 300 a deliberate tap on a tower sometimes lifted it, at 600 it reads as broken.
+  place: { grid: 2, longPress: 450, longSlop: 14 },
+
   spend: { tick: 0.07, fastTick: 0.022, crewTick: 0.28, padRadius: 1.7, padSize: 3.6, arm: 0.25, bought: 1.0, walkHold: 0.8, showRadius: 10, showNew: 7 },
 
   // #55: the Walk clip plays at the speed its owner is actually moving.
@@ -762,7 +783,7 @@ export const TIERS = [
 // pads on the same spot. Gate Guards get small posts beside each gate.
 // #43: `place: true` -- where a watchtower stands is a tactical decision and the map was making it.
 // `buildAt` is still the corner it suggests; the player may put it anywhere legal instead.
-const T = (id, tier, pos, cost, buildAt) => ({ id, tier, pos, cost, place: true, icon: 'tower', label: 'Watchtower', structure: 'tower', buildAt, desc: 'Corner watchtower. Man it with archers, then upgrade it for more crew and sharper arrows. You choose where it goes.', toast: 'Watchtower paid for. Walk to where it should stand.' });
+const T = (id, tier, pos, cost, buildAt) => ({ id, tier, pos, cost, place: true, icon: 'tower', label: 'Watchtower', structure: 'tower', buildAt, desc: 'Corner watchtower. Man it with archers, then upgrade it for more crew and sharper arrows. You choose where it goes.', toast: 'Watchtower paid for. Drag it to where it should stand.' });
 // Villager homes. They are separate pads rather than one repeatable pad because each one stands in
 // its own place: a repeatable pad builds at the same spot every time, and a village is the one thing
 // that has to spread. Each needs the one before it, so only one home mat is ever on the field.
