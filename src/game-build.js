@@ -374,7 +374,10 @@ export const BuildMethods = {
     }
     // #43: a placeable structure is paid for here and PUT DOWN later -- the score, the toast and the
     // unlock all belong to the purchase, and only the spot is still an open question.
-    if (def.structure && def.place) this.beginPlacing(def);
+    // #152: parked behind `CFG.placeBuildings`. With it off a placeable structure is an ordinary one
+    // and goes where the map says, which is the branch below -- so this is one condition rather than
+    // a second path, and turning it back on restores #43 and #137 whole.
+    if (def.structure && def.place && CFG.placeBuildings) this.beginPlacing(def);
     else if (def.structure) this.buildStructure(def, this.placedAt[def.id] || def.buildAt);
     if (def.wall) this.buildWall(def.wall.tier, def.wall.side);
     if (def.repair) this.restoreWall(def.repair);
@@ -597,12 +600,22 @@ export const BuildMethods = {
   // DAYTIME ONLY. Not a balance number, a rule with a reason: a crewed watchtower that can be picked
   // up mid-raid is a tower that dodges a sapper, and builders not working at night is a sentence that
   // explains itself. It is also why nothing here has to think about what a raid is doing.
+  //
+  // #152: `beginMoving` (the move button's handler) and `longPressAt` (a finger held on a building)
+  // both ask this first, so the flag closes both. `nearMovable` does NOT -- it keeps its own copy of
+  // the `place` test, and has its own gate for that reason.
   canMove(rec) {
+    if (!CFG.placeBuildings) return false;
     return !!rec && !this.night && !this.placing && !!(PADS.find((d) => d.id === rec.id) || {}).place;
   },
 
   // The movable building he is standing next to, or null. One pass, once a frame.
   nearMovable() {
+    // #152: its own gate, not `canMove`'s. This duplicates the `place` test rather than calling
+    // `canMove(st)` -- which is why parking the feature at `canMove` alone left the move button
+    // sitting there offering something nothing would honour. Caught by driving it; the flag has to be
+    // read where the question is actually asked.
+    if (!CFG.placeBuildings) return null;
     if (this.night || this.placing) return null;
     const kp = this.king.mesh.position;
     let best = null;

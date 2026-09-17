@@ -612,6 +612,20 @@ is wrong whether or not anybody is looking at it.
 
 ## Choosing where a building goes
 
+> **PARKED (#152).** `CFG.placeBuildings` is `false`, so every building goes where `buildAt` says and
+> nothing can be picked up. The rest of this section describes what the flag turns back on.
+>
+> Not because any of it was wrong. The opening is becoming a village that **stands and then falls**,
+> and that village is a thing to be designed — a player who places freely diverges from an authored
+> layout on the first watchtower, and then the tableau the game opens on and the village the player
+> rebuilds are two different places with nothing to say to each other.
+>
+> Three gates read the flag and nothing else does: `completePad` (placed, or just built), `canMove`
+> (which `beginMoving` and `longPressAt` both ask), and `nearMovable`, which needs its own because it
+> keeps a second copy of the same `place` test rather than calling `canMove`. Gating the first two and
+> assuming the third followed left the move button standing there offering something nothing would
+> honour — found by driving it, not by reading it.
+
 Watchtowers and villager homes are **placed by the player** (#43). `buildAt` in `src/config.js` is
 still where each one suggests standing; it is no longer the only place it can stand. Pay for the mat
 and a translucent ghost of the building appears — then walk to the spot and tap the hammer.

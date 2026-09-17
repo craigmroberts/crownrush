@@ -658,6 +658,27 @@ export const CFG = {
   // #43: `padSize` is the mat's own 3.6 x 3.6 footprint, which `tools/layout/check.mjs` has always
   // known and the game never had to, because nothing was ever placed near one by hand. A building the
   // player puts down has to keep off them -- a mat you cannot stand on is a mat you cannot buy from.
+  // #43 AND #137 ARE PARKED. Buildings go where the map says again, and nothing can be picked up.
+  //
+  // Not because either was wrong -- the edit mode works and the drag is good -- but because the
+  // opening is becoming a village that STANDS and then falls (#152), and that village is a thing to
+  // be designed. A player who places freely diverges from an authored layout on the first watchtower,
+  // and then the tableau the game opens on and the village the player rebuilds are two different
+  // places with nothing to say to each other.
+  //
+  // Off rather than deleted, the same shape as `lengthPick` above. Three gates read this and nothing
+  // else does: `completePad` decides whether a paid-for structure is placed or just built, `canMove`
+  // decides whether anything can be lifted (and `beginMoving` and `longPressAt` both ask it), and
+  // `nearMovable` needs its own because it keeps a second copy of the same `place` test rather than
+  // calling `canMove`. Gating the first two and assuming the third followed left the move button
+  // standing there offering something nothing would honour -- found by driving it, not by reading it.
+  // Everything downstream -- the ghost, the grid, the tick and the cross, the camera pan -- never starts.
+  //
+  // `placedAt` is still honoured on a restore. A save made while this was on keeps its village where
+  // the player put it rather than having its buildings jump to the map's coordinates on resume; what
+  // the flag governs is where a NEW building lands.
+  placeBuildings: false,
+
   // #137: the placement mode. The ghost is dragged with the finger now rather than carried by the
   // King, and these are the two numbers that decide how that feels.
   //
@@ -852,7 +873,7 @@ export const TIERS = [
 // pads on the same spot. Gate Guards get small posts beside each gate.
 // #43: `place: true` -- where a watchtower stands is a tactical decision and the map was making it.
 // `buildAt` is still the corner it suggests; the player may put it anywhere legal instead.
-const T = (id, tier, pos, cost, buildAt) => ({ id, tier, pos, cost, place: true, icon: 'tower', label: 'Watchtower', structure: 'tower', buildAt, desc: 'Corner watchtower. Man it with archers, then upgrade it for more crew and sharper arrows. You choose where it goes.', toast: 'Watchtower paid for. Drag it to where it should stand.' });
+const T = (id, tier, pos, cost, buildAt) => ({ id, tier, pos, cost, place: true, icon: 'tower', label: 'Watchtower', structure: 'tower', buildAt, desc: 'Corner watchtower. Man it with archers, then upgrade it for more crew and sharper arrows.', toast: 'Watchtower built. It needs a crew!' });
 // Villager homes. They are separate pads rather than one repeatable pad because each one stands in
 // its own place: a repeatable pad builds at the same spot every time, and a village is the one thing
 // that has to spread. Each needs the one before it, so only one home mat is ever on the field.
