@@ -4,7 +4,7 @@ import { audio } from './audio.js';
 import { preloadRigs, renderPortrait, renderFace, releasePortraitRenderer } from './rig.js';
 import { preloadProps, usePropRenderer, releasePropTranscoder } from './props.js';
 import { preloadIcons, mountIcons, iconSvg } from './icons.js';
-import { readScores } from './scores.js';
+import { readScores, readDiary } from './scores.js';
 import { SAVE_VERSION, readLength, writeLength } from './game-save.js';
 import { CFG } from './config.js';
 
@@ -382,6 +382,7 @@ settingsBtn.addEventListener('click', () => {
   syncUpdateRow();     // whether a reload would cost anything depends on where the run is right now
   syncSizeLine();
   game.hud.setScoreCount(readScores().length);
+  game.hud.setDiaryCount(readDiary().length);   // #154: the row's own count, read fresh on open
   game.toggleSettings();
 });
 const closeSettings = () => {
@@ -410,6 +411,19 @@ document.getElementById('set-scores').addEventListener('click', () => {
   game.hideSettings(true);
   game.showScores();
 });
+// #154: the diary, wired exactly as the board is -- `hideSettings(true)` keeps the sheet's pause so
+// closing it puts the sheet back rather than resuming a game nobody asked to resume (#94).
+document.getElementById('set-diary').addEventListener('click', () => {
+  game.hideSettings(true);
+  game.showDiary();
+});
+const closeDiary = () => game.hideDiary();
+document.getElementById('dy-close').addEventListener('click', closeDiary);
+document.getElementById('dy-x').addEventListener('click', closeDiary);
+document.getElementById('diary-screen').addEventListener('click', (e) => {
+  if (e.target.id === 'diary-screen') closeDiary();
+});
+
 const closeScores = () => game.hideScores();
 document.getElementById('sc-pick').addEventListener('click', (e) => {
   const b = e.target.closest('.seg-b');

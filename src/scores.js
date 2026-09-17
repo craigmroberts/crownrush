@@ -87,6 +87,45 @@ export function addLegacy(score) {
   return total;
 }
 
+// #154: which of Wren's diary entries have been unlocked. Its own key beside the board and the
+// legacy total, for exactly the reason given above: a save format change is no reason to take
+// somebody's unlocks back, and `game-save.js` throws a run away when VERSION moves.
+//
+// CROSS-RUN ON PURPOSE. An entry is a MEMORY -- one you lose by dying is a collectible, not a memory.
+// And the story is world-level rather than run-level: Wren's dream is the same dream every run, so
+// re-earning it on a restart would be asking the player to re-read the same page to be allowed to
+// re-read it. What a second run unlocks is only what the first one did not reach.
+//
+// A sorted list of Keep levels rather than a bitmask: fifteen small numbers cost nothing, and a
+// bitmask is unreadable in devtools for no gain at this size.
+const DIARY_KEY = 'crownrush-diary';
+
+export function readDiary() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(DIARY_KEY) || '[]');
+    if (!Array.isArray(raw)) return [];
+    return [...new Set(raw.filter((n) => Number.isFinite(n) && n > 0))].sort((a, b) => a - b);
+  } catch {
+    return [];      // private mode, or somebody edited it by hand. An empty diary still reads.
+  }
+}
+
+// Returns whether this one is NEW, which is what decides if the game says anything about it.
+export function unlockDiary(level) {
+  const have = readDiary();
+  if (have.includes(level)) return false;
+  have.push(level);
+  have.sort((a, b) => a - b);
+  try {
+    localStorage.setItem(DIARY_KEY, JSON.stringify(have));
+  } catch (e) {
+    // The same rule the run save follows: a diary that cannot be written still reads.
+    console.warn('could not save the diary:', e && e.message);
+    return false;
+  }
+  return true;
+}
+
 // #94: the two loose bests. They are not part of the board, but they are written in the same breath at
 // the end of a run and they were bare -- so a browser refusing the write threw out of `gameOver`
 // before it could show the game over screen, and a run in private mode ended with nothing on screen

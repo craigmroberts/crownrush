@@ -364,6 +364,11 @@
         <!-- #94: opened the same way How to Play is, through hideSettings(true), so closing it does not
              resume a game the player meant to leave paused. -->
         <button class="sheet-row" id="set-scores"><i data-icon="crown" data-size="24"></i><span class="sheet-label">Best runs</span><em id="set-scores-n"></em></button>
+        <!-- #154: Wren's diary. Same row shape as Best runs and opened the same way, through
+             `hideSettings(true)` -- #94's rule, so closing it does not resume a game the player meant
+             to leave paused. The count in the `<em>` is the standing signal that there is something
+             new; the cog's dot belongs to #120 and must keep meaning only one thing. -->
+        <button class="sheet-row" id="set-diary"><i data-icon="tiara" data-size="24"></i><span class="sheet-label">Wren&#39;s diary</span><em id="set-diary-n"></em></button>
         <!-- #84: a phone that keeps the game on its homescreen is RESUMED rather than navigated, so
              the browser never re-checks the worker and the build it has can sit there for weeks.
              This is the row somebody can be told to press. Hidden outright where there is no
@@ -389,6 +394,17 @@
     </div>
     <!-- #94: ten finished runs, best first. Two things on the row and the rest under them, because the
          sheet is 320px and five columns of anything does not fit a phone. -->
+    <!-- #154: the diary itself. Wren's hand, one entry per Keep level, locked ones shown rather than
+         hidden so the shape of what is coming is visible without any of it being given away. -->
+    <div id="diary-screen" class="overlay hidden">
+      <div class="panel sheet">
+        <button class="panel-x" id="dy-x" aria-label="Close" title="Close">&times;</button>
+        <h1>Wren's diary</h1>
+        <p class="hint" id="dy-count"></p>
+        <div id="dy-body"></div>
+        <button class="primary" id="dy-close">Back</button>
+      </div>
+    </div>
     <div id="scores-screen" class="overlay hidden">
       <div class="panel sheet">
         <button class="panel-x" id="sc-x" aria-label="Close" title="Close">&times;</button>

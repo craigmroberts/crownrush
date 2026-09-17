@@ -1,6 +1,7 @@
 import { iconSvg } from './icons.js';
 import { CFG } from './config.js';
 import { endName } from './scores.js';
+import { BEATS } from './story.js';
 import { POOL_NAME } from './upgrades.js';
 
 // #68: how many hearts the King's health is cut into. Five is coarse on purpose -- the exact figure
@@ -1014,6 +1015,48 @@ export class Hud {
   hideScores() {
     document.getElementById('scores-screen').classList.add('hidden');
   }
+
+  // A remembered line inside an entry leans rather than shouts. Applied AFTER escaping, never before:
+  // the asterisks are the only markup an entry may carry, and running this on escaped text means
+  // nothing in the prose can become a tag.
+  static lean(text) {
+    return esc(text).replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  }
+
+  // #154: Wren's diary. `have` is the unlocked Keep levels, `level` is where this run has got to.
+  //
+  // LOCKED ENTRIES ARE SHOWN, not hidden, and that is the one decision in here. A list that grows
+  // from nothing gives no sense of how much story there is; a list of fifteen with three filled in
+  // says "there is more of this" without saying a word of what. They carry the Keep level they want
+  // and nothing else -- not the title, which would leak the beat, and not a teaser, which would leak
+  // the tone. A locked page is a locked page.
+  showDiary(have, level) {
+    const body = document.getElementById('dy-body');
+    const count = document.getElementById('dy-count');
+    count.textContent = have.length
+      ? `${have.length} of ${BEATS.length} entries`
+      : 'Nothing yet. She writes when the Keep rises.';
+    body.innerHTML = BEATS.map((b) => {
+      if (have.includes(b.lv)) {
+        return `<div class="dy-entry"><h2>${esc(b.title)}</h2><p>${Hud.lean(b.text)}</p></div>`;
+      }
+      // `near` marks the one she is closest to writing, so the list has a next rather than a wall.
+      const near = b.lv === level + 1 ? ' near' : '';
+      return `<div class="dy-entry locked${near}"><h2>Keep ${b.lv}</h2></div>`;
+    }).join('');
+    document.getElementById('diary-screen').classList.remove('hidden');
+  }
+  hideDiary() {
+    document.getElementById('diary-screen').classList.add('hidden');
+  }
+  // The standing signal that there is something new, in the row itself. Deliberately NOT a badge on
+  // the settings cog: #120 owns that dot for "an update is ready", and one dot with two meanings
+  // tells the player neither.
+  setDiaryCount(n) {
+    const el = document.getElementById('set-diary-n');
+    const t = n ? `${n}/${BEATS.length}` : '';
+    if (el && el.textContent !== t) el.textContent = t;
+  }
   hideKeep() {
     document.getElementById('keep-screen').classList.add('hidden');
   }
@@ -1030,6 +1073,7 @@ export class Hud {
     this.hideInfo();
     this.hideSettings();
     this.hideScores();
+    this.hideDiary();
     this.hidePause();
   }
   setScoreCount(n) {

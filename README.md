@@ -365,6 +365,31 @@ does to the save format if it moves it.
 Winning or losing clears it, and so does starting a new run. See [src/game-save.js](src/game-save.js).
 
 Finished runs are kept separately, in [src/scores.js](src/scores.js), under their own key and their own
+**Settings › Wren's diary** is where the story is kept (#154). The game barks its story over play and
+a player who missed a line had nowhere to go and get it; this is the one surface in the game that
+holds a paragraph, because it is the one opened on purpose behind a pause the player asked for.
+
+It is **written by Wren, who does not know what she is** -- the bible is explicit that nobody has told
+her -- so her entries are vivid and specific and give nothing away, because she genuinely cannot
+explain what she is describing. The act table hands the trick over ready-made: she starts dreaming at
+Keep 7 and does not mention it, and says it out loud for the first time at Keep 13, so between those
+two the player knows something the King does not.
+
+One entry per Keep level, because that is already the story clock and already on the HUD. The table
+lives in `src/story.js` beside the mechanical beat it belongs to, so the two cannot drift and the
+bark system can read the same table when it exists. Unlocks are **cross-run** in their own key
+(`crownrush-diary`) -- a memory you lose by dying is a collectible, not a memory, and a save-format
+bump is no reason to take them back. She cannot write while raiders have hold of her, so a level
+raised while she is captive is **owed** rather than lost and lands the moment she is back.
+
+The locked entries are drawn rather than hidden, carrying a Keep number and nothing else: a list that
+grows from nothing gives no sense of how much story there is, and fifteen slots with three filled says
+"there is more" without saying what. A new one is mentioned **at dawn**, in her voice, after "Dawn.
+You held night N" -- the quietest slot in the game, because a diary entry is not urgent and the notice
+lane already has three speakers with a queue rule. It is deliberately **not** a badge on the settings
+cog: that dot means "an update is ready" (#120), and one dot with two meanings tells the player
+neither. The row's own `3/15` is the standing signal.
+
 version -- a save-format bump throws the run save away, and that is no reason to lose somebody's best
 night. Ten are kept, by score rather than by recency: a board that forgets your best run because you
 played ten bad ones afterwards is not a board. Every ending writes one, and the row says which of the

@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { CFG, PADS, TIERS } from './config.js';
 import { audio } from './audio.js';
 import { UPGRADES } from './upgrades.js';
-import { readScores } from './scores.js';
+import { readScores, readDiary } from './scores.js';
 import {
   makeLumberTree, makeOreRock, makeIronSeam, makeGemNode, makeResourceCube, RES_MATS, CHIP_GEO, makeTool, disposeHealthBar, makePopup, makeTag, makeHeap, makeSpawnFx, makeBurst, makeHeart, COIN_TIER_COLORS,
 } from './models.js';
@@ -1218,6 +1218,22 @@ export const ViewMethods = {
     if (!this.scoresOpen) return;
     this.scoresOpen = false;
     this.hud.hideScores();
+    this.showSettings();
+    this.settingsPaused = this.sheetPause;
+  },
+
+  // #154: the diary, opened and closed exactly the way the board is -- the sheet's pause is kept and
+  // closing puts the sheet back rather than dropping the player into a game they did not ask to
+  // resume (#94). Same `sheetPause` hand-off for the same reason it exists over there.
+  showDiary() {
+    if (this.over || this.won || this.diaryOpen || this.offer) return;
+    this.diaryOpen = true;
+    this.hud.showDiary(readDiary(), this.baseLevel);
+  },
+  hideDiary() {
+    if (!this.diaryOpen) return;
+    this.diaryOpen = false;
+    this.hud.hideDiary();
     this.showSettings();
     this.settingsPaused = this.sheetPause;
   },

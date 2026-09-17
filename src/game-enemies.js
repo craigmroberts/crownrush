@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { CFG, TIERS } from './config.js';
 import { audio } from './audio.js';
+import { beatFor } from './story.js';
 import { makeRigged } from './rig.js';
 import { makeKnight, makeElite, makeBrute, makeBoss, makeCoin, makeHealthBar, setHealthBar } from './models.js';
 import { tmp, tmp2, rand, randInt } from './game-shared.js';
@@ -825,6 +826,19 @@ export const EnemiesMethods = {
       audio.unlock();
     } else {
       this.hud.toast('Dawn, but raiders are still inside the walls.', 2800, 'Raid');
+    }
+    // #154: and if Wren wrote something, dawn is when it is mentioned. Deliberately the quietest
+    // slot in the game: a new diary entry is not urgent, it keeps, and the notice lane already has
+    // three speakers with a queue rule (#102, #132) -- a fourth arriving mid-raid would be competing
+    // with the one thing the player cannot ignore. Here it lands after "Dawn. You held night N",
+    // which is already the beat where the game talks about what just happened.
+    //
+    // NOT a badge on the settings cog: #120 owns that dot for "an update is ready to install", and a
+    // second meaning on one dot tells the player neither. The row's own count is the standing signal.
+    if (this.diaryNew) {
+      const b = beatFor(this.diaryNew);
+      this.diaryNew = 0;
+      if (b) this.hud.toast(`I've written up ${b.title.toLowerCase()}. It's in the diary if you want it.`, 3600, 'Wren');
     }
   },
 

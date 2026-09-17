@@ -1473,6 +1473,24 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 #joystick .knob { position: absolute; left: -26px; top: -26px; width: 52px; height: 52px; border-radius: 50%;
   background: rgba(255,255,255,0.85); box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
 
+/* #154: Wren's diary. A reading surface rather than a list of rows -- it is the one place in the game
+   that holds a paragraph, because it is the one place opened on purpose behind a pause the player
+   asked for. Everything else is barked over play and is one or two sentences.
+   The locked entries are drawn, not hidden: a list that grows from nothing gives no sense of how much
+   story there is, and fifteen slots with three filled says "there is more" without saying what. They
+   carry a Keep number and nothing else -- a title would leak the beat and a teaser would leak the
+   tone. `near` is the next one she will write, so the list has an edge rather than a wall. */
+#diary-screen .panel.sheet { max-width: 30rem; }
+#dy-body { max-height: 56vh; overflow-y: auto; text-align: left; margin: 10px 0 18px; }
+.dy-entry { padding: 11px 13px; border-radius: 12px; background: rgba(255,255,255,0.07); margin-bottom: 8px; }
+.dy-entry h2 { font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 17px; font-weight: 800; margin-bottom: 5px; color: var(--ink); }
+.dy-entry p { font-size: 14px; line-height: 1.5; color: var(--ink); opacity: 0.88; }
+/* her hand: the emphasis inside an entry is a remembered line, so it leans rather than shouts */
+.dy-entry em { font-style: italic; opacity: 0.95; }
+.dy-entry.locked { background: rgba(255,255,255,0.03); padding: 8px 13px; }
+.dy-entry.locked h2 { margin: 0; font-size: 13px; font-weight: 700; opacity: 0.38; letter-spacing: 0.04em; text-transform: uppercase; }
+.dy-entry.locked.near h2 { opacity: 0.6; }
+
 /* #5: the title screen */
 .panel.title { max-width: 520px; padding: 22px 22px 24px; }
 .panel.title .heroes { display: flex; align-items: flex-end; justify-content: center; gap: 4px; margin-bottom: 6px; }

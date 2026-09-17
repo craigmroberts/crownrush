@@ -73,7 +73,7 @@ is what the raids come for, she is why the Keep exists, and losing her twice end
 
 The word *witch* belongs to Bramble, who uses it as a job title and means it.
 
-> **NELL:** It's a hill with a door in it. And someone inside knows my name. She's very polite about it.
+> **WREN:** It's a hill with a door in it. And someone inside knows my name. She's very polite about it.
 
 **The ending is her decision, not yours.** Whether she spends the rest of her life under a mountain
 holding a hand over somebody's mouth is the question the whole game is walking towards, and the King
@@ -160,6 +160,10 @@ for forty years.
 
 The Keep level is the story clock, because it is already the difficulty clock and the HUD already
 shows it as `Lv.`
+
+**This table is in the code** as `src/story.js` (#154), one entry per level, carrying both the
+mechanical beat and Wren's diary entry for it. It is there so the two cannot drift, and so the
+`say()` bark system reads the same table when it is built rather than a second copy of it.
 
 | Lv. | Mechanical beat (exists) | Story beat |
 | --- | --- | --- |

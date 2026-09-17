@@ -3,7 +3,7 @@ import { CFG, TIERS, NODES } from './config.js';
 import { audio } from './audio.js';
 import { setRigShadows, enableCrowd, updateCrowd, clearCrowd, crowdStats } from './rig.js';
 import { MODS } from './upgrades.js';
-import { recordRun, readNumber, writeNumber, readLegacy, addLegacy } from './scores.js';
+import { recordRun, readNumber, writeNumber, readLegacy, addLegacy, unlockDiary } from './scores.js';
 import { buildWorld, setupLights } from './world.js';
 import { Input } from './input.js';
 import { setHealthBar, HealthBars, CoinField, clearHealthBars, makeRing, makeCoinStack, makeCamp } from './models.js';
@@ -266,6 +266,12 @@ export class Game {
     this.tier = 0;
     this.wallLevel = 0;
     this.baseLevel = 0; // Keep level: 0 until the Keep is built, then 1..CFG.base.maxLevel
+    // #154: the highest Keep level Wren still owes an entry for, and whether one landed this night.
+    // `diaryDue` is not the same as `baseLevel`: a level raised while she is captive is owed until
+    // she is back, which is the whole of "she cannot write while they have her".
+    this.diaryDue = 0;
+    this.diaryNew = 0;
+    this.diaryOpen = false;
     this.feedDef = null;
     this.mounted = false;
     this.res = { wood: 0, stone: 0, straw: 0, iron: 0, diamond: 0 };
@@ -734,6 +740,7 @@ export class Game {
     this.gain = null;
     this.keepOpen = false;
     this.scoresOpen = false;
+    this.diaryOpen = false;
     this.settingsOpen = false;
     this.settingsPaused = false;
     this.infoOpen = false;
@@ -816,12 +823,29 @@ export class Game {
   // Named rather than tested for. `pause()` recognises the same state with `!running && !paused`, and
   // borrowing that here would be shorter -- but it would also quietly excuse any FUTURE path that
   // stops the world without setting `paused`, which is exactly the kind of stop this exists to catch.
+  // #154: Wren writes up a Keep level once she is in a position to. Cheap enough to call every
+  // frame -- it is one compare until something is actually owed.
+  //
+  // SHE CANNOT WRITE WHILE THEY HAVE HER. `levelUp` can fire while she is captive (the Keep is fed
+  // by the King, and #16's recapture chase does not stop him), and a diary that kept updating with
+  // raiders carrying her north would be wrong in a way the player would notice. So the level is
+  // OWED, not lost: it lands the moment she is back, which costs one condition and pays for itself
+  // as storytelling.
+  tickDiary() {
+    if (!this.diaryDue || this.queen.captive) return;
+    const lv = this.diaryDue;
+    this.diaryDue = 0;
+    // `unlockDiary` answers whether it was new: a second run past the same level says nothing,
+    // because the player has already read that page.
+    if (unlockDiary(lv)) this.diaryNew = lv;
+  }
+
   watchStuck(dt) {
     const excused = this.running || this.over || this.won || this.contextLost
       // #132: `this.gain` is NOT here any more. It used to name a panel holding the pause; it names a
       // notice over a running game now, so excusing it would excuse a genuinely stuck one.
       || this.offer || this.infoOpen || this.settingsOpen
-      || this.keepOpen || this.scoresOpen
+      || this.keepOpen || this.scoresOpen || this.diaryOpen
       || !this.hud.startHidden() || this.hud.introOpen()   // #118: no run has started yet
       || !this.hud.pauseHidden();       // the player's own pause, with its screen up
     if (excused) {
@@ -860,6 +884,7 @@ export class Game {
       this.updatePiles(dt);
       this.updateTrade(dt);
       this.updateVillagers(dt);
+      this.tickDiary();
       // #132: the capability notice's own clock, before `updatePads` decides whether the mat chip
       // gets the lane -- so a notice that closed on this frame hands the lane straight back.
       if (this.gain && this.hud.tickGain(dt)) this.dismissGain();

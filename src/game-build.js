@@ -1095,6 +1095,10 @@ export const BuildMethods = {
   levelUp() {
     this.baseLevel = Math.min(CFG.base.maxLevel, this.baseLevel + 1);
     const L = this.baseLevel;
+    // #154: the Keep level is the story clock, so raising it is what turns a page of Wren's diary.
+    // Nothing is unlocked here directly -- `tickDiary` does it on the next quiet frame, because she
+    // cannot write while they have hold of her and this can fire while she is being carried north.
+    this.diaryDue = Math.max(this.diaryDue || 0, L);
     // walls follow the Keep: wood -> brick -> stone -> iron at the levels in CFG.base.wallAt
     const target = CFG.base.wallAt.filter((lv) => lv <= L).length - 1;
     while (this.wallLevel < target) this.upgradeWalls(false);
