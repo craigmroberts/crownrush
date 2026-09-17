@@ -497,10 +497,26 @@ function syncUpdateRow() {
 // the page reloads itself the moment the new worker takes control.
 function installUpdate() {
   if (updateBusy || !swState.waiting) return;
-  game.saveBeforeReload();
+  // #150: say whether the run was kept. `saveBeforeReload` has always returned this and the caller
+  // has always thrown it away -- its own comment says the return exists "so the caller can say which
+  // run the player is coming back to".
+  //
+  // ONE LINE, NOT TWO. "Saving…" then "Installing…" is the obvious shape and it cannot be read:
+  // `applyUpdate` reloads the moment the worker takes over, which is faster than anyone gets through
+  // two states. One line that carries both is on screen for whatever time there is.
+  //
+  // Past tense because it is true by then. `saveRun` writes `localStorage` synchronously, so by the
+  // time this text is set the run is already on disk -- "Saving…" would be the only dishonest word
+  // available.
+  //
+  // And nothing is claimed when nothing was saved. `quietEnoughToSave` refuses mid-raid, and a player
+  // who is told his run was kept and then comes back to the last dawn has been lied to at exactly the
+  // moment he was deciding whether to risk it.
+  const kept = game.saveBeforeReload();
   updateBusy = true;                    // the page is on its way out; a second tap does nothing
-  updateState.textContent = 'Installing…';
-  startUpdateBtn.textContent = 'Installing…';
+  const line = kept ? 'Run saved — installing…' : 'Installing…';
+  updateState.textContent = line;
+  startUpdateBtn.textContent = line;
   applyUpdate();
 }
 
