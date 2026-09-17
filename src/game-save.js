@@ -24,10 +24,15 @@
 // WHAT IS NOT SAVED. Enemies, coins on the ground, mined piles in transit, arrows, effects. At dawn
 // there are no enemies, and the rest is seconds of value. A restored run starts the morning with a
 // clean field, which is what the morning looks like anyway.
-import { PADS, NODES } from './config.js';
+import { CFG, PADS, NODES } from './config.js';
 import { setHealthBar } from './models.js';
 
 const KEY = 'crownrush-run';
+// #58: which length the player last chose, kept apart from the run above. It has to outlive a run --
+// it is read on the title screen before there is a game to ask -- and it must survive a save format
+// bump, because a preference is not run state and losing it would silently put somebody back on the
+// thirty-night default they had already turned down.
+const LENGTH_KEY = 'crownrush-length';
 // Bumped when the shape below changes, or when a balance change would make an old save unfair or
 // broken. An unreadable save is discarded rather than half-applied.
 const VERSION = 3;
@@ -77,6 +82,10 @@ export const SaveMethods = {
     return {
       v: VERSION,
       // the clock
+      // #58: the length, so a run picked up tomorrow is the one that was put down. Added WITHOUT
+      // bumping VERSION -- every save written before it is a thirty-night run, which is exactly what
+      // `s.len || 'long'` reads it as, so bumping would have thrown away live runs to add a word.
+      len: this.runLength,
       time: round(this.time),
       wave: this.wave,
       dayPhase: round(this.dayPhase, 4),
@@ -176,6 +185,7 @@ export const SaveMethods = {
 
   applyRun(s) {
     // --- the plain state, before anything is built, because the builders read it
+    this.runLength = s.len || 'long';   // #58: before anything reads levelReq() or the finale night
     this.time = s.time || 0;
     this.wave = s.wave;
     this.dayPhase = s.dayPhase;
@@ -337,3 +347,20 @@ function round(n, dp = 2) {
 
 export const SAVE_KEY = KEY;
 export const SAVE_VERSION = VERSION;
+
+// The chosen length, or the default for somebody who has never chosen. Guarded like every other read
+// here: localStorage throws in private mode, and a game that will not start because it could not read
+// a preference is worse than one that starts on the default.
+export function readLength() {
+  try {
+    const v = localStorage.getItem(LENGTH_KEY);
+    return CFG.lengths[v] ? v : CFG.defaultLength;
+  } catch (e) {
+    return CFG.defaultLength;
+  }
+}
+
+export function writeLength(len) {
+  if (!CFG.lengths[len]) return;
+  try { localStorage.setItem(LENGTH_KEY, len); } catch (e) { /* private mode: this run still honours it */ }
+}

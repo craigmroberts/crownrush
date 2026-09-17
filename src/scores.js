@@ -8,27 +8,40 @@
 const KEY = 'crownrush-scores';
 const VERSION = 1;
 
-// Ten is a scoreboard; a hundred is a log nobody scrolls.
+// Ten is a scoreboard; a hundred is a log nobody scrolls. Per length since #58, so the ceiling on
+// the stored list is twenty rows rather than ten.
 // Kept by SCORE rather than by recency, because a board that forgets your best run because you played
 // ten bad ones afterwards is not a board.
 const MAX = 10;
 
+// #58: which run length a row belongs to. Rows written before #58 have no `len` at all, and every
+// one of them is a long run -- thirty nights was the only length there was -- so a missing field
+// reads as 'long' rather than as unknown.
+//
+// And the same trick as #119: VERSION is NOT bumped to add the field. `readScores` returns [] when
+// the stored version does not match, so bumping it would empty every player's board to make room for
+// a label. A row without the field is not broken, it is a long run.
+const lengthOf = (r) => r.len || 'long';
+
 // Every read and write is wrapped. localStorage throws in private mode and on a full quota, and a
 // scoreboard that cannot be written has to still let the game be played -- which is the rule every
 // other store in this codebase already follows.
-export function readScores() {
+// `len` filters to one length's board. Omit it for every row, which is what the settings row's count
+// and anything asking "has anyone finished a run" wants.
+export function readScores(len = null) {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return [];
     const s = JSON.parse(raw);
     if (!s || s.v !== VERSION || !Array.isArray(s.runs)) return [];
-    return s.runs;
+    return len ? s.runs.filter((r) => lengthOf(r) === len) : s.runs;
   } catch (e) {
     return [];
   }
 }
 
-// `run` is { score, wave, end, coins, army, level }. `at` is stamped here so no caller can forget it.
+// `run` is { score, wave, end, coins, army, level, len }. `at` is stamped here so no caller can
+// forget it.
 //
 // #119 added `level` WITHOUT touching VERSION, and that is the whole trick: `readScores` returns []
 // when the stored version does not match, so bumping it to add a field would have deleted every
@@ -39,11 +52,21 @@ export function recordRun(run) {
   const runs = readScores();
   runs.push({ ...run, at: Date.now() });
   runs.sort((a, b) => b.score - a.score);
-  runs.length = Math.min(runs.length, MAX);
+  // #58: ten rows PER LENGTH, not ten in all. One sorted list still, trimmed per length as it is
+  // walked -- a fifteen-night run scores far less than a thirty-night one for the same play, so a
+  // single top-ten would fill with long runs and quietly delete a short-run board that is the only
+  // record of half the players' games. Which is the same reason the two are not ranked together.
+  const kept = [];
+  const seen = {};
+  for (const r of runs) {
+    const L = lengthOf(r);
+    seen[L] = (seen[L] || 0) + 1;
+    if (seen[L] <= MAX) kept.push(r);
+  }
   try {
-    localStorage.setItem(KEY, JSON.stringify({ v: VERSION, runs }));
+    localStorage.setItem(KEY, JSON.stringify({ v: VERSION, runs: kept }));
   } catch (e) { /* private mode, or the quota is full: the run still happened, it is just not kept */ }
-  return runs;
+  return kept;
 }
 
 // #94: the two loose bests. They are not part of the board, but they are written in the same breath at

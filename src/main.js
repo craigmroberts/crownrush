@@ -5,7 +5,7 @@ import { preloadRigs, renderPortrait, renderFace, releasePortraitRenderer } from
 import { preloadProps, usePropRenderer, releasePropTranscoder } from './props.js';
 import { preloadIcons, mountIcons, iconSvg } from './icons.js';
 import { readScores } from './scores.js';
-import { SAVE_VERSION } from './game-save.js';
+import { SAVE_VERSION, readLength, writeLength } from './game-save.js';
 
 const canvas = document.getElementById('game');
 const hud = new Hud();
@@ -21,7 +21,15 @@ try {
 // renderer can say which that is. This is the one the game will draw with.
 usePropRenderer(game.renderer);
 
-hud.showStart(readScores()[0] || null, game.savedRun());   // #119: the board's top row IS the best run
+// #119: the board's top row IS the best run. #58: of the length that is SELECTED -- the two are
+// ranked separately, so the best short run and the best long run are different rows. The selection
+// is read back out of storage rather than off the game, because `game.runLength` belongs to the run
+// being played and the title screen is asking about the next one.
+const refreshStart = () => {
+  const len = readLength();
+  hud.showStart(readScores(len)[0] || null, game.savedRun(), len);
+};
+refreshStart();
 const startBtn = document.getElementById('start-btn');
 startBtn.disabled = true;
 startBtn.classList.add('hidden');
@@ -128,6 +136,29 @@ document.getElementById('start-btn').addEventListener('click', () => {
   hud.hideStart();
   hud.showIntro(INTRO, startGame);
 });
+// #58: the run-length pills, on the title screen and on both endings. They change what the NEXT run
+// is, so the choice is written DOWN rather than carried in a variable: `game.start()` reads it back
+// out of localStorage at the moment Play is pressed, which is what makes it survive a reload as well.
+//
+// All three are views of one setting, so a click on any of them re-renders all three -- the title
+// screen is shown once at load and never again, and leaving its pills stale behind a game over
+// screen would make them lie the next time the page was opened without a reload.
+const lengthPicks = [...document.querySelectorAll('.length-pick')];
+const pickLength = (e) => {
+  const b = e.target.closest('.seg-b');
+  if (!b) return;
+  writeLength(b.dataset.len);
+  // Deliberately NOT `game.runLength`. These pills are also on the victory screen, where "Keep
+  // Playing" carries on the run that was just won -- writing the choice onto the live game there
+  // would change its finale night, its Keep prices and the clock its raid is fought on, mid-run.
+  // The only two things that set a run's length are `start()` and a restore.
+  for (const el of lengthPicks) hud.renderLengths(el, b.dataset.len, true);
+  // `showStart` un-hides the title screen, so it may only be called while that screen is already up.
+  // The best run under the pills is read off the selection too, which is why it is a refresh and not
+  // just a re-render.
+  if (!hud.startHidden()) refreshStart();
+};
+for (const el of lengthPicks) el.addEventListener('click', pickLength);
 document.getElementById('intro-next').addEventListener('click', () => hud.introNext());
 document.getElementById('intro-skip').addEventListener('click', (e) => {
   e.preventDefault();
@@ -257,6 +288,10 @@ document.getElementById('set-scores').addEventListener('click', () => {
   game.showScores();
 });
 const closeScores = () => game.hideScores();
+document.getElementById('sc-pick').addEventListener('click', (e) => {
+  const b = e.target.closest('.seg-b');
+  if (b) game.setScoreLength(b.dataset.len);
+});
 document.getElementById('sc-close').addEventListener('click', closeScores);
 document.getElementById('sc-x').addEventListener('click', closeScores);
 document.getElementById('scores-screen').addEventListener('click', (e) => {

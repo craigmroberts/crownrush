@@ -13,7 +13,7 @@ import { EnemiesMethods } from './game-enemies.js';
 import { UnitsMethods } from './game-units.js';
 import { ViewMethods } from './game-view.js';
 import { VillagerMethods } from './game-villagers.js';
-import { SaveMethods } from './game-save.js';
+import { SaveMethods, readLength } from './game-save.js';
 
 export class Game {
   constructor(canvas, hud) {
@@ -108,6 +108,10 @@ export class Game {
     // reached, the board holds only ten runs, and throwing a player's record away to change a label
     // is not a trade worth making if the decision is ever revisited.
     this.best = readNumber('crownrush-best', 1);
+    // #58: the length this run is played at. A preference, not run state, so it is read here and
+    // again in `start()` rather than in `reset()` -- restoring a thirty-night save sets it to that
+    // save's length, and the next NEW run has to go back to what the player actually chose.
+    this.runLength = readLength();
     this.reset();
   }
 
@@ -477,7 +481,49 @@ export class Game {
     }
   }
 
+  // ---------- #58: how long this run is ----------
+  //
+  // A length is two numbers and a label (CFG.lengths). Everything reads them through the three
+  // methods below rather than through CFG directly, so exactly one place knows what "this run is
+  // short" means and nothing else has to remember to ask.
+
+  lengthDef() {
+    return CFG.lengths[this.runLength] || CFG.lengths.long;
+  }
+
+  // The night the march on the camp opens by the clock alone, whatever the Keep is doing.
+  finaleNight() {
+    return this.lengthDef().nights;
+  }
+
+  // This run's nights against a long run's. Every number in CFG spelled in NIGHTS was pinned against
+  // thirty of them, so a short run divides by this or the raid falls behind its own clock: the floor
+  // under the raid's difficulty and the brute/elite fallbacks are all "by night N of thirty", and at
+  // fifteen nights none of the three would ever fire. See `raidLevel` in game-enemies.js.
+  nightScale() {
+    return this.lengthDef().nights / CFG.lengths.long.nights;
+  }
+
+  // The night the RAID is fought at, which on a short run runs ahead of the night on the calendar:
+  // night 8 of fifteen is fought as night 16 of thirty.
+  //
+  // Every ramp in `startWave` is keyed to the night number -- how many knights, when brutes and
+  // elites start, how many bosses, the growth in health and damage -- and every one of them was
+  // pinned against thirty nights. Read on the calendar, a short run would END on what a long run
+  // calls night 15: half the raid, against an army the compressed Keep costs let the player build in
+  // FULL. The last night has to be the last night at either length, so the raid is fought on the long
+  // run's clock while `wave` stays the player's -- it is what the HUD counts, what the toasts say and
+  // what the scoreboard stores.
+  //
+  // Rounded, so the ramps keep getting whole nights. At the two lengths that ship it is exact
+  // (fifteen halves thirty); a length that did not divide cleanly would land on the nearer night
+  // rather than three-fifths of one.
+  raidNight() {
+    return Math.round(this.wave / this.nightScale());
+  }
+
   start() {
+    this.runLength = readLength();   // #58: whatever the title screen is showing, at the moment Play is pressed
     this.clearRun();
     this.reset();
     this.running = true;
@@ -622,7 +668,10 @@ export class Game {
     this.settingsPaused = false;
     this.infoOpen = false;
     this.hud.hidePanels();
-    this.hud.showGameOver(this.baseLevel, this.coinsEarned, this.score, this.bestScore, reason);
+    // #58: the pills on the end screen say what Play Again will start, which is the stored preference
+    // rather than this run's length -- they differ after a Continue, where the run being finished is
+    // whatever was saved and the next one is whatever the player last chose.
+    this.hud.showGameOver(this.baseLevel, this.coinsEarned, this.score, this.bestScore, reason, readLength());
   }
 
   victory() {
@@ -636,7 +685,7 @@ export class Game {
     }
     this.saveScore();
     this.recordRun('won');
-    setTimeout(() => this.hud.showVictory(this.coinsEarned, this.units.length - 1 + this.turrets.length, this.score), 600);
+    setTimeout(() => this.hud.showVictory(this.coinsEarned, this.units.length - 1 + this.turrets.length, this.score, readLength()), 600);
   }
 
   addScore(n) {
@@ -660,6 +709,9 @@ export class Game {
       // is still counted, rows written before this have nothing else to show, and the scores format
       // must NOT have its VERSION bumped to add a field (that empties everyone's board).
       level: this.baseLevel,
+      // #58: which board this belongs on. Fifteen nights scores far less than thirty for the same
+      // play, so the two are ranked separately -- see `recordRun` in scores.js.
+      len: this.runLength,
       army: Math.max(0, this.units.length - 1 + this.turrets.length),
     });
   }
@@ -746,7 +798,7 @@ export class Game {
       if (raid.count === 0) this.raidPeak = 0;
       this.hud.setRaid(this.raidPeak > 0 ? raid.hp / this.raidPeak : 0, raid.count);
       // #19: the march on the camp opens at a Keep level or a night, whichever comes first
-      if (!this.finaleOpen && (this.baseLevel >= CFG.finale.level || this.wave >= CFG.finale.night)) {
+      if (!this.finaleOpen && (this.baseLevel >= CFG.finale.level || this.wave >= this.finaleNight())) {
         this.finaleOpen = true;
         this.hud.toast('The raiders\' camp lies to the north. March on it and end the war!', 4200, 'Raid');
         audio.wave(true);

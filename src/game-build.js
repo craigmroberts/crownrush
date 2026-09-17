@@ -464,8 +464,18 @@ export const BuildMethods = {
   },
 
   // ---------- the Keep as the base: pay coin into it to level up ----------
+  //
+  // #58: at a fraction of the price on a short run, because a short run has a fraction of the nights
+  // to earn it in. This one number is what makes fifteen nights the same arc rather than half of one:
+  // the rank gates, the pads' minLevel and the finale's level 13 are all left exactly where they are,
+  // so both lengths still reach Warlords and the camp.
+  //
+  // Whole coin -- the mat reads the figure aloud and there is no such thing as half a coin here.
+  // `null` at level 0 and at the cap is load-bearing: three callers use it as "is there a level to
+  // buy at all", and `levelCost` is null at 0 and undefined past the end.
   levelReq() {
-    return CFG.base.levelCost[this.baseLevel] || null;
+    const base = CFG.base.levelCost[this.baseLevel];
+    return base ? Math.max(1, Math.round(base * this.lengthDef().costScale)) : null;
   },
 
   // What he is carrying, and how much of it he can carry. Mining fills a pile on the ground; the

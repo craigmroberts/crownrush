@@ -15,7 +15,11 @@ loop underneath it:
 4. Pads build your village: an archery range, more archers, watchtowers, a palisade, a barracks...
 5. Every build unlocks new pads, so your army and village keep growing while the waves get harder.
 
-**Goal:** survive 30 waves to secure the kingdom. After that the raids keep coming for a high score.
+**Goal:** raise the Keep, then march on the raider camp and kill the Warlord. There are two run
+lengths, chosen on the title screen (#58) — a **short run** of fifteen nights, about nineteen minutes,
+and a **long run** of thirty, about thirty-seven. Both reach Marauders, Warlords and the camp: a
+length changes when the camp opens and what a Keep level costs, and nothing else. After the war is won
+the raids keep coming for a high score.
 
 - The Queen follows the King and raiders go for her first. She cannot be hurt -- only carried off, by
   raiders who reach her and hold on. Build the Royal Keep and she shelters inside; raiders then bash the
@@ -200,10 +204,46 @@ worker precaches the lot after that. Waiting for all fourteen cost 12.0 s to a c
 on a throttled 4 Mbps / 100 ms connection; waiting for eleven, fetched in parallel rather than one
 after another, costs 9.2 s.
 
+## How long a run is
+
+Two lengths, picked on the title screen above the Play button and again on both ending screens — the
+title screen is shown once a page load and never again, so the end of a run is the other place the
+choice has to be reachable (#58).
+
+|  | Nights | About | Keep level costs |
+| --- | --- | --- | --- |
+| Short run | 15 | 19 minutes | `costScale` of a long run's |
+| Long run | 30 | 37 minutes | full price |
+
+**A length changes two numbers and nothing else** (`CFG.lengths`): when the camp opens on the clock,
+and what a Keep level costs. The rank gates, the pads' `minLevel`, the wall boundaries and the
+finale's level 13 are left exactly where they are, so a short run is the same arc at a faster climb
+rather than a different game with pieces missing — which is what keeps both lengths reaching
+Marauders, Warlords and the camp. A short mode that stopped at level 8 would never meet a Warlord
+(rank gate 11) and would be a demo.
+
+The raid is fought on the long run's clock (`raidNight`, [src/game.js](src/game.js)). Every ramp in
+`startWave` is spelled in nights and every one of them was pinned against thirty of them: how many
+knights, when brutes and elites start, how many bosses, the growth in health and damage, and the
+anti-turtle floor under the raid's rank (#49). Read off the calendar, a fifteen-night run would end
+on what a long run calls night 15 — half the raid, against an army the compressed Keep costs let the
+player build in full. The night the player counts is still the calendar's, and so is the boss rhythm:
+every fifth night, which is 3 boss nights of 15 or 6 of 30, the same density either way. What scales
+is how big each one is.
+
+Scores are kept **per length**, ten rows each. Fifteen nights scores far less than thirty for the same
+play, so one board would fill with long runs and make itself meaningless; the pills over the
+scoreboard switch between them. A row stored before #58 has no length and reads as a long run, which
+is what every run before it was — neither the scores format nor the save format had its version
+bumped to add the field, because both discard everything on a mismatch and a label is no reason to
+empty somebody's board or throw away the run they are in the middle of.
+
 ## Picking a run back up
 
-A full run is thirty nights of about seventy-five seconds, and a phone browser throws away a
-backgrounded tab whenever it feels like it. The run is written to `localStorage` at every dawn --
+A run is fifteen or thirty nights of about seventy-five seconds — nineteen minutes or thirty-seven —
+and a phone browser throws away a backgrounded tab whenever it feels like it. Nineteen minutes is
+still longer than a mobile tab reliably survives, which is why the short run is not a substitute for
+this and the two were always separate problems. The run is written to `localStorage` at every dawn --
 the one beat where the field is quiet, the spawn queue empty and nothing in flight -- and the title
 screen offers **Continue** above a Play button that now says *New run*, with the level and the score
 under it. At most one cycle is ever lost.
@@ -563,8 +603,8 @@ spikes around a fire under the Warlord's skull banner. The first raiding party o
 from its direction. Its garrison sleeps until the King comes within reach, so a curious early visit
 ends in a scramble.
 
-The goal is no longer a night count. Reach Keep level 13 (or night 30, whichever comes first) and the
-march opens: a toast, a swords arrow on the screen edge, and "march on the camp!" in the HUD. Walk in
+The goal is no longer a night count. Reach Keep level 13 (or the run's last night, whichever comes
+first — night 30 on a long run, night 15 on a short one) and the march opens: a toast, a swords arrow on the screen edge, and "march on the camp!" in the HUD. Walk in
 and the camp wakes. The Warlord fights as a boss and calls men from the tents every few seconds while
 he lives, so it is a fight against reinforcements, not a health bar. Kill him and the war is over.
 Nights keep coming afterwards for a high score, but the story is done.

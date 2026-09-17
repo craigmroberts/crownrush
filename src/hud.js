@@ -522,7 +522,21 @@ export class Hud {
   // still keeping score in nights. Nothing new is stored for this: the board is already sorted by
   // score, so its first row IS the best run, and it carries the level now that runs record one.
   // A row from before #119 has no level, so it shows the points alone rather than inventing one.
-  showStart(best, saved = null) {
+  // #58: the two run lengths as a pair of pills, built from CFG.lengths rather than written into
+  // index.html so the nights and the minutes are stated in exactly one place. `sub` is the second
+  // line: the title screen wants it (that is where the choice is explained) and the scoreboard's
+  // filter, which is picking a board rather than a run, does not.
+  renderLengths(el, current, sub = false) {
+    if (!el) return;
+    el.innerHTML = Object.entries(CFG.lengths).map(([id, L]) => `
+      <button type="button" class="seg-b${id === current ? ' on' : ''}" data-len="${id}" role="radio" aria-checked="${id === current}">
+        <b>${esc(L.name)}</b>${sub ? `<span>${esc(L.sub)}</span>` : ''}
+      </button>`).join('');
+  }
+
+  // `len` is the length the next run will be played at, which is also the board `best` was read from.
+  showStart(best, saved = null, len = CFG.defaultLength) {
+    this.renderLengths(document.getElementById('length-pick'), len, true);
     const line = document.getElementById('best-line');
     if (line) {
       line.classList.toggle('hidden', !best);
@@ -544,7 +558,10 @@ export class Hud {
       // that mistake.
       const label = start.querySelector('span') || start;
       if (saved) {
-        note.textContent = `Lv. ${saved.baseLevel} · ${saved.score.toLocaleString()} points`;
+        // #58: which length the stored run is, because the pills below offer the other one and
+        // Continue does not obey them -- it picks the run back up as it was put down.
+        const was = CFG.lengths[saved.len || 'long'];
+        note.textContent = `Lv. ${saved.baseLevel} · ${saved.score.toLocaleString()} points · ${was.name}`;
         label.textContent = 'New run';
       } else {
         label.textContent = 'Play';
@@ -555,7 +572,8 @@ export class Hud {
   hideStart() {
     this.startScreen.classList.add('hidden');
   }
-  showGameOver(level, coins, score, best, reason = 'king') {
+  showGameOver(level, coins, score, best, reason = 'king', len = CFG.defaultLength) {
+    this.renderLengths(document.getElementById('over-length'), len, true);
     document.getElementById('gameover-title').textContent = reason === 'taken' ? 'They Carried Wren Away' : reason === 'queen' ? 'Wren Is Lost' : 'The King Has Fallen';
     // #119: a run that ended before the Keep was built has no level to report, and `Lv. 0` is not the
     // sentence to end it on -- the rescue is where it ended, so say that.
@@ -793,10 +811,13 @@ export class Hud {
   }
   // #94: the board, best first. Rebuilt on open rather than kept in sync -- it changes once a run, and
   // the only way to see it is to open it.
-  showScores(runs) {
+  showScores(runs, len = CFG.defaultLength) {
+    this.renderLengths(document.getElementById('sc-pick'), len);
     const body = document.getElementById('sc-body');
     if (!runs.length) {
-      body.innerHTML = '<p class="hint">No finished runs yet. However a run ends, it lands here.</p>';
+      // #58: named, because the board is now one of two and "no finished runs yet" beside a pill
+      // that says Short run reads as though the whole board were empty.
+      body.innerHTML = `<p class="hint">No finished ${esc(CFG.lengths[len].name.toLowerCase())}s yet. However a run ends, it lands here.</p>`;
     } else {
       const when = (t) => new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
       body.innerHTML = runs.map((r, i) => `
@@ -922,7 +943,8 @@ export class Hud {
   hidePause() {
     document.getElementById('pause-screen').classList.add('hidden');
   }
-  showVictory(coins, army, score) {
+  showVictory(coins, army, score, len = CFG.defaultLength) {
+    this.renderLengths(document.getElementById('victory-length'), len, true);
     document.getElementById('victory-coins').textContent = coins;
     document.getElementById('victory-army').textContent = army;
     document.getElementById('victory-score').textContent = score.toLocaleString();

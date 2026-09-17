@@ -1132,7 +1132,17 @@ export const ViewMethods = {
   showScores() {
     if (this.over || this.won || this.scoresOpen || this.offer) return;
     this.scoresOpen = true;
-    this.hud.showScores(readScores());
+    // #58: one board per length, and the one you want first is the length you are playing.
+    this.scoreLen = this.runLength;
+    this.hud.showScores(readScores(this.scoreLen), this.scoreLen);
+  },
+
+  // The pills over the board. Only ever called while it is open, and `showScores` on the hud side is
+  // a rebuild rather than a toggle, so this is the same call with a different filter.
+  setScoreLength(len) {
+    if (!this.scoresOpen || !CFG.lengths[len]) return;
+    this.scoreLen = len;
+    this.hud.showScores(readScores(len), len);
   },
   hideScores() {
     if (!this.scoresOpen) return;

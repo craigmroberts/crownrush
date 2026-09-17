@@ -29,7 +29,7 @@ export const EnemiesMethods = {
     const rig = makeRigged(rigName, this.rankTints(type, rk));
     const mesh = rig ? rig.mesh : type === 'boss' ? makeBoss() : type === 'brute' ? makeBrute() : type === 'elite' ? makeElite() : makeKnight();
     mesh.position.set(x, 0, z);
-    const w = Math.max(1, this.wave);
+    const w = Math.max(1, this.raidNight());   // #58: the raid's clock, not the calendar's
     const L = Math.max(0, this.baseLevel - 1);
     // waves, rank and Keep level all scale the enemy
     const hpMul = this.enemyHpMul(rank);
@@ -68,21 +68,27 @@ export const EnemiesMethods = {
     }
     this.wave++;
     const w = this.wave;
+    // #58: every ramp below is "by night N of thirty" and is read off the raid's clock rather than
+    // the calendar, so a short run gets the whole curve in half the nights instead of half the curve.
+    // `w` is still the calendar: the toast at the bottom, and the boss rhythm, which is a beat the
+    // player counts ("every fifth night") and lands at the same density either way -- 3 boss nights
+    // of 15, 6 of 30. What scales is how big each one is.
+    const rw = this.raidNight();
     const list = [];
     const L = this.baseLevel;
-    const knights = 4 + Math.round(w * 2.2);
+    const knights = 4 + Math.round(rw * 2.2);
     for (let i = 0; i < knights; i++) list.push('knight');
-    const brutes = L >= CFG.waves.bruteAt.level || w >= CFG.waves.bruteAt.wave;
-    const elites = L >= CFG.waves.eliteAt.level || w >= CFG.waves.eliteAt.wave;
-    if (brutes && w >= 3) for (let i = 0; i < Math.floor((w - 2) * 1.3); i++) list.push('brute');
-    if (elites && w >= 8) for (let i = 0; i < Math.floor((w - 6) * 0.8); i++) list.push('elite');
+    const brutes = L >= CFG.waves.bruteAt.level || rw >= CFG.waves.bruteAt.wave;
+    const elites = L >= CFG.waves.eliteAt.level || rw >= CFG.waves.eliteAt.wave;
+    if (brutes && rw >= 3) for (let i = 0; i < Math.floor((rw - 2) * 1.3); i++) list.push('brute');
+    if (elites && rw >= 8) for (let i = 0; i < Math.floor((rw - 6) * 0.8); i++) list.push('elite');
     // the rule-breakers, each once the RAID has reached its level -- the Keep's if it is ahead, the
     // night count's if the Keep has stalled, so declining to level no longer skips them entirely
     const RL = this.raidLevel();
-    if (RL >= CFG.enemy.sapper.fromLevel && w >= 3) for (let i = 0; i < Math.min(4, 1 + Math.floor((w - 3) * 0.5)); i++) list.push('sapper');
-    if (RL >= CFG.enemy.archer.fromLevel && w >= 4) for (let i = 0; i < Math.min(5, 1 + Math.floor((w - 4) * 0.4)); i++) list.push('archer');
-    if (RL >= CFG.enemy.shield.fromLevel && w >= 5) for (let i = 0; i < Math.min(5, 1 + Math.floor((w - 5) * 0.4)); i++) list.push('shield');
-    if (w % CFG.waves.bossEvery === 0) for (let i = 0; i < Math.floor(w / 10) + 1; i++) list.push('boss');
+    if (RL >= CFG.enemy.sapper.fromLevel && rw >= 3) for (let i = 0; i < Math.min(4, 1 + Math.floor((rw - 3) * 0.5)); i++) list.push('sapper');
+    if (RL >= CFG.enemy.archer.fromLevel && rw >= 4) for (let i = 0; i < Math.min(5, 1 + Math.floor((rw - 4) * 0.4)); i++) list.push('archer');
+    if (RL >= CFG.enemy.shield.fromLevel && rw >= 5) for (let i = 0; i < Math.min(5, 1 + Math.floor((rw - 5) * 0.4)); i++) list.push('shield');
+    if (w % CFG.waves.bossEvery === 0) for (let i = 0; i < Math.floor(rw / 10) + 1; i++) list.push('boss');
     for (let i = list.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [list[i], list[j]] = [list[j], list[i]];
@@ -91,7 +97,7 @@ export const EnemiesMethods = {
     // up so the player can see what is coming
     const top = this.topRank();
     const scoutSet = new Set();
-    if (top < CFG.ranks.length - 1 && w >= CFG.waves.scouts.from) {
+    if (top < CFG.ranks.length - 1 && rw >= CFG.waves.scouts.from) {
       const n = randInt(0, CFG.waves.scouts.max);
       const candidates = list.map((t, i) => i).filter((i) => list[i] !== 'boss');
       for (let k = 0; k < n && candidates.length; k++) scoutSet.add(candidates.splice(Math.floor(Math.random() * candidates.length), 1)[0]);
@@ -104,8 +110,10 @@ export const EnemiesMethods = {
       if (roll < 0.4) return top - 1;
       return top;
     };
-    // raiding parties come from 1-3 directions
-    const dirs = 1 + Math.min(2, Math.floor(w / 3));
+    // raiding parties come from 1-3 directions -- on the raid's clock like every other night ramp,
+    // so full flanking arrives a fifth of the way into the run at either length rather than at an
+    // absolute night 6 that is a fifth of a long run and a third of a short one.
+    const dirs = 1 + Math.min(2, Math.floor(rw / 3));
     const b = TIERS[this.tier].bounds;
     const cx = (b.x0 + b.x1) / 2;
     const cz = (b.z0 + b.z1) / 2;
@@ -143,7 +151,11 @@ export const EnemiesMethods = {
   // The level the RAID is fought at, as opposed to the level the Keep stands at. The higher of the
   // two, so the Keep can carry the player ahead of the nights but never behind them (#49).
   raidLevel() {
-    return Math.max(this.baseLevel, Math.floor(this.wave / CFG.waves.rankFloor));
+    // #58: on the raid's clock, like every other nights-per-something number. `rankFloor` is pinned
+    // against a thirty-night run (config.js), so read off the calendar the floor at fifteen nights
+    // would top out at level 5 and the anti-turtle guard #49 exists for would not apply to half the
+    // game's runs -- a short run could stall at Keep 6 and never meet a Marauder.
+    return Math.max(this.baseLevel, Math.floor(this.raidNight() / CFG.waves.rankFloor));
   },
 
   topRank() {
@@ -256,7 +268,7 @@ export const EnemiesMethods = {
   // raid meter, which has to price the ones still walking in.
   enemyHpMul(rank) {
     const rk = CFG.ranks[Math.min(rank, CFG.ranks.length - 1)];
-    const w = Math.max(1, this.wave);
+    const w = Math.max(1, this.raidNight());   // #58: the raid's clock, not the calendar's
     const L = Math.max(0, this.baseLevel - 1);
     return (1 + CFG.waves.hpGrowthPerWave * (w - 1)) * rk.hp * (1 + CFG.base.enemyHpPerLevel * L);
   },
@@ -394,6 +406,10 @@ export const EnemiesMethods = {
     this.thiefTimer = (this.thiefTimer || 0) - dt;
     if (this.thiefTimer > 0) return;
     this.thiefTimer = th.every;
+    // #58: the calendar, deliberately, and the one nights-number in the file that is NOT on the raid's
+    // clock. `fromWave: 2` is not a difficulty ramp -- it is "not on the player's first night", a
+    // grace that reads the same at either length. On the raid's clock a short run would have thieves
+    // from night 1, which is the first night anybody ever plays, since short is the default.
     if (!this.night || this.wave < th.fromWave || this.queen.captive || this.over || this.won) return;
     if (this.coinsCarried < th.minCoins) return;
     const out = this.enemies.filter((e) => e.type === 'thief').length + this.spawnQueue.filter((s) => s.type === 'thief').length;

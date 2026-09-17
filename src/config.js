@@ -212,10 +212,40 @@ export const CFG = {
   },
   gatePost: { height: 1.55 },
   // #19: the raider camp. Raids come from it; the war ends when the King marches on it and kills
-  // the Warlord. The march opens at Keep `level` (or night `night`, whichever comes first).
+  // the Warlord. The march opens at Keep `level`, or on the run's last night, whichever comes first.
+  // #58 took the night out of here: it was `night: 30` and there is no longer one answer, because a
+  // run is fifteen nights or thirty. `lengths` below owns it, and `game.finaleNight()` is what reads
+  // it. `level` stays here and stays 13 at both lengths -- it is a rung on the Keep, not a date.
   // `leash`: how far from the camp the King has to get before the garrison gives up and goes home.
   // Walking away has to be an answer, or an early visit to the camp ends the run (#28).
-  finale: { pos: [-4, -74], radius: 9, garrison: 8, wakeRadius: 20, leash: 38, level: 13, night: 30, chiefHp: 3.2, callEvery: 9, callCount: 3 },
+  finale: { pos: [-4, -74], radius: 9, garrison: 8, wakeRadius: 20, leash: 38, level: 13, chiefHp: 3.2, callEvery: 9, callCount: 3 },
+
+  // #58: two run lengths, because 30 nights at 75 seconds is ~37 minutes and that was the only one on
+  // offer -- a very large ask of somebody who opened a web game on a phone and does not yet know
+  // whether they like it.
+  //
+  // What a length changes is exactly two numbers, and that is deliberate. `nights` is when the camp
+  // opens on the clock, and `costScale` is what a Keep level costs. Everything else -- the rank gates,
+  // the pads' `minLevel`, the wall boundaries, the finale level of 13 -- is untouched, so a short run
+  // is the same arc at a faster climb rather than a different game with pieces missing. That is what
+  // keeps the ticket's own rule: both lengths reach Marauders, Warlords and the camp. A short mode
+  // that stops at level 8 would never meet a Warlord (rank gate 11) and would be a demo.
+  //
+  // 0.45 is an estimate and is the one number here that wants a real run rather than arithmetic. The
+  // reasoning: a 30-night run reaches level 13 on income that grows through the run, so the cumulative
+  // coin at night 15 is well under half of the night-30 figure -- nearer a third. 0.45 is deliberately
+  // gentler than a third, because a short run should feel brisk rather than free, and it is easier to
+  // argue a number down after playing than to argue an impossible climb up. Play it and move it.
+  //
+  // Scores are kept per length (`scores.js` stores `len`), because comparing 15 nights against 30 on
+  // one board makes the board meaningless.
+  lengths: {
+    short: { nights: 15, costScale: 0.45, name: 'Short run', sub: '15 nights · about 19 min' },
+    long: { nights: 30, costScale: 1, name: 'Long run', sub: '30 nights · about 37 min' },
+  },
+  // Which one a player who has never chosen gets. Short, because that is the whole point of the
+  // ticket: the long run is the thing you graduate to, not the entry fee.
+  defaultLength: 'short',
   // #18: the King's one ability. The warhorn pulls the army to him and drives them for a few
   // seconds, and the blast shoves nearby raiders back and stuns them: an answer to a breach.
   horn: { cooldown: 22, duration: 6, radius: 7.5, push: 3.4, stun: 1.3, speed: 1.6, damage: 1.5, rallySpeed: 2.2 },

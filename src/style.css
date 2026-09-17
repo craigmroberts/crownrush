@@ -259,6 +259,30 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #3f9a5b; f
 .panel button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 .panel button[disabled] { opacity: 0.55; cursor: default; }
 
+/* #58: the run-length pills -- on the title screen above Play, and over the scoreboard to pick which
+   board is showing. Deliberately NOT the gold frame above: two more full-size gold CTAs stacked over
+   the actual Play button would read as three equal buttons and bury the one that starts the game.
+   These are a choice between two things; Play is the call to action.
+   `.panel .seg .seg-b` rather than `.seg-b`, because `.panel button` is (0,1,1) and would otherwise
+   win on the padding, the fill and the two diamonds -- which have to be turned off by name. */
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; margin: 2px 0 12px; }
+.panel .seg .seg-b {
+  display: block; text-align: center; gap: 0; padding: 8px 10px;
+  background: rgba(12, 20, 10, 0.55); border: 2px solid rgba(255, 227, 163, 0.22); border-radius: 12px;
+  box-shadow: none; text-shadow: 0 1px 0 rgba(0,0,0,0.5); font-size: 15px;
+}
+.panel .seg .seg-b::before, .panel .seg .seg-b::after { content: none; }
+.panel .seg .seg-b b { display: block; font-size: 16px; line-height: 1.2; font-weight: 900; color: #dde7cf; }
+.panel .seg .seg-b span { display: block; font-size: 11px; line-height: 1.3; margin-top: 2px; color: #a9bb96; }
+.panel .seg .seg-b.on {
+  background: linear-gradient(180deg, rgba(58, 44, 14, 0.85), rgba(30, 22, 8, 0.9));
+  border-color: #d8a63c;
+}
+.panel .seg .seg-b.on b { color: #ffe3a3; }
+.panel .seg .seg-b.on span { color: #d6b96a; }
+.panel .seg .seg-b:active { transform: translateY(1px); }
+#sc-pick { margin-bottom: 0; }
+
 
 #indicators { position: fixed; inset: 0; pointer-events: none; z-index: 3; }
 .indicator { position: absolute; left: 0; top: 0; width: 0; height: 0; }
