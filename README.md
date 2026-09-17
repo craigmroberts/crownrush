@@ -23,7 +23,10 @@ loop underneath it:
   upgrades.
 - The King starts on foot and gathers wood, stone and straw by standing next to lumber groves, ore outcrops
   and wheat fields. Everything in the game is paid for in coin; what you mine is not spent anywhere, it is
-  carried to the trade post and sold. That is the whole of what mining is for.
+  carried to the trade post and sold. That is the whole of what mining is for -- and the bag says so
+  when it fills, once per fill, because filling it is the moment that sentence is worth reading. It
+  used to be said only when you walked onto a heap you could not lift, which is a refusal rather than
+  a notice: the moment the bag actually filled, nothing was said and the swings went on landing (#129).
 - Roads grow out of the gates as you wall the village, and bridges over the river are built from pads at the
   crossings. Until a bridge exists, raiders only come from your side of the river.
 - Unexplored land is hidden under fog that clears as the King travels; the minimap in the top-right (tap to

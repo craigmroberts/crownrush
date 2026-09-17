@@ -408,6 +408,34 @@ export const ViewMethods = {
 
   // The count only shows when he is close enough to care, which is the whole reason the numbers came
   // off the status bar: the information is at the heap, where you are looking.
+  // #129: what is said when the bag will not take any more, and how often. The throttle is the old
+  // one and is still the point: a trip to the quarry fills, sells and fills again, and the player
+  // wants telling once a fill rather than once a heap.
+  //
+  // It says where to take it, because that is the thing nothing in the game used to say -- materials
+  // are not spent anywhere, they are sold (#125), and a player who does not know that is carrying a
+  // full bag with nowhere to put it.
+  sayBagFull() {
+    // `(this.fullAt || 0)` was the old guard and it swallowed the first one: a run's clock starts at
+    // 0, so `time - 0 <= 4` is true for the opening four seconds and nothing was said. It never
+    // mattered while this only fired on a refusal deep into a run; it matters now that it fires on
+    // the fill, which a quick first trip to the trees reaches inside four seconds. Measured -- the
+    // first fill said nothing at all until this line changed.
+    if (this.fullAt !== undefined && this.time - this.fullAt <= 4) return;
+    this.fullAt = this.time;
+    this.hud.toast(this.tradePost ? 'Your bag is full. Sell at the trade post for coin.'
+      : 'Your bag is full. Build the Trade Post to sell what you have mined.', 2800, 'Bag');
+  },
+
+  // #129: the edge, not the level. Fires as the bag reaches the cap and not again until it has been
+  // emptied below it, so selling half a load and topping it back up says it a second time and
+  // standing still at the cap says nothing.
+  checkBagFull() {
+    const full = this.loadTotal() >= this.loadCap();
+    if (full && !this.bagWasFull) this.sayBagFull();
+    this.bagWasFull = full;
+  },
+
   updatePiles(dt) {
     const kp = this.king.mesh.position;
     const cap = this.loadCap();
@@ -441,11 +469,10 @@ export const ViewMethods = {
       if (d < CFG.pile.pickRadius && p.count > 0) {
         const room = cap - this.loadTotal();
         if (room <= 0) {
-          if (this.time - (this.fullAt || 0) > 4) {
-            this.fullAt = this.time;
-            this.hud.toast(this.tradePost ? 'Your bag is full. Sell at the trade post.'
-              : 'Your bag is full. Build the Trade Post to sell what you have mined.', 2800, 'Bag');
-          }
+          // #129: the same sentence through the same throttle. This is the refusal -- you walked onto
+          // a heap you cannot lift -- and `checkBagFull` is the notice. One voice for one fact, so
+          // filling the bag and then standing on a pile does not say it twice.
+          this.sayBagFull();
           continue;
         }
         const take = Math.min(room, p.count);

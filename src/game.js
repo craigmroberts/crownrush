@@ -766,6 +766,15 @@ export class Game {
       // nights outpace it. The cell says so itself rather than leaving it to be inferred.
       this.hud.setStall(this.raidLevel() > this.baseLevel);
       this.hud.setHearts(this.king.hp / this.king.maxHp);
+      // #129: the bag filling UP is the event, and it had no voice. There was a line and it was the
+      // right words, but it lived in the branch that runs when the King walks onto a pile he cannot
+      // pick up -- a refusal, not a notice. So the moment the bag actually filled nothing was said,
+      // the swings went on landing, and the player found out later by stepping on a heap.
+      // Edge-checked here rather than at each place the load can rise, because there are three of
+      // them (a heap scooped, a mined chip landing, a villager's delivery) and a rule that has to be
+      // remembered at three call sites is a rule that will be missed at a fourth. `loadTotal` is a
+      // reduce over five keys, which `setLoad` on the next line is about to do anyway.
+      this.checkBagFull();
       this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, this.finaleOpen ? 'camp' : `${this.baseLevel}/${CFG.finale.level}`, this.res, this.score, this.loadCap());
       this.updateIndicators(dt);
     }
