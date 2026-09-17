@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import { writeFileSync, readFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join, relative } from 'node:path';
+import { join, relative, extname } from 'node:path';
 
 // Dev-only helper: POST a data URL to /__shot?name=foo to save a PNG/JPEG next to the project
 // (used for automated visual checks; harmless in production builds).
@@ -24,6 +24,60 @@ function shotPlugin() {
           writeFileSync(`${dir}/${name}.${m[1] === 'jpeg' ? 'jpg' : m[1]}`, Buffer.from(m[2], 'base64'));
           res.end('ok');
         });
+      });
+    },
+  };
+}
+
+// #141: dev only -- where `KTX2Loader` and `DRACOLoader` go looking for their own decoders.
+//
+// Both reach for a sibling file with `new URL('../libs/<x>/...', import.meta.url)`, which the BUILD
+// resolves into a hashed asset of the bundle -- that is the whole reason `src/props.js` refuses
+// `setTranscoderPath` (see the comment there; pointing at a copy under public/ emitted both, which is
+// the duplicate-decoder trap r186 sprang with Draco).
+//
+// In dev those loaders are served pre-bundled out of `node_modules/.vite/deps/`, so `import.meta.url`
+// is `/node_modules/.vite/deps/...` and `../libs/basis/...` resolves to `/node_modules/.vite/libs/`,
+// which does not exist. And it does not 404: the SPA fallback answers 200 with index.html, the worker
+// parses `<!doctype html>` as JavaScript, and the game dies at "Loading 9 of 11" with
+// `Unexpected identifier 'html'`. Reproduced by fetching the URL directly:
+//
+//     200  text/html        /node_modules/.vite/libs/basis/basis_transcoder.js
+//     200  text/javascript  /node_modules/three/examples/jsm/libs/basis/basis_transcoder.js
+//
+// It looks intermittent because the dep pre-bundle is rebuilt whenever the import graph changes, so a
+// session starts working and stops after an unrelated edit. It was dismissed as HMR noise twice.
+//
+// `optimizeDeps.exclude` on the two loaders was the other route and is worse: excluded, they import
+// `three` themselves while the app's own `three` stays pre-bundled, and two copies of three.js in one
+// page is a class of bug far nastier than this one. This maps the directory instead and touches
+// nothing else -- the build is untouched (`apply: 'serve'`), and it is mounted at exactly the path
+// that is broken, so it cannot shadow a real file.
+//
+// A miss 404s LOUDLY rather than falling through. A 200 of text/html where JavaScript was asked for
+// is the failure this is about, and the Oops screen is least able to explain it -- its own text says
+// a reload fixes it, and a reload does not.
+function devThreeLibsPlugin() {
+  const TYPES = { '.js': 'text/javascript', '.wasm': 'application/wasm', '.json': 'application/json' };
+  return {
+    name: 'dev-three-libs',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/node_modules/.vite/libs', (req, res, next) => {
+        const rel = decodeURIComponent(req.url.split('?')[0]).replace(/^\/+/, '');
+        // Nothing here should ever climb out of the libs directory.
+        if (rel.includes('..')) return next();
+        const file = join('node_modules/three/examples/jsm/libs', rel);
+        let body;
+        try { body = readFileSync(file); } catch {
+          const msg = `dev-three-libs: no such file ${file} (asked for as /node_modules/.vite/libs/${rel})`;
+          console.warn(`  ${msg}`);
+          res.statusCode = 404;
+          res.setHeader('Content-Type', 'text/plain');
+          return res.end(msg);
+        }
+        res.setHeader('Content-Type', TYPES[extname(rel)] || 'application/octet-stream');
+        res.end(body);
       });
     },
   };
@@ -198,5 +252,5 @@ self.addEventListener('fetch', (e) => {
 export default defineConfig({
   base: './',
   server: { port: 5173 },
-  plugins: [shotPlugin(), serviceWorkerPlugin()],
+  plugins: [shotPlugin(), devThreeLibsPlugin(), serviceWorkerPlugin()],
 });
