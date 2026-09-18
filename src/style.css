@@ -1669,19 +1669,21 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 #raid-bar:not(.hidden) ~ #minimap { top: calc(max(12px, env(safe-area-inset-top)) + 104px); }
 #raid-bar:not(.hidden) ~ #purse { top: calc(max(12px, env(safe-area-inset-top)) + 184px); }
 .rb-eye {
-  display: flex; align-items: center; justify-content: center; gap: 9px;
+  display: flex; align-items: center; justify-content: center; gap: 9px; margin-top: 5px;
   font-family: "Nunito", "Trebuchet MS", system-ui, sans-serif; font-weight: 700; font-size: 13px;
   text-shadow: 0 1px 0 rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.7);
 }
 .rb-eye .icon { opacity: 0.85; }
 .rb-name {
   font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 800;
-  font-size: 33px; line-height: 1.08; letter-spacing: 0.02em; color: #fff; margin-top: 1px;
+  font-size: 33px; line-height: 1.08; letter-spacing: 0.02em; color: #fff; margin-top: 0;
   text-shadow: 0 2px 0 rgba(0,0,0,0.45), 0 3px 14px rgba(0,0,0,0.65);
 }
-/* #151: the track is the last row now, so what sits below the bar only has 5px of ink to clear. */
+/* #158: the track sits between the name and the night line. The 9px it had above it when it was the
+   last row is split -- 5 above, and the eyebrow takes the rest below -- so the three rows use the
+   height they used before and the purse offset measured against it stays true. */
 .rb-track {
-  position: relative; margin-top: 9px; height: 5px; background: rgba(0,0,0,0.62);
+  position: relative; margin-top: 5px; height: 5px; background: rgba(0,0,0,0.62);
   box-shadow: 0 1px 3px rgba(0,0,0,0.5);
 }
 .rb-track i {

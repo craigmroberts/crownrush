@@ -163,7 +163,7 @@ the raids keep coming for a high score.
 
   It is **not up for the rescue** (#146). The opening party used to be counted on the reasoning that
   the rescue is the first fight and "how many are left" is the same question -- fair for a 30px ring
-  in the corner, wrong for a full-width bar reading "Night 1 / Raiders / 7 left" over a run nobody has
+  in the corner, wrong for a full-width bar reading "Raiders / Night 1 · 7 left" over a run nobody has
   started. They carry a flag set once at spawn and never cleared, rather than the night number: the
   camp wakes on proximity with no wave gate, so gating on the night would have hidden the bar for the
   one other fight that can happen before night 1.
