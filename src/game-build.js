@@ -1980,6 +1980,7 @@ export const BuildMethods = {
       kingSpeed: ['The King walks at', (m) => one(CFG.king.footSpeed * m)],
       kingArrows: ['Arrows per shot', (m) => whole(m)],
       regen: ['Health back each second', (m) => one(CFG.regen.perSecond * m)],
+      gleanerSpeed: ['The gleaner walks at', (m) => one(CFG.gleaner.speed * m)],
     };
     const r = R[a.key];
     if (!r) return null;

@@ -560,7 +560,7 @@ export const CFG = {
   // alone for `wait` seconds after it lands and never takes one inside the King's ring plus `keepOff`,
   // so the player is never racing his own helper for the drop at his feet; then the OLDEST first,
   // which is the one about to fade. 3.4 against a villager's 2.8: he carries nothing heavy. `speed`
-  // is the number a future upgrade moves.
+  // is what the Quick Feet card multiplies (`mods.gleanerSpeed`, x1.4, up to twice: 4.8 then 6.7).
   gleaner: { speed: 3.4, wait: 4, keepOff: 2, reach: 1.1, flee: 13, rest: [3.2, 4.0] },
 
   // Enemy ranks: the colour they wear says how dangerous they are. Each rank multiplies the type's

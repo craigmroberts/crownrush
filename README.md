@@ -781,7 +781,9 @@ the player standing still on a mat by his own choice.
   one at the King's feet, so the player never races his own helper; then the *oldest* first, which is
   the one about to go; a raider in sight sends him home like any villager, and he routes through the
   gates (#156). What he picks up flies to him and is banked exactly as the King's are. His speed is
-  one number in `CFG.gleaner`, for the upgrade that is coming. And a coin on the ground lives 180
+  one number in `CFG.gleaner`, and the **Quick Feet** card in the economy pool multiplies it by 1.4,
+  twice at most: 3.4, then 4.8, then 6.7, which is faster than a walking villager and nearly the
+  mounted King, for the late run when the field is wide. And a coin on the ground lives 180
   seconds -- more than two nights -- fading over its last 40 (per-instance alpha on `CoinField`, the
   chimney smoke's trick) so it is seen going rather than found missing. The soak again: 657 coins at
   night 29 against 3,683, falling as well as rising night to night, and the run's retained heap

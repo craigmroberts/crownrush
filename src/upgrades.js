@@ -21,6 +21,7 @@ export const MODS = {
   kingSpeed: 1,
   kingArrows: 1,
   regen: 1,
+  gleanerSpeed: 1,   // #169: the gleaner's walk, multiplied by Quick Feet
 };
 
 // #177: the key and the amount are hung on the function itself, so a card can be asked what it
@@ -99,6 +100,10 @@ export const UPGRADES = [
   { id: 'plunder', pool: 'economy', icon: 'coin', name: 'Plunder', desc: 'Every raider you kill drops an extra coin.', max: 3, apply: add('coinBonus', 1) },
   { id: 'sharp-tools', pool: 'economy', icon: 'hammer', name: 'Sharp Tools', desc: 'You mine far quicker, so a full bag takes less of the day.', max: 2, apply: mul('mineSpeed', 1.45) },
   { id: 'packhorse', pool: 'economy', icon: 'horse', name: 'Packhorse', desc: 'Carry 8 more before you have to sell at the trade post.', max: 3, apply: add('carryBonus', 1) },
+  // #169: the owner asked for the gleaner's speed to be an upgrade. x1.4 is "far" on the ladder above,
+  // and twice takes him from 3.4 to 6.7 -- past a walking villager and nearly the mounted King --
+  // which is the point: late in a run the field is wide and the coin lies far from the Keep.
+  { id: 'quick-feet', pool: 'economy', icon: 'person', name: 'Quick Feet', desc: 'The gleaner walks the field far quicker, so less coin lies long enough to fade.', max: 2, apply: mul('gleanerSpeed', 1.4) },
 
   // ---- the King ----
   { id: 'swift', pool: 'king', icon: 'horse', name: 'Swift', desc: 'The King covers more ground in a day, on foot and mounted.', max: 3, apply: mul('kingSpeed', 1.2) },

@@ -188,6 +188,7 @@ export const VillagerMethods = {
   // save, and `reset` drops him with the root.
   updateGleaner(dt) {
     const G = CFG.gleaner;
+    const speed = G.speed * this.mods.gleanerSpeed;   // Quick Feet, the card (#169)
     // A standing Keep is what brings him; once he is here a Keep knocked down mid-run does not stop
     // him working (it stopped him dead, mid-field, in the first version -- the guard was on the
     // whole update). The fall of the village removes him outright, with the villagers.
@@ -209,7 +210,7 @@ export const VillagerMethods = {
     const p = g.mesh.position;
     if (this.enemies.length && this.nearestEnemy(p, G.flee)) {
       g.target = null;
-      const d = this.villagerWalkTo(g, g.home.x, g.home.z, dt, G.speed * 1.4);
+      const d = this.villagerWalkTo(g, g.home.x, g.home.z, dt, speed * 1.4);
       if (d < 1) this.animateWalk(g, 0, dt);
       return;
     }
@@ -231,12 +232,12 @@ export const VillagerMethods = {
       g.stuckT = 0;
     }
     if (!g.target) {
-      const d = this.villagerWalkTo(g, g.home.x, g.home.z, dt, G.speed);
+      const d = this.villagerWalkTo(g, g.home.x, g.home.z, dt, speed);
       if (d < 0.6) this.animateWalk(g, 0, dt);
       return;
     }
     const tp = g.target.mesh.position;
-    if (this.villagerWalkTo(g, tp.x, tp.z, dt, G.speed) < G.reach) {
+    if (this.villagerWalkTo(g, tp.x, tp.z, dt, speed) < G.reach) {
       // his, now: the coin flies to him and is banked the way the King's are, in `updateCoins`
       g.target.state = 'fly';
       g.target.to = g;
