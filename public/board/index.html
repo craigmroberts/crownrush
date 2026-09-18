@@ -579,6 +579,7 @@ function renderCast() {
         <nav class="clips">${c.clips.map((cl) => `<button data-i="${i}" data-clip="${cl}"${cl === 'Walk' ? ' class="on"' : ''}>${cl}</button>`).join('')}</nav>
         <dl>
           ${x.story ? `<dt>The story says</dt><dd>${esc(x.story)}</dd>` : ''}
+          ${x.art ? `<dt>The art pass says</dt><dd>${esc(x.art)}</dd>` : ''}
           ${x.model ? `<dt>The model is</dt><dd>${esc(x.model)}</dd>` : ''}
           ${x.gap ? `<dt>The gap</dt><dd class="gap">${esc(x.gap)}</dd>` : ''}
           ${x.close ? `<dt>Would close it</dt><dd>${esc(x.close)}</dd>` : ''}
@@ -610,7 +611,14 @@ function renderWorld() {
   const want = sub() || w.groups[0].name.toLowerCase().replace(/\W+/g, '-');
   const slug = (g) => g.name.toLowerCase().replace(/\W+/g, '-');
   const group = w.groups.find((g) => slug(g) === want) || w.groups[0];
-  side('World', w.groups.map((g) => ({ label: g.name, href: `#/world/${slug(g)}`, on: slug(g) === want, count: g.items.length })));
+  side('World', w.groups.map((g) => ({ label: g.name, href: `#/world/${slug(g)}`, on: slug(g) === want, count: g.items.length }))
+    .concat(w.prose ? [{ label: 'The art pass', href: '#/world/art-pass', on: want === 'art-pass' }] : []));
+  if (want === 'art-pass') {
+    document.getElementById('main').innerHTML = `<h1>The art pass</h1>
+      <p class="lede">What the world was <em>proposed</em> to look like. Older than the story bible, which is why the two disagree in places. From <code>docs/art-pass.md</code>.</p>
+      <div class="prose">${md(w.prose)}</div>`;
+    return;
+  }
 
   // A structure with ages gets one frame per age; one without gets a single frame. The age is the
   // whole point for the first group — it is one building drawn four ways, not four buildings.

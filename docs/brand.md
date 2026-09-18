@@ -92,6 +92,35 @@ decision.** `tokens-resolve` in `npm run check` enforces the half of that which 
 
 ---
 
+## Four rules for the HUD
+
+From the interface review. They are about **where** things go and what may be dropped, not about how
+they look, which is why they survived the repaint that followed.
+
+The reasoning underneath all four: a player spends roughly four fifths of their attention on the
+field and the rest on the HUD, and reads it in peripheral vision — by shape and colour, not by
+reading.
+
+1. **Sort by tempo, not by type.** Health and coins change every second and must be legible without
+   looking. Materials change every minute. Score changes once a run. They do not belong in the same
+   row at the same size.
+2. **Never drop something silently.** If it does not fit, it collapses into a count that says so and
+   opens the rest. *A number that quietly disappears is worse than no number.* This came from a
+   measured finding: at 604px, four of eight status chips were being thrown away by
+   `overflow: hidden` — no marker, no scroll, no hint they existed.
+3. **One lane each.** Status, countdown, alarm, notice and action each own a horizontal band.
+   Nothing is positioned by percentage into a band something else may already hold. The alarm used
+   to sit at `18% + 54px`, which is exactly where the toast landed.
+4. **The bar is the door.** The Keep plaque is the level system, so tapping it opens the level
+   sheet. Detail lives one tap away, not crammed in beside the thing it describes. *(This one
+   shipped — the Keep sheet is `?view=keep`.)*
+
+**Horizontal scroll was considered for rule 2 and rejected.** A scroll region hides content behind a
+gesture the player has to discover, and the status bar is read in peripheral vision during a fight.
+Nobody swipes a status bar mid-raid. Collapsing to `+2` keeps the fact that there is more *visible*.
+
+---
+
 ## Voice: two of them, and four places to speak
 
 Four surfaces carry messages, and which one gets what is a decision, not an accident.

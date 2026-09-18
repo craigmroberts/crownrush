@@ -12,10 +12,27 @@ is editing the board. Each entry carries:
 
 - **Fit** — `n/5`, or `unjudged` where nobody has looked yet. Do not invent one to fill the column.
 - **Story says** — what the bible asks for.
+- **Art pass says** — what the art-direction canvas asked for, where it has an entry.
 - **Model is** — what is actually on screen.
 - **Gap** — the shortest honest description of the difference.
 
 `Fit` means *does this model read as this character*, not *is this model good*.
+
+**There are two briefs, and they do not agree.** The art pass came first and the story bible came
+later, so where a model looks "wrong" it is often following the older brief faithfully. That is a
+decision to take, not a bug to fix — and it is why **Art pass says** is a column of its own rather
+than folded into the gap.
+
+### The art pass's standing rules
+
+These were set for the whole enemy cast and are worth keeping whatever else changes.
+
+- **Shape language.** Raider = round, Elite = tall and angular, Brute = wide, Giant = huge. You
+  should be able to read a wave from silhouettes alone.
+- **Colour.** Enemies keep to red, black and pinkish bone so they never read as your blue-and-white
+  army. Eyes become glowing slits on the armoured ones.
+- **Animation.** The walk cycles exist. A wind-up lean before each strike and a stagger on hit is
+  what would make them feel heavy — neither is built.
 
 ---
 
@@ -73,20 +90,26 @@ kingdom's greatest knight; there is a statue of him in the square. He has been t
 eleven years and is very good at his job and cannot help it. At 20% health he stops fighting and
 opens his arms, and then the helm comes off.
 
+**Art pass says.** *"Giant (boss). Bone-white colossus with a pink underbelly, a horned helm,
+leather chest strap and a two-handed greatsword. Sweeps everything nearby and hammers walls."*
+
 **Model is.** Bone-cream armour with brown leather, a brown helm. Bulky, rounded.
 
-**Gap.** **He is not rusted.** The name is the design brief and the model does not meet it — the
-colour the game actually paints him is pale bone, because `boss` falls through to the default tint
-in `rankTints` and rank 0's `light` is `#e3d7b8`. Nothing about the silhouette says "was once the
-finest knight in the kingdom" either; there is no trace of the man under it, which is the whole
-point of the twist.
+**Gap.** **The model is right and the two briefs are wrong about each other.** The bone-white is not
+a mistake — it is the art pass, followed accurately, and `rankTints` paints it from rank 0's
+`light: #e3d7b8` on purpose. What has changed underneath it is the story: draft four made this
+character a man in **rusted armour** who was the kingdom's greatest knight, and bone-white says
+neither of those things. There is also no trace of the man under it, and the biggest beat in the
+game is the helm coming off — it is currently one mesh.
 
-**Fit** 1/5
+**This one is a decision, not a fix.** Either the Rust stops being bone (and the art pass's
+"pinkish bone" enemy palette loses its top note), or the story stops calling him the Rust.
 
-**Would close it.** Orange-brown oxidised metal, obviously. Beyond that: some piece of the
-kingdom's own heraldry still legible under the corrosion, so the reveal is something a player could
-have seen coming. **The helm needs to be removable** — the story's biggest beat is it coming off,
-and it is currently one mesh.
+**Fit** 1/5 — against the story. Against the art pass it would be 4/5.
+
+**Would close it.** If the story wins: orange-brown oxidised metal, with some piece of the kingdom's
+own heraldry still legible under the corrosion so the reveal is something a player could have seen
+coming. Either way, **the helm needs to be removable.**
 
 ---
 
@@ -113,11 +136,15 @@ back half of a run.
 off and shoot the wall crews. One of your own soldiers knew a face among the dead — it was his
 father's. Bramble: *"they're not raiders, love. Raiders want something. Look at their feet."*
 
+**Art pass says.** *"Round red kettle helmet with nose guard and plume, small round shield, short
+sword. The common foot soldier."* Round is its half of the shape language.
+
 **Model is.** Not yet looked at on the sheet.
 
-**Gap.** Unmeasured. But the story makes two specific visual demands and both are checkable: **the
-kingdom's colours under the rust**, and **something wrong with their feet.** Bramble's line is the
-moment the player is told what they are, and it only works if the thing she points at is on screen.
+**Gap.** Unmeasured against the art pass. Against the story there are two specific visual demands
+and both are checkable: **the kingdom's colours under the rust**, and **something wrong with their
+feet.** Bramble's line is the moment the player is told what these things are, and it only works if
+what she points at is on screen. Neither demand existed when the art pass was written.
 
 **Fit** unjudged
 
@@ -130,6 +157,10 @@ moment the player is told what they are, and it only works if the thing she poin
 **Story says.** Nothing specific. They are the harder version of the raiders and inherit the same
 rule: the kingdom's colours under the rust.
 
+**Art pass says.** *"Black plate with steel pauldrons, full-face great helm with a glowing visor
+slit, red crest, longsword. Arrives from wave 8."* Tall and angular is its half of the shape
+language.
+
 **Model is.** Not yet looked at on the sheet.
 
 **Fit** unjudged
@@ -141,6 +172,9 @@ rule: the kingdom's colours under the rust.
 **Model** `brute.glb` · **Wears** `darkRed: tunic`, `leather: trim`
 
 **Story says.** Nothing specific.
+
+**Art pass says.** *"Barrel body, bare arms, horned cap and a studded club. Slow, wide and mean;
+drops more coin."* Wide is its half of the shape language.
 
 **Model is.** Not yet looked at on the sheet.
 
@@ -155,6 +189,10 @@ Enemy archers get the rank tunic.
 
 **Story says.** Nothing specific about your soldiers as individuals. The one story demand is that
 **yours and theirs must be distinguishable at a glance**, because the same rig plays both.
+
+**Art pass says.** The archer is the reference the whole enemy cast is drawn against — *"rounded
+head half the height, outlined shapes, flat cel colour"* — and your army is blue-and-white so the
+enemies' red, black and bone never collide with it.
 
 **Model is.** Not yet looked at on the sheet.
 

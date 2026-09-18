@@ -99,7 +99,13 @@ const groups = GROUPS.map((g) => ({
 
 const missing = GROUPS.flatMap((g) => g.items).filter((it) => !has(it.builder)).map((it) => it.builder);
 
-const out = { at: new Date().toISOString(), ages, groups, missing };
+// The art pass's written half. A proposal, not a record -- kept beside the live frames so the two
+// can be read against each other, which is the only way to see that brick never arrived and the
+// watchtower's visible crew never got built.
+let prose = null;
+try { prose = readFileSync(join(ROOT, 'docs', 'art-pass.md'), 'utf8'); } catch (e) { /* not written */ }
+
+const out = { at: new Date().toISOString(), ages, groups, missing, prose };
 mkdirSync(dirname(OUT), { recursive: true });
 const json = JSON.stringify(out);
 writeFileSync(OUT, json);

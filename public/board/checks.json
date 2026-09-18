@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-18T12:13:01.045Z",
+  "at": "2026-09-18T12:15:56.317Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -35,6 +35,13 @@
       "cost": "free",
       "asserts": "No `:root` token is defined as itself; any nothing reads is named.",
       "why": "`--figure: var(--figure)` shipped -- a cycle, so six rules fell back to inherit and no number was gold."
+    },
+    {
+      "id": "icons-unique",
+      "area": "Brand",
+      "cost": "free",
+      "asserts": "No icon name is declared twice in the icon set.",
+      "why": "`ICONS.iron` was an ingot and then a wall; the wall won, and the iron chip showed a wall."
     },
     {
       "id": "icons-exist",
@@ -138,32 +145,32 @@
   "checks": {
     "pads-requires-exist": {
       "pass": true,
-      "at": "2026-09-18T12:13:01.034Z"
+      "at": "2026-09-18T12:15:56.306Z"
     },
     "pads-buildat-in-bounds": {
       "pass": true,
-      "at": "2026-09-18T12:13:01.034Z"
+      "at": "2026-09-18T12:15:56.307Z"
     },
     "pads-no-overlap": {
       "pass": true,
-      "at": "2026-09-18T12:13:01.038Z"
+      "at": "2026-09-18T12:15:56.310Z"
     },
     "opening-homes-legal": {
       "pass": true,
-      "at": "2026-09-18T12:13:01.038Z"
+      "at": "2026-09-18T12:15:56.310Z"
     },
     "icons-exist": {
       "pass": true,
-      "at": "2026-09-18T12:13:01.044Z"
+      "at": "2026-09-18T12:15:56.317Z"
     },
     "upgrade-mods-exist": {
       "pass": true,
       "note": "17 of 17 upgrades declare a mod key, all 17 resolve",
-      "at": "2026-09-18T12:13:01.044Z"
+      "at": "2026-09-18T12:15:56.317Z"
     },
     "footprints-cover-kinds": {
       "pass": true,
-      "at": "2026-09-18T12:13:01.045Z"
+      "at": "2026-09-18T12:15:56.317Z"
     },
     "walls-solid": {
       "pass": true,
@@ -210,7 +217,12 @@
     "tokens-resolve": {
       "pass": true,
       "note": "no cycles; 3 tokens nothing reads -- --frame-hi, --frame-lo, --danger-edge (#135)",
-      "at": "2026-09-18T12:13:01.043Z"
+      "at": "2026-09-18T12:15:56.316Z"
+    },
+    "icons-unique": {
+      "pass": true,
+      "note": "54 icons, no key declared twice",
+      "at": "2026-09-18T12:15:56.317Z"
     }
   }
 }

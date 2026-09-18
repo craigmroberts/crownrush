@@ -1468,7 +1468,8 @@ src/crowd.js      draws the crowd as one instanced mesh per model, skinned on th
 public/board/     the admin page, served at /board/ (dashboard, live game views, tests, tickets)
 tools/board/      measures dist/, the palette, the cast and the structures (npm run board)
 docs/brand.md     the brand decisions and what is still open (the board renders it)
-docs/cast-review.md  every character model against what the story now says it is
+docs/cast-review.md  every character model against the story and the art pass
+docs/art-pass.md  the art-direction brief for the world, and what of it landed
 tools/checks/     the check registry and its two runners, free and headless (npm run check)
 tools/blender/    Blender script that builds and exports rigged characters (public/models/*.glb)
 tools/fit/        fits a character to a reference image, locally, with no AI in the loop
