@@ -59,6 +59,19 @@ export function swayMaterial(color) {
 export function matFlat(color, opts = {}) {
   return mat(color, { flatShading: true, ...opts });
 }
+// #165: for a colour that is used ONCE. `mat` caches for ever on the assumption that a colour will be
+// asked for again, which was true when the palette was a fixed few dozen and stopped being true when
+// trees started mixing their own greens (e98bb9f): every tree put four freshly-jittered hexes into
+// the cache, every bush two, and `bake` turned all of them into vertex colours a moment later. About
+// 1,300 materials created at world build, each used exactly once, retained for the life of the page.
+// This one is garbage the moment the tree is baked, which is what it should be.
+export function matFlatOnce(color) {
+  return new THREE.MeshStandardMaterial({ color, roughness: 0.88, metalness: 0, flatShading: true });
+}
+// For the perf overlay (#166) and for measuring #165: how big the for-ever caches have got.
+export function cacheSizes() {
+  return { materials: matCache.size, tags: tagCache.size, popups: popupCache.size };
+}
 export const GHOST_MAT = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.4, depthWrite: false });
 const OUTLINE_MAT = new THREE.MeshBasicMaterial({ color: 0x1b1b24, side: THREE.BackSide });
 
@@ -1044,7 +1057,7 @@ export function makeTree(scale = 1) {
   const top = tint(0x4fb56a, dh, dl + 0.04);
   const bark = tint(C.mane, (Math.random() - 0.5) * 0.02, (Math.random() - 0.5) * 0.08);
   const trunkH = 1.1 * (0.85 + Math.random() * 0.4);
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.26, trunkH, 7), matFlat(bark));
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.26, trunkH, 7), matFlatOnce(bark));
   trunk.position.y = trunkH / 2;
   trunk.castShadow = true;
   g.add(trunk);
@@ -1060,14 +1073,14 @@ export function makeTree(scale = 1) {
     // round canopy: a cluster of faceted blobs
     const blobs = [[0, 2.0, 0, 1.05, leaf], [-0.55, 1.6, 0.3, 0.7, dark], [0.6, 1.7, -0.25, 0.72, dark], [0.1, 2.6, 0.2, 0.62, top], [-0.2, 1.5, -0.6, 0.6, dark]];
     for (const [x, y, z, r, c] of blobs) {
-      const b = foliage(new THREE.Mesh(new THREE.DodecahedronGeometry(r * (0.85 + Math.random() * 0.3), 0), matFlat(c)));
+      const b = foliage(new THREE.Mesh(new THREE.DodecahedronGeometry(r * (0.85 + Math.random() * 0.3), 0), matFlatOnce(c)));
       b.position.set(x, y + trunkH - 1.1, z);
       b.rotation.set(Math.random(), Math.random(), Math.random());
     }
   } else if (kind < 0.8) {
     // pine: faceted tiers, lighter towards the top
     for (const [y, r, h, c] of [[1.4, 1.25, 1.5, dark], [2.2, 0.95, 1.35, leaf], [2.95, 0.62, 1.1, top]]) {
-      const t = foliage(new THREE.Mesh(new THREE.ConeGeometry(r, h, 7), matFlat(c)));
+      const t = foliage(new THREE.Mesh(new THREE.ConeGeometry(r, h, 7), matFlatOnce(c)));
       t.position.y = y + trunkH - 1.1;
     }
   } else {
@@ -1077,7 +1090,7 @@ export function makeTree(scale = 1) {
     const lean = (Math.random() - 0.5) * 0.18;
     for (let i = 0; i < 4; i++) {
       const r = 0.82 - i * 0.16;
-      const t = foliage(new THREE.Mesh(new THREE.ConeGeometry(r, 0.95, 6), matFlat(i % 2 ? leaf : dark)));
+      const t = foliage(new THREE.Mesh(new THREE.ConeGeometry(r, 0.95, 6), matFlatOnce(i % 2 ? leaf : dark)));
       t.position.set(lean * i, trunkH + 0.35 + i * 0.62, lean * i * 0.6);
       t.rotation.y = i * 0.9;
     }
@@ -1093,7 +1106,7 @@ export function makeBush() {
   const dl = (Math.random() - 0.5) * 0.12;
   for (let i = 0; i < 3; i++) {
     const r = 0.45 + Math.random() * 0.25;
-    const m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), matFlat(tint(i === 1 ? C.leaf : C.leafDark, dh, dl)));
+    const m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), matFlatOnce(tint(i === 1 ? C.leaf : C.leafDark, dh, dl)));
     m.position.set((Math.random() - 0.5) * 0.9, r * 0.7, (Math.random() - 0.5) * 0.9);
     m.rotation.set(Math.random(), Math.random(), 0);
     m.castShadow = true;
@@ -1741,8 +1754,19 @@ const popupCache = new Map();
 // fixed 160px canvas at 54px, which fits "+1" and clips anything with a word in it; this measures the
 // text first, sizes the canvas to it, and puts it on a plaque so it reads as a thing you can act on.
 const tagCache = new Map();
+// #165: keyed on the whole label -- "9 Wood", "10 Wood", "11 Wood" are three entries -- and each one
+// holds a canvas, an uploaded texture and a material. It only ever grew. Now it is a small LRU: a
+// re-used label moves to the back, the front is dropped and DISPOSED when the map passes the cap.
+// 48 is comfortably more labels than are ever live at once and comfortably fewer than a long run
+// produces. The sprites handed out hold a clone of the material and the texture by reference, so a
+// live sprite whose entry is evicted keeps drawing; only the cache lets go.
+const TAG_CACHE_MAX = 48;
 export function makeTag(text) {
-  if (!tagCache.has(text)) {
+  if (tagCache.has(text)) {
+    const e = tagCache.get(text);
+    tagCache.delete(text);
+    tagCache.set(text, e);
+  } else {
     const pad = 26;
     const font = 'bold 40px "Trebuchet MS", system-ui, sans-serif';
     const m = document.createElement('canvas').getContext('2d');
@@ -1769,6 +1793,13 @@ export function makeTag(text) {
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
     tagCache.set(text, { mat: new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }), aspect: w / h });
+    if (tagCache.size > TAG_CACHE_MAX) {
+      const oldest = tagCache.keys().next().value;
+      const gone = tagCache.get(oldest);
+      tagCache.delete(oldest);
+      gone.mat.map.dispose();
+      gone.mat.dispose();
+    }
   }
   const e = tagCache.get(text);
   const s = new THREE.Sprite(e.mat.clone());

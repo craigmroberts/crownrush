@@ -6,7 +6,7 @@ import { MODS } from './upgrades.js';
 import { recordRun, readNumber, writeNumber, readLegacy, addLegacy, unlockDiary } from './scores.js';
 import { buildWorld, setupLights } from './world.js';
 import { Input } from './input.js';
-import { setHealthBar, HealthBars, CoinField, clearHealthBars, makeRing, makeCoinStack, makeCamp } from './models.js';
+import { setHealthBar, HealthBars, CoinField, clearHealthBars, makeRing, makeCoinStack, makeCamp, cacheSizes } from './models.js';
 import { V3, tmp, tmp2, rand } from './game-shared.js';
 import { BuildMethods } from './game-build.js';
 import { EnemiesMethods } from './game-enemies.js';
@@ -62,6 +62,8 @@ export class Game {
     // `plain` is exactly "the shadow map is off", which is the ordinary phone: see the line above
     // that sets it. The world needs to know, because then its contact shadows are the only ones.
     this.world = buildWorld(this.scene, plain);
+    // #165 / #166: how big the for-ever caches in models.js are, for the perf overlay and for tests.
+    this.cacheSizes = cacheSizes;
     this.buildFog();
     // every health bar in the game is drawn by this one instanced mesh
     this.bars = new HealthBars(600);
