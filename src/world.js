@@ -537,7 +537,15 @@ export function buildWorld(scene, soleShadows = false) {
   // this number moves, with coins dropped in open field. That is the first thing to look at if it
   // ever goes higher again.
   const TUFTS = 13000;
-  const tufts = new THREE.InstancedMesh(tuftGeo, swayMaterial(0x88bd5a), TUFTS);
+  // WHITE, because the green moves to the instances. 13,000 tufts sharing one flat colour is what made
+  // a field read as one enormous object rather than as grass -- density was never the thing missing.
+  // `instanceColor` is per-instance data: a buffer, no extra draw call, no extra material.
+  //
+  // Its own cache key, for the reason the note on `swayMaterial` gives: this material now compiles
+  // with `USE_INSTANCING_COLOR` and the wheat's does not, and the difference between two shaders
+  // being handed the same program is silent.
+  const tufts = new THREE.InstancedMesh(tuftGeo, swayMaterial(0xffffff), TUFTS);
+  tufts.material.customProgramCacheKey = () => 'sway-tinted';
   // Flowers carry more of the lushness than their number suggests, so there are four times as many
   // and each is cheaper: 5 by 3 segments is 20 triangles against the old 6 by 5's 48, and at this
   // size nobody has ever counted the facets on a daisy.
@@ -546,6 +554,8 @@ export function buildWorld(scene, soleShadows = false) {
   const FLOWERS = 300;
   const flowers = flowerColors.map((c) => new THREE.InstancedMesh(flowerGeo, mat(c), FLOWERS));
   const m4 = new THREE.Matrix4();
+  const tuftScale = new THREE.Vector3();
+  const tuftColor = new THREE.Color();
   let ti = 0;
   const fi = [0, 0, 0];
   // CLUMPED, NOT SPRINKLED, and this is free -- it is where the tufts go, not how many there are.
@@ -575,8 +585,22 @@ export function buildWorld(scene, soleShadows = false) {
     }
     if (!grassFree(x, z)) continue;
     m4.makeRotationY(rand() * Math.PI);
-    m4.scale(new THREE.Vector3(1, 0.8 + rand() * 0.6, 1));
+    // Width as well as height. It varied in height alone before, which gives every tuft in the world
+    // the same footprint and a different stature -- oddly uniform from above, which is the angle this
+    // game is played at. Width and depth move together so a clump stays a clump rather than an oval.
+    const wide = 0.82 + rand() * 0.42;
+    m4.scale(tuftScale.set(wide, 0.8 + rand() * 0.6, wide));
     m4.setPosition(x, 0, z);
+    // Its own green. Hue is the one that does the work -- 84 to 100 degrees, so a patch reads as
+    // several kinds of grass rather than one repeated -- with saturation and lightness widening it
+    // enough that no two neighbours match. The base is the old flat 0x88bd5a: hue 92, sat 43, light 55.
+    tuftColor.setHSL(
+      0.2559 + (rand() - 0.5) * 0.044,
+      Math.min(1, Math.max(0, 0.429 + (rand() - 0.5) * 0.12)),
+      Math.min(0.92, Math.max(0.05, 0.547 + (rand() - 0.5) * 0.22)),
+      THREE.SRGBColorSpace,
+    );
+    tufts.setColorAt(ti, tuftColor);
     tufts.setMatrixAt(ti++, m4);
     if (rand() < 0.28) {
       const k = Math.floor(rand() * 3);
@@ -588,6 +612,7 @@ export function buildWorld(scene, soleShadows = false) {
     }
   }
   tufts.count = ti;
+  if (tufts.instanceColor) tufts.instanceColor.needsUpdate = true;
   flowers.forEach((f, k) => {
     f.count = fi[k];
     scenery.add(f);

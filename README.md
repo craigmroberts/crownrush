@@ -82,6 +82,15 @@ the raids keep coming for a high score.
   patches, because uniform random gives every square metre the same amount of grass and real ground
   never does.
 
+  **And every tuft is its own green.** 13,000 instances sharing one flat colour is what made a field
+  read as one enormous object rather than as grass, and it is the thing density could never fix -- at
+  a reference image's own clump density the old field still looked stamped. Hue carries it, 84 to 100
+  degrees, with saturation and lightness widening the spread: 10,794 distinct colours across 13,000
+  tufts, measured off the buffer. It is `instanceColor`, so it costs a buffer and no draw call and no
+  second material. Width varies with height now too; it varied in height alone, which gave every tuft
+  in the world the same footprint and a different stature -- oddly uniform seen from above, which is
+  the angle this game is played at.
+
   It costs 273k triangles in a scene measuring 981k -- the largest single instanced cost in the world,
   next to 28 characters at 8,576 each for 240k (#52). `TUFTS` in `world.js` is the dial.
 - The village starts as a small plot. "Expand Village" pads grow it in three stages, each with its own
