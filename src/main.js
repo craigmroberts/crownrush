@@ -379,6 +379,7 @@ settingsBtn.addEventListener('click', () => {
   syncSizeLine();
   game.hud.setScoreCount(readScores().length);
   game.hud.setDiaryCount(readDiary().length);   // #154: the row's own count, read fresh on open
+  game.hud.setCastCount(readDiary());          // #159: same list, counted as people met
   game.toggleSettings();
 });
 const closeSettings = () => {
@@ -418,6 +419,17 @@ document.getElementById('dy-close').addEventListener('click', closeDiary);
 document.getElementById('dy-x').addEventListener('click', closeDiary);
 document.getElementById('diary-screen').addEventListener('click', (e) => {
   if (e.target.id === 'diary-screen') closeDiary();
+});
+// #159: the cast, wired the same way for the same reason.
+document.getElementById('set-cast').addEventListener('click', () => {
+  game.hideSettings(true);
+  game.showCast();
+});
+const closeCast = () => game.hideCast();
+document.getElementById('cast-close').addEventListener('click', closeCast);
+document.getElementById('cast-x').addEventListener('click', closeCast);
+document.getElementById('cast-screen').addEventListener('click', (e) => {
+  if (e.target.id === 'cast-screen') closeCast();
 });
 
 const closeScores = () => game.hideScores();

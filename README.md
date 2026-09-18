@@ -451,6 +451,17 @@ explain what she is describing. The act table hands the trick over ready-made: s
 Keep 7 and does not mention it, and says it out loud for the first time at Keep 13, so between those
 two the player knows something the King does not.
 
+**Settings › The cast** (#159) is who everyone is, and it is **unlocked by the diary** rather than by
+a store of its own. A cast list is the one surface that could hand the player the twist for free --
+the Rust has a name, and there is a statue of him in the square -- so an entry may only say what the
+player already knows, and the cleanest way to guarantee that is to key each stage of each entry to a
+Keep level and show it only once Wren's page for that level is open. The cast never says a word the
+diary has not. Six people: the King and Wren from the start, the Rust from the first night, Bracken,
+Bramble and Ilka as Wren writes about them; a character with no stage yet is a locked slot carrying
+the Keep level it wants and nothing else. Portraits are the #100 faces where a model exists and a
+lettered medallion where it does not. The row's count is people met, `2/6`, the way the diary's is
+pages.
+
 One entry per Keep level, because that is already the story clock and already on the HUD. The table
 lives in `src/story.js` beside the mechanical beat it belongs to, so the two cannot drift and the
 bark system can read the same table when it exists. Unlocks are **cross-run** in their own key

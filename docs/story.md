@@ -124,6 +124,10 @@ coins. This one steals Dain, who joined on night four.
 
 Four people. Draft three had eight and that was three too many.
 
+**Built** (#159): `src/story.js` carries this as `CAST`, and Settings › The cast shows it -- each
+entry in stages keyed to the Keep level, unlocked by the diary's own unlocks so it can never say what
+Wren has not yet written. The Rust's name is not in it; that stays with the helm.
+
 ### King Corvyn — the player
 Young, unglamorous, stubborn, and the first king in four generations to do any of the work himself.
 Married a blacksmith's daughter and never explained himself about it. His answer to the supernatural

@@ -1,7 +1,7 @@
 import { iconSvg } from './icons.js';
 import { CFG } from './config.js';
 import { endName } from './scores.js';
-import { BEATS } from './story.js';
+import { BEATS, CAST } from './story.js';
 import { POOL_NAME } from './upgrades.js';
 
 // #68: how many hearts the King's health is cut into. Five is coarse on purpose -- the exact figure
@@ -1023,6 +1023,44 @@ export class Hud {
   hideDiary() {
     document.getElementById('diary-screen').classList.add('hidden');
   }
+
+  // #159: the cast, unlocked by the diary. `have` is the same list `showDiary` gets. A character's
+  // stages are shown in order up to what has been read -- the newest last, because that is the one
+  // the player came to see -- and a character with no stage yet is a locked slot carrying the Keep
+  // level it wants and nothing else: not the name, which for the Rust is the twist, and not the role.
+  // Portraits are the #100 faces where one was rendered; a medallion in the character's colour
+  // otherwise, because three of these people have no model and a broken image is not a portrait.
+  showCast(have, level) {
+    const body = document.getElementById('cast-body');
+    const count = document.getElementById('cast-count');
+    const known = (c) => c.stages.filter((st) => st.lv === 0 || have.includes(st.lv));
+    const met = CAST.filter((c) => known(c).length).length;
+    count.textContent = `${met} of ${CAST.length} met`;
+    body.innerHTML = CAST.map((c) => {
+      const stages = known(c);
+      if (!stages.length) {
+        const first = c.stages[0].lv;
+        const near = first === level + 1 ? ' near' : '';
+        return `<div class="dy-entry cast locked${near}"><span class="cast-face"></span><h2>Keep ${first}</h2></div>`;
+      }
+      const src = this.faces[c.face];
+      const face = src
+        ? `<img class="cast-face" src="${src}" alt="">`
+        : `<span class="cast-face" style="background:${c.colour}">${esc(c.name[0])}</span>`;
+      return `<div class="dy-entry cast">${face}<h2 style="color:${c.colour}">${esc(c.name)} <small>${esc(c.role)}</small></h2>`
+        + stages.map((st) => `<p>${Hud.lean(st.text)}</p>`).join('') + '</div>';
+    }).join('');
+    document.getElementById('cast-screen').classList.remove('hidden');
+  }
+  hideCast() {
+    document.getElementById('cast-screen').classList.add('hidden');
+  }
+  setCastCount(have) {
+    const met = CAST.filter((c) => c.stages.some((st) => st.lv === 0 || have.includes(st.lv))).length;
+    const el = document.getElementById('set-cast-n');
+    const t = `${met}/${CAST.length}`;
+    if (el && el.textContent !== t) el.textContent = t;
+  }
   // The standing signal that there is something new, in the row itself. Deliberately NOT a badge on
   // the settings cog: #120 owns that dot for "an update is ready", and one dot with two meanings
   // tells the player neither.
@@ -1048,6 +1086,7 @@ export class Hud {
     this.hideSettings();
     this.hideScores();
     this.hideDiary();
+    this.hideCast();
     this.hidePause();
   }
   setScoreCount(n) {

@@ -120,3 +120,65 @@ export const BEATS = [
 export function beatFor(level) {
   return BEATS.find((b) => b.lv === level) || null;
 }
+
+// #159: the cast, keyed to the same clock as the diary and unlocked BY it. A cast list is the one
+// surface in the game that could hand the player the twist for free -- the Rust has a name and there
+// is a statue of him in the square -- so an entry may say only what the player already knows at the
+// point they could first read it. Each stage is keyed to a Keep level and shows once Wren's page for
+// that level is unlocked (`readDiary`), so the cast never says a word the diary has not: no second
+// store, no second trigger, nothing to drift. A character with no stage yet is a locked slot with the
+// level it wants and nothing else, the way a locked diary page is.
+//
+// `face` names a speaker whose portrait was rendered at load (#100); the rest get a medallion in
+// their colour, because Bramble, Bracken and Ilka have no model yet and a missing image is not a
+// portrait. They are here even so: Wren has already written about each of them by the level their
+// slot opens, so the list promises nothing the diary has not already delivered.
+//
+// DRAFT, in the same sense the beats above are: written against draft four of the bible, structure
+// load-bearing, sentences a starting point for whoever owns the voice.
+export const CAST = [
+  {
+    id: 'corvyn', name: 'King Corvyn', role: 'the King', face: 'The King', colour: '#ffd27a',
+    stages: [
+      { lv: 0, text: `Young, stubborn, and the first king in four generations to do any of the work himself — the one with the pick in his hand when the quarry wants working. Married a blacksmith's daughter and never explained himself about it. His answer to anything he does not understand is to fetch a hammer and ask what it is made of.` },
+      { lv: 6, text: `He watched one of his own soldiers know a face among the dead and said nothing that night. He is not a man who says nothing. Whatever is coming over the wall was once from here, and he has started to look at it the way he looks at a bad join in the stonework.` },
+    ],
+  },
+  {
+    id: 'wren', name: 'Wren', role: 'the Queen', face: 'Wren', colour: '#ffb0cd',
+    stages: [
+      { lv: 0, text: `Not highborn. Broad hands, no patience for court, funny in a way that alarms people. She walks a step behind the King, and it is her the raiders come for — which nobody has explained to her either. She keeps a diary. It is in this menu.` },
+      { lv: 7, text: `She has started dreaming. She has not mentioned it to anyone, and she has not written it down — read the last few entries again and notice what is not in them.` },
+      { lv: 13, text: `She has said it out loud: *a hill with a door in it, and someone inside who knows my name. She's very polite about it.* She is the last of a line she had never heard of, and what that costs is her decision, not the King's.` },
+    ],
+  },
+  {
+    id: 'rust', name: 'The Rust', role: 'the enemy', colour: '#c9744a',
+    stages: [
+      { lv: 1, text: `A man in rusted armour who leads the raids and has not taken his helm off in anyone's memory. That is the whole of what is known, and it has been enough for twenty years.` },
+      { lv: 5, text: `The men under him wear the kingdom's own colours under the rust. Somebody taught them to stand off and shoot the wall crews. Somebody is giving orders.` },
+      { lv: 6, text: `One of your own soldiers knew a face among the dead. It was his father's. Whoever the Rust is, what he sends against the wall was once from here — and he has kept sending it.` },
+      { lv: 14, text: `He has stopped sending scouts. He knows you are coming, and he has been waiting a long time. There are people alive who would know the face under that helm. Bramble is one of them.` },
+    ],
+  },
+  {
+    id: 'bracken', name: 'Ser Bracken', role: 'the knight nobody sent for', colour: '#9fb4d8',
+    stages: [
+      { lv: 2, text: `Rode in unasked, from somewhere south, and had a work party on the north wall before anyone thought to ask his name. Useful the way a good hammer is useful. Nobody sent for him, and nobody has asked him why he came.` },
+      { lv: 12, text: `He opened the east gate. He is not on this list any more; he is in the raid.` },
+    ],
+  },
+  {
+    id: 'bramble', name: 'Bramble', role: 'the hedge-witch', colour: '#a9d17a',
+    stages: [
+      { lv: 4, text: `The wise woman from the fen. Chickens, poultices, seventy-odd, a filthy sense of humour, and the first person in the game to say *witch* and mean it as a trade. She would not look at the bodies. She looked at their feet.` },
+      { lv: 10, text: `She has known what they are for forty years and has finally said so. She has not said how she knows, and she does not intend to.` },
+    ],
+  },
+  {
+    id: 'ilka', name: 'Ilka', role: 'one of theirs', colour: '#d8c59a',
+    stages: [
+      { lv: 8, text: `One of theirs, who put her sword down in the iron field instead of using it, and would not say a word until dawn. What she said then is in Wren's hand, in the diary.` },
+    ],
+  },
+];

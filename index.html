@@ -366,6 +366,10 @@
              to leave paused. The count in the `<em>` is the standing signal that there is something
              new; the cog's dot belongs to #120 and must keep meaning only one thing. -->
         <button class="sheet-row" id="set-diary"><i data-icon="tiara" data-size="24"></i><span class="sheet-label">Wren&#39;s diary</span><em id="set-diary-n"></em></button>
+        <!-- #159: who everyone is. Unlocked by the diary rather than by a store of its own, so it can
+             never say a word Wren has not already written -- the Rust has a name and this is the one
+             surface that could give it away for free. -->
+        <button class="sheet-row" id="set-cast"><i data-icon="person" data-size="24"></i><span class="sheet-label">The cast</span><em id="set-cast-n"></em></button>
         <!-- #84: a phone that keeps the game on its homescreen is RESUMED rather than navigated, so
              the browser never re-checks the worker and the build it has can sit there for weeks.
              This is the row somebody can be told to press. Hidden outright where there is no
@@ -400,6 +404,17 @@
         <p class="hint" id="dy-count"></p>
         <div id="dy-body"></div>
         <button class="primary" id="dy-close">Back</button>
+      </div>
+    </div>
+    <!-- #159: the cast. The diary's surface with a face on each entry; declared after gameover-screen
+         like every sheet, so it is in `hidePanels`. -->
+    <div id="cast-screen" class="overlay hidden">
+      <div class="panel sheet">
+        <button class="panel-x" id="cast-x" aria-label="Close" title="Close">&times;</button>
+        <h1>The cast</h1>
+        <p class="hint" id="cast-count"></p>
+        <div id="cast-body"></div>
+        <button class="primary" id="cast-close">Back</button>
       </div>
     </div>
     <div id="scores-screen" class="overlay hidden">

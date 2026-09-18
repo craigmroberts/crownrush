@@ -1254,6 +1254,20 @@ export const ViewMethods = {
     this.settingsPaused = this.sheetPause;
   },
 
+  // #159: the cast list, the diary's shape exactly -- same guard, same pause hand-off, same way back.
+  showCast() {
+    if (this.over || this.won || this.castOpen || this.offer) return;
+    this.castOpen = true;
+    this.hud.showCast(readDiary(), this.baseLevel);
+  },
+  hideCast() {
+    if (!this.castOpen) return;
+    this.castOpen = false;
+    this.hud.hideCast();
+    this.showSettings();
+    this.settingsPaused = this.sheetPause;
+  },
+
   toggleSettings() {
     if (this.settingsOpen) this.hideSettings();
     else this.showSettings();

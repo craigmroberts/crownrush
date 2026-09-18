@@ -288,6 +288,7 @@ export class Game {
     this.diaryDue = 0;
     this.diaryNew = 0;
     this.diaryOpen = false;
+    this.castOpen = false;   // #159
     this.feedDef = null;
     this.mounted = false;
     this.res = { wood: 0, stone: 0, straw: 0, iron: 0, diamond: 0 };
@@ -777,6 +778,7 @@ export class Game {
     this.keepOpen = false;
     this.scoresOpen = false;
     this.diaryOpen = false;
+    this.castOpen = false;   // #159
     this.settingsOpen = false;
     this.settingsPaused = false;
     this.infoOpen = false;
@@ -881,7 +883,7 @@ export class Game {
       // #132: `this.gain` is NOT here any more. It used to name a panel holding the pause; it names a
       // notice over a running game now, so excusing it would excuse a genuinely stuck one.
       || this.offer || this.infoOpen || this.settingsOpen
-      || this.keepOpen || this.scoresOpen || this.diaryOpen
+      || this.keepOpen || this.scoresOpen || this.diaryOpen || this.castOpen
       || !this.hud.startHidden() || this.hud.introOpen()   // #118: no run has started yet
       || !this.hud.pauseHidden();       // the player's own pause, with its screen up
     if (excused) {

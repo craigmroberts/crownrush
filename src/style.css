@@ -1508,6 +1508,21 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 .dy-entry.locked { background: rgba(255,255,255,0.03); padding: 8px 13px; }
 .dy-entry.locked h2 { margin: 0; font-size: 13px; font-weight: 700; opacity: 0.38; letter-spacing: 0.04em; text-transform: uppercase; }
 .dy-entry.locked.near h2 { opacity: 0.6; }
+/* #159: the cast shares the diary's reading surface, with a face. The portrait is the #100 speaker
+   face where one exists and a lettered medallion where it does not; either way it sits in the top
+   corner and the name runs beside it, so an entry with three stages reads as one person, not three.
+   The locked slot keeps the medallion's footprint, empty, so the list does not jump when one opens. */
+#cast-screen .panel.sheet { max-width: 30rem; }
+#cast-body { max-height: 56vh; overflow-y: auto; text-align: left; margin: 10px 0 18px; }
+.dy-entry.cast { display: grid; grid-template-columns: 44px 1fr; column-gap: 12px; align-items: start; }
+.dy-entry.cast h2 { margin-top: 3px; }
+.dy-entry.cast h2 small { font-family: "Nunito", "Trebuchet MS", system-ui, sans-serif; font-size: 12px; font-weight: 700; opacity: 0.6; color: var(--ink); margin-left: 4px; }
+.dy-entry.cast p { grid-column: 2; }
+.dy-entry.cast p + p { margin-top: 7px; }
+.cast-face { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; object-fit: cover;
+  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 22px; font-weight: 800; color: #26200f;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.3); grid-row: span 4; }
+.dy-entry.cast.locked .cast-face { background: rgba(255,255,255,0.06); box-shadow: none; }
 
 /* #5: the title screen */
 .panel.title { max-width: 520px; padding: 22px 22px 24px; }
