@@ -444,6 +444,13 @@ export const ViewMethods = {
       f.pile.count++;
       f.pile.bump = 0.22;
       audio.mine(f.pile.type);
+      // #161: the gain, as a number that rises and fades -- this is the frame the player got
+      // something, and the label over the heap is a readout of the total rather than of the gain.
+      // The pile is the owner, so a trip to the trees is one number counting up and not nine
+      // stacked on each other; the same merge the damage numbers use. It is born low, just over the
+      // heap, so it rises past the label rather than starting on top of it.
+      tmp.copy(to).setY(0.1);
+      this.popup('+1', tmp, '#e8d9a0', 0.9, f.pile, 1, '+', true);
     }
   },
 
@@ -516,7 +523,7 @@ export const ViewMethods = {
         }
         p.labelText = want;
         if (want) {
-          p.label = makeTag(want);
+          p.label = makeTag(p.count, CFG.materials[p.type].name, p.type);
           p.label.position.copy(p.mesh.position).setY(1.35 + grown);
           this.root.add(p.label);
         }
@@ -891,9 +898,16 @@ export const ViewMethods = {
 
   // Damage numbers. Hits on the same target within a quarter second merge into one bigger number:
   // a crowd of archers no longer spawns dozens of sprites a second.
-  popup(text, pos, color, scale = 1.4, owner = null, value = 0, sign = '-') {
+  // #161: `hold` is for a number that counts up over seconds rather than one that sums a flurry.
+  // The merge window for a damage number is short (0.45 of its 0.7) and a merge re-kicks its rise,
+  // which is right for hits landing three a second and wrong for a heap: wood lands every 0.45s, so
+  // nothing merged and every chunk put up its own "+1", and widening the window alone sent the one
+  // number climbing away -- each merge started its rise over, ten units up by the end of a trip. A
+  // held number merges for as long as it is alive and keeps the rise it has, so it settles a little
+  // over the heap and counts there.
+  popup(text, pos, color, scale = 1.4, owner = null, value = 0, sign = '-', hold = false) {
     if (owner) {
-      const p = this.popups.find((q) => q.owner === owner && q.t > 0.45);
+      const p = this.popups.find((q) => q.owner === owner && q.t > (hold ? 0 : 0.45));
       if (p) {
         p.value += value;
         const s = makePopup(`${p.sign}${Math.round(p.value)}`, color);
@@ -904,6 +918,7 @@ export const ViewMethods = {
         this.root.add(s);
         p.mesh = s;
         p.t = Math.max(p.t, 0.6);
+        if (!hold) p.age = Math.min(p.age, 0.1);   // the re-kick: a merged hit still rises like one
         p.pop = 0.12;   // a fresh squash when it grows, so a merged hit still reads as a hit
         return;
       }
@@ -916,7 +931,7 @@ export const ViewMethods = {
     // `drift` is seeded per popup so several numbers on one target fan out instead of stacking into
     // a column nobody can read. `base` is what the pop animates around, because the merge path
     // rewrites the mesh and would otherwise lose the size it was born at.
-    this.popups.push({ mesh: s, t: 0.7, owner, value, sign, base: scale, drift: rand(-1.1, 1.1), pop: 0.12, rise: 0 });
+    this.popups.push({ mesh: s, t: 0.7, age: 0, owner, value, sign, base: scale, drift: rand(-1.1, 1.1), pop: 0.12 });
   },
 
   // Free GPU resources of a character that left the scene (health-bar texture, skeleton bone texture).
@@ -1017,12 +1032,13 @@ export const ViewMethods = {
     for (let i = this.popups.length - 1; i >= 0; i--) {
       const p = this.popups[i];
       p.t -= dt;
+      p.age += dt;
       // Thrown, not driven: quick off the target and slowing as it goes, which is the shape every
-      // other moving thing in this game has.
-      const age = 0.7 - p.t;
-      const speed = 4.4 * Math.exp(-age * 2.6);
+      // other moving thing in this game has. `age` is its own clock rather than 0.7 - t, because a
+      // merge extends `t` and only sometimes wants the rise to start over (see `popup`).
+      const speed = 4.4 * Math.exp(-p.age * 2.6);
       p.mesh.position.y += dt * speed;
-      p.mesh.position.x += dt * p.drift * Math.exp(-age * 2.2);
+      p.mesh.position.x += dt * p.drift * Math.exp(-p.age * 2.2);
       // a short squash-and-overshoot on birth, the same curve makeRigged's spawn pop uses
       if (p.pop > 0) {
         p.pop -= dt;

@@ -1761,38 +1761,62 @@ const tagCache = new Map();
 // produces. The sprites handed out hold a clone of the material and the texture by reference, so a
 // live sprite whose entry is evicted keeps drawing; only the cache lets go.
 const TAG_CACHE_MAX = 48;
-export function makeTag(text) {
-  if (tagCache.has(text)) {
-    const e = tagCache.get(text);
-    tagCache.delete(text);
-    tagCache.set(text, e);
+// #161: what the heap's label is and is not. It is a READOUT of what is in the heap -- it appears when
+// the King is near one and sits there while he is -- so it says "9 Wood", not "+9 Wood": you did not
+// just gain nine, the heap in front of you holds nine. The "+" belongs to the floating number that
+// `updatePileFlies` puts up as each piece lands, which is a different thing saying a different fact.
+//
+// It used to shout: a gold stroke round a dark plaque, 40px, and `depthTest: false` so it painted
+// over a tree standing in front of it. The stroke is gone (most of the loudness was the ring, not the
+// fill), the type is 15% smaller, the number is set heavier than the word so the count reads first,
+// the material's own icon sits in front of it, and it is depth-tested, so it is a thing in the world
+// rather than a thing on the glass. The fill stays at 82%: it was never the problem, and on the
+// chartreuse grass anything lighter loses the parchment text.
+export function makeTag(count, name, type) {
+  const key = `${type}:${count}`;
+  if (tagCache.has(key)) {
+    const e = tagCache.get(key);
+    tagCache.delete(key);
+    tagCache.set(key, e);
   } else {
-    const pad = 26;
-    const font = 'bold 40px "Trebuchet MS", system-ui, sans-serif';
+    const numFont = '800 34px "Baloo 2", "Trebuchet MS", system-ui, sans-serif';
+    const nameFont = '700 27px "Nunito", "Trebuchet MS", system-ui, sans-serif';
+    const pad = 20;
+    const gap = 8;
+    const isz = 34;
+    const img = iconImage(type);
     const m = document.createElement('canvas').getContext('2d');
-    m.font = font;
-    const w = Math.ceil(m.measureText(text).width) + pad * 2;
-    const h = 76;
+    m.font = numFont;
+    const numW = Math.ceil(m.measureText(String(count)).width);
+    m.font = nameFont;
+    const nameW = Math.ceil(m.measureText(name).width);
+    const w = pad + (img ? isz + gap : 0) + numW + gap + nameW + pad;
+    const h = 64;
     const canvas = document.createElement('canvas');
     canvas.width = w;
     canvas.height = h;
     const ctx = canvas.getContext('2d');
-    ctx.font = font;
-    ctx.textAlign = 'center';
+    ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    const r = 24;
     ctx.beginPath();
-    ctx.roundRect(4, 12, w - 8, h - 30, r);
+    ctx.roundRect(3, 6, w - 6, h - 12, 20);
     ctx.fillStyle = 'rgba(26,32,17,0.82)';
     ctx.fill();
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = '#d8a83e';
-    ctx.stroke();
-    ctx.fillStyle = '#ffe9b0';
-    ctx.fillText(text, w / 2, h / 2 - 2);
+    let x = pad;
+    if (img) {
+      ctx.drawImage(img, x, h / 2 - isz / 2, isz, isz);
+      x += isz + gap;
+    }
+    ctx.font = numFont;
+    ctx.fillStyle = '#fff2c9';
+    ctx.fillText(String(count), x, h / 2 - 1);
+    x += numW + gap;
+    ctx.font = nameFont;
+    ctx.fillStyle = '#e2d7b5';
+    ctx.fillText(name, x, h / 2 - 1);
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
-    tagCache.set(text, { mat: new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }), aspect: w / h });
+    tagCache.set(key, { mat: new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }), aspect: w / h });
     if (tagCache.size > TAG_CACHE_MAX) {
       const oldest = tagCache.keys().next().value;
       const gone = tagCache.get(oldest);
@@ -1801,9 +1825,11 @@ export function makeTag(text) {
       gone.mat.dispose();
     }
   }
-  const e = tagCache.get(text);
+  const e = tagCache.get(key);
   const s = new THREE.Sprite(e.mat.clone());
-  s.scale.set(1.15 * e.aspect, 1.15, 1);
+  // 64 canvas px to the 0.97 world units the old 76px plaque's 1.15 gave: the same pixels per unit,
+  // so "15% smaller type" is 15% smaller on screen and not a coincidence of the canvas
+  s.scale.set(0.97 * e.aspect, 0.97, 1);
   s.renderOrder = 20;
   return s;
 }
