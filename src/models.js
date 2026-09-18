@@ -172,6 +172,8 @@ export const BAKED_SWAY = (() => {
   };
   return m;
 })();
+// Every material `bake` produces. Anything here is skipped on a second bake -- see the note in `bake`.
+const BAKED = new Set([BAKED_MAT, BAKED_STD, BAKED_SWAY]);
 function prepGeo(geo) {
   const g = geo.index ? geo.toNonIndexed() : geo.clone();
   for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
@@ -227,7 +229,13 @@ export function bake(g, keep = []) {
       return;
     }
     const m = o.material;
-    if (!(m.isMeshToonMaterial || m.isMeshStandardMaterial) || m.transparent || m === BAKED_MAT || m === BAKED_STD || m.map) return;
+    // ALREADY BAKED IS A SET, not three `===` tests, because it has now needed a new member twice and
+    // missed it once. e98bb9f added BAKED_SWAY and not this line, so `makeLumberTree` -- which bakes a
+    // tree it built from an already-baked `makeTree` -- ran the canopy through `colorize` a second
+    // time with the sway material's own colour, which is white. Every choppable tree in the game went
+    // white and lost its wind, and nothing crashed (#155). The failure is a valid colour that is
+    // simply wrong, so the guard has to be structural rather than remembered.
+    if (!(m.isMeshToonMaterial || m.isMeshStandardMaterial) || m.transparent || BAKED.has(m) || m.map) return;
     if (m.emissive && m.emissive.getHex() !== 0) return;
     parts.push(o);
   });
