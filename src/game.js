@@ -70,7 +70,10 @@ export class Game {
     this.coinField = new CoinField(400);
     this.coinField.add(this.scene);
     // Phones: characters get one instanced "blob" shadow each instead of rendering into the shadow map
-    // (that pass cost a second draw call per character); buildings and trees keep real shadows.
+    // (that pass cost a second draw call per character). This used to say buildings and trees keep
+    // real shadows, and they do not -- `plain` above turns the shadow map off entirely on any phone
+    // without `?hq=1`, so on a phone NOTHING casts. The static world gets the instanced contact discs
+    // `buildWorld` lays down instead, which is why it is told `plain`.
     // The crowd — raiders, archers, swordsmen, elites, brutes, the boss — is drawn as one instanced
     // mesh per model and animated on the GPU (src/crowd.js). ?crowd=0 puts every character back on
     // the skinned path this used to take, for comparing the two or for a device the instanced one
