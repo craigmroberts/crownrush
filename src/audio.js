@@ -50,10 +50,25 @@ const NIGHT_CHORDS = [
 ];
 const NIGHT_BASS = [['A2', 'E3'], ['E2', 'B2'], ['F2', 'C3'], ['D2', 'A2'], ['A2', 'E3'], ['E2', 'B2'], ['F2', 'C3'], ['E2', 'B2']];
 
+// #174: a stored volume, or the default when there is none or it is nonsense
+function readVol(key, fallback) {
+  try {
+    const v = parseFloat(localStorage.getItem(key));
+    return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
 class Audio {
   constructor() {
     this.ctx = null;
     this.muted = localStorage.getItem('crownrush-muted') === '1';
+    // #174: music and effects volumes, 0..1, kept beside the mute. They are their own gain nodes
+    // between each bus and the master rather than a scale on the buses' own gains, because the music
+    // bus is ramped by `rampMusic` and the ducking would fight a user volume written onto it.
+    this.musicVol = readVol('crownrush-music', 0.7);
+    this.sfxVol = readVol('crownrush-sfx', 0.8);
     this.lastHit = 0;
     this.lastChing = 0;
     this.lastHurt = 0;
@@ -88,7 +103,10 @@ class Audio {
     this.music = this.ctx.createGain();
     this.music.gain.value = MUSIC;
     this.musicTarget = MUSIC;        // where `rampMusic` believes the bus is heading, so the first call is a no-op
-    this.music.connect(this.master);
+    this.musicVolGain = this.ctx.createGain();
+    this.musicVolGain.gain.value = this.musicVol;
+    this.music.connect(this.musicVolGain);
+    this.musicVolGain.connect(this.master);
     // #32: day and night play on the same clock into their own buses, and nightfall is a cross-fade
     // between the two rather than a swap, so no bar is ever cut short or restarted.
     this.dayBus = this.ctx.createGain();
@@ -99,7 +117,10 @@ class Audio {
     this.nightBus.connect(this.music);
     this.sfx = this.ctx.createGain();
     this.sfx.gain.value = 0.9;
-    this.sfx.connect(this.master);
+    this.sfxVolGain = this.ctx.createGain();
+    this.sfxVolGain.gain.value = this.sfxVol;
+    this.sfx.connect(this.sfxVolGain);
+    this.sfxVolGain.connect(this.master);
     this.buildLoop();
     this.startMusic();
     // Hiding the page has to suspend from here, because requestAnimationFrame stops with it and
@@ -209,6 +230,19 @@ class Audio {
       if (!this.active) this.ctx.suspend().catch(() => {});
     };
     for (const ev of ['pointerdown', 'touchstart', 'keydown', 'click']) window.addEventListener(ev, tryIt, true);
+  }
+
+  // #174: the two sliders. Set outright rather than ramped for the reason `setMasterGain` gives: the
+  // context is suspended while the sheet that holds them is open, so there is no clock to ramp along.
+  setMusicVolume(v) {
+    this.musicVol = Math.max(0, Math.min(1, v));
+    try { localStorage.setItem('crownrush-music', String(this.musicVol)); } catch (e) { /* private mode */ }
+    if (this.musicVolGain) this.musicVolGain.gain.value = this.musicVol;
+  }
+  setSfxVolume(v) {
+    this.sfxVol = Math.max(0, Math.min(1, v));
+    try { localStorage.setItem('crownrush-sfx', String(this.sfxVol)); } catch (e) { /* private mode */ }
+    if (this.sfxVolGain) this.sfxVolGain.gain.value = this.sfxVol;
   }
 
   setMuted(m) {

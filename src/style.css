@@ -980,8 +980,47 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
   box-shadow: 0 1px 3px rgba(0,0,0,0.5);
 }
 /* the settings sheet: the same parchment and gold as every other dialog */
-.panel.sheet { max-width: 320px; }
+.panel.sheet { max-width: 340px; }
 .panel.sheet h1 { font-size: 30px; }
+/* #174: the tabs. Four small pills in a row, the active one teal, the reference's control; the panes
+   under them simply show or hide. `.panel .tabs .tab` outranks `.panel button` on purpose. */
+.panel .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0 14px; }
+.panel .tabs .tab {
+  width: auto; margin: 0; padding: 9px 4px; font-size: 14px; font-weight: 800; border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--ink-dim);
+  box-shadow: none; text-shadow: none;
+}
+.panel .tabs .tab.on { background: linear-gradient(180deg, #3aa383, #24785f); border-color: #5ccfa8; color: #f2fff8; box-shadow: 0 2px 0 #14503f; }
+.panel .tabs .tab:active { padding: 9px 4px; border-width: 1px; }
+#set-close .icon { transform: scaleX(-1); }   /* the set's chevron points on; Back points back */
+.panel .tab-pane { display: none; }
+.panel .tab-pane.on { display: block; }
+/* a row that holds a control rather than opening something: no press state, and the control on the
+   right. The teal pill says on or off; the slider is the browser's, painted teal. */
+/* `min-width: 0` on both, because a grid item and a flex item each default to their content's minimum
+   and a slider row was widening the whole panel past a 320px screen (measured: right edge at 330).
+   The quality segment wraps under its label rather than pushing the row out. */
+.panel { min-width: 0; }
+.panel.sheet .sheet-row { min-width: 0; }
+.panel.sheet .sheet-row.static { flex-wrap: wrap; row-gap: 8px; }
+.panel.sheet .sheet-row.static .seg3 { margin-left: auto; }
+.panel.sheet .sheet-row.static, .panel.sheet .sheet-row.slider { cursor: default; }
+.panel.sheet .sheet-row.static:active, .panel.sheet .sheet-row.slider:active { transform: none; background: var(--surface-2); }
+.panel.sheet .sheet-row .pill {
+  font-size: 13px; font-weight: 800; color: #f2fff8; padding: 3px 12px; border-radius: 999px; min-width: 44px; text-align: center;
+  background: linear-gradient(180deg, #3aa383, #24785f); border: 1px solid #5ccfa8; box-shadow: 0 2px 0 #14503f;
+}
+.panel.sheet .sheet-row .pill.off { background: rgba(0, 0, 0, 0.3); border-color: rgba(255, 255, 255, 0.14); color: var(--ink-dim); box-shadow: none; }
+.panel.sheet .sheet-row.slider input[type=range] { flex: 1 1 60px; min-width: 0; width: 60px; accent-color: #3fbf9a; margin: 0; }
+.panel.sheet .sheet-row.slider .sheet-label { flex: 0 1 auto; }
+.panel.sheet .sheet-row.slider em { min-width: 40px; text-align: right; }
+.panel.sheet .sheet-row .seg3 { display: inline-flex; gap: 4px; }
+.panel.sheet .sheet-row .seg3 button {
+  width: auto; margin: 0; padding: 5px 9px; font-size: 13px; border-radius: 7px; box-shadow: none; text-shadow: none;
+  background: rgba(0, 0, 0, 0.28); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--ink-dim);
+}
+.panel.sheet .sheet-row .seg3 button.on { background: linear-gradient(180deg, #3aa383, #24785f); border-color: #5ccfa8; color: #f2fff8; }
+.panel.sheet .sheet-row .seg3 button:active { padding: 5px 9px; border-width: 1px; }
 /* scoped past `.panel button`, which would otherwise paint these as big gold play buttons */
 .panel.sheet .sheet-row {
   display: flex; align-items: center; gap: 12px; width: 100%; margin-bottom: 10px;

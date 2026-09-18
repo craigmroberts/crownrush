@@ -922,6 +922,7 @@ export const ViewMethods = {
   // held number merges for as long as it is alive and keeps the rise it has, so it settles a little
   // over the heap and counts there.
   popup(text, pos, color, scale = 1.4, owner = null, value = 0, sign = '-', hold = false) {
+    if (sign === '-' && !this.numbersOn) return;   // #174: damage numbers off; gains still show
     if (owner) {
       const p = this.popups.find((q) => q.owner === owner && q.t > (hold ? 0 : 0.45));
       if (p) {

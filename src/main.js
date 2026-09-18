@@ -421,6 +421,7 @@ settingsBtn.addEventListener('click', () => {
   game.hud.setScoreCount(readScores().length);
   game.hud.setDiaryCount(readDiary().length);   // #154: the row's own count, read fresh on open
   game.hud.setCastCount(readDiary());          // #159: same list, counted as people met
+  syncSettings();                               // #174: sliders, pills and the tab, read fresh on open
   game.toggleSettings();
 });
 const closeSettings = () => {
@@ -439,6 +440,48 @@ document.getElementById('set-sound').addEventListener('click', () => {
   audio.setMuted(!audio.muted);
   syncSound();
 });
+// #174: the tabs, the sliders, the toggles and the quality choice. Every control takes effect on the
+// tap and is written down at once, so the sheet has no Apply and no state of its own to lose; the
+// last tab opened is remembered, because the one thing a player adjusts is usually the same thing.
+const setTabs = document.getElementById('set-tabs');
+const showTab = (name) => {
+  for (const t of setTabs.querySelectorAll('.tab')) t.classList.toggle('on', t.dataset.tab === name);
+  for (const pane of settingsScreen.querySelectorAll('.tab-pane')) pane.classList.toggle('on', pane.dataset.pane === name);
+  try { localStorage.setItem('crownrush-settab', name); } catch (e) { /* private mode */ }
+};
+setTabs.addEventListener('click', (e) => {
+  const t = e.target.closest('.tab');
+  if (t) showTab(t.dataset.tab);
+});
+const musicSlider = document.getElementById('set-music');
+const sfxSlider = document.getElementById('set-sfx');
+musicSlider.addEventListener('input', () => { audio.setMusicVolume(musicSlider.value / 100); syncSettings(); });
+sfxSlider.addEventListener('input', () => { audio.setSfxVolume(sfxSlider.value / 100); syncSettings(); });
+document.getElementById('set-shake').addEventListener('click', () => { game.setShake(!game.shakeOn); syncSettings(); });
+document.getElementById('set-numbers').addEventListener('click', () => { game.setNumbers(!game.numbersOn); syncSettings(); });
+document.getElementById('set-quality').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  game.setQualityChoice(b.dataset.q);
+  syncSettings();
+});
+// what the sheet shows, read off the things themselves rather than kept in step
+function syncSettings() {
+  musicSlider.value = Math.round(audio.musicVol * 100);
+  sfxSlider.value = Math.round(audio.sfxVol * 100);
+  document.getElementById('set-music-v').textContent = `${Math.round(audio.musicVol * 100)}%`;
+  document.getElementById('set-sfx-v').textContent = `${Math.round(audio.sfxVol * 100)}%`;
+  const pill = (id, on) => { const el = document.getElementById(id); el.textContent = on ? 'On' : 'Off'; el.classList.toggle('off', !on); };
+  pill('set-sound-state', !audio.muted);
+  pill('set-shake-state', game.shakeOn);
+  pill('set-numbers-state', game.numbersOn);
+  const q = game.quality.forced == null ? 'auto' : String(game.quality.forced);
+  for (const b of document.querySelectorAll('#set-quality button')) b.classList.toggle('on', b.dataset.q === q);
+  let tab = 'game';
+  try { tab = localStorage.getItem('crownrush-settab') || 'game'; } catch (e) { /* private mode */ }
+  if (!setTabs.querySelector(`.tab[data-tab="${tab}"]`)) tab = 'game';
+  showTab(tab);
+}
 document.getElementById('set-info').addEventListener('click', () => {
   game.hideSettings(true);
   game.showInfo();

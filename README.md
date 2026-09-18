@@ -542,6 +542,20 @@ an older save restores it as 0). The reference's "villagers lost" is not a numbe
 villagers flee, they do not die -- so the row is the Keep level, which is what a run loses. Main
 Menu from an ending is the pause window's Quit with nothing left to save.
 
+**Settings** (#174) is the reference's tabbed sheet with every row the sheet already had sorted into
+the tab it belongs to: **Game** (how to play, best runs, the diary, the cast, restart-asks-twice),
+**Audio** (the sound toggle, and **music** and **effects** sliders that are new -- their own gain
+nodes between each bus and the master, because the music bus is ramped by `rampMusic` and a user
+volume written onto it would fight the ducking), **Video** (**Quality** as Auto / Full / Reduced,
+which is #168's controller or a pinned tier, stored the way the sound is and read at boot behind the
+URL's `?quality=`; **camera shake** and **damage numbers** as pill toggles, each a flag the thing it
+governs reads -- gains still float with numbers off, only the hits go), and **About** (the update
+row, the build, the screen line). The reference's "Controls" tab has nothing to hold on a one-thumb
+game. There is no Apply: every control takes effect on the tap and is written down at once, so the
+call to action is Back and not a promise. The last tab opened is remembered. Measured at 320×568:
+every tab, every row reachable, the panel's right edge at 294 in a 320 viewport on all four -- it was
+330 on two of them until the rows were allowed to shrink and the quality segment to wrap.
+
 Before #170 the buttons were #135's repaint: a near-black fill with a hairline edge and an italic
 label, no glyph, after a gold frame with a rotated diamond at each end had made every button wear the
 full ornament and left a panel offering three of them no way to say *this one*. The emphasis that

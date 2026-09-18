@@ -365,44 +365,59 @@
     </div>
     <!-- #23: one sheet for sound, pause and how to play -->
     <div id="settings-screen" class="overlay hidden">
-      <div class="panel sheet">
+      <!-- #174: the reference's settings -- a gear badge, four tabs, rows of controls. Every row the
+           sheet had is still here, sorted into the tab it belongs to; the reference's "Controls" tab
+           has nothing to hold on a one-thumb game, so the fourth tab is About, where the update row,
+           the build and the screen line (#74) live. Nothing here has an Apply: every control takes
+           effect on the tap, so the call to action is Back and not a promise. -->
+      <div class="panel sheet badged">
+        <div class="panel-badge"><span class="hex"><i data-icon="gear" data-size="32"></i></span></div>
         <button class="panel-x" id="set-x" aria-label="Close" title="Close">&times;</button>
         <h1>Settings</h1>
-        <button class="sheet-row" id="set-sound"><i data-icon="speaker" data-size="24"></i><span class="sheet-label">Sound</span><em id="set-sound-state">On</em></button>
-        <button class="sheet-row" id="set-info"><i data-icon="info" data-size="24"></i><span class="sheet-label">How to play</span></button>
-        <!-- #94: opened the same way How to Play is, through hideSettings(true), so closing it does not
-             resume a game the player meant to leave paused. -->
-        <button class="sheet-row" id="set-scores"><i data-icon="crown" data-size="24"></i><span class="sheet-label">Best runs</span><em id="set-scores-n"></em></button>
-        <!-- #154: Wren's diary. Same row shape as Best runs and opened the same way, through
-             `hideSettings(true)` -- #94's rule, so closing it does not resume a game the player meant
-             to leave paused. The count in the `<em>` is the standing signal that there is something
-             new; the cog's dot belongs to #120 and must keep meaning only one thing. -->
-        <button class="sheet-row" id="set-diary"><i data-icon="tiara" data-size="24"></i><span class="sheet-label">Wren&#39;s diary</span><em id="set-diary-n"></em></button>
-        <!-- #159: who everyone is. Unlocked by the diary rather than by a store of its own, so it can
-             never say a word Wren has not already written -- the Rust has a name and this is the one
-             surface that could give it away for free. -->
-        <button class="sheet-row" id="set-cast"><i data-icon="person" data-size="24"></i><span class="sheet-label">The cast</span><em id="set-cast-n"></em></button>
-        <!-- #84: a phone that keeps the game on its homescreen is RESUMED rather than navigated, so
-             the browser never re-checks the worker and the build it has can sit there for weeks.
-             This is the row somebody can be told to press. Hidden outright where there is no
-             worker to ask. -->
-        <button class="sheet-row hidden" id="set-update"><i data-icon="download" data-size="24"></i><span class="sheet-label">Check for updates</span><em id="set-update-state"></em></button>
-        <!-- #120: what installing costs, under the row and before the tap. The build hash stays at the
-             bottom with the screen details, where a diagnostic belongs; this is not a diagnostic. The
-             two used to share `#set-version`, three rows and a primary button away from the thing it
-             was about, under a comment claiming it was "under the row, before the tap". -->
-        <p class="hint hidden" id="set-update-note"></p>
-        <!-- Restart lives here now, and asks twice: the sheet is opened casually, and one stray tap
-             should not be able to throw away a run. The Pause row it replaces was redundant — the
-             sheet already pauses the game the whole time it is open. -->
-        <button class="sheet-row danger" id="set-restart"><i data-icon="restart" data-size="24"></i><span class="sheet-label">Restart</span><em id="set-restart-hint"></em></button>
-        <button class="primary" id="set-close">Back to the game</button>
-        <p class="hint hidden" id="set-version"></p>
-        <!-- #74: the numbers a screen bug needs, reachable without a URL. `?perf=1` is how they were
-             read before, and a home-screen app cannot be opened with a query string -- the shortcut
-             launches at the manifest's `start_url`, which is exactly the case this bug lives in.
-             Tap it to copy the full line. -->
-        <button class="hint" id="set-size" aria-label="Copy screen details"></button>
+        <div class="tabs" id="set-tabs" role="tablist">
+          <button class="tab on" role="tab" data-tab="game">Game</button>
+          <button class="tab" role="tab" data-tab="audio">Audio</button>
+          <button class="tab" role="tab" data-tab="video">Video</button>
+          <button class="tab" role="tab" data-tab="about">About</button>
+        </div>
+        <div class="tab-pane on" data-pane="game">
+          <button class="sheet-row" id="set-info"><i data-icon="info" data-size="24"></i><span class="sheet-label">How to play</span></button>
+          <!-- #94: opened the same way How to Play is, through hideSettings(true), so closing it does not
+               resume a game the player meant to leave paused. -->
+          <button class="sheet-row" id="set-scores"><i data-icon="crown" data-size="24"></i><span class="sheet-label">Best runs</span><em id="set-scores-n"></em></button>
+          <!-- #154: Wren's diary. The count in the `<em>` is the standing signal that there is something
+               new; the cog's dot belongs to #120 and must keep meaning only one thing. -->
+          <button class="sheet-row" id="set-diary"><i data-icon="tiara" data-size="24"></i><span class="sheet-label">Wren&#39;s diary</span><em id="set-diary-n"></em></button>
+          <!-- #159: who everyone is, unlocked by the diary so it never says a word Wren has not written. -->
+          <button class="sheet-row" id="set-cast"><i data-icon="person" data-size="24"></i><span class="sheet-label">The cast</span><em id="set-cast-n"></em></button>
+          <!-- Restart asks twice: the sheet is opened casually, and one stray tap should not be able to
+               throw away a run. -->
+          <button class="sheet-row danger" id="set-restart"><i data-icon="restart" data-size="24"></i><span class="sheet-label">Restart</span><em id="set-restart-hint"></em></button>
+        </div>
+        <div class="tab-pane" data-pane="audio">
+          <button class="sheet-row" id="set-sound"><i data-icon="speaker" data-size="24"></i><span class="sheet-label">Sound</span><em class="pill" id="set-sound-state">On</em></button>
+          <label class="sheet-row slider"><i data-icon="speaker" data-size="24"></i><span class="sheet-label">Music</span><input type="range" id="set-music" min="0" max="100" step="5" aria-label="Music volume"><em id="set-music-v">70%</em></label>
+          <label class="sheet-row slider"><i data-icon="swords" data-size="24"></i><span class="sheet-label">Effects</span><input type="range" id="set-sfx" min="0" max="100" step="5" aria-label="Effects volume"><em id="set-sfx-v">80%</em></label>
+        </div>
+        <div class="tab-pane" data-pane="video">
+          <!-- #168's adaptive quality as a choice: Auto is the controller, Full and Reduced pin a tier -->
+          <div class="sheet-row static"><i data-icon="gear" data-size="24"></i><span class="sheet-label">Quality</span><span class="seg3" id="set-quality" role="radiogroup" aria-label="Quality"><button data-q="auto" class="on">Auto</button><button data-q="0">Full</button><button data-q="2">Reduced</button></span></div>
+          <button class="sheet-row" id="set-shake"><i data-icon="alert" data-size="24"></i><span class="sheet-label">Camera shake</span><em class="pill" id="set-shake-state">On</em></button>
+          <button class="sheet-row" id="set-numbers"><i data-icon="swords" data-size="24"></i><span class="sheet-label">Damage numbers</span><em class="pill" id="set-numbers-state">On</em></button>
+        </div>
+        <div class="tab-pane" data-pane="about">
+          <!-- #84: a phone that keeps the game on its homescreen is RESUMED rather than navigated, so
+               the browser never re-checks the worker and the build it has can sit there for weeks.
+               This is the row somebody can be told to press. Hidden outright where there is no
+               worker to ask. -->
+          <button class="sheet-row hidden" id="set-update"><i data-icon="download" data-size="24"></i><span class="sheet-label">Check for updates</span><em id="set-update-state"></em></button>
+          <!-- #120: what installing costs, under the row and before the tap. -->
+          <p class="hint hidden" id="set-update-note"></p>
+          <p class="hint hidden" id="set-version"></p>
+          <!-- #74: the numbers a screen bug needs, reachable without a URL. Tap it to copy the full line. -->
+          <button class="hint" id="set-size" aria-label="Copy screen details"></button>
+        </div>
+        <button class="primary" id="set-close"><i data-icon="chev" data-size="20"></i><span>Back</span></button>
       </div>
     </div>
     <!-- #94: ten finished runs, best first. Two things on the row and the rest under them, because the

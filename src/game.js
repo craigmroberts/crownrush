@@ -16,6 +16,16 @@ import { VillagerMethods } from './game-villagers.js';
 import { SaveMethods, readLength } from './game-save.js';
 import { QualityMethods } from './game-quality.js';
 
+// #174: a stored on/off, defaulting on when nothing is stored
+function readFlag(key, fallback) {
+  try {
+    const v = localStorage.getItem(key);
+    return v == null ? fallback : v === '1';
+  } catch (e) {
+    return fallback;
+  }
+}
+
 export class Game {
   constructor(canvas, hud) {
     this.canvas = canvas;
@@ -74,7 +84,14 @@ export class Game {
     // #168: the adaptive-quality state. `forced` is `?quality=N`, which pins a tier (0 = full) and
     // switches the controller off, for probes and screenshots that need the same picture every time.
     const qm = /[?&]quality=(\d)/.exec(location.search);
-    this.quality = { tier: 0, slow: 0, fast: 0, dpr: 1, applied: false, forced: qm ? +qm[1] : null };
+    // #174: the settings sheet's Quality choice outranks nothing and outlives the page: Auto, or a
+    // pinned tier stored the way the sound is. The URL still wins, for the probe.
+    let storedQ = null;
+    try { const q = localStorage.getItem('crownrush-quality'); if (q && q !== 'auto') storedQ = +q; } catch (e) { /* private mode */ }
+    this.quality = { tier: 0, slow: 0, fast: 0, dpr: 1, applied: false, forced: qm ? +qm[1] : storedQ };
+    // #174: two more preferences, each a flag the thing it governs reads
+    this.shakeOn = readFlag('crownrush-shake', true);
+    this.numbersOn = readFlag('crownrush-numbers', true);
     if (this.quality.forced != null) this.applyQuality(this.quality.forced);
     this.buildFog();
     // every health bar in the game is drawn by this one instanced mesh
@@ -744,6 +761,27 @@ export class Game {
     this.hud.hidePause();
     this.hud.hideInfo();
     this.infoOpen = false;
+  }
+
+  // #174: the settings sheet's three preferences, written down beside the sound setting
+  setQualityChoice(choice) {
+    try { localStorage.setItem('crownrush-quality', String(choice)); } catch (e) { /* private mode */ }
+    if (choice === 'auto') {
+      this.quality.forced = null;
+      this.applyQuality(0);
+    } else {
+      this.quality.forced = +choice;
+      this.applyQuality(+choice);
+    }
+  }
+  setShake(on) {
+    this.shakeOn = !!on;
+    if (!on) this.shake = 0;
+    try { localStorage.setItem('crownrush-shake', on ? '1' : '0'); } catch (e) { /* private mode */ }
+  }
+  setNumbers(on) {
+    this.numbersOn = !!on;
+    try { localStorage.setItem('crownrush-numbers', on ? '1' : '0'); } catch (e) { /* private mode */ }
   }
 
   // #171: Quit to Menu. The run is written down if it can be -- `quietEnoughToSave` is the rule the

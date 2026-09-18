@@ -789,7 +789,7 @@ export const EnemiesMethods = {
           e.cooldown = 1 / e.stats.attackRate;
           this.attackAnim(e);
           this.damageWall(blocked, e.damage * (e.stats.aoe ? 2 : 1), e);
-          if (e.stats.aoe) this.shake = 0.2;
+          if (e.stats.aoe && this.shakeOn) this.shake = 0.2;   // #174: unless the sheet says no
         }
       } else if (!wp && d <= reach) {
         this.animateWalk(e, 0, dt);
@@ -801,7 +801,7 @@ export const EnemiesMethods = {
               if (u.mesh.position.distanceTo(p) < e.stats.aoe + 1) this.damageUnit(u, e.damage, p);
             }
             if (this.keep && this.keep.state === 'built' && this.keep.mesh.position.distanceTo(p) < e.stats.aoe + 2.5) this.damageWall(this.keep, e.damage * 2);
-            this.shake = 0.25;
+            if (this.shakeOn) this.shake = 0.25;
           } else if (t.isKeep) this.damageWall(t, e.damage);
           else this.damageUnit(t, e.damage, e.mesh.position);
         }
