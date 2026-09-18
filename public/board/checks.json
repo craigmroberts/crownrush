@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-18T12:12:15.163Z",
+  "at": "2026-09-18T12:13:01.045Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -138,32 +138,32 @@
   "checks": {
     "pads-requires-exist": {
       "pass": true,
-      "at": "2026-09-18T12:12:15.151Z"
+      "at": "2026-09-18T12:13:01.034Z"
     },
     "pads-buildat-in-bounds": {
       "pass": true,
-      "at": "2026-09-18T12:12:15.152Z"
+      "at": "2026-09-18T12:13:01.034Z"
     },
     "pads-no-overlap": {
       "pass": true,
-      "at": "2026-09-18T12:12:15.155Z"
+      "at": "2026-09-18T12:13:01.038Z"
     },
     "opening-homes-legal": {
       "pass": true,
-      "at": "2026-09-18T12:12:15.155Z"
+      "at": "2026-09-18T12:13:01.038Z"
     },
     "icons-exist": {
       "pass": true,
-      "at": "2026-09-18T12:12:15.162Z"
+      "at": "2026-09-18T12:13:01.044Z"
     },
     "upgrade-mods-exist": {
       "pass": true,
-      "note": "16 of 16 upgrades declare a mod key, all 16 resolve",
-      "at": "2026-09-18T12:12:15.162Z"
+      "note": "17 of 17 upgrades declare a mod key, all 17 resolve",
+      "at": "2026-09-18T12:13:01.044Z"
     },
     "footprints-cover-kinds": {
       "pass": true,
-      "at": "2026-09-18T12:12:15.163Z"
+      "at": "2026-09-18T12:13:01.045Z"
     },
     "walls-solid": {
       "pass": true,
@@ -210,7 +210,7 @@
     "tokens-resolve": {
       "pass": true,
       "note": "no cycles; 3 tokens nothing reads -- --frame-hi, --frame-lo, --danger-edge (#135)",
-      "at": "2026-09-18T12:12:15.162Z"
+      "at": "2026-09-18T12:13:01.043Z"
     }
   }
 }
