@@ -16,6 +16,11 @@ import { V3, tmp, rand } from './game-shared.js';
 const WORKS = { farmer: ['straw'], lumberjack: ['wood'], miner: ['stone', 'iron', 'diamond'] };
 // one per home, in the order the homes go up, so the first village has a bit of everything
 const ORDER = ['farmer', 'lumberjack', 'miner', 'farmer', 'lumberjack', 'miner'];
+// #156: how far either side of a gateway a routed villager aims. Wide enough that the far point is
+// clear of the wall's collision (0.55 for a friendly) with room to turn; not so wide that the near
+// point lands inside a building behind the gate. 1.8 -- 1.2 was tried and a tangential exit still
+// grazed the next section's end.
+const GATE_STANDOFF = 1.8;
 
 export const VillagerMethods = {
   // A home is built: someone moves into it. The trade follows the order homes are raised in rather
@@ -62,19 +67,98 @@ export const VillagerMethods = {
 
   // Walk towards a point. Returns how far short it still is, so the caller decides what "arrived"
   // means: a node is worked from its mining radius, the Trade Post from its mat.
+  // #156: through the gate, not the wall. This was the one mover in the game that never called
+  // `collideWalls`, so villagers walked straight through the citadel to the quarries. Adding the
+  // collision alone would have swapped that for grinding against the inside face, because the walk
+  // steers in a straight line and nothing gave it a reason to aim at the gap -- so the gap is the
+  // first target whenever the straight line would cross a solid section, and the real target after.
+  //
+  // Returns the distance to the REAL target, not to the gate. Every caller compares it to a reach
+  // (`toNode` to the mining radius, `toPost` to the trade radius), and a villager two metres short
+  // of a gate is not two metres from the quarry.
   villagerWalkTo(v, x, z, dt, speed = CFG.villager.speed) {
     const p = v.mesh.position;
-    const dx = x - p.x;
-    const dz = z - p.z;
+    const via = this.villagerVia(v, x, z, dt);
+    const tx = via ? via.x : x;
+    const tz = via ? via.z : z;
+    const dx = tx - p.x;
+    const dz = tz - p.z;
     const d = Math.hypot(dx, dz);
     if (d > 0.05) {
       const step = Math.min(d, speed * dt);
       p.x += (dx / d) * step;
       p.z += (dz / d) * step;
-      this.faceTowards(v.mesh, tmp.set(x, 0, z), dt, 8);
+      this.faceTowards(v.mesh, tmp.set(tx, 0, tz), dt, 8);
     }
+    // the safety net under the routing: friendly, so a gate section lets them through
+    this.collideWalls(p, 0.3, true);
     this.animateWalk(v, d > 0.2 ? 1 : 0, dt);
-    return d;
+    return via ? Math.hypot(x - p.x, z - p.z) : d;
+  },
+
+  // Which gate to go through first, or null for a straight walk. Re-decided on a timer rather than a
+  // frame, the way an enemy re-targets: a route that flips every frame at the gate mouth is a
+  // villager who stands in it shuffling.
+  //
+  // The route is two points, not the gateway itself: one a short way in front of it on the
+  // villager's side, one the same distance beyond it on the other. Aiming at the gateway's midpoint
+  // was the first version and it jammed on a diagonal trip -- the midpoint of the chord sits a hair
+  // INSIDE the ring, so a villager stood in it heading for a node off to one side had a straight line
+  // that clipped the end of the next section, the timer sent it back to the gateway it was already
+  // in, and it shuffled between the two for ever (measured: 150 seconds, 1.1 to 2.0 on x and back).
+  // From a point clear of the wall on the far side the line to anything on that side is clear.
+  villagerVia(v, x, z, dt) {
+    v.viaT = (v.viaT || 0) - dt;
+    const p = v.mesh.position;
+    if (v.via && Math.hypot(v.via[0].x - p.x, v.via[0].z - p.z) < 1.1) {
+      v.via.shift();
+      if (!v.via.length) v.via = null;
+    }
+    if (v.viaT > 0 && v.viaX === x && v.viaZ === z) return v.via && v.via[0];
+    v.viaT = 0.5;
+    v.viaX = x;
+    v.viaZ = z;
+    v.via = null;
+    if (!this.wallBetween(p.x, p.z, x, z)) return null;
+    // the gate that makes the whole trip shortest, not the one nearest the villager -- nearest can be
+    // on the wrong side of the ring and send them the long way round the outside
+    let best = null;
+    let bd = Infinity;
+    for (const w of this.walls) {
+      if (!w.gate || w.state !== 'built') continue;
+      // the gateway's normal, pointed at the villager's side of it
+      let nx = -(w.z1 - w.z0) / w.len;
+      let nz = (w.x1 - w.x0) / w.len;
+      const side = (p.x - w.mx) * nx + (p.z - w.mz) * nz < 0 ? -1 : 1;
+      nx *= side * GATE_STANDOFF;
+      nz *= side * GATE_STANDOFF;
+      const near = { x: w.mx + nx, z: w.mz + nz };
+      const far = { x: w.mx - nx, z: w.mz - nz };
+      const cost = Math.hypot(near.x - p.x, near.z - p.z) + Math.hypot(x - far.x, z - far.z);
+      if (cost < bd) {
+        bd = cost;
+        // already in the mouth of it: straight through, rather than a step back to line up
+        best = Math.hypot(w.mx - p.x, w.mz - p.z) < 2.5 ? [far] : [near, far];
+      }
+    }
+    v.via = best;
+    return best && best[0];
+  },
+
+  // Does the straight line from (ax,az) to (bx,bz) cross a standing, solid wall section? Gate
+  // sections do not count -- they are the way through. A plain 2D segment test against every section;
+  // there are at most a few dozen and this runs twice a second per villager.
+  wallBetween(ax, az, bx, bz) {
+    const cross = (ox, oz, px, pz, qx, qz) => (px - ox) * (qz - oz) - (pz - oz) * (qx - ox);
+    for (const w of this.walls) {
+      if (w.gate || w.state !== 'built') continue;
+      const d1 = cross(ax, az, bx, bz, w.x0, w.z0);
+      const d2 = cross(ax, az, bx, bz, w.x1, w.z1);
+      const d3 = cross(w.x0, w.z0, w.x1, w.z1, ax, az);
+      const d4 = cross(w.x0, w.z0, w.x1, w.z1, bx, bz);
+      if (((d1 > 0) !== (d2 > 0)) && ((d3 > 0) !== (d4 > 0))) return true;
+    }
+    return false;
   },
 
   updateVillagers(dt) {
