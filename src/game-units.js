@@ -749,11 +749,30 @@ export const UnitsMethods = {
   },
 
   // ---------- combat helpers ----------
+  // #164: pooled. An arrow is three meshes, a Group, two vectors and a record, and archers make one
+  // every shot for a 37-minute run. The record is what gets reused -- its vectors and its mesh come
+  // back with it -- so a fired arrow allocates nothing once the pool has warmed to the raid's peak.
   fireArrow(from, target, damage, hostile = false) {
-    const mesh = makeArrow();
-    mesh.position.copy(from);
-    this.root.add(mesh);
-    this.arrows.push({ mesh, target, damage, life: CFG.arrow.life, dir: new V3(), from: from.clone(), hostile });
+    const a = this.arrowPool.pop() || { mesh: makeArrow(), dir: new V3(), from: new V3() };
+    a.mesh.position.copy(from);
+    a.target = target;
+    a.damage = damage;
+    a.life = CFG.arrow.life;
+    a.dir.set(0, 0, 0);
+    a.from.copy(from);
+    a.hostile = hostile;
+    this.root.add(a.mesh);
+    this.arrows.push(a);
+  },
+
+  // Off the field and back on the shelf. Both ways an arrow ends go through here, so the pool cannot
+  // be starved by one path forgetting.
+  retireArrow(i) {
+    const a = this.arrows[i];
+    this.root.remove(a.mesh);
+    a.target = null;              // a dead raider must not be kept alive by a spent arrow
+    this.arrows.splice(i, 1);
+    this.arrowPool.push(a);
   },
 
   damageTurret(t, dmg) {
@@ -787,8 +806,7 @@ export const UnitsMethods = {
             if (t.isTurret) this.damageTurret(t, a.damage);
             else this.damageUnit(t, a.damage, a.from && a.from.mesh ? a.from.mesh.position : null);
           } else this.damageEnemy(t, a.damage, tmp, a.from);
-          this.root.remove(a.mesh);
-          this.arrows.splice(i, 1);
+          this.retireArrow(i);
           continue;
         }
         a.dir.normalize();
@@ -797,10 +815,7 @@ export const UnitsMethods = {
       }
       a.mesh.position.addScaledVector(a.dir, CFG.arrow.speed * dt);
       a.mesh.lookAt(tmp2.copy(a.mesh.position).add(a.dir));
-      if (a.life <= 0 || a.mesh.position.y < 0) {
-        this.root.remove(a.mesh);
-        this.arrows.splice(i, 1);
-      }
+      if (a.life <= 0 || a.mesh.position.y < 0) this.retireArrow(i);
     }
   },
 };

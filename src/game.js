@@ -243,6 +243,9 @@ export class Game {
     this.units = [];
     this.enemies = [];
     this.arrows = [];
+    // #164: the pool outlives a run on purpose. Nothing in it is attached to the old root, and a
+    // second run that starts with a warm pool is the whole point of having one.
+    this.arrowPool = this.arrowPool || [];
     this.coins = [];
     this.flyCoins = [];
     this.pads = [];

@@ -513,11 +513,17 @@ const arrowGeo = new THREE.BoxGeometry(0.06, 0.06, 0.7);
 const arrowMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2b });
 const streakMat = new THREE.MeshBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
 const streakGeo = new THREE.BoxGeometry(0.08, 0.08, 1.8);
+// THE TIP IS SHARED NOW, like the shaft and the streak beside it always were. It went through
+// `cone()`, which makes a fresh ConeGeometry every call, and an arrow that landed was removed from
+// the scene and dropped from the array and never disposed -- so every arrow this game had ever fired
+// was still holding a GPU buffer (#164). Measured: 60 arrows, +60 geometries, every round, for ever.
+// The rotation is baked in here once rather than set on each mesh.
+const tipGeo = new THREE.ConeGeometry(0.06, 0.16, 4).rotateX(Math.PI / 2);
 export function makeArrow() {
   const g = new THREE.Group();
   const shaft = new THREE.Mesh(arrowGeo, arrowMat);
-  const tip = cone(0.06, 0.16, C.steel, 0, 0, 0.42, 4);
-  tip.rotation.x = Math.PI / 2;
+  const tip = new THREE.Mesh(tipGeo, mat(C.steel));
+  tip.position.z = 0.42;
   const streak = new THREE.Mesh(streakGeo, streakMat);
   streak.position.z = -1.1;
   g.add(shaft, tip, streak);
