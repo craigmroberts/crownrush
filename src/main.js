@@ -122,8 +122,9 @@ const INTRO = [
   { icon: 'coin', title: 'Fight and collect', text: 'Your archers shoot on their own. Raiders drop coins: walk over them to pick them up. The colour a raider wears tells you how dangerous it is.' },
   // #57: two verbs, one step. A sixth card would make the opening longer for something the player
   // learns faster by pressing it, and these two belong together: they are the only buttons in the
-  // game that are the King's own rather than a building's.
-  { icon: 'horn', title: 'The King\u2019s three buttons', text: 'The horn (Space) rallies your army to you and throws nearby raiders back — save it for a breach. The bolt (Shift, or double-tap) is a short burst of speed: out of a scrum, or after a thief. The banner (B) plants where you stand and the army holds that spot instead of following you, so you can go and mine while they defend it.' },
+  // game that are the King's own rather than a building's. (#160: there were three until the dash
+  // went; the card never had a sentence to spare for it.)
+  { icon: 'horn', title: 'The King\u2019s two buttons', text: 'The horn (Space) rallies your army to you and throws nearby raiders back — save it for a breach. The banner (B) plants where you stand and the army holds that spot instead of following you, so you can go and mine while they defend it.' },
   { icon: 'hammer', title: 'Build', text: 'Stop on a floor marker to spend coins. Square markers build; round ones recruit and upgrade. Walking across a marker costs nothing.' },
   // #125: this step used to say wood, stone and straw went into the Keep, which stopped being true
   // when the material lists were priced into coin -- the first thing a new player reads, sending them
@@ -213,14 +214,9 @@ document.getElementById('horn-btn').addEventListener('pointerdown', (e) => {
   e.stopPropagation();
   game.useHorn();
 });
-// #57: the dash. `stopPropagation` for the same reason the horn has it -- the canvas under these
-// buttons listens for the drag that moves the King, and a press that reaches it would start walking
-// him at the same time (#128 is what that bug looks like from the player's side).
-document.getElementById('dash-btn').addEventListener('pointerdown', (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  game.useDash();
-});
+// #57: `stopPropagation` for the same reason the horn has it -- the canvas under these buttons
+// listens for the drag that moves the King, and a press that reaches it would start walking him at
+// the same time (#128 is what that bug looks like from the player's side).
 document.getElementById('banner-btn').addEventListener('pointerdown', (e) => {
   e.preventDefault();
   e.stopPropagation();
@@ -234,7 +230,7 @@ document.getElementById('place-btn').addEventListener('pointerdown', (e) => {
 // #137: the two gestures the edit mode needs, both on the canvas and both alongside the joystick
 // rather than instead of it.
 //
-// They cannot live in Input: it deliberately has no reference to the game (see its note on `dashTap`),
+// They cannot live in Input: it deliberately has no reference to the game and should not grow one,
 // and both of these are questions only the game can answer -- what is under this point, and is
 // anything being placed. So they sit here, where the game is, and Input stays a joystick.
 //
@@ -593,12 +589,8 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (e.key === ' ' || e.key === 'e' || e.key === 'E') return game.useHorn();
-  // #57: Shift, the binding every game with a sprint already uses, and next to WASD for either hand.
-  // `e.repeat` because a held key fires until it is let go, which would spend the dash again on the
-  // exact frame its cooldown ended, forever, without the player pressing anything.
-  if (e.key === 'Shift' && !e.repeat) return game.useDash();
-  // #57: B for banner. Not a modifier like the dash, because it is a deliberate order rather than a
-  // reflex, and nothing else in the game uses it.
+  // #57: B for banner. Not a modifier, because it is a deliberate order rather than a reflex, and
+  // nothing else in the game uses it. `e.repeat` because a held key fires until it is let go.
   if ((e.key === 'b' || e.key === 'B') && !e.repeat) return game.plantBanner();
   if (e.key === 'Enter' && game.placing) return game.confirmPlacing();   // #43
   if ((e.key === 'm' || e.key === 'M') && !e.repeat && game.movable) return game.beginMoving(game.movable);

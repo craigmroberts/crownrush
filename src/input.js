@@ -1,10 +1,8 @@
 // Virtual joystick (drag anywhere) + keyboard. Produces a normalized {x, z} move vector.
-
-// #57: what counts as a double-tap. A press under TAP_TIME that travelled less than TAP_SLOP is a
-// tap; a second one within TAP_GAP of it, and within TAP_SLOP of where it landed, is a dash.
-const TAP_TIME = 200;
-const TAP_GAP = 280;
-const TAP_SLOP = 40;
+//
+// #160: it used to also read a double-tap, as the dash. That was the only spare gesture a one-thumb
+// game has and it went with the dash: a second tap that happens to land near the first is a player
+// steering in short stabs, and nothing should burst him forward for it now.
 export class Input {
   constructor(el) {
     this.el = el;
@@ -16,16 +14,6 @@ export class Input {
     // updatePlayer and there is exactly one caller, which is what makes handing back the same object
     // safe -- nobody holds on to last frame's.
     this.move = { x: 0, z: 0, mag: 0 };
-    // #57: double-tap to dash, which is the only spare gesture a one-thumb game has. A tap is a drag
-    // that went nowhere, so the two do not fight: the second press still starts a stick and still
-    // steers him, it just also spends the dash. `dashTap` is raised here and taken by the game --
-    // `takeDash()` -- rather than calling into it, because Input has no reference to the game and
-    // should not grow one for this.
-    this.tapAt = 0;      // when the last press that qualified as a TAP was released
-    this.tapX = 0;
-    this.tapY = 0;
-    this.downAt = 0;     // when the press now in progress went down
-    this.dashTap = false;
 
     // #65: styled from src/style.css like everything else. It used to build a <style> element here
     // and append it to the head, which put the joystick outside both the stylesheet and the media
@@ -57,15 +45,6 @@ export class Input {
     // what lets the two share a gesture without fighting for it (#43 rejected finger-dragging on
     // exactly that ground, and this is the answer to it). No stick, no joystick UI, no capture.
     if (this.suspended) return;
-    // #57: a second tap, soon enough and close enough to the last one, is a dash. The thresholds are
-    // the usual double-tap ones and they have to stay tight: a player walking with short repeated
-    // stabs at the screen must not dash by accident, and 40px is about a thumb.
-    const now = performance.now();
-    if (now - this.tapAt < TAP_GAP && Math.hypot(e.clientX - this.tapX, e.clientY - this.tapY) < TAP_SLOP) {
-      this.dashTap = true;
-      this.tapAt = 0;   // three taps are two gestures, not three dashes
-    }
-    this.downAt = now;
     this.stick = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY };
     // Without capture, a drag that leaves the window never delivers its pointerup and the stick stays
     // held: the King walks off on his own until the next tap. Captured events still bubble to the
@@ -99,16 +78,6 @@ export class Input {
   }
   onUp(e) {
     if (!this.stick || e.pointerId !== this.stick.id) return;
-    // #57: was that press a TAP? Short, and it did not travel. A drag that ends is not half of a
-    // double-tap, however quickly the next one starts -- otherwise steering him around a corner and
-    // setting off again would dash.
-    const now = performance.now();
-    const moved = Math.hypot(e.clientX - this.stick.ox, e.clientY - this.stick.oy);
-    if (now - this.downAt < TAP_TIME && moved < TAP_SLOP) {
-      this.tapAt = now;
-      this.tapX = e.clientX;
-      this.tapY = e.clientY;
-    } else this.tapAt = 0;
     try { this.el.releasePointerCapture(e.pointerId); } catch (err) { /* already gone */ }
     this.stick = null;
     this.ui.style.display = 'none';
@@ -124,13 +93,6 @@ export class Input {
     this.ui.style.display = 'none';
   }
 
-  // Raised by a double-tap and cleared by whoever asks, so one gesture is one dash however many
-  // frames pass before the game gets to it.
-  takeDash() {
-    const d = this.dashTap;
-    this.dashTap = false;
-    return d;
-  }
   updateKnob() {
     const dx = this.stick.x - this.stick.ox;
     const dy = this.stick.y - this.stick.oy;

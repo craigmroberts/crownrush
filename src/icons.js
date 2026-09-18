@@ -57,12 +57,6 @@ export const ICONS = {
   // gold cross the cloth carries in the world so the button and the thing on the field are the
   // same object.
   banner: `<path d="M6.5 3v18" stroke="#6b4a2b" stroke-width="2.4" stroke-linecap="round"/><path d="M7.6 4.2h10.8l-2.6 3.9 2.6 3.9H7.6z" fill="#2f6fd6" ${S}/><path d="M11.4 5.6h1.9v5.2h-1.9z" fill="#f5b800"/><path d="M9.9 7.4h4.9v1.6H9.9z" fill="#f5b800"/><circle cx="6.5" cy="2.6" r="1.3" fill="#ffd23f" ${S}/>`,
-  // #57: the dash. A bolt with speed lines trailing it. The first attempt was a boot leaning into a
-  // run, and rendered at the 26px the button actually uses it read as neither a boot nor anything
-  // else -- an angular gold shape. A bolt is the one silhouette that survives that size, and it is
-  // what a sprint is drawn as everywhere else. Chevrons were the other candidate and are already
-  // `chev`, which is the scoreboard's and the sheet's "more this way".
-  dash: `<path d="M14.6 2.4l-7.6 10.1h4.2l-2.1 9 8.5-11.1h-4.3z" fill="#f5b800" ${S}/><path d="M2 8h3.6M1 12h4.2M2.6 16h3.2" stroke="#ffd23f" stroke-width="2.1" stroke-linecap="round"/>`,
   star: `<path d="M12 3l2.7 5.6 6.1.8-4.5 4.3 1.1 6.1L12 17l-5.4 2.8 1.1-6.1L3.2 9.4l6.1-.8z" fill="#ffd23f" ${S}/>`,
   speaker: `<path d="M4 9h4l5-4v14l-5-4H4z" fill="#fff" ${S}/><path d="M16 9c1.5 1.5 1.5 4.5 0 6M19 6.5c3 3 3 8 0 11" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>`,
   speakerOff: `<path d="M4 9h4l5-4v14l-5-4H4z" fill="#fff" ${S}/><path d="M16 9l5 6M21 9l-5 6" stroke="#ff6b6b" stroke-width="2" stroke-linecap="round"/>`,

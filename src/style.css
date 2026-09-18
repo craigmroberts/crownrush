@@ -863,7 +863,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
    still true, and the purse is a better tenant for it than the cog was. So the two trade places.
    This puts a LIVE target back in the bottom-right corner, which is the corner #128 was about -- a
    target parked over the canvas where a right thumb rests, swallowing drags. It is not new (the
-   horn, the dash and the banner are all live down there) and this is the slot above the lowest
+   horn and the banner are both live down there) and this is the slot above the lowest
    strip rather than in it, but a drag started in that corner is the thing to check before calling
    this done. */
 #settings-btn {
@@ -1428,25 +1428,26 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 #horn-btn.ready { animation: hornReady 1.2s ease-in-out infinite alternate; }
 #horn-btn b { position: absolute; color: #fff; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 20px; text-shadow: 0 2px 0 rgba(0,0,0,0.5); }
 @keyframes hornReady { from { box-shadow: 0 6px 16px rgba(0,0,0,0.35); } to { box-shadow: 0 0 22px rgba(245,184,0,0.75); } }
-/* #57: the dash, to the LEFT of the horn. Above it is the purse (bottom 84px), and pushing that up
+/* #57: the banner, to the LEFT of the horn. Above it is the purse (bottom 84px), and pushing that up
    would push the notice line (--notice-bottom) with it. 56px against the horn's 64 so the two read as
    a primary and a secondary, sitting on the same centreline: (64-56)/2 = 4px of extra bottom.
-   No ready-pulse. The horn pulses because it is worth waiting for; a verb that comes back every four
-   and a half seconds pulsing at the corner of the eye for most of a run is a tic, not a cue. */
-#dash-btn, #banner-btn {
+   No ready-pulse. The horn pulses because it is worth waiting for; a second thing pulsing at the
+   corner of the eye for most of a run is a tic, not a cue.
+   #160: this was the dash's slot, with the banner one further left at 148px. The dash went, and the
+   banner slid into its place rather than leaving a gap beside the horn. */
+#banner-btn {
   position: fixed; bottom: max(16px, calc(4px + env(safe-area-inset-bottom)));
   width: 56px; height: 56px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; pointer-events: auto;
   background: var(--surface); box-shadow: 0 6px 16px rgba(0,0,0,0.35); z-index: 5;
   display: grid; place-items: center; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
 }
-#dash-btn { right: max(84px, calc(72px + env(safe-area-inset-right))); }
-#banner-btn { right: max(148px, calc(136px + env(safe-area-inset-right))); }
-#dash-btn.hidden, #banner-btn.hidden { display: none; }
-#dash-btn .ring, #banner-btn .ring { position: absolute; inset: 0; border-radius: 50%;
+#banner-btn { right: max(84px, calc(72px + env(safe-area-inset-right))); }
+#banner-btn.hidden { display: none; }
+#banner-btn .ring { position: absolute; inset: 0; border-radius: 50%;
   background: conic-gradient(var(--accent) var(--cd, 0%), rgba(255,255,255,0.18) 0); -webkit-mask: radial-gradient(circle, transparent 21px, #000 22px); mask: radial-gradient(circle, transparent 21px, #000 22px); }
-#dash-btn i, #banner-btn i { position: relative; opacity: 0.45; transition: opacity 0.15s, transform 0.15s; }
-#dash-btn.ready i, #banner-btn.ready i { opacity: 1; transform: scale(1.1); }
-#dash-btn b, #banner-btn b { position: absolute; color: #fff; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 17px; text-shadow: 0 2px 0 rgba(0,0,0,0.5); }
+#banner-btn i { position: relative; opacity: 0.45; transition: opacity 0.15s, transform 0.15s; }
+#banner-btn.ready i { opacity: 1; transform: scale(1.1); }
+#banner-btn b { position: absolute; color: #fff; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 17px; text-shadow: 0 2px 0 rgba(0,0,0,0.5); }
 /* #57: while the banner is actually STANDING the button says so, because the cooldown ring cannot --
    it is filling for the ten seconds after the banner falls as well as the eighteen it is up for, and
    those are opposite states. A steady blue edge, not a pulse: it is a status, not a summons. */
@@ -1727,4 +1728,4 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
    progress bar reading as a permanent border, and three of them made a row of gold hoops. The glyph
    coming up to full opacity and the pulse already say "ready"; the ring saying it too was the same
    news three ways. */
-#horn-btn.ready .ring, #dash-btn.ready .ring, #banner-btn.ready .ring { display: none; }
+#horn-btn.ready .ring, #banner-btn.ready .ring { display: none; }

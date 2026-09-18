@@ -507,48 +507,7 @@ export const CFG = {
   // seconds, and the blast shoves nearby raiders back and stuns them: an answer to a breach.
   horn: { cooldown: 22, duration: 6, radius: 7.5, push: 3.4, stun: 1.3, speed: 1.6, damage: 1.5, rallySpeed: 2.2 },
 
-  // #57: the dash, and the King's second verb. The horn is about the next minute; this is about the
-  // next second, which is the thing combat did not have.
-  //
-  // Measured rather than computed, because the continuous arithmetic (2.8 * 5.6 * 0.3 = 4.7 units)
-  // is not what a stepped loop gives -- the interval is half-open, so the last frame falls outside
-  // it. Driven at both ends of the frame budget:
-  //
-  //     60fps (dt 1/60)     18 frames   4.44 units
-  //     the dt cap (0.05)    6 frames   3.92 units
-  //
-  // and against a walk over the same 0.3s, which is the comparison the player actually feels:
-  //
-  //     on foot     walk 1.68   dash 4.80     (2.9x)
-  //     mounted     walk 2.38   dash 6.42     (2.7x)
-  //
-  // The two situations it is for, and where the numbers come from:
-  //
-  //   Surrounded. Nothing collides the King with a raider -- `updatePlayer` collides him against
-  //   walls, the river and the Keep and nothing else -- so being surrounded is a damage problem
-  //   rather than a movement one, and the answer is leaving the ring quickly. 4.44 units is just
-  //   inside the warhorn's own 7.5 blast radius: far enough to be out of what he was standing in,
-  //   short enough to be a step rather than a teleport.
-  //
-  //   The thief chase. A thief flees at 8.2 (`enemy.thief.fleeSpeed`) against 5.6 on foot and 7.5
-  //   mounted, so without this it is a speed check the King loses on foot and barely wins mounted.
-  //   A dash closes (2.8 * 5.6 - 8.2) * 0.3 = 2.2 units, and a thief's run is long enough for two of
-  //   them at this cooldown. Two well-spent dashes catch one; two badly spent ones do not, which is
-  //   the difference between a skill moment and a speed check.
-  //
-  // It is a velocity and never a teleport, so every collision the walk answers to still holds.
-  // Driven: a dash straight at the Keep stops 3.4 units from its centre, which is exactly where a
-  // walk into it stops, and a dash at the map edge ends on the clamp rather than past it.
-  //
-  // The direction is fixed at the moment it is pressed and does not steer. That is deliberate: a
-  // steerable dash is a speed boost, and a committed one is a decision -- including the decision to
-  // put it into a wall, where the collision above simply stops him and the cooldown is spent.
-  //
-  // 4.5s against the horn's 22 because they are different kinds of answer, and a verb the player
-  // reaches for twice a minute is not a verb.
-  dash: { speed: 2.8, duration: 0.3, cooldown: 4.5 },
-
-  // #57: the rally banner, and the only one of the King's three verbs that is a decision about a
+  // #57: the rally banner, and the only one of the King's verbs that is a decision about a
   // PLACE rather than a moment. The horn says "to me"; this says "hold here", and then lets him
   // leave.
   //
@@ -602,6 +561,13 @@ export const CFG = {
     boss: { hp: 420, speed: 2.3, damage: 20, attackRate: 2.0, coins: [15, 22], radius: 2.2, aoe: 3.4 },
     // Fast, fragile, and not interested in fighting: it runs at the King, grabs coins off his stack
     // and bolts for the edge of the map. Walls do not stop it; archers do.
+    // #160: `fleeSpeed` 8.2 against the King's 5.6 on foot and 7.5 mounted, so a thief that has got
+    // hold of his coin outruns him on foot and barely loses mounted. #57's dash was the answer to
+    // that -- 2.8x speed for 0.3s closes (2.8 * 5.6 - 8.2) * 0.3 = 2.2 units, and a thief's run had
+    // room for two of them -- and #160 removed the dash, so the chase is a speed check again, as it
+    // was before #57. Left at 8.2 on purpose: the King's own bow and the towers still answer a
+    // thief, and slowing it under 5.6 makes it a raider who politely waits to be caught. If that
+    // turns out to be the wrong call this is the one number to move.
     thief: { hp: 26, speed: 6.6, damage: 0, attackRate: 1, coins: [0, 0], radius: 0.45, steal: 0.45, minSteal: 6, fleeSpeed: 8.2 },
     // #17: enemies that break a rule, each unlocked by Keep level (`fromLevel`) so they arrive one idea at a time.
     // Sapper: ignores your army, runs at the nearest wall and blows itself up against it.

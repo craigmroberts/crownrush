@@ -807,33 +807,7 @@ export class Hud {
     }
   }
 
-  // #57: the dash button. The same shape as `setHorn` above and dirty-checked the same way, because
-  // this also runs every frame: three writes, each behind its own comparison.
-  setDash(show, frac, secs) {
-    const b = this.dashBtn || (this.dashBtn = document.getElementById('dash-btn'));
-    b.classList.toggle('hidden', !show);
-    if (!show) return;
-    const ready = frac <= 0;
-    if (ready !== this.dashReady) {
-      this.dashReady = ready;
-      b.classList.toggle('ready', ready);
-    }
-    const pct = Math.round((1 - frac) * 100);
-    if (pct !== this.dashPct) {
-      this.dashPct = pct;
-      b.style.setProperty('--cd', `${pct}%`);
-    }
-    // One decimal under a second: the horn counts whole seconds because it is gone for twenty-two of
-    // them, and `Math.ceil` on a four-and-a-half second cooldown would read "5, 4, 3, 2, 1" and then
-    // sit on 1 for a beat. This is a number the player is watching for.
-    const label = ready ? '' : secs >= 1 ? String(Math.ceil(secs)) : secs.toFixed(1);
-    if (label !== this.dashLabel) {
-      this.dashLabel = label;
-      document.getElementById('dash-cd').textContent = label;
-    }
-  }
-
-  // #57: the banner button. Same shape as the two above, plus `flying` -- whether one is actually
+  // #57: the banner button. Same shape as the horn's above, plus `flying` -- whether one is actually
   // standing, which the ring cannot say because it is filling both while the banner is up and for
   // the ten seconds after it falls. Dirty-checked like the rest: this runs every frame.
   setBanner(show, frac, secs, flying) {

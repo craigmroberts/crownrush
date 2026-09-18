@@ -279,8 +279,7 @@ same Wi-Fi and open the "Network" URL that Vite prints instead.
 
 - Phone: drag anywhere on the screen to move the King (virtual joystick).
 - Desktop: WASD or arrow keys, or drag with the mouse.
-- The warhorn is the horn button bottom-right, or Space. The dash is the bolt beside it, Shift, or a
-  double-tap on a phone. The rally banner is the flag beside that, or B.
+- The warhorn is the horn button bottom-right, or Space. The rally banner is the flag beside it, or B.
 - Pause with the ⏸ button, P or Esc. The game also pauses when the tab goes into the background.
 - Everything else is automatic: the King and his archers shoot the nearest enemy, coins are picked up by
   walking near them, and standing on a build pad spends coins one at a time.
@@ -1033,11 +1032,11 @@ holding a breach has no business reappearing wherever the King happens to be.
 `countFollowers` still counts everyone: the army cap is about how many soldiers the Keep supports, not
 about where they are standing.
 
-## The King's three verbs: the warhorn, the dash and the banner
+## The King's two verbs: the warhorn and the banner
 
-All three live bottom-right, all three recharge as a ring filling around their button -- which
+Both live bottom-right, both recharge as a ring filling around their button -- which
 **disappears the moment it completes** (#135), because a finished progress bar sitting there reads as
-a permanent gold border, and three of them made a row of hoops. The glyph coming up to full opacity
+a permanent gold border, and a row of them made a row of hoops. The glyph coming up to full opacity
 and the pulse already say "ready". Between
 them they are everything the player does in a fight that is not choosing where to stand. Before #57
 there was only the horn, on a twenty-two second cooldown — about a hundred button presses in a
@@ -1048,27 +1047,19 @@ the King and fights faster and harder for a few seconds, and the blast shoves ne
 stuns them. It recharges over about twenty seconds, so using it at the right moment matters more than
 using it often.
 
-The **dash** (`CFG.dash`, #57) — the bolt button, Shift on a keyboard, or a double-tap on a phone —
-is a committed burst of speed in the direction he is already going, or the way he is facing if he is
-standing still. It is about the next second where the horn is about the next minute, and it recharges
-in four and a half.
+There was a third. The **dash** (#57) was a committed 0.3s burst at 2.8x walking speed — Shift, a
+double-tap, or a bolt button between the other two — and #160 took it out: the owner's call was that
+a few units of burst is not a feature worth a button, and the horn and the banner are the two verbs
+that are decisions. The double-tap went with it, and nothing reads that gesture now; a player steering
+in short stabs must not be burst forward for it.
 
-Measured, driven rather than watched: a dash covers **4.44 units at 60fps** against a walk's 1.68 over
-the same 0.3s, and 6.42 against 2.38 mounted. That is just inside the horn's own 7.5 blast radius —
-far enough to leave a scrum he was standing in, short enough to be a step rather than a teleport. It
-is why it matters that raiders do not block the King: nothing collides him with an enemy, so being
-surrounded is a damage problem, and the answer is leaving quickly rather than pushing through.
-
-It is a velocity, never a teleport, so every collision a walk answers to still holds — a dash straight
-at the Keep stops 3.4 units from its centre, which is exactly where a walk into it stops, and one at
-the map edge lands on the clamp rather than past it. The direction is fixed when it is pressed and
-does not steer: a steerable dash is a speed boost, a committed one is a decision, including the
-decision to put it into a wall and spend the cooldown on nothing.
-
-The other thing it fixes is the thief chase. A thief flees at 8.2 against 5.6 on foot, so catching one
-used to be a speed check the King simply lost unless he had the horse. A dash closes about 2.2 units,
-and a thief's run is long enough for two of them — enough to catch one if they are spent well, not
-enough if they are not.
+What it was measured to do is kept here because whatever next touches the chase will want it. A dash
+covered **4.44 units at 60fps** against a walk's 1.68 over the same 0.3s, and it was the thing that
+made the **thief chase** winnable on foot: a thief flees at 8.2 (`enemy.thief.fleeSpeed`) against 5.6
+on foot and 7.5 mounted, and a dash closed about 2.2 units of that, twice in one run. Without it the
+chase is the speed check it was before #57 — the King's own bow and the towers answer a thief,
+footspeed does not. `fleeSpeed` is left at 8.2 on purpose and is the one number to move if that turns
+out to be the wrong call; the reasoning is on the line itself in `src/config.js`.
 
 The **rally banner** (`CFG.banner`, #57) — the banner button or B — is the one that is a decision
 about a *place*. The horn says "to me"; the banner says "hold here", and then lets him leave. It is

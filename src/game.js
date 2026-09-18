@@ -305,13 +305,6 @@ export class Game {
     this.finaleOpen = false;
     this.recaptures = 0;
     this.hornT = 0; // cooldown remaining
-    // #57: the dash. `dashT` is the cooldown, `dashUntil` the moment it ends, and dashX/dashZ the
-    // direction it was committed to -- fixed when it is pressed, because a steerable dash is a speed
-    // boost and a committed one is a decision.
-    this.dashT = 0;
-    this.dashUntil = 0;
-    this.dashX = 0;
-    this.dashZ = 1;
     // #57: the rally banner. `banner` is { x, z, until, mesh } while one stands, null otherwise; the
     // mesh itself was disposed at the top of this function, before the old root was dropped.
     this.banner = null;
@@ -935,16 +928,12 @@ export class Game {
       this.alarmT -= dt;
       this.hud.showAlarm(this.alarmT > 0 ? this.alarmText : null);
       this.hornT = Math.max(0, this.hornT - dt);
-      // #43: and all three stand down while a building is being put down -- the place button takes
-      // the horn's own corner, and choosing between a warhorn and a tick is not a choice anyone
-      // should be offered mid-placement. #137: the cross takes the dash's slot for the same reason,
-      // which is why all three of these have to stand down and not only the horn.
+      // #43: and both stand down while a building is being put down -- the place button takes the
+      // horn's own corner, and choosing between a warhorn and a tick is not a choice anyone should be
+      // offered mid-placement. #137: the cross takes the slot beside it for the same reason, which is
+      // why both of these have to stand down and not only the horn.
       const verbs = (!this.queen.captive || this.queen.taken) && !this.placing;
       this.hud.setHorn(verbs, this.hornT / CFG.horn.cooldown, this.hornT);
-      // #57: the dash sits beside the horn and follows the same rule about when it is offered -- both
-      // are the King's own verbs, and neither is his while somebody else has hold of Wren.
-      this.dashT = Math.max(0, this.dashT - dt);
-      this.hud.setDash(verbs, this.dashT / CFG.dash.cooldown, this.dashT);
       // #57: and the banner, which has a life of its own as well as a cooldown -- it is taken down
       // the frame it runs out rather than being left standing for the army to ignore.
       this.bannerT = Math.max(0, this.bannerT - dt);
