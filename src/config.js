@@ -823,6 +823,28 @@ export const CFG = {
   // often on.
   walkAnim: { refSpeed: 3.8, min: 0.55, max: 1.9 },
 
+  // #168: what the game gives up when the frame rate drops, in the order it costs the look, and the
+  // discipline for giving it up. `fps` is the rate a tier drops in at, held for `dropAfter` seconds
+  // of counted frames; it is restored once the rate has sat `restoreMargin` above that for
+  // `restoreAfter` seconds. A frame longer than `stall` is a hitch (or SwiftShader) and is not
+  // counted at all. See game-quality.js for why each of those is what it is.
+  //
+  // The order: grass thins first because the ground texture carries most of the coverage since
+  // 45f5aa0 and 13,000 tufts are the largest single instanced cost in the world (273k triangles);
+  // then the wind stops and the resolution eases -- fill rate is what a phone GPU runs out of first,
+  // and the phone already caps at 1.5x, so 0.85 of that is a fifth fewer pixels; the contact shadows
+  // go last, because on a phone they are the only shadows there are. The thresholds are the advice's
+  // (normal above ~55, fewer effects below ~45, fewer shadows below ~35), read against this game's
+  // own floor of 30fps on a phone.
+  quality: {
+    tiers: [
+      { fps: 45, grass: 0.6, flowers: 0.6, wind: true, shadows: true, dpr: 1 },
+      { fps: 35, grass: 0.4, flowers: 0.4, wind: false, shadows: true, dpr: 0.85 },
+      { fps: 28, grass: 0.25, flowers: 0.25, wind: false, shadows: false, dpr: 0.7 },
+    ],
+    dropAfter: 3, restoreAfter: 20, restoreMargin: 10, stall: 0.25,
+  },
+
   // #95/#97: how a notice is read out.
   // `lines` is the cap: past three, the rest becomes another page behind a bobbing arrow. Three is
   // what fits over the world at phone width without the notice becoming the screen.

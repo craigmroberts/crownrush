@@ -759,6 +759,7 @@ function perfGrowth() {
   const w = game.world.counts();
   const cr = game.crowdStats();
   return heap
+    + `\n${game.qualityLabel()}`
     + `\nlive: arrows ${s.arrows} (${s.pool} pooled) · coins ${s.coins} · flying ${s.flyCoins} · popups ${s.popups} · flies ${s.pileFlies} · chips ${s.chips} · fx ${s.fx} · dying ${s.dying} · popping ${s.popping} · queue ${s.queue}`
     + `\ninstanced: grass ${w.tufts} · flowers ${w.flowers} · shadows ${w.shadows} · pebbles ${w.pebbles} · smoke ${w.smoke} · crowd ${cr.drawn}/${cr.characters}`
     + `\ngpu: ${s.geometries} geometries · ${s.textures} textures · ${s.programs} programs · caches ${s.materials} materials · ${s.tags} tags · ${s.popupMats} popups`
@@ -798,7 +799,8 @@ function frame(now) {
   // very first dt of a run can be negative. Measured across six cold loads here: one came back at
   // -0.002s. `Math.min(0.05, ...)` let that straight through, and a frame of negative time runs every
   // system in the game a little way backwards.
-  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
+  const raw = (now - last) / 1000;
+  const dt = Math.max(0, Math.min(0.05, raw));
   last = now;
   const t0 = perf ? performance.now() : 0;
   try {
@@ -808,6 +810,7 @@ function frame(now) {
     lastError = (err && err.message) || String(err);
     console.error(err);
   }
+  game.updateQuality(raw);   // #168: the uncapped delta, because the capped one cannot see below 20fps
   if (perf) {
     perfMs += performance.now() - t0;
     perfFrames++;

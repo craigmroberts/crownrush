@@ -14,6 +14,7 @@ import { UnitsMethods } from './game-units.js';
 import { ViewMethods } from './game-view.js';
 import { VillagerMethods } from './game-villagers.js';
 import { SaveMethods, readLength } from './game-save.js';
+import { QualityMethods } from './game-quality.js';
 
 export class Game {
   constructor(canvas, hud) {
@@ -70,6 +71,11 @@ export class Game {
     // throw away the run that was being watched.
     this.perfLog = [];
     this.perfT = 0;
+    // #168: the adaptive-quality state. `forced` is `?quality=N`, which pins a tier (0 = full) and
+    // switches the controller off, for probes and screenshots that need the same picture every time.
+    const qm = /[?&]quality=(\d)/.exec(location.search);
+    this.quality = { tier: 0, slow: 0, fast: 0, dpr: 1, applied: false, forced: qm ? +qm[1] : null };
+    if (this.quality.forced != null) this.applyQuality(this.quality.forced);
     this.buildFog();
     // every health bar in the game is drawn by this one instanced mesh
     this.bars = new HealthBars(600);
@@ -207,6 +213,8 @@ export class Game {
     const { w, h } = this.viewSize();
     const maxPixels = this.safe ? 1.6e6 : this.mobile ? 2.6e6 : 5e6;
     if (w * h * r * r > maxPixels) r = Math.max(1, Math.sqrt(maxPixels / (w * h)));
+    // #168: a quality tier can ease this; never under 0.75, which is where text on pads goes soft
+    if (this.quality && this.quality.dpr < 1) r = Math.max(0.75, r * this.quality.dpr);
     this.renderer.setPixelRatio(r);
   }
 
@@ -1150,4 +1158,4 @@ export class Game {
 
 // The rest of the class. These were cut out of this file to keep it readable; they are ordinary
 // methods of Game and behave exactly as they did when they were written inline.
-Object.assign(Game.prototype, BuildMethods, EnemiesMethods, UnitsMethods, ViewMethods, VillagerMethods, SaveMethods);
+Object.assign(Game.prototype, BuildMethods, EnemiesMethods, UnitsMethods, ViewMethods, VillagerMethods, SaveMethods, QualityMethods);

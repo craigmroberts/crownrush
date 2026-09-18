@@ -1462,6 +1462,20 @@ thing in the game that grows without one is a coin nobody walks over -- which is
 (do coins expire, or is the field capped?) rather than a bug, and is ticketed as one.
 The soak is `soak167.mjs` in the session scratchpad and takes about five minutes.
 
+**Adaptive quality** (#168). The game had one adaptive path -- `safeMode()`, which fires when a frame
+draws *nothing* -- and no response at all between "fine" and "blank". Now `game-quality.js` reads the
+**uncapped** frame delta (`dt` is capped at 0.05, so it cannot see below 20fps) and gives things up in
+the order they cost the look, from `CFG.quality`: at a sustained 45fps the grass and flowers thin to
+60%; below 35 the wind stops and the resolution eases to 0.85; below 28 the contact shadows go and the
+resolution to 0.7. A frame over a quarter second is a hitch, not a rate, and is not counted -- which
+is also what keeps SwiftShader, at a frame a second, from dropping the probe to the floor tier.
+Hysteresis, because a switch that flaps is a world that visibly breathes: drop after three seconds
+under the threshold, restore one tier only after twenty seconds a clear ten above it, and only one
+tier at a time each way. Driven with synthetic deltas: 30fps drops to tier 2 and holds; 60 climbs back
+one tier per twenty seconds; 40 drops once and sits in tier 1's band without moving; alternating
+44/46 for a minute does not drop at all. `?quality=N` pins a tier (0 = full) for a probe or a
+screenshot that needs the same picture every time, and `?perf=1` names the tier that is active.
+
 `probe.mjs --assert` measures a run against the table below and exits non-zero naming whatever it
 broke. Frame time is not among the asserted ones and cannot be: the probe renders through SwiftShader
 on a CPU. Budgets:

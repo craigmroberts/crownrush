@@ -690,6 +690,16 @@ export function buildWorld(scene, soleShadows = false) {
     f.count = fi[k];
     scenery.add(f);
   });
+  // #168: the dials adaptive quality turns. `count` on an instanced mesh is how many of the buffer
+  // are drawn, so thinning is free -- the last instances placed simply stop being drawn, and since
+  // every patch was placed at a random spot, the ones that go are random patches. Wind is a flag
+  // read by `world.update`; the contact discs are one mesh with a `visible`.
+  world.setQuality = (s) => {
+    tufts.count = Math.round(ti * s.grass);
+    flowers.forEach((f, k) => { f.count = Math.round(fi[k] * s.flowers); });
+    world.windOff = !s.wind;
+    if (world.shadows) world.shadows.visible = s.shadows;
+  };
   scenery.add(tufts);
   // CONTACT SHADOWS, and on a phone they are the only ones there are. `shadowMap.enabled` is
   // `!(safe || (mobile && !hq))`, so on an ordinary phone -- the device this game is played on --
@@ -1040,7 +1050,7 @@ export function buildWorld(scene, soleShadows = false) {
     smoke.instanceMatrix.needsUpdate = true;
     smokeAlpha.needsUpdate = true;
     if (world.waterTex) world.waterTex.offset.y -= dt * 0.08;
-    world.sway.value = world.time;
+    if (!world.windOff) world.sway.value = world.time;   // #168: a quality tier can still the air
     for (const r of world.roads) {
       if (!r.revealed || r.progress >= 1) continue;
       r.progress = Math.min(1, r.progress + dt / 2.2);
