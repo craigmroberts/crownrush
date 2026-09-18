@@ -96,6 +96,8 @@ Promise.all([
   loadBar.classList.add('done');
   startBtn.disabled = false;
   startBtn.classList.remove('hidden');
+  // #178: a `?view=` or `?tour` frame starts itself the moment Play would have been live.
+  if (VIEW || CFG.opening.tourFlag) startForView();
   // Play is live; fetch the rest while the title screen and the intro are being read, and only then
   // let the worker precache the lot for the next visit.
   //
@@ -136,6 +138,13 @@ const startGame = () => {
   try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) { /* private mode */ }
   game.start();
 };
+// #178: a view starts its own run. Nobody framing the board should have to press Play first, and the
+// intro would sit over the top of whatever was being looked at.
+function startForView() {
+  try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) { /* private mode */ }
+  game.start();
+  runView();
+}
 document.getElementById('start-btn').addEventListener('click', () => {
   let seen = false;
   try { seen = !!localStorage.getItem(INTRO_KEY); } catch (e) { /* private mode */ }
@@ -620,6 +629,15 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') game.togglePause();
 });
 document.addEventListener('visibilitychange', () => {
+  // #178: a board frame is a DISPLAY, not a session. Pausing it is still right -- six framed WebGL
+  // games should not all be drawing when nobody is looking at the tab -- but the pause PANEL is not:
+  // it covers the thing the frame exists to show, and nobody is going to reach into an iframe to
+  // press Resume. So a view pauses silently and comes back on its own.
+  if (VIEW || CFG.opening.tourFlag) {
+    if (document.hidden) game.pause(true);
+    else game.unpause();
+    return;
+  }
   if (document.hidden) game.pause();
 });
 
@@ -710,6 +728,67 @@ sizeLine?.addEventListener('click', async () => {
     sizeLine.textContent = text;     // no clipboard: put the whole thing on screen to be screenshotted
   }
 });
+
+// #178: `?view=…` jumps straight to a thing worth looking at, so the admin board can show the REAL
+// game rather than screenshots of it. A screenshot of a panel is out of date the moment the panel
+// changes and nothing tells you -- which is the complaint that started this ("in the brand guide its
+// showing images of the gameplay that is out of sync").
+//
+// Every view below is a state the game can already be in; none of them is a mock. `map` is the one
+// exception to "no new behaviour": it pulls the camera up and clears the fog, because the whole map
+// is a thing the game never shows you and the board is the first place it can.
+//
+// The board frames these in same-origin iframes. That is why the board lives in this deployment
+// rather than anywhere else: an iframe of the game from another origin is blocked, and a page that
+// cannot show the game cannot stop going stale.
+const VIEW = (/[?&]view=([a-z]+)/.exec(location.search) || [])[1] || '';
+function runView() {
+  if (!VIEW || !game) return;
+  const panels = {
+    cast: () => game.showCast(),
+    diary: () => game.showDiary(),
+    keep: () => game.showKeep(),
+    scores: () => game.showScores(),
+    settings: () => game.showSettings(),
+    levelup: () => { game.offerQueue = 1; game.offerLevel = game.baseLevel; game.showOffer(); },
+  };
+  if (panels[VIEW]) {
+    // one frame of run first: every panel reads live state, and a panel opened before the world
+    // exists is a panel of nothing
+    setTimeout(panels[VIEW], 400);
+    return;
+  }
+  if (VIEW === 'map') {
+    setTimeout(() => {
+      // the whole board, fog off. `camDist` is what `updateCamera` reads every frame, so this holds
+      // rather than being overwritten on the next one.
+      // 72 puts all four corners of the tier-2 plot in frame with the least empty ground around it.
+      // Measured by projecting the plot's corners at 36 / 48 / 60 / 72 / 96: 3 of 5 until 72, then 5.
+      game.camLock = 72;
+      game.camDist = 72;
+      // AND THE AIR HAS TO GO WITH IT. The scene's fog is tuned for a camera at 17 and turns
+      // everything past it into pale haze -- at 72 the whole village was a smudge. Pushing near/far
+      // out is what makes this a map rather than a photograph of weather. `dry` is what
+      // `updateDaylight` restores from when rain stops, so it moves too or the next frame undoes it.
+      // and no chimney smoke. Five smokers over five roofs, drawn `depthWrite: false` with no fog to
+      // sit behind any more, and at this height each plume is a white blob wider than the house under
+      // it -- the buildings were all there and all behind their own smoke. A map is not a weather
+      // report.
+      if (game.world.clearSmokers) game.world.clearSmokers();
+      if (game.scene.fog) {
+        game.scene.fog.near = 120;
+        game.scene.fog.far = 400;
+        game.dry.fogNear = 120;
+        game.dry.fogFar = 400;
+      }
+      if (game.fog) {
+        const ctx = game.fog.canvas.getContext('2d');
+        ctx.clearRect(0, 0, game.fog.canvas.width, game.fog.canvas.height);
+        game.fog.tex.needsUpdate = true;
+      }
+    }, 400);
+  }
+}
 
 // #152: `?tour` holds the opening morning open for ever -- nobody comes, the village stays up, and it
 // can be walked around and looked at. A badge says so, because a game whose first minute never ends

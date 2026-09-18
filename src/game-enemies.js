@@ -188,7 +188,7 @@ export const EnemiesMethods = {
     // #152: `?tour` holds the morning open. The kingdom is meant to be designed and it cannot be
     // judged while it keeps being pulled down half a minute in -- so the clock simply does not run,
     // nobody comes, and the village stays up to be walked around and argued with.
-    if (O.tourFlag) return;
+    if (O.holdFlag) return;
     this.openT += dt;
     if (this.openT < O.calm) {
       // one line, once, a beat before they appear -- so the quiet has an edge on it rather than
