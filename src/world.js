@@ -1392,18 +1392,65 @@ export function buildWorld(scene, soleShadows = false) {
   // ---- ambient life ----
   const life = new THREE.Group();
   scene.add(life);
-  const darkMat = new THREE.MeshStandardMaterial({ color: 0x2b2b30, roughness: 0.9, side: THREE.DoubleSide });
+  const darkMat = band(new THREE.MeshStandardMaterial({ color: 0x2b2b30, roughness: 0.9, side: THREE.DoubleSide }));
+  // #195: BIRDS, and what was wrong with them.
+  //
+  // Forced over the village and photographed, a flock was five hard BLACK RECTANGLES lying over the
+  // grass -- not "bird-shaped and too dark", rectangles. Each wing was a 0.5 x 0.22 PlaneGeometry
+  // turned flat, and this camera looks down at about 49 degrees, so it sees the whole rectangle
+  // face-on. In `darkMat` (0x2b2b30) that is a black bar with no highlight and nothing to read as a
+  // wing. They also fly at 9-12 units with the camera at 21, which puts them BETWEEN the ground and
+  // the lens: they parallax against the field instead of sitting in the sky behind it.
+  //
+  // Three things fix it and all three are about what the camera can actually see:
+  //
+  // SHAPE. A swept outline with a notch in the trailing edge rather than a rectangle. Five points and
+  // three triangles a wing -- fewer than the plane it replaces once the body is trimmed -- and the
+  // notch is what stops it reading as a domino at fifteen pixels across.
+  //
+  // VALUE. The camera sees their BACKS, and a bird's back catches the sky. Vertex-coloured along the
+  // span, dark at the shoulder and pale at the tip, so a wing has a gradient across it at the size it
+  // is actually seen. The old colour is kept for the body, which is the part that should stay dark.
+  //
+  // A SHADOW. The thing that says "that is in the air" is a mark on the ground under it, and a flock
+  // gets one disc that follows it. It is what makes the parallax read as altitude rather than as a
+  // shape sliding over the field.
+  const birdBody = band(new THREE.MeshStandardMaterial({ color: 0x585f6a, roughness: 0.9 }));
+  const birdWing = band(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, vertexColors: true, side: THREE.DoubleSide }));
+  const WING_GEO = (() => {
+    // x is the span, z is the chord. Root at the shoulder, tip outboard, and the notch is the step
+    // in the trailing edge between them.
+    const pts = [[0.05, -0.10], [0.05, 0.09], [0.30, 0.05], [0.52, -0.02], [0.26, -0.12]];
+    const tri = [[0, 1, 2], [0, 2, 3], [0, 3, 4]];
+    const pos = [];
+    const col = [];
+    const shoulder = new THREE.Color(0x6e7682);
+    const tip = new THREE.Color(0xeaeef4);
+    const c = new THREE.Color();
+    for (const t of tri) {
+      for (const i of t) {
+        const [x, z] = pts[i];
+        pos.push(x, 0, z);
+        c.copy(shoulder).lerp(tip, Math.min(1, (x - 0.05) / 0.47));
+        col.push(c.r, c.g, c.b);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.computeVertexNormals();
+    return g;
+  })();
   function makeBird() {
     const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 5), darkMat);
-    body.scale.set(0.8, 0.6, 1.8);
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.11, 5, 4), birdBody);
+    body.scale.set(0.8, 0.6, 1.9);
     g.add(body);
     const wings = [];
     for (const side of [-1, 1]) {
       const pivot = new THREE.Group();
-      const w = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.22), darkMat);
-      w.position.x = side * 0.3;
-      w.rotation.x = -Math.PI / 2;
+      const w = new THREE.Mesh(WING_GEO, birdWing);
+      w.scale.x = side;          // one geometry, mirrored -- the left wing is the right one negated
       pivot.add(w);
       g.add(pivot);
       wings.push(pivot);
@@ -1411,6 +1458,10 @@ export function buildWorld(scene, soleShadows = false) {
     g.userData.wings = wings;
     return g;
   }
+  // One disc a flock, not one a bird: at this height and this size the five of them read as a single
+  // mark anyway, and one mesh is one draw call rather than five.
+  const birdShadeMat = new THREE.MeshBasicMaterial({ color: 0x24401c, transparent: true, opacity: 0.18, depthWrite: false });
+  const BIRD_SHADE_GEO = new THREE.CircleGeometry(1.15, 12);
   world.flocks = [];
   world.birdTimer = 6 + rand() * 6;
   function spawnFlock() {
@@ -1431,7 +1482,12 @@ export function buildWorld(scene, soleShadows = false) {
       life.add(b);
       birds.push(b);
     }
-    world.flocks.push({ birds, pos: start, dir, speed: 5 + rand() * 2, t: 0 });
+    const shade = new THREE.Mesh(BIRD_SHADE_GEO, birdShadeMat);
+    shade.rotation.x = -Math.PI / 2;
+    shade.position.y = 0.035;      // above the ground and above the roads, under everything else
+    shade.renderOrder = -1;
+    life.add(shade);
+    world.flocks.push({ birds, pos: start, dir, speed: 5 + rand() * 2, t: 0, shade });
   }
   // butterflies around the flower patches
   const wingColors = [0xffd54a, 0xffffff, 0xff9a3a, 0x9ad4ff];
@@ -1593,12 +1649,18 @@ export function buildWorld(scene, soleShadows = false) {
       fl.birds.forEach((b, k) => {
         b.position.copy(fl.pos).add(b.userData.offset);
         b.position.y += Math.sin(world.time * 2 + b.userData.phase) * 0.15;
-        const flap = Math.sin(world.time * 12 + b.userData.phase) * 0.7;
+        const flap = Math.sin(world.time * 7 + b.userData.phase) * 0.62;   // #195: was 12, which at this size is a blur
         b.userData.wings[0].rotation.z = flap;
         b.userData.wings[1].rotation.z = -flap;
       });
+      // The disc tracks the flock on the ground and fades with height, so a flock that climbs loses
+      // its mark rather than dragging a hard circle around. Nothing casts from up there -- the shadow
+      // camera is a box around the King and a bird at 10 units is outside it half the time.
+      fl.shade.position.set(fl.pos.x, 0.035, fl.pos.z);
+      fl.shade.material.opacity = 0.2 * Math.max(0, 1 - (fl.pos.y - 8) / 9);
       if (fl.t > 16) {
         for (const b of fl.birds) life.remove(b);
+        life.remove(fl.shade);
         world.flocks.splice(i, 1);
       }
     }
