@@ -43,14 +43,19 @@ export class Game {
     // ?hq=1 puts the full path back on a phone, for testing.
     this.hq = /[?&]hq=1/.test(location.search);
     const plain = this.safe || (this.mobile && !this.hq);
+    // #193: which shadow map this run has, and it is the one thing here a person can argue with.
+    // `?shadows=off|cheap|full` overrides; otherwise a desktop gets `full`, `?hq=1` on a phone gets
+    // `full` as it always has, and an ordinary phone gets `off` -- which is what it has had since #26
+    // and stays the default until somebody has measured `cheap` on a real one. See `CFG.shadowMap`
+    // for the two profiles and why the cheap one is shaped the way it is.
+    const asked = (/[?&]shadows=(off|cheap|full)/.exec(location.search) || [])[1];
+    this.shadowProfile = this.safe ? 'off' : asked || (plain ? 'off' : 'full');
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: !this.mobile && !this.safe,
       powerPreference: plain ? 'default' : 'high-performance',
     });
     this.setPixelRatio();
-    this.renderer.shadowMap.enabled = !plain;
-    this.renderer.shadowMap.type = this.mobile ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.22;
@@ -70,10 +75,12 @@ export class Game {
     this.dayPhase = 0.05; // the run opens in early morning
     this.night = false;
     this.sunHeight = 34;
-    if (this.mobile) sun.shadow.mapSize.set(1024, 1024);
-    // `plain` is exactly "the shadow map is off", which is the ordinary phone: see the line above
-    // that sets it. The world needs to know, because then its contact shadows are the only ones.
-    this.world = buildWorld(this.scene, plain);
+    // #193: the profile, onto the renderer and the light. Before the first frame, so nothing has been
+    // compiled against the other setting and there is no recompile to pay for.
+    this.applyShadowProfile(this.shadowProfile);
+    // The world needs to know whether anything else casts, because then its contact discs are the
+    // only shadow there is and they go heavier. `world.setSoleShadows` moves it afterwards.
+    this.world = buildWorld(this.scene, this.shadowProfile === 'off');
     // #165 / #166: how big the for-ever caches in models.js are, for the perf overlay and for tests.
     this.cacheSizes = cacheSizes;
     // #166: a sample every two seconds of GAME time, kept for an hour, whether or not anyone is
@@ -223,6 +230,45 @@ export class Game {
       w: Math.max(c.clientWidth || 0, vv ? vv.width : 0, window.innerWidth || 0, 1),
       h: Math.max(c.clientHeight || 0, vv ? vv.height : 0, window.innerHeight || 0, 1),
     };
+  }
+
+  // #193: the shadow map, set from `CFG.shadowMap`. Called before the first frame from the
+  // constructor, and safe to call again -- the map itself is thrown away so three rebuilds it at the
+  // new size, and every material is marked for recompile because `shadowMap.enabled` is a shader
+  // define rather than a uniform. That recompile is exactly why the adaptive controller does not
+  // touch this: it is the whole program cache, at the moment the device is already behind.
+  applyShadowProfile(name) {
+    const on = name !== 'off';
+    const P = CFG.shadowMap[name] || CFG.shadowMap.full;
+    const was = this.renderer.shadowMap.enabled;
+    this.shadowProfile = name;
+    this.renderer.shadowMap.enabled = on;
+    this.renderer.shadowMap.type = P.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+    const sh = this.sun.shadow;
+    if (sh.map && (sh.mapSize.x !== P.size || was !== on)) {
+      sh.map.dispose();
+      sh.map = null;
+    }
+    sh.mapSize.set(P.size, P.size);
+    sh.camera.left = -P.extent;
+    sh.camera.right = P.extent;
+    sh.camera.top = P.extent;
+    sh.camera.bottom = -P.extent;
+    sh.camera.updateProjectionMatrix();
+    sh.bias = P.bias;
+    sh.normalBias = P.normalBias;
+    sh.radius = P.radius;
+    // `sun.shadow.intensity` is deliberately NOT touched here. Rain owns it -- `this.dry.shadow` is
+    // its dry-weather baseline and the storm scales it down from there -- and a profile that wrote
+    // the baseline back would freeze the shadows dim if safe mode tripped mid-storm.
+    if (this.world && this.world.setSoleShadows) this.world.setSoleShadows(!on);
+    if (was !== on) {
+      this.renderer.shadowMap.needsUpdate = true;
+      this.scene.traverse((o) => {
+        if (!o.material) return;
+        for (const m of Array.isArray(o.material) ? o.material : [o.material]) m.needsUpdate = true;
+      });
+    }
   }
 
   setPixelRatio() {
@@ -525,7 +571,10 @@ export class Game {
       if (!this.running || document.hidden || !broken()) return;
       if (!this.safe) {
         this.safe = true;
-        this.renderer.shadowMap.enabled = false;
+        // #193: through the profile rather than the flag on the renderer, so the discs go back to
+        // carrying the shadow alone and `?perf=1` does not go on naming a map that is not there. This
+        // is the one place the recompile is worth paying for: the alternative is a blank screen.
+        this.applyShadowProfile('off');
         this.setPixelRatio();
         this.resize();
         this.hud.toast('Graphics trouble: switching to safe mode.', 3000);

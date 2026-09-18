@@ -1545,6 +1545,15 @@ export const ViewMethods = {
     return { taken, level: L, max: CFG.base.maxLevel, hasKeep: !!this.keep, queenCaptive: !!this.queen.captive, need, unlocks, padsNow, later, ranks, army, coins, wave: this.wave, finaleOpen: this.finaleOpen, finaleLevel: CFG.finale.level };
   },
 
+  // #193: the mesa's edge, which is the one place in the game where terrain throws a real shadow
+  // across open ground -- and so the frame the shadow map is judged in. Add `&shadows=off|cheap|full`
+  // to the URL to see what each profile buys; the board frames the comparison.
+  showMesaView() {
+    this.king.mesh.position.set(-20, 0, -26);
+    this.king.mesh.rotation.y = Math.PI * 0.25;
+    this.queen.mesh.position.set(-22, 0, -24.5);
+  },
+
   // #180: the east road from the King's own camera, just inside the town wall, where it is the
   // castle road with the trail beginning past the gate -- the frame the roads are judged in. All
   // four roads shown, whatever walls the morning has.

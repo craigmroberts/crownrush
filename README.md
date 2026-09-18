@@ -55,11 +55,59 @@ the raids keep coming for a high score.
   tree would shear. Both sway materials carry a `customProgramCacheKey`, because `onBeforeCompile` is
   not part of Three's program cache key and a material with matching DEFINES can silently be handed
   somebody else's compiled shader.
-- **Contact shadows, which on a phone are the only ones.** `shadowMap.enabled` is
-  `!(safe || (mobile && !hq))`, so on an ordinary phone nothing casts: characters get their instanced
-  blob and every tree, rock, bush and bale floats. 671 instanced discs, sized from each object's own
-  bounding box so nothing has to be plumbed through the call sites. Heavier (0.42) where they are the
-  only shadow, fainter (0.2) where the sun casts too and they are doing ambient occlusion instead.
+- **Contact shadows, which on a phone are the only ones.** On an ordinary phone nothing casts:
+  characters get their instanced blob and every tree, rock, bush and bale floats. 671 instanced discs,
+  sized from each object's own bounding box so nothing has to be plumbed through the call sites.
+  Heavier (0.42) where they are the only shadow, fainter (0.2) where the sun casts too and they are
+  doing ambient occlusion instead -- a setting now rather than a fact, because the shadow map is one
+  too.
+- **The shadow map, and whether a phone can have one** (#193). It has been off on phones since #26,
+  when a Pixel Fold rendered a white world and the map was one of three things switched off to find
+  out why -- inherited ever since, on hardware two generations newer, without being retested. There
+  are two profiles now and `?shadows=off|cheap|full` picks one for a run:
+
+  | | texels | extent | units a texel | fill |
+  | --- | --- | --- | --- | --- |
+  | **full** | 1536 | ±36 | 0.047 | 2,359k |
+  | **cheap** | 768 | ±30 | 0.078 | 590k |
+
+  The extent is what makes a small map usable: it is a box around the **King**, whom the sun follows,
+  so it only has to cover the frame -- which reaches about 27 units ahead of him and 12 behind. ±20
+  was the first guess and is too tight; a tree 25 units out popped its shadow in as he walked at it.
+  It also replaced a third, unmeasured profile: `?hq=1` on a phone used to get 1024, and now gets the
+  real full path.
+
+  **The grass receives now, and that is most of what makes a map worth having.** A cast shadow lands
+  on the ground, and since #191 the ground around the King is covered in grass — so the mesa's shadow
+  fell across a field of blades that were all still in full sun, and read as a stain rather than as
+  shade. It still does not cast: 13,000 instances through the depth pass is the one shadow cost that
+  is affordable nowhere.
+
+  **What it costs**, driven in a phone-sized frame with the opening village fully stood up:
+
+  | | no map | cheap | full |
+  | --- | --- | --- | --- |
+  | village, draw calls | 87–94 | 220–225 | 229–243 |
+  | village, triangles | 567–574k | 724–736k | 748–762k |
+  | mesa edge, draw calls | 50–57 | 115–139 | 158–174 |
+
+  Two sweeps, and the ranges are the union of them: a frame here costs about a second, so which
+  three frames get sampled moves a count by ten either way. Nothing in the spread changes the shape.
+
+  The extra is the shadow pass drawing every caster a **second time** — 130 to 150 draw calls in the
+  village, where there are 154 separate casting meshes near the King for it to draw. That is the
+  number to worry about against a budget of 400, and it is nearly the same for both profiles: what
+  `cheap` actually saves is a **quarter of the fill** (590k texels against 2,359k), which is the part
+  a phone GPU feels, plus ten or twenty calls from the tighter box. Merging the casters the way
+  `mergeGroup` merges the scenery is the lever that would change the call count, and it is a separate
+  piece of work.
+
+  **The choice is made at load, not by the adaptive controller** (#168). Changing `shadowMap.enabled`
+  changes the shader defines, so every material has to recompile; doing that on a tier drop stalls the
+  whole program cache at the moment the device is already behind. The controller has four cheaper
+  dials and keeps them. `?view=mesa` frames the one place terrain throws a real shadow across open
+  ground, which is where this is worth judging, and `?perf=1` names the profile and its texel density.
+  The default stays off on a phone until somebody has measured `cheap` on one.
 - **Grass, and where it is not.** 13,000 instanced tufts in one draw call. What is kept bare is the
   **citadel** -- the tight first ring the Keep and its three service buildings stand in, which is
   paved and walked over all game. Everything beyond it is countryside, including the ground inside the

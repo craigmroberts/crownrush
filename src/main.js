@@ -865,6 +865,7 @@ function runView() {
     // #82: the Stable block, stood and filled, with the King beside it so the camera is on it.
     stable: () => game.showStableView(),
     road: () => game.showRoadView(),   // #180
+    mesa: () => game.showMesaView(),   // #193
     // The two endings. `gameOver`/`victory` are not called: they clear the run, write a score row and
     // record a run, and a board frame that quietly adds a defeat to the player's own scoreboard every
     // time it loads is a view with a side effect. These open the same panels off live state instead.
@@ -990,8 +991,22 @@ function perfGrowth() {
     + `\nlive: arrows ${s.arrows} (${s.pool} pooled) · coins ${s.coins} · flying ${s.flyCoins} · popups ${s.popups} · flies ${s.pileFlies} · chips ${s.chips} · fx ${s.fx} · dying ${s.dying} · popping ${s.popping} · queue ${s.queue}`
     + `\ninstanced: grass ${w.tufts} · clover ${w.clover} · flowers ${w.flowers} · stones ${w.stones} · shadows ${w.shadows} · pebbles ${w.pebbles} · smoke ${w.smoke} · crowd ${cr.drawn}/${cr.characters}`
     + `\ngpu: ${s.geometries} geometries · ${s.textures} textures · ${s.programs} programs · caches ${s.materials} materials · ${s.tags} tags · ${s.popupMats} popups`
+    // #193: which shadow map this run has and what it is costing. `calls` counts the shadow pass as
+    // well as the visible one, so the difference between a run with a map and one without is on this
+    // line beside the profile that caused it -- which is the whole of what a measurement on a phone
+    // needs. `?shadows=off|cheap|full` picks it.
+    + `\nshadows: ${game.shadowProfile}${shadowNote(game)}`
     + `\n${game.perfLog.length} samples${perfNote ? ' · ' + perfNote : ''}`;
 }
+// #193: the map's size and extent, and how much of the frame's draw work is the shadow pass.
+function shadowNote(game) {
+  if (game.shadowProfile === 'off') return ' (contact discs only)';
+  const sh = game.sun.shadow;
+  const px = sh.mapSize.x;
+  const ext = sh.camera.right;
+  return ` · ${px}px over ±${ext} (${(ext * 2 / px).toFixed(3)} units a texel)`;
+}
+
 // The log, as CSV, for a phone: a tap copies it and the numbers get off the device without anyone
 // retyping them. #74 did the same for the size line, for the same reason.
 function perfCsv() {

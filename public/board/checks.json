@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-18T15:45:32.359Z",
+  "at": "2026-09-18T17:43:06.047Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -145,79 +145,79 @@
   "checks": {
     "pads-requires-exist": {
       "pass": true,
-      "at": "2026-09-18T15:22:57.699Z"
+      "at": "2026-09-18T17:23:39.404Z"
     },
     "pads-buildat-in-bounds": {
       "pass": true,
-      "at": "2026-09-18T15:22:57.699Z"
+      "at": "2026-09-18T17:23:39.405Z"
     },
     "pads-no-overlap": {
       "pass": true,
-      "at": "2026-09-18T15:22:57.701Z"
+      "at": "2026-09-18T17:23:39.412Z"
     },
     "opening-homes-legal": {
       "pass": true,
-      "at": "2026-09-18T15:22:57.701Z"
+      "at": "2026-09-18T17:23:39.412Z"
     },
     "icons-exist": {
       "pass": true,
-      "at": "2026-09-18T15:22:57.705Z"
+      "at": "2026-09-18T17:23:39.416Z"
     },
     "upgrade-mods-exist": {
       "pass": true,
       "note": "17 of 17 upgrades declare a mod key, all 17 resolve",
-      "at": "2026-09-18T15:22:57.705Z"
+      "at": "2026-09-18T17:23:39.416Z"
     },
     "footprints-cover-kinds": {
       "pass": true,
-      "at": "2026-09-18T15:22:57.705Z"
+      "at": "2026-09-18T17:23:39.416Z"
     },
     "walls-solid": {
       "pass": true,
       "note": "24 directions, held every time",
-      "at": "2026-09-18T15:26:07.743Z"
+      "at": "2026-09-18T17:26:35.446Z"
     },
     "gates-passable": {
       "pass": true,
       "note": "4 gates",
-      "at": "2026-09-18T15:26:20.882Z"
+      "at": "2026-09-18T17:26:43.632Z"
     },
     "wall-ring-unbroken": {
       "pass": true,
       "note": "360 samples",
-      "at": "2026-09-18T15:26:33.496Z"
+      "at": "2026-09-18T17:26:52.374Z"
     },
     "views-open": {
       "pass": true,
-      "note": "15 views, each with its panel up",
-      "at": "2026-09-18T15:25:53.402Z"
+      "note": "16 views, each with its panel up",
+      "at": "2026-09-18T17:26:27.181Z"
     },
     "opening-resolves": {
       "pass": true,
-      "note": "taken after 788 frames of running",
-      "at": "2026-09-18T15:35:44.180Z"
+      "note": "taken after 786 frames of running",
+      "at": "2026-09-18T17:34:38.055Z"
     },
     "queen-visible": {
       "pass": false,
       "detail": [
         "inside the King (0.76 apart) at frame 2"
       ],
-      "at": "2026-09-18T15:36:26.012Z"
+      "at": "2026-09-18T17:34:48.257Z"
     },
     "rebuild-after-fall": {
       "pass": true,
       "note": "empty plot, clear ledger, every mat on it buys",
-      "at": "2026-09-18T15:45:28.005Z"
+      "at": "2026-09-18T17:43:03.208Z"
     },
     "tokens-resolve": {
       "pass": true,
       "note": "no cycles; 3 tokens nothing reads -- --frame-hi, --frame-lo, --danger-edge (#135)",
-      "at": "2026-09-18T15:22:57.704Z"
+      "at": "2026-09-18T17:23:39.415Z"
     },
     "icons-unique": {
       "pass": true,
       "note": "54 icons, no key declared twice",
-      "at": "2026-09-18T15:22:57.704Z"
+      "at": "2026-09-18T17:23:39.416Z"
     }
   }
 }

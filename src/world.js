@@ -1069,6 +1069,12 @@ export function buildWorld(scene, soleShadows = false) {
   for (const c of COVER) {
     c.mesh.count = 0;
     c.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    // #193: the cover RECEIVES, and it did not before. A cast shadow lands on the ground, and since
+    // #191 the ground under the King is covered in grass -- so the mesa's shadow fell across a field
+    // of blades that were all still in full sun, which reads as a stain rather than as shade. It does
+    // not CAST: 13,000 instances through the depth pass is the one shadow cost that would not be
+    // affordable, and a tuft's own shadow is noise at this size.
+    c.mesh.receiveShadow = true;
     // The window moves with him, so a bounding sphere computed once would be wrong a second later --
     // and these are centred on the camera by construction, so there is never anything to cull.
     c.mesh.frustumCulled = false;
@@ -1349,6 +1355,11 @@ export function buildWorld(scene, soleShadows = false) {
       shade.renderOrder = -1;   // under the grass, which is also transparent-adjacent and drawn after
       scenery.add(shade);
       world.shadows = shade;
+      // #193: and the strength is a setting rather than a fact, because the shadow map is now one
+      // too (`CFG.shadowMap`). A disc is doing one of two jobs -- the contact darkness under a trunk
+      // where the sun already casts, or the whole shadow where nothing else does -- and which of
+      // those it is can change between one run and the next.
+      world.setSoleShadows = (sole) => { shade.material.opacity = sole ? 0.42 : 0.2; };
     }
   }
   // #191: after the discs, not before. The pass above sizes a disc from each child's bounding box,

@@ -374,6 +374,54 @@ export const CFG = {
   },
   gatePost: { height: 1.55 },
 
+  // #193: THE SHADOW MAP, AND WHETHER A PHONE CAN HAVE ONE.
+  //
+  // `shadowMap.enabled` has been `!(safe || (mobile && !hq))` since #26, when a Pixel Fold rendered a
+  // white world and the map was one of three things turned off to find out why. So an ordinary phone
+  // -- the device this game is played on -- has the contact discs and nothing else: no building
+  // shadow, no tree shadow, no shadow under a wall. That was the right call with the evidence of the
+  // day and it has been inherited ever since without being retested, on hardware two generations
+  // newer.
+  //
+  // It is worth retesting because of what a real shadow does for the look. Where the mesas throw one
+  // across the grass the scene gains depth and weight immediately, and that is the largest single
+  // difference between this and the reference (#184).
+  //
+  // So there are two profiles rather than one, and a phone can be given the cheap one:
+  //
+  //             texels   extent   units/texel   cost
+  //     full      1536     +-36      0.047      desktop, soft PCF, as it has always been
+  //     cheap      768     +-30      0.078      a phone, hard PCF, a third of the texels
+  //
+  // The extent is what makes a small map usable: it is a box around the KING, who the sun follows
+  // (`updateCamera` moves the light and its target with him), so it only ever has to cover the frame.
+  // The frame reaches about 27 units ahead of him and 12 behind, so +-30 covers it with a margin and
+  // spends nothing on the 190 x 190 the map used to be sized for. +-20 was the first guess and is too
+  // tight: a tree 25 units out popped its shadow in as he walked at it.
+  //
+  // `normalBias` is the modern answer to acne and is free, which matters more at 0.078 units a texel
+  // than at 0.047. It is new on the desktop path too, which never had one.
+  //
+  // THE GRASS RECEIVES NOW and did not before, which turns out to be most of what makes a map worth
+  // its cost. A cast shadow lands on the ground, and since #191 the ground around the King is covered
+  // in grass -- so the mesa's shadow fell across a field of blades that were all still in full sun,
+  // and read as a stain rather than as shade. It still does not CAST: 13,000 instances through the
+  // depth pass is the one shadow cost that would not be affordable anywhere.
+  //
+  // What went: `if (this.mobile) sun.shadow.mapSize.set(1024, 1024)`, a third profile that existed
+  // only for `?hq=1` on a phone and was never measured against anything. `?hq=1` gets the real full
+  // path now; `cheap` is the one to measure.
+  //
+  // THE CHOICE IS MADE AT LOAD, not by the adaptive controller (#168). Changing `shadowMap.enabled`
+  // changes the shader defines, so every material in the scene has to recompile; doing that on a tier
+  // drop means a stall of every program at the exact moment the device is already behind. The
+  // controller has four cheaper dials and keeps them. `?shadows=off|cheap|full` picks a profile for a
+  // run, which is what a measurement on a real phone needs.
+  shadowMap: {
+    full: { size: 1536, extent: 36, radius: 4, bias: -0.0006, normalBias: 0.02, soft: true },
+    cheap: { size: 768, extent: 30, radius: 1, bias: -0.0012, normalBias: 0.035, soft: false },
+  },
+
   // #191: THE GRASS FOLLOWS THE KING. 13,000 tufts used to be scattered once over the whole 190 x 190
   // map -- about one every 1.6 units -- and the camera shows roughly 35 units of ground, so the player
   // saw under 2% of them at a time and the other 98% were submitted every frame and never looked at.
