@@ -223,11 +223,16 @@
           <!-- #112: a crown between two flourishes above the wordmark and a second rule under it.
                Pure CSS -- a hairline that fades out from a gold diamond -- because anything that
                arrives as a request or a font is spent from the bytes-to-Play budget this screen IS. -->
-          <div class="lockup">
-            <i data-icon="crown" data-size="44"></i>
-            <span class="flourish" aria-hidden="true"></span>
-            <h1>Crown Rush</h1>
-            <span class="flourish" aria-hidden="true"></span>
+          <!-- #175: the wordmark on a wooden shield with a leaf either side -- the reference's
+               treatment, with this game's name and its gold. The shield is a clip-path on `.lockup`
+               and the shadow lives on `.shield` around it, because a clip-path cuts a shadow off with
+               everything else (#170's badge, same trick). No image: this screen is measured in bytes
+               to a clickable Play. -->
+          <div class="shield">
+            <div class="lockup">
+              <i data-icon="crown" data-size="40"></i>
+              <h1>Crown Rush</h1>
+            </div>
           </div>
           <img id="hero-queen" alt="" draggable="false">
         </div>
@@ -248,6 +253,12 @@
              that has loaded nothing. A fast finger loses; a probe measuring "bytes to a clickable Play
              button" measured 17 kB. -->
         <button id="start-btn" class="primary hidden" disabled>Play</button>
+        <!-- #175: Settings and Credits under Play, two dark buttons on one row. The reference's Quit
+             is not built: a web game has nothing to quit to. -->
+        <div class="btn-row">
+          <button id="start-settings"><i data-icon="gear" data-size="20"></i><span>Settings</span></button>
+          <button id="start-credits"><i data-icon="info" data-size="20"></i><span>Credits</span></button>
+        </div>
         <!-- #119: the best run, in the currency the rest of the game now uses. This said "Best: night
              30", which would have left the title screen as the one surface still keeping score in
              nights. Filled from the scoreboard's top row, so nothing new is stored for it. -->
@@ -416,6 +427,7 @@
           <p class="hint hidden" id="set-version"></p>
           <!-- #74: the numbers a screen bug needs, reachable without a URL. Tap it to copy the full line. -->
           <button class="hint" id="set-size" aria-label="Copy screen details"></button>
+          <button class="sheet-row" id="set-credits"><i data-icon="info" data-size="24"></i><span class="sheet-label">Credits</span></button>
         </div>
         <button class="primary" id="set-close"><i data-icon="chev" data-size="20"></i><span>Back</span></button>
       </div>
@@ -442,6 +454,25 @@
         <p class="hint" id="cast-count"></p>
         <div id="cast-body"></div>
         <button class="primary" id="cast-close">Back</button>
+      </div>
+    </div>
+    <!-- #175: who made it and what it is made of. Reached from the title and from Settings > About;
+         `hideCredits` returns to whichever of the two opened it. -->
+    <div id="credits-screen" class="overlay hidden">
+      <div class="panel sheet badged">
+        <div class="panel-badge"><span class="hex"><i data-icon="crown" data-size="32"></i></span></div>
+        <button class="panel-x" id="cr-x" aria-label="Close" title="Close">&times;</button>
+        <h1>Credits</h1>
+        <div class="stat-box credits">
+          <div class="stat-row"><i data-icon="crown" data-size="20"></i>Crown Rush<b>Craig Roberts</b></div>
+          <div class="stat-row"><i data-icon="tiara" data-size="20"></i>Story<b>Wren&#39;s diary, in Settings</b></div>
+          <div class="stat-row"><i data-icon="person" data-size="20"></i>Characters &amp; buildings<b>Meshy, reworked</b></div>
+          <div class="stat-row"><i data-icon="speaker" data-size="20"></i>Music &amp; sound<b>synthesised in play</b></div>
+          <div class="stat-row"><i data-icon="leaf" data-size="20"></i>Type<b>Baloo 2 · Nunito</b></div>
+          <div class="stat-row"><i data-icon="gear" data-size="20"></i>Engine<b>Three.js · Vite</b></div>
+        </div>
+        <p class="hint">Baloo 2 by Ek Type and Nunito by Vernon Adams, under the SIL Open Font License. Everything else on the ground, in the sky and in the HUD is drawn in code.</p>
+        <button class="primary" id="cr-close"><i data-icon="chev" data-size="20"></i><span>Back</span></button>
       </div>
     </div>
     <div id="scores-screen" class="overlay hidden">

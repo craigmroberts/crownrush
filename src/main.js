@@ -504,6 +504,27 @@ document.getElementById('dy-x').addEventListener('click', closeDiary);
 document.getElementById('diary-screen').addEventListener('click', (e) => {
   if (e.target.id === 'diary-screen') closeDiary();
 });
+// #175: Settings and Credits from the title screen. Settings is the same sheet, opened over the title
+// with no run to pause; Credits opens from here and from the sheet's About tab, and closing it goes
+// back to whichever opened it.
+document.getElementById('start-settings').addEventListener('click', () => {
+  disarmRestart();
+  syncUpdateRow();
+  syncSizeLine();
+  syncSettings();
+  game.showSettings();
+});
+document.getElementById('start-credits').addEventListener('click', () => game.showCredits('title'));
+document.getElementById('set-credits').addEventListener('click', () => {
+  game.hideSettings(true);
+  game.showCredits('sheet');
+});
+const closeCredits = () => game.hideCredits();
+document.getElementById('cr-close').addEventListener('click', closeCredits);
+document.getElementById('cr-x').addEventListener('click', closeCredits);
+document.getElementById('credits-screen').addEventListener('click', (e) => {
+  if (e.target.id === 'credits-screen') closeCredits();
+});
 // #159: the cast, wired the same way for the same reason.
 document.getElementById('set-cast').addEventListener('click', () => {
   game.hideSettings(true);

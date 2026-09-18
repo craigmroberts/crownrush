@@ -556,6 +556,17 @@ call to action is Back and not a promise. The last tab opened is remembered. Mea
 every tab, every row reachable, the panel's right edge at 294 in a 320 viewport on all four -- it was
 330 on two of them until the rows were allowed to shrink and the quality segment to wrap.
 
+**The title screen** (#175) keeps the world behind it and puts the wordmark on a **wooden shield**
+with a leaf either side -- the reference's treatment with this game's name and its gold. The shield
+is a clip-path on the lockup with the shadow on a wrapper round it (the badge's trick); the King and
+Wren still flank it, because they are the game's own faces and the reference had none to offer. Under
+it: Continue when there is a run to pick up, the run-length pills, **Play** in gold, then **Settings**
+and **Credits** on one row (the reference's Quit is not built: a web game has nothing to quit to),
+with the best line, the legacy block and the update row as small lines under. Settings from here is
+the same sheet with no run to pause; **Credits** is a new sheet -- who made it, what it is made of --
+reached from here and from Settings > About, and closing it goes back to whichever opened it. At
+320px the two-up row stacks; it overran the panel by 25px until it did.
+
 Before #170 the buttons were #135's repaint: a near-black fill with a hairline edge and an italic
 label, no glyph, after a gold frame with a rotated diamond at each end had made every button wear the
 full ornament and left a panel offering three of them no way to say *this one*. The emphasis that

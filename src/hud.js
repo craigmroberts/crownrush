@@ -1062,6 +1062,13 @@ export class Hud {
   hideCast() {
     document.getElementById('cast-screen').classList.add('hidden');
   }
+  // #175: the credits. Static content; the sheet only needs showing.
+  showCredits() {
+    document.getElementById('credits-screen').classList.remove('hidden');
+  }
+  hideCredits() {
+    document.getElementById('credits-screen').classList.add('hidden');
+  }
   setCastCount(have) {
     const met = CAST.filter((c) => c.stages.some((st) => st.lv === 0 || have.includes(st.lv))).length;
     const el = document.getElementById('set-cast-n');
@@ -1094,6 +1101,7 @@ export class Hud {
     this.hideScores();
     this.hideDiary();
     this.hideCast();
+    this.hideCredits();
     this.hidePause();
   }
   setScoreCount(n) {

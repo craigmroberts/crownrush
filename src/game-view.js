@@ -1286,6 +1286,25 @@ export const ViewMethods = {
     this.settingsPaused = this.sheetPause;
   },
 
+  // #175: the credits, from the title screen or from Settings > About. `creditsFrom` remembers which,
+  // because closing has to go back to the sheet in one case and to nothing in the other -- on the
+  // title there is no run and no sheet to put back.
+  showCredits(from = 'title') {
+    if (this.creditsOpen) return;
+    this.creditsOpen = true;
+    this.creditsFrom = from;
+    this.hud.showCredits();
+  },
+  hideCredits() {
+    if (!this.creditsOpen) return;
+    this.creditsOpen = false;
+    this.hud.hideCredits();
+    if (this.creditsFrom === 'sheet') {
+      this.showSettings();
+      this.settingsPaused = this.sheetPause;
+    }
+  },
+
   // #159: the cast list, the diary's shape exactly -- same guard, same pause hand-off, same way back.
   showCast() {
     if (this.over || this.won || this.castOpen || this.offer) return;

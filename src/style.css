@@ -1661,7 +1661,40 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 .panel.title .heroes { display: flex; align-items: flex-end; justify-content: center; gap: 4px; margin-bottom: 6px; }
 .panel.title .heroes img { width: 132px; height: auto; flex: 0 0 auto; filter: drop-shadow(0 8px 10px rgba(0,0,0,0.25)); }
 .panel.title .heroes img:not([src]) { visibility: hidden; }
-.panel.title .lockup { display: flex; flex-direction: column; align-items: center; gap: 0; padding-bottom: 26px; }
+/* #175: the shield. `.shield` carries the drop shadow and the leaves; `.lockup` inside it is the wood,
+   clipped to a heater shape, with a lighter rim drawn by its own pseudo-element under the same clip.
+   `align-self: stretch` on the lockup was what kept a 320px screen honest (#112 below); the shield
+   keeps that job and the lockup fills it. */
+.panel.title .shield {
+  position: relative; align-self: stretch; flex: 1 1 auto; max-width: 300px; margin: 0 auto 14px;
+  filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.45));
+}
+.panel.title .lockup {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 22px 26px 48px;
+  background: linear-gradient(180deg, #a8783f 0%, #7d5528 55%, #5a3a19 100%);
+  clip-path: polygon(0 0, 100% 0, 100% 64%, 50% 100%, 0 64%);
+}
+.panel.title .lockup::before {
+  content: ''; position: absolute; inset: 5px; pointer-events: none;
+  background: linear-gradient(180deg, #8c6234, #6b4520);
+  clip-path: polygon(0 0, 100% 0, 100% 64%, 50% 100%, 0 64%);
+}
+.panel.title .lockup > * { position: relative; }
+.panel.title .shield::before, .panel.title .shield::after {
+  content: ''; position: absolute; top: 14px; width: 30px; height: 15px; background: linear-gradient(90deg, #5f9a3a, #8cc45a);
+  border-radius: 0 100% 0 100%; box-shadow: 0 1px 2px rgba(0,0,0,0.4);
+}
+.panel.title .shield::before { left: -24px; transform: rotate(-28deg); }
+.panel.title .shield::after { right: -24px; transform: rotate(28deg) scaleX(-1); }
+/* #175: two buttons on one row -- Settings and Credits under Play. Not `.panel > button`, so they
+   are not full width; the row is. */
+.panel .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 0 10px; }
+/* `min-width: 0` and a tighter side padding, because two of these at the CTA's 18px sides overran a
+   320px panel by 25px (measured: Credits' right edge at 319 in a panel ending at 294); under 340px
+   the row stacks. */
+.panel .btn-row button { width: 100%; margin: 0; min-width: 0; padding-left: 8px; padding-right: 8px; }
+@media (max-width: 340px) { .panel .btn-row { grid-template-columns: 1fr; } }
+.panel .stat-box.credits .stat-row b { font-size: 15px; text-align: right; }
 /* #112: a hairline that fades out from a gold diamond in the middle, above the wordmark and below it.
    One element, one background, no image. 60% of the panel so it reads as a rule under the crown
    rather than a line across the screen. */
@@ -1684,7 +1717,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
   background: linear-gradient(135deg, #ffe694, #c9962a); box-shadow: 0 0 0 1px rgba(0,0,0,0.3);
 }
 .panel.title h1 {
-  font-size: 52px; line-height: 1; margin: 2px 0 0; letter-spacing: 1px;
+  font-size: 46px; line-height: 1; margin: 2px 0 0; letter-spacing: 1px;
   /* #112: four stops rather than three -- a pale highlight across the top third, then the drop into
      the deep gold -- which is what gives the wordmark its metal against the reference's flat ramp. */
   background: linear-gradient(#fff3c4, #ffe27a 26%, #f5a800 58%, #b96a00); -webkit-background-clip: text; background-clip: text; color: transparent;
