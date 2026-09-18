@@ -337,6 +337,12 @@ export const BuildMethods = {
       this.disposeEntity(v.mesh);
     }
     this.villagers = [];
+    // #169: and the gleaner with the Keep he lives at. He is back the first frame it stands again.
+    if (this.gleaner) {
+      this.root.remove(this.gleaner.mesh);
+      this.disposeEntity(this.gleaner.mesh);
+      this.gleaner = null;
+    }
     if (this.world.clearSmokers) this.world.clearSmokers();
     // and the ledger, so what he rebuilds he pays for
     this.built = {};

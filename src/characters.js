@@ -275,6 +275,9 @@ const VILLAGER = {
   farmer: { tunic: 0xd8c27a, trim: 0x8a6f2e, hair: P.hair },
   lumberjack: { tunic: 0xa8543a, trim: 0x6b3220, hair: P.hairDark },
   miner: { tunic: 0x6f7b8a, trim: 0x47505c, hair: P.beard },
+  // #169: the gleaner, who walks the field for what the King left lying. Green so he is not read as
+  // one of the three trades at a glance; the basket on his hip is his tool.
+  gleaner: { tunic: 0x7a9a5a, trim: 0x4a6a35, hair: P.hair },
 };
 
 function haft(len, g, tilt) {
@@ -302,6 +305,11 @@ export function makeVillager(kind = 'farmer') {
     const head = sbox(0.28, 0.24, 0.08, P.steel, 0, 0.5, 0, smat(P.steel, { roughness: 0.4, metalness: 0.35 }));
     const bit = sbox(0.1, 0.3, 0.07, P.steelDark, 0.17, 0.5, 0);
     h.add(head, bit);
+  } else if (kind === 'gleaner') {
+    // a wicker basket on the hip, open at the top, with a coin's glint showing in it
+    const basket = cyl(0.2, 0.15, 0.22, 0xb08a4a, 0.44, 0.74, 0.06, 10);
+    basket.add(cyl(0.16, 0.16, 0.03, 0xe8c352, 0, 0.1, 0, 10));
+    g.add(basket);
   } else {
     const h = haft(0.9, g, 0.18);
     const head = sbox(0.62, 0.07, 0.07, P.steelDark, 0, 0.46, 0, smat(P.steelDark, { roughness: 0.45, metalness: 0.3 }));

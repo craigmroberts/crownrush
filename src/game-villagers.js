@@ -181,6 +181,89 @@ export const VillagerMethods = {
     }
   },
 
+  // #169: the gleaner. Not in `villagers` -- they belong to homes and work nodes; he belongs to the
+  // Keep and works the ground -- but he is a villager in every way that matters: same model shape,
+  // same walk with its gate routing (#156), same rule that a raider in sight sends him home. He is
+  // made the first frame the Keep stands, which also covers a restored run without a word in the
+  // save, and `reset` drops him with the root.
+  updateGleaner(dt) {
+    const G = CFG.gleaner;
+    // A standing Keep is what brings him; once he is here a Keep knocked down mid-run does not stop
+    // him working (it stopped him dead, mid-field, in the first version -- the guard was on the
+    // whole update). The fall of the village removes him outright, with the villagers.
+    if (!this.gleaner && !(this.keep && this.keep.state === 'built')) return;
+    if (!this.gleaner) {
+      const mesh = makeVillager('gleaner');
+      const home = new V3(this.keep.x + G.rest[0], 0, this.keep.z + G.rest[1]);
+      mesh.position.copy(home);
+      mesh.scale.setScalar(0.01);
+      this.root.add(mesh);
+      this.gleaner = { kind: 'gleaner', mesh, home, target: null, walkT: 0, popT: 0.5, scale: 1.05 };
+    }
+    const g = this.gleaner;
+    if (g.popT > 0) {
+      g.popT -= dt;
+      g.mesh.scale.setScalar(g.scale * Math.max(0.01, 1 - g.popT / 0.5));
+      if (g.popT <= 0) g.mesh.scale.setScalar(g.scale);
+    }
+    const p = g.mesh.position;
+    if (this.enemies.length && this.nearestEnemy(p, G.flee)) {
+      g.target = null;
+      const d = this.villagerWalkTo(g, g.home.x, g.home.z, dt, G.speed * 1.4);
+      if (d < 1) this.animateWalk(g, 0, dt);
+      return;
+    }
+    if (g.target && (!this.coins.includes(g.target) || g.target.state !== 'ground')) g.target = null;
+    // A coin he cannot get to -- one that landed where the walk will not take him -- would hold him
+    // for the rest of the run. Twenty-five seconds is longer than any walk across the map at his
+    // speed; past that the coin is marked and the next pick passes over it. Found by driving it:
+    // a ring of test coins reached the raider camp, and he spent two minutes running at the one
+    // beside it and running home again.
+    if (g.target) {
+      g.stuckT = (g.stuckT || 0) + dt;
+      if (g.stuckT > 25) {
+        g.target.gleanerSkip = true;
+        g.target = null;
+      }
+    }
+    if (!g.target) {
+      g.target = this.gleanerPick();
+      g.stuckT = 0;
+    }
+    if (!g.target) {
+      const d = this.villagerWalkTo(g, g.home.x, g.home.z, dt, G.speed);
+      if (d < 0.6) this.animateWalk(g, 0, dt);
+      return;
+    }
+    const tp = g.target.mesh.position;
+    if (this.villagerWalkTo(g, tp.x, tp.z, dt, G.speed) < G.reach) {
+      // his, now: the coin flies to him and is banked the way the King's are, in `updateCoins`
+      g.target.state = 'fly';
+      g.target.to = g;
+      g.target = null;
+    }
+  },
+
+  // The oldest coin that has lain long enough and is not at the King's feet. Oldest rather than
+  // nearest: nearest keeps him circling one heap while the far ones fade, and the far ones are the
+  // whole reason he exists.
+  gleanerPick() {
+    const G = CFG.gleaner;
+    const kp = this.king.mesh.position;
+    let best = null;
+    let age = -1;
+    for (const c of this.coins) {
+      if (c.state !== 'ground' || c.t < G.wait || c.t <= age || c.gleanerSkip) continue;
+      if (c.mesh.position.distanceTo(kp) < this.ringRadius + G.keepOff) continue;
+      // not one a raider is stood over: he would only run from it on arrival, and the coin will
+      // still be there when the raider is not
+      if (this.enemies.length && this.nearestEnemy(c.mesh.position, G.flee)) continue;
+      age = c.t;
+      best = c;
+    }
+    return best;
+  },
+
   villager_flee(v, dt) {
     const d = this.villagerWalkTo(v, v.home.x, v.home.z + 1.6, dt, CFG.villager.speed * 1.6);
     if (d < 1) this.animateWalk(v, 0, dt);

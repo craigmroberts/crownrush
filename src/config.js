@@ -542,7 +542,21 @@ export const CFG = {
     valueAt: [0, 4, 8, 12],
     value: [1, 3, 8, 20],
     start: 10,
+    // #169: a coin on the ground lives `life` seconds and fades over its last `fade`. A thirty-night
+    // soak with nobody collecting reached 3,683 coins and they were the one thing a run retained
+    // without a ceiling. 180 is more than two nights: long enough that a coin dropped at the far wall
+    // during a raid is still there after the morning's mining trip, and the fade is long enough to
+    // be seen and walked to. The gleaner below is what makes this rarely happen; the fade is so that
+    // when it does, it was seen going rather than found missing.
+    life: 180, fade: 40,
   },
+  // #169: the gleaner. One worker who lives at the Keep and walks the field for what the King left
+  // lying, because a run that is going well drops more coin than one man can chase. He leaves a coin
+  // alone for `wait` seconds after it lands and never takes one inside the King's ring plus `keepOff`,
+  // so the player is never racing his own helper for the drop at his feet; then the OLDEST first,
+  // which is the one about to fade. 3.4 against a villager's 2.8: he carries nothing heavy. `speed`
+  // is the number a future upgrade moves.
+  gleaner: { speed: 3.4, wait: 4, keepOff: 2, reach: 1.1, flee: 13, rest: [3.2, 4.0] },
 
   // Enemy ranks: the colour they wear says how dangerous they are. Each rank multiplies the type's
   // stats and decides which coins drop. A rank joins the raids when the Keep reaches `fromLevel`;

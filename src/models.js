@@ -455,10 +455,24 @@ export function makeCoin(tier = 'gold') {
 //
 // The game still moves an ordinary Object3D per coin, so the bouncing, spinning and flying code is
 // untouched. This reads those every frame and fills the two meshes from them.
+// #169: a fading coin needs a per-instance alpha, and one material serves the whole field, so it is
+// a float attribute the standard material's own opacity is multiplied by -- the chimney smoke's
+// trick, in world.js, with the same hook. Both meshes share one attribute; they are the same coins.
+function alphaHook(m) {
+  m.transparent = true;
+  m.customProgramCacheKey = () => 'coin-alpha';
+  m.onBeforeCompile = (shader) => {
+    shader.vertexShader = `attribute float aAlpha;\nvarying float vAlpha;\n${shader.vertexShader}`
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvAlpha = aAlpha;');
+    shader.fragmentShader = `varying float vAlpha;\n${shader.fragmentShader}`
+      .replace('vec4 diffuseColor = vec4( diffuse, opacity );', 'vec4 diffuseColor = vec4( diffuse, opacity * vAlpha );');
+  };
+  return m;
+}
 export class CoinField {
   constructor(max = 400) {
-    this.faceMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.45, metalness: 0.2, emissive: 0x1a1408 });
-    this.rimMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.88 });
+    this.faceMat = alphaHook(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.45, metalness: 0.2, emissive: 0x1a1408 }));
+    this.rimMat = alphaHook(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.88 }));
     this.m = new THREE.Matrix4();
     this.scene = null;
     this.build(max);
@@ -466,6 +480,9 @@ export class CoinField {
 
   build(max) {
     const old = this.face ? [this.face, this.rim] : null;
+    this.alpha = new THREE.InstancedBufferAttribute(new Float32Array(max).fill(1), 1);
+    coinGeo.setAttribute('aAlpha', this.alpha);
+    rimGeo.setAttribute('aAlpha', this.alpha);
     this.face = new THREE.InstancedMesh(coinGeo, this.faceMat, max);
     this.rim = new THREE.InstancedMesh(rimGeo, this.rimMat, max);
     this.face.castShadow = true;              // as the single coin's face did
@@ -512,8 +529,10 @@ export class CoinField {
       const [faceColour, rimColour] = COIN_TIER_COLORS[c.tier] || COIN_TIER_COLORS.gold;
       this.face.setColorAt(n, faceColour);
       this.rim.setColorAt(n, rimColour);
+      this.alpha.array[n] = c.alpha == null ? 1 : c.alpha;
       n++;
     }
+    this.alpha.needsUpdate = true;
     this.face.count = this.rim.count = n;
     this.face.instanceMatrix.needsUpdate = true;
     this.rim.instanceMatrix.needsUpdate = true;

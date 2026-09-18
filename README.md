@@ -696,9 +696,22 @@ the player standing still on a mat by his own choice.
 
 ## Coins, ranks and towers
 
-- **One currency that grows with the Keep.** Coins are bronze to start, silver from Keep level 4, gold
-  from 8, platinum from 12 (`CFG.coins`); the look and score value change, the count is one number.
-  Enemies of higher ranks drop more coins. Every pad costs coins except crews, which are paid in
+- **One currency that grows with the Keep.** Coins are gold, always; what changes with the Keep is
+  what one is worth -- 1, then 3 from level 4, 8 from 8, 20 from 12 (`CFG.coins`). The count is one
+  number. Enemies of higher ranks drop more coins.
+- **The gleaner, and coins that fade** (#169). A thirty-night soak with nobody collecting reached
+  3,683 coins on the ground, the one thing a run retained without a ceiling. Two answers, the way the
+  owner asked for them. A **gleaner** lives at the Keep -- villager-shaped, green, a basket on his hip,
+  made the first frame the Keep stands and gone with the village when it falls -- and walks the field
+  for what the King left lying. He leaves a coin alone for four seconds after it lands and never takes
+  one at the King's feet, so the player never races his own helper; then the *oldest* first, which is
+  the one about to go; a raider in sight sends him home like any villager, and he routes through the
+  gates (#156). What he picks up flies to him and is banked exactly as the King's are. His speed is
+  one number in `CFG.gleaner`, for the upgrade that is coming. And a coin on the ground lives 180
+  seconds -- more than two nights -- fading over its last 40 (per-instance alpha on `CoinField`, the
+  chimney smoke's trick) so it is seen going rather than found missing. The soak again: 657 coins at
+  night 29 against 3,683, falling as well as rising night to night, and the run's retained heap
+  growth halved. Every pad costs coins except crews, which are paid in
   archers. The Keep is paid in coin too -- `CFG.base.levelCost` is the old material lists priced at
   `CFG.materials` rates.
 - **Info screen.** The blue **i** button (or the I key) pauses the game and lists what the next Keep

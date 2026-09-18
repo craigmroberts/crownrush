@@ -713,11 +713,27 @@ export const ViewMethods = {
       } else if (c.state === 'ground') {
         c.mesh.rotation.y += dt * 2;
         p.y = 0.12 + Math.sin(c.t * 4) * 0.04;
+        // #169: a coin nobody came for fades over its last stretch and then goes. The fade is what
+        // `CoinField` reads into the per-instance alpha; it is long so it is seen, not found missing.
+        const C = CFG.coins;
+        if (c.t >= C.life) {
+          this.root.remove(c.mesh);
+          this.coins.splice(i, 1);
+          continue;
+        }
+        c.alpha = c.t > C.life - C.fade ? (C.life - c.t) / C.fade : 1;
         // #103: the circle the player can see, not a second number that happened to be near it
         if (p.distanceTo(kp) < this.ringRadius) c.state = 'fly';
       } else {
-        tmp.copy(kp);
-        tmp.y = this.stackBase() + this.stackCount() * 0.11;
+        // #169: to whoever claimed it -- the gleaner, if `to` is set, else the King's stack
+        c.alpha = 1;
+        if (c.to) {
+          tmp.copy(c.to.mesh.position);
+          tmp.y = 1.7;
+        } else {
+          tmp.copy(kp);
+          tmp.y = this.stackBase() + this.stackCount() * 0.11;
+        }
         p.lerp(tmp, 1 - Math.exp(-dt * 14));
         if (p.distanceTo(tmp) < 0.5) {
           if (c.resType) {

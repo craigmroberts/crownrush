@@ -306,6 +306,7 @@ export class Game {
     this.mineTimer = 0;
     this.nodes = [];
     this.ruins = [];        // #152: heaps where the opening's buildings stood, until they fade
+    this.gleaner = null;    // #169: made the first frame the Keep stands
     this.villagers = [];    // #48: one gatherer per villager home, working on their own
     this.tradePost = null;  // the bank, once its pad is paid for
     this.tradePos = null;   // and where you stand to sell at it: its own mat, not a constant
@@ -930,6 +931,7 @@ export class Game {
       this.updatePiles(dt);
       this.updateTrade(dt);
       this.updateVillagers(dt);
+      this.updateGleaner(dt);
       this.tickDiary();
       // #132: the capability notice's own clock, before `updatePads` decides whether the mat chip
       // gets the lane -- so a notice that closed on this frame hands the lane straight back.
