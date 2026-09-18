@@ -110,6 +110,31 @@ the raids keep coming for a high score.
   `anisotropy: 4`, because the far half of every frame is ground seen at 45 degrees and without it the
   speckle turns to porridge fifteen units out.
 
+  **And earth with edges on top of it** (#192). Everything in that tile is a low-alpha ellipse with a
+  gradual edge, so the ground had tone but no forms -- it read as a smudge, and wherever the grass does
+  not cover there was nothing to look at. A second texture carries the shapes: patches of dry worn
+  ground and turned earth with a faceted outline and a darker rim, at the scale of a few metres. It is
+  its OWN texture because it has to be -- the ground tile is 11.9 units and a frame holds about fifty,
+  so a shape big enough to read as a patch would be a dozen copies of itself on screen, which is the
+  trap #162 named and the reason the earth passes in the tile are kept faint. This one tiles every 64
+  units, and a second sample at 111 mixed by the same 135-unit mask keeps even the board's map view
+  from coming out as a plaid.
+
+  Two things about it are worth knowing before touching it. It is **mixed in, not multiplied**: a
+  multiply can only take a colour toward black, so warm tints over green ground gave darker green --
+  blotches of shadow rather than earth -- and no choice of tint fixes that, because raising red is
+  exactly what a multiplier cannot do. The texel is the colour the earth should be, and the ground's
+  own luminance is carried into it so the mottling, the speckle and the daylight tint still show
+  through a patch. And the GLSL variable is called `earth` because **`patch` is a reserved word** in
+  GLSL ES 3.00: the fragment shader silently failed to compile, the ground rendered as flat green with
+  no texture at all, and there was no page error -- three's own message goes to the console, where
+  nothing was listening. A harness that drives this game should listen to `console` as well as
+  `pageerror`. The tile also has **grain** now: the same speckle sizes with a straight edge, little
+  faceted chips at a third of a unit, which is the scale the eye reads as material rather than shapes.
+
+  It costs one 512 texture and two more samples on the ground, which is one draw of a flat quad: 230
+  to 233 draw calls at the King's camera on the east road, against 230 to 234 without it.
+
   **The tile period is broken now** (#162). At 11.9 units a frame held three copies of the same tile,
   which is where the eye starts reading a field as wallpaper, and it is why the earth patches had to
   be kept faint. The standard cure, done in a hook on the ground's standard material so lighting, fog

@@ -180,6 +180,29 @@ function groundTexture() {
       }
     }
   };
+  // #192: the same, with a straight edge -- a small faceted chip rather than an ellipse.
+  const chip = (color, count, rmin, rmax) => {
+    ctx.fillStyle = color;
+    for (let i = 0; i < count; i++) {
+      const x = r() * S;
+      const y = r() * S;
+      const rad = rmin + r() * (rmax - rmin);
+      const n = 5 + Math.floor(r() * 3);
+      const ph = r() * 7;
+      const pts = [];
+      for (let k = 0; k < n; k++) {
+        const a = (k / n) * Math.PI * 2 + ph;
+        const j = rad * (0.6 + r() * 0.8);
+        pts.push([Math.cos(a) * j, Math.sin(a) * j * (0.6 + r() * 0.5)]);
+      }
+      for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) {
+        ctx.beginPath();
+        pts.forEach(([px, py], k) => (k ? ctx.lineTo(x + px + ox, y + py + oy) : ctx.moveTo(x + px + ox, y + py + oy)));
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+  };
   // Broad mottling: the patches you read as "this field is not flat", at the scale of a few metres.
   blob('rgba(163, 212, 104, 0.42)', 26, 20, 56);
   blob('rgba(118, 166, 70, 0.36)', 24, 16, 48);
@@ -193,6 +216,15 @@ function groundTexture() {
   blob('rgba(106, 150, 62, 0.30)', 320, 2.5, 7);
   blob('rgba(180, 214, 122, 0.24)', 260, 2, 5.5);
   blob('rgba(88, 126, 52, 0.22)', 190, 1.5, 4);
+  // #192: and grain. Everything above is an ellipse with a soft edge, which is the whole of why the
+  // ground reads as a smudge rather than as a material -- the tone varies and nothing in it has a
+  // form. These are the same sizes with a STRAIGHT edge: little faceted chips, at a third of a world
+  // unit, which is the scale the eye reads as texture rather than as shapes. Big shapes cannot go in
+  // this tile at all (it is 11.9 units and a frame holds fifty), which is what `patchTexture` is for.
+  chip('rgba(120, 164, 70, 0.26)', 200, 6, 15);
+  chip('rgba(186, 220, 130, 0.22)', 170, 5, 12);
+  chip('rgba(96, 134, 56, 0.20)', 140, 4, 10);
+  chip('rgba(150, 132, 92, 0.16)', 60, 5, 13);
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(16, 16);
@@ -245,18 +277,141 @@ function maskTexture() {
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   return tex;
 }
+// #192: EARTH WITH EDGES. `groundTexture` carries mottling, faint earth and a speckle, and
+// `breakTiling` below stops any of it repeating -- which is what they were for, and they work. What
+// they leave is a soft smudge: every shape in that tile is a low-alpha ellipse with a gradual edge,
+// so the ground has tone but no forms. Wherever the grass does not cover -- #191 closed most of that,
+// not all, and a road, a mat and the citadel are bare on purpose -- there is nothing to look at.
+//
+// This is the layer that gives it shapes you could point at: patches of turned earth and dry worn
+// ground, with an EDGE, at the scale of a few metres.
+//
+// WHY IT IS ITS OWN TEXTURE rather than more passes in the tile. The tile is 11.9 world units and a
+// frame holds about fifty, so a shape big enough to read as a patch would be two or three to a tile
+// and a dozen copies of itself on screen. That is the trap #162 named, and the reason the earth
+// passes in the tile are kept faint and formless. This one tiles every 64 units -- wider than the
+// frame -- so a patch is seen once.
+//
+// WHY IT IS OPAQUE AND WHITE. It is a MULTIPLIER, not a decal: white is "no patch" and multiplies the
+// ground by one, and a shape is the tint the earth there should be. The alternative, a transparent
+// canvas composited over the ground, has two known traps and this has neither -- canvas alpha is
+// premultiplied and the un-premultiply on upload is lossy at the low alphas these shapes want, and
+// bilinear filtering between an opaque texel and a transparent one pulls RGB toward black, which
+// draws a dark line round every shape at exactly the scale the shape is meant to be read at.
+function patchTexture() {
+  const S = 512;
+  const c = document.createElement('canvas');
+  c.width = S;
+  c.height = S;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, S, S);
+  const r = rng(4021);
+  // An irregular closed shape rather than an ellipse: a ring of points with the radius jittered and a
+  // low-frequency wobble on top, joined by STRAIGHT lines. Straight on purpose -- this world is
+  // flat-shaded and low-poly, and a patch of earth with a faceted outline belongs in it where a
+  // smooth blob reads as a stain.
+  const shape = (cx, cy, rad, fill, rim) => {
+    const n = 11 + Math.floor(r() * 5);
+    const ph = r() * 7;
+    const wob = 0.22 + r() * 0.18;
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const k = 1 + wob * Math.sin(a * 2 + ph) + (r() - 0.5) * 0.3;
+      pts.push([Math.cos(a) * rad * k, Math.sin(a) * rad * k]);
+    }
+    // drawn nine times over, so the tile wraps without a seam
+    for (const ox of [-S, 0, S]) {
+      for (const oy of [-S, 0, S]) {
+        ctx.beginPath();
+        pts.forEach(([x, y], i) => (i ? ctx.lineTo(cx + x + ox, cy + y + oy) : ctx.moveTo(cx + x + ox, cy + y + oy)));
+        ctx.closePath();
+        ctx.fillStyle = fill;
+        ctx.fill();
+        if (rim) {
+          // A darker line just inside the edge, which is what stops a patch reading as a flat sticker:
+          // ground that has been turned or walked is deepest where it was cut and dries toward the
+          // middle. It is also what survives being seen at a distance, when the fill has gone to haze.
+          ctx.strokeStyle = rim;
+          ctx.lineWidth = 3 + r() * 3;
+          ctx.stroke();
+        }
+      }
+    }
+  };
+  // Three kinds, and the counts are what keep them apart: few enough and large enough that each one
+  // is a place rather than a pattern. Dry worn ground is the commonest -- it is what a field looks
+  // like wherever anything walks -- then turned earth, then the dark damp hollows. The numbers are
+  // multipliers on the grass under them, which is why none goes far from white: 0.70 is as dark as a
+  // patch may be before the ground reads as burnt rather than bare.
+  //
+  // Opaque, not blended: the colour IS the multiplier, so two patches overlapping give the tint of
+  // the one on top rather than the square of both, and the first version's soft alphas -- which read
+  // as nothing at all through the grass -- cannot come back by accident.
+  //
+  // The counts are a third of the first version's and that is the whole of the tuning. Two scales are
+  // mixed below, so whatever this covers is very nearly doubled on the ground, and at 7/5/4 the field
+  // came out more patch than grass -- a camouflage pattern rather than a field with worn places in it.
+  for (let i = 0; i < 4; i++) shape(r() * S, r() * S, 30 + r() * 34, 'rgb(236, 214, 158)', 'rgb(214, 186, 128)');
+  for (let i = 0; i < 3; i++) shape(r() * S, r() * S, 22 + r() * 26, 'rgb(212, 178, 126)', 'rgb(184, 148, 100)');
+  for (let i = 0; i < 2; i++) shape(r() * S, r() * S, 16 + r() * 20, 'rgb(172, 148, 114)', 'rgb(142, 120, 92)');
+  // and a scatter of small hard ones, which is what makes the big ones read as the same material
+  // rather than as three shapes somebody placed
+  for (let i = 0; i < 18; i++) shape(r() * S, r() * S, 5 + r() * 9, r() < 0.5 ? 'rgb(240, 222, 172)' : 'rgb(204, 176, 132)', null);
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}
 function breakTiling(m) {
   const mask = maskTexture();
-  m.customProgramCacheKey = () => 'ground-untiled';
+  const patch = patchTexture();
+  m.customProgramCacheKey = () => 'ground-untiled-patched';
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uMask = { value: mask };
+    shader.uniforms.uPatch = { value: patch };
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform sampler2D uMask;')
+      .replace('#include <common>', '#include <common>\nuniform sampler2D uMask;\nuniform sampler2D uPatch;')
+      // #192: `vMapUv` spans 0..16 over 190 world units, so one unit of it is 11.875 -- which is the
+      // ground tile. 11.875 / 64 puts the patch tile at 64 units, wider than the frame.
+      //
+      // `earth` rather than `patch`, and that is not a preference. `patch` is a RESERVED WORD in GLSL
+      // ES 3.00 -- it is tessellation vocabulary the language keeps whether or not anything uses it --
+      // so the fragment shader did not compile, and what a scene does then is keep running: the ground
+      // rendered as flat green with no texture at all, there was no page error, and three's own
+      // message went to the console where nothing was listening. It cost an hour and a bisect. A
+      // harness that drives this game should listen to `console` as well as `pageerror`.
+      //
+      // TWO SCALES, mixed by the same mask the ground tile uses, and for the same reason: one period
+      // of 64 units is wider than a frame at the King's camera but not at the board's map, where the
+      // patches came out as a plaid. 64 and 111 against a mask of 135 never line up.
+      //
+      // `cover` is how far a texel is from white, and the smoothstep on it is what buys the edge back.
+      // The patch tile is eight pixels to the world unit against the ground tile's forty-three, so
+      // bilinear filtering spreads a shape's outline over about three screen pixels -- readable as a
+      // gradient, which is the thing this ticket exists to stop. Re-thresholding the bottom third of
+      // that ramp pulls it back under one pixel, and costs a subtract and a smoothstep.
+      //
+      // MIXED IN RATHER THAN MULTIPLIED, which was the first version and is the thing to know if this
+      // is ever revisited. A multiply can only take a colour toward black: warm tints over green
+      // ground gave DARKER GREEN, so the patches read as blotches of shadow rather than as earth, and
+      // no choice of tint fixes it because raising red is exactly what a multiplier cannot do. So the
+      // texel is the colour the earth should be and `lum` carries the ground's own light and shade
+      // into it -- the mottling, the speckle and the daylight tint all still show through a patch,
+      // which is what keeps it ground rather than paint laid on top.
       .replace('#include <map_fragment>', `
         vec4 sampledDiffuseColor = texture2D( map, vMapUv );
         vec4 sampledDiffuseColor2 = texture2D( map, vMapUv * 0.37 + vec2( 0.13, 0.41 ) );
         float untile = texture2D( uMask, vMapUv * 0.0875 ).r;
-        diffuseColor *= mix( sampledDiffuseColor, sampledDiffuseColor2, untile );`);
+        diffuseColor *= mix( sampledDiffuseColor, sampledDiffuseColor2, untile );
+        vec3 earthA = texture2D( uPatch, vMapUv * 0.18555 ).rgb;
+        vec3 earthB = texture2D( uPatch, vMapUv * 0.10694 + vec2( 0.37, 0.61 ) ).rgb;
+        vec3 earth = mix( earthA, earthB, untile );
+        float cover = smoothstep( 0.02, 0.09, 1.0 - min( earth.r, min( earth.g, earth.b ) ) );
+        float lum = dot( diffuseColor.rgb, vec3( 0.35, 0.5, 0.15 ) );
+        diffuseColor.rgb = mix( diffuseColor.rgb, earth * lum * 1.9, cover * 0.32 );`);
   };
 }
 
