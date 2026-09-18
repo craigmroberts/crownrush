@@ -1,0 +1,115 @@
+{
+  "at": "2026-09-18T12:08:02.729Z",
+  "enforced": [
+    {
+      "key": "wireKbToPlay",
+      "label": "bytes to a clickable Play button",
+      "waived": "parked until the game is feature-complete -- the owner will call when to look again"
+    },
+    {
+      "key": "drawCallsPeak",
+      "label": "draw calls",
+      "waived": "#52 -- crowd models are ~8.7k triangles against a ~5k budget"
+    },
+    {
+      "key": "trianglesMedian",
+      "label": "triangles",
+      "waived": "#52 -- same cause"
+    }
+  ],
+  "total": 7117223,
+  "files": 41,
+  "groups": [
+    {
+      "name": "JavaScript",
+      "bytes": 1191307,
+      "files": 3
+    },
+    {
+      "name": "Models (.glb)",
+      "bytes": 4789368,
+      "files": 21
+    },
+    {
+      "name": "WASM",
+      "bytes": 527333,
+      "files": 1
+    },
+    {
+      "name": "Fonts",
+      "bytes": 135288,
+      "files": 4
+    },
+    {
+      "name": "CSS",
+      "bytes": 56810,
+      "files": 1
+    },
+    {
+      "name": "Images",
+      "bytes": 254673,
+      "files": 4
+    }
+  ],
+  "biggest": [
+    {
+      "path": "assets/index-B0a2TyXq.js",
+      "bytes": 1127849
+    },
+    {
+      "path": "assets/basis_transcoder-VXdx5NbI.wasm",
+      "bytes": 527333
+    },
+    {
+      "path": "models/king_mounted_ai.glb",
+      "bytes": 462468
+    },
+    {
+      "path": "models/king_ai.glb",
+      "bytes": 407396
+    },
+    {
+      "path": "models/barracks_ai.glb",
+      "bytes": 375924
+    },
+    {
+      "path": "models/queen_ai.glb",
+      "bytes": 372044
+    },
+    {
+      "path": "models/hut_ai.glb",
+      "bytes": 371120
+    },
+    {
+      "path": "models/house_ai.glb",
+      "bytes": 369516
+    }
+  ],
+  "budgets": [
+    {
+      "metric": "Frame time",
+      "aim": "< 16 ms desktop, < 33 ms phone",
+      "why": "60 / 30 fps; anything slower feels laggy"
+    },
+    {
+      "metric": "Draw calls",
+      "aim": "< 400 late game",
+      "why": "each one costs CPU time no matter how small it is"
+    },
+    {
+      "metric": "Triangles",
+      "aim": "< 1M late game",
+      "why": "phones slow down past this, especially with shadows"
+    },
+    {
+      "metric": "Triangles per character",
+      "aim": "~5k (King 6.5k)",
+      "why": "100+ characters can be on screen"
+    },
+    {
+      "metric": "Load",
+      "aim": "< 3 MB to the Play button",
+      "why": "first play on mobile data; measured **on the wire**, which is what that reason means"
+    }
+  ]
+}

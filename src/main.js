@@ -842,6 +842,12 @@ sizeLine?.addEventListener('click', async () => {
 // rather than anywhere else: an iframe of the game from another origin is blocked, and a page that
 // cannot show the game cannot stop going stale.
 const VIEW = (/[?&]view=([a-z]+)/.exec(location.search) || [])[1] || '';
+// `?view=char&id=king&clip=Walk` -- which character, and which of its clips. Separate parameters
+// rather than `view=char-king-Walk`, because the model names already carry underscores.
+const CHAR = (/[?&]id=([a-z_]+)/.exec(location.search) || [])[1] || '';
+const CLIP = (/[?&]clip=([A-Za-z]+)/.exec(location.search) || [])[1] || 'Walk';
+// `as=knight` wears the tints `spawnEnemy` would have given it; omitted, the model shows untinted.
+const AS = (/[?&]as=([a-z]+)/.exec(location.search) || [])[1] || '';
 function runView() {
   if (!VIEW || !game) return;
   const panels = {
@@ -850,8 +856,27 @@ function runView() {
     keep: () => game.showKeep(),
     scores: () => game.showScores(),
     settings: () => game.showSettings(),
+    credits: () => game.showCredits(),
+    pause: () => game.hud.showPause(),
     levelup: () => { game.offerQueue = 1; game.offerLevel = game.baseLevel; game.showOffer(); },
+    // The two endings. `gameOver`/`victory` are not called: they clear the run, write a score row and
+    // record a run, and a board frame that quietly adds a defeat to the player's own scoreboard every
+    // time it loads is a view with a side effect. These open the same panels off live state instead.
+    defeat: () => game.showVerdict('king'),
+    victory: () => game.hud.showVictory(game.coinsEarned, game.units.length - 1 + game.turrets.length,
+      game.score, game.runLength, game.legacyProgress(), game.wave, game.kills),
   };
+  if (VIEW === 'char') {
+    // The rigs are in by the time a view runs -- `startForView` is called from the same `.then` as
+    // the preload -- so there is nothing to wait for here beyond a frame of layout.
+    setTimeout(() => {
+      if (!game.showCharacter(CHAR, CLIP, AS)) {
+        document.getElementById('error-msg').textContent = `No rig called "${CHAR}".`;
+        document.getElementById('error-screen').classList.remove('hidden');
+      }
+    }, 300);
+    return;
+  }
   if (panels[VIEW]) {
     // one frame of run first: every panel reads live state, and a panel opened before the world
     // exists is a panel of nothing

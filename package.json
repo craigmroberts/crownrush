@@ -12,7 +12,9 @@
     "scout": "node tools/scout/scout.mjs",
     "probe": "node tools/probe/probe.mjs",
     "models": "node tools/models/compress.mjs",
-    "icons": "node tools/icons/make-app-icons.mjs"
+    "icons": "node tools/icons/make-app-icons.mjs",
+    "check": "node tools/checks/checks.mjs",
+    "board": "node tools/board/stats.mjs && node tools/board/brand.mjs && node tools/board/cast.mjs"
   },
   "dependencies": {
     "three": "^0.186.0"

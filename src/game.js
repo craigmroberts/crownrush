@@ -1112,6 +1112,10 @@ export class Game {
     this.updateStack(dt);
     this.updateBlobs();
     this.updateCamera(dt);
+    // #178: the character sheet owns the camera and its own mixer while it is up, so it runs after
+    // `updateCamera` rather than before -- otherwise the camera it just set is overwritten every
+    // frame by the one following a King who is not on screen.
+    this.updateCharView(dt);
     this.bars.update(this.camera, this.camDist * 1.7, this.camDist * 2.8);
     if (!this.contextLost) {
       this.renderer.render(this.scene, this.camera);
