@@ -194,6 +194,25 @@ export const ViewMethods = {
     ctx.restore();
   },
 
+  // #194: WHICH TIME OF DAY a frame is judged at. Every `?view=` and `?tour` frame runs at the
+  // opening morning, and not by accident -- `updateWaves` stands the clock still while the Queen is
+  // captive (#152), which is what holds the tour open. So half the day cycle had no frame anybody
+  // could look at, and dusk was tuned by playing until it arrived and taking a screenshot in a hurry.
+  //
+  // Nothing advances the phase afterwards, for the same reason it never started: the clock is still.
+  // So this is set once, from the URL, and holds for as long as the frame is open.
+  //
+  // `blood` forces the red set rather than waiting for a boss night, because the condition that
+  // picks it -- `night` and the wave number -- is a state a view can never be in: a view's wave is 0
+  // and its night never falls. `null` leaves the run to decide, which is what a real one does.
+  setDayPhase(p, blood = null) {
+    const n = Number(p);
+    if (!Number.isFinite(n)) return;
+    this.dayPhase = ((n % 1) + 1) % 1;
+    this.bloodSky = blood;
+    this.updateDaylight(0);
+  },
+
   // Slow day cycle across waves: morning, noon, golden evening, dusk, then dawn again every 12 waves.
   updateDaylight(dt) {
     // One cycle: dawn, morning, noon, golden evening, then nightfall at CFG.cycle.nightStart (0.6).
@@ -209,23 +228,86 @@ export const ViewMethods = {
     // colour its single meaning and buys a callback: the first red sky has nothing behind it, the
     // second one has a boss, and a player who has seen the first reads the second before it lands.
     // A colour that has only ever meant one thing cannot do that.
-    const blood = this.night && (this.wave === 1 || (this.wave > 0 && this.wave % CFG.waves.bossEvery === 0));
+    const blood = this.bloodSky ?? (this.night && (this.wave === 1 || (this.wave > 0 && this.wave % CFG.waves.bossEvery === 0)));
     const keys = blood ? [
-      { p: 0.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x89bd55, exp: 1.22, h: 34, tint: 0xffffff },
-      { p: 0.3, sun: 0xffffff, sunI: 1.42, sky: 0xffffff, ground: 0x9ec97a, fog: 0x90c45c, exp: 1.26, h: 42, tint: 0xffffff },
-      { p: 0.52, sun: 0xffb36a, sunI: 1.25, sky: 0xffd9b0, ground: 0x7a9a5a, fog: 0x7fae4f, exp: 1.15, h: 20, tint: 0xffe4c8 },
-      { p: 0.62, sun: 0xff7a5a, sunI: 1.0, sky: 0xffb0a0, ground: 0x7a4a42, fog: 0x8a4038, exp: 1.06, h: 14, tint: 0xffc8be },
-      { p: 0.74, sun: 0xff8a76, sunI: 1.0, sky: 0xe09a90, ground: 0x7a4040, fog: 0x8f3a34, exp: 1.06, h: 11, tint: 0xf5bdb2 },
-      { p: 0.94, sun: 0xff8a76, sunI: 1.0, sky: 0xe09a90, ground: 0x7a4040, fog: 0x8f3a34, exp: 1.06, h: 11, tint: 0xf5bdb2 },
-      { p: 1.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x89bd55, exp: 1.22, h: 34, tint: 0xffffff },
+      // THE BLOOD SET IS UNCHANGED BY #194, deliberately -- it is the twin of the one below and the
+      // whole point of it is to be told apart from an ordinary night at a glance. `hemiI` is new on
+      // every row and every row carries 1.45, which is the fixed value the hemisphere had before
+      // there was a column for it. Driven at every phase in 0.02 steps against a build from before
+      // the change, all ten light values match at all fifty: this renders what it rendered.
+      { p: 0.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x89bd55, exp: 1.22, h: 34, tint: 0xffffff, hemiI: 1.45 },
+      { p: 0.3, sun: 0xffffff, sunI: 1.42, sky: 0xffffff, ground: 0x9ec97a, fog: 0x90c45c, exp: 1.26, h: 42, tint: 0xffffff, hemiI: 1.45 },
+      { p: 0.52, sun: 0xffb36a, sunI: 1.25, sky: 0xffd9b0, ground: 0x7a9a5a, fog: 0x7fae4f, exp: 1.15, h: 20, tint: 0xffe4c8, hemiI: 1.45 },
+      { p: 0.62, sun: 0xff7a5a, sunI: 1.0, sky: 0xffb0a0, ground: 0x7a4a42, fog: 0x8a4038, exp: 1.06, h: 14, tint: 0xffc8be, hemiI: 1.45 },
+      { p: 0.74, sun: 0xff8a76, sunI: 1.0, sky: 0xe09a90, ground: 0x7a4040, fog: 0x8f3a34, exp: 1.06, h: 11, tint: 0xf5bdb2, hemiI: 1.45 },
+      { p: 0.94, sun: 0xff8a76, sunI: 1.0, sky: 0xe09a90, ground: 0x7a4040, fog: 0x8f3a34, exp: 1.06, h: 11, tint: 0xf5bdb2, hemiI: 1.45 },
+      { p: 1.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x89bd55, exp: 1.22, h: 34, tint: 0xffffff, hemiI: 1.45 },
     ] : [
-      { p: 0.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x89bd55, exp: 1.22, h: 34, tint: 0xffffff },
-      { p: 0.3, sun: 0xffffff, sunI: 1.42, sky: 0xffffff, ground: 0x9ec97a, fog: 0x90c45c, exp: 1.26, h: 42, tint: 0xffffff },
-      { p: 0.52, sun: 0xffb36a, sunI: 1.25, sky: 0xffd9b0, ground: 0x7a9a5a, fog: 0x7fae4f, exp: 1.15, h: 20, tint: 0xffe4c8 },
-      { p: 0.62, sun: 0xc9b6ff, sunI: 1.06, sky: 0xc3ccf8, ground: 0x5c7686, fog: 0x4e828a, exp: 1.08, h: 14, tint: 0xd8dcf7 },
-      { p: 0.74, sun: 0xa8bcff, sunI: 0.92, sky: 0x9fb0e8, ground: 0x44607e, fog: 0x3c6389, exp: 1.02, h: 11, tint: 0xc0ccec },
-      { p: 0.94, sun: 0xa8bcff, sunI: 0.92, sky: 0x9fb0e8, ground: 0x44607e, fog: 0x3c6389, exp: 1.02, h: 11, tint: 0xc0ccec },
-      { p: 1.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x89bd55, exp: 1.22, h: 34, tint: 0xffffff },
+      // #194: DUSK SHIFTS COLOUR RATHER THAN DRAINING IT, and the three rows from 0.52 are the whole
+      // of that. What was there read as somebody turning the lights down: every term went cool and
+      // pale at once, so nothing was left warm for the cool to be cool AGAINST.
+      //
+      // THE MECHANISM, because it is not the hues. The hemisphere is the strong light and the day
+      // cycle never used to write its intensity at all; the sun is one directional light, and by 0.62
+      // it sits about 21 degrees above the horizon -- so on FLAT GROUND its N.L is 0.36, against 0.94
+      // at noon. The sun's share of the light on the ground is therefore about a fifth, and the
+      // ground is very nearly whatever colour the hemisphere is. Paint the hemisphere pale blue-grey,
+      // as it was, and no choice of sun colour can be seen on it at all.
+      //
+      // Measured as the hue between the frame LIT and the same pixels with `sun.intensity` at 0 --
+      // which is exactly those surfaces in shade, through the same tone map and the same encode:
+      //
+      //     p         0.52  0.58  0.62  0.66  0.70
+      //     was          6    12     6     2     0   degrees. No split is what a drain IS.
+      //     now         13    32    59    64    26
+      //
+      // So the sun is strong and amber through 0.52-0.68, and the blue moves into the fill underneath
+      // it. The sun carries the warm side; the hemisphere carries the cool one.
+      //
+      // WHAT WAS TRIED AND REJECTED, and it is the obvious reading of "a saturated blue rather than
+      // grey": drop the hemisphere and deepen it. Wrong twice over. At hemiI 1.02 with a deep blue
+      // sky the split reaches 105 degrees and the picture is ruined -- the ground loses the fill and
+      // gains almost nothing from a sun at N.L 0.36, so it goes dark, and rank contrast goes with it,
+      // because contrast is a LUMINANCE ratio. The Bandit measured 1.00 against the grass, which is
+      // invisible. The fill is RAISED here, not dropped, and that is what buys the ranks back:
+      // swept at 0.62 with everything else held, hemiI 1.30 -> 1.90 moved the worst rank 1.37 -> 1.53.
+      //
+      // Exposure is nearly free: across 1.14 to 1.38 the worst rank moved 1.15 to 1.18, because the
+      // grass and the tunic scale together. So it is set for how dark dusk should LOOK -- the fill
+      // does the readability and the exposure does the hour, which is why it can sit under 1.0 here
+      // while the picture is brighter than it was.
+      //
+      // WHAT IT COSTS. Warming the grass walks it toward the two warm tunics. WCAG of each tunic
+      // against the grass at its own feet, both builds driven at the same phases:
+      //
+      //               Bandit        Raider        Marauder      Warlord
+      //     0.52   1.95 -> 2.03  2.61 -> 2.80  4.54 -> 4.64  3.57 -> 3.78
+      //     0.58   1.25 -> 1.29  2.16 -> 2.21  2.95 -> 3.40  3.05 -> 3.27
+      //     0.62   1.28 -> 1.34  2.22 -> 1.78  2.33 -> 2.72  2.68 -> 2.74
+      //     0.66   1.32 -> 1.39  1.88 -> 1.53  1.99 -> 2.18  2.45 -> 2.38
+      //
+      // All four gain at 0.52 and 0.58. The RAIDER is the price: his tunic is pure red and an amber
+      // sun walks the grass toward it, costing about 0.4 at 0.62-0.66. He still sits above the Bandit
+      // at every phase, so the ladder's ORDER holds -- and the ladder is a hue ladder (tan, red,
+      // purple, black) that a luminance ratio cannot see at all. The Bandit at 1.3 against dusk grass
+      // is bad and was bad before this; fixing it means moving his tunic, and characters are out of
+      // scope for #184.
+      //
+      // `tint` multiplies the ground texture, so it stays near neutral and the LIGHTS do the time of
+      // day. A saturated blue there is the trap #192 left behind: the earth patches are warm, a blue
+      // multiplier takes them to black, and `lum` in `breakTiling` carries the tint into them twice.
+      //
+      // The sun passes through a salmon at about 0.70, on the way from amber to the night's pale
+      // blue. Allowed, and looked at: the fill and the fog are deep violet by then, so it reads as the
+      // last warm light on a cold field. Not mistakable for the blood moon, whose fog is red.
+      { p: 0.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x89bd55, exp: 1.22, h: 34, tint: 0xffffff, hemiI: 1.45 },
+      { p: 0.3, sun: 0xffffff, sunI: 1.42, sky: 0xffffff, ground: 0x9ec97a, fog: 0x90c45c, exp: 1.26, h: 42, tint: 0xffffff, hemiI: 1.45 },
+      { p: 0.52, sun: 0xffa84e, sunI: 1.45, sky: 0xf2dccb, ground: 0x7a9a5a, fog: 0x7fae4f, exp: 1.12, h: 20, tint: 0xffe8d4, hemiI: 1.55 },
+      { p: 0.62, sun: 0xff9440, sunI: 1.95, sky: 0xaebdf4, ground: 0x52719a, fog: 0x6f6aa8, exp: 0.98, h: 14, tint: 0xf4eae4, hemiI: 1.80 },
+      { p: 0.68, sun: 0xfd9c4f, sunI: 1.35, sky: 0x8b9fe9, ground: 0x435f8a, fog: 0x4d519a, exp: 1.00, h: 12.5, tint: 0xe6e3ee, hemiI: 2.05 },
+      { p: 0.74, sun: 0xa8bcff, sunI: 0.92, sky: 0x9fb0e8, ground: 0x44607e, fog: 0x3c6389, exp: 1.02, h: 11, tint: 0xc0ccec, hemiI: 1.45 },
+      { p: 0.94, sun: 0xa8bcff, sunI: 0.92, sky: 0x9fb0e8, ground: 0x44607e, fog: 0x3c6389, exp: 1.02, h: 11, tint: 0xc0ccec, hemiI: 1.45 },
+      { p: 1.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x89bd55, exp: 1.22, h: 34, tint: 0xffffff, hemiI: 1.45 },
     ];
     // dayPhase is advanced by updateWaves, which owns the clock; this only paints it
     const ph = this.dayPhase;
@@ -243,6 +325,7 @@ export const ViewMethods = {
     this.sun.intensity = a.sunI + (b.sunI - a.sunI) * t;
     this.hemi.color.copy(lerpC(a.sky, b.sky));
     this.hemi.groundColor.copy(lerpC(a.ground, b.ground));
+    this.hemi.intensity = a.hemiI + (b.hemiI - a.hemiI) * t;
     this.scene.fog.color.copy(lerpC(a.fog, b.fog));
     this.scene.background.copy(this.scene.fog.color);
     this.renderer.toneMappingExposure = a.exp + (b.exp - a.exp) * t;
@@ -260,10 +343,16 @@ export const ViewMethods = {
     // colour of the sky is this function's business and splitting it across two files would mean
     // reading both to know what any one frame looks like.
     //
-    // Four of these the day never writes -- the hemisphere's intensity, both ends of the fog and the
-    // shadow -- so they are put back from `this.dry` rather than recomputed, and `wasWet` is what
-    // runs this one last time on the frame the rain ends. Without that latch the sky stayed shut in
-    // for the rest of the run: the block stopped running the moment there was no rain left to apply.
+    // Three of these the day never writes -- both ends of the fog and the shadow -- so they are put
+    // back from `this.dry` rather than recomputed, and `wasWet` is what runs this one last time on
+    // the frame the rain ends. Without that latch the sky stayed shut in for the rest of the run: the
+    // block stopped running the moment there was no rain left to apply.
+    //
+    // The hemisphere's intensity used to be a fourth. #194 made it a keyframe column, so the wet lift
+    // MULTIPLIES what the day set rather than restoring a fixed value on top of it -- a shower at
+    // dusk would otherwise have snapped the fill back to its noon strength and undone the whole
+    // ticket for as long as it rained. Driven at four phases and three wet levels: the fill scales by
+    // 1.25 at every one, and the frame the shower ends leaves the day's own value standing.
     //
     // The fog is the load-bearing one and it took a screenshot to see why. A first pass faded the sun
     // by half, lifted the sky and tinted the grass, and the shot came back as a bright green meadow
@@ -278,7 +367,7 @@ export const ViewMethods = {
       const c = this._rc || (this._rc = new THREE.Color());
       this.sun.intensity *= 1 - 0.6 * w;
       this.sun.color.lerp(c.setHex(0xcdd6e0), w * 0.8);
-      this.hemi.intensity = this.dry.hemi * (1 + 0.25 * w);
+      this.hemi.intensity *= 1 + 0.25 * w;
       this.hemi.color.lerp(c.setHex(0xb2bfcb), w * 0.8);
       this.hemi.groundColor.lerp(c.setHex(0x5b6d64), w * 0.6);
       this.scene.fog.color.lerp(c.setHex(0x9aa8ad), w * 0.85);

@@ -143,6 +143,9 @@ const startGame = () => {
 function startForView() {
   try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) { /* private mode */ }
   game.start();
+  // After `start`, because it resets the run, and before the view, because a panel that reads the
+  // sky should read the one it is going to be shown under.
+  if (PHASE !== undefined) game.setDayPhase(PHASE, BLOOD || null);
   runView();
 }
 document.getElementById('start-btn').addEventListener('click', () => {
@@ -851,6 +854,11 @@ const AS = (/[?&]as=([a-z]+)/.exec(location.search) || [])[1] || '';
 // `?view=build&id=keep&age=diamond&level=3` -- which structure, at which age, at which tower level.
 const AGE = (/[?&]age=([a-z]+)/.exec(location.search) || [])[1] || 'stone';
 const LEVEL = Number((/[?&]level=(\d+)/.exec(location.search) || [])[1] || 1);
+// #194: `?phase=0.6` -- the time of day any frame is held at, and `?blood=1` for the red sky that
+// otherwise only a boss night brings. Applies to `?tour` as well as to every `?view=`, which is why
+// it is read here and used in `startForView` rather than inside `runView`.
+const PHASE = (/[?&]phase=([0-9.]+)/.exec(location.search) || [])[1];
+const BLOOD = /[?&]blood=1/.test(location.search);
 function runView() {
   if (!VIEW || !game) return;
   const panels = {

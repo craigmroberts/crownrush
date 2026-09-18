@@ -804,6 +804,12 @@ Bandit 1.52 -> 1.59, Raider 2.14 -> 2.24, Marauder 2.62 -> 2.74, Warlord 6.70 ->
 improves slightly, because the new grass is marginally lighter. Confirmed on screen with all four
 ranks stood in open grass.
 
+Those are the **noon** figures, and they are the best the ladder ever reads. At dusk every one of them
+roughly halves, because the grass darkens and contrast is a luminance ratio -- at phase 0.58 the
+Bandit is 1.29 against the grass and the Warlord 3.27. That is not new and #194 did not cause it; see
+**Dusk shifts colour rather than draining it** for the dusk table and what moving the light costs
+each rank.
+
 ## Notices colour the half you act on
 
 A notice is usually two halves: what happened, and what to do about it. The second half is wrapped in
@@ -1433,6 +1439,64 @@ you would rather not wait out the daylight, "Bring on the night" skips the rest 
 
 While the Queen is still captive the clock does not run at all, so the opening stays in permanent
 daylight until you go and get her.
+
+### Dusk shifts colour rather than draining it (#194)
+
+Dusk used to read as somebody turning the lights down: between 0.52 and 0.62 of the cycle every term
+went cool and pale at once -- the sun lost its orange, the hemisphere went grey-blue, the fog went
+grey-green -- so there was nothing warm left for the cool to be cool **against**.
+
+The cause is not the hues, it is the geometry. The hemisphere light is the strong one and the day
+cycle never used to write its intensity at all, while the sun is a single directional light that by
+0.62 sits about 21° above the horizon -- so on flat ground its N·L is **0.36**, against 0.94 at noon.
+The sun's share of the light on the ground is about a fifth, and the ground is very nearly whatever
+colour the hemisphere is. With a pale blue-grey hemisphere, no choice of sun colour can be seen on it.
+
+So the sun stays amber and goes **strong** through 0.52–0.68, and the blue moves into the fill
+underneath it, which is now a keyframe column of its own. Measured as the hue between the frame lit
+and the same pixels with the sun at zero -- which is exactly those surfaces in shade, through the same
+tone map and the same encode:
+
+| cycle phase | 0.52 | 0.58 | 0.62 | 0.66 | 0.70 |
+| --- | --- | --- | --- | --- | --- |
+| **was** | 6° | 12° | 6° | 2° | 0° |
+| **now** | 13° | 32° | 59° | 64° | 26° |
+
+The obvious reading of "a saturated blue" -- drop the fill and deepen it -- was tried and is wrong
+twice over. It reaches 105° of split and ruins the picture: the ground loses the fill, gains almost
+nothing from a sun at N·L 0.36, and goes dark, taking rank contrast with it, because contrast is a
+**luminance** ratio. The Bandit measured 1.00 against the grass, which is invisible. The fill is
+**raised** here, not dropped, and that is what buys the ranks back. Exposure turns out to be nearly
+free -- across 1.14 to 1.38 the worst rank moved 1.15 to 1.18 -- so the fill does the readability and
+the exposure does the hour.
+
+**What it costs.** Warming the grass walks it toward the two warm tunics. WCAG of each tunic against
+the grass at its own feet, both builds driven at the same phases:
+
+| | Bandit | Raider | Marauder | Warlord |
+| --- | --- | --- | --- | --- |
+| 0.52 | 1.95 → **2.03** | 2.61 → **2.80** | 4.54 → **4.64** | 3.57 → **3.78** |
+| 0.58 | 1.25 → **1.29** | 2.16 → **2.21** | 2.95 → **3.40** | 3.05 → **3.27** |
+| 0.62 | 1.28 → **1.34** | 2.22 → 1.78 | 2.33 → **2.72** | 2.68 → **2.74** |
+| 0.66 | 1.32 → **1.39** | 1.88 → 1.53 | 1.99 → **2.18** | 2.45 → 2.38 |
+
+All four improve at 0.52 and 0.58. The **Raider** is the price: his tunic is pure red and an amber sun
+walks the grass toward it, costing about 0.4 at 0.62–0.66. He still sits above the Bandit at every
+phase, so the ladder's **order** holds -- which is what a player reads, and the ladder is a hue ladder
+(tan, red, purple, black) that a luminance ratio cannot see at all. The Bandit at 1.3 against dusk
+grass is bad, and was bad before this; fixing it means moving his tunic, and characters are out of
+scope for #184.
+
+Morning, noon and night are untouched: driven at every phase in 0.02 steps against a build from before
+the change, the sky is identical below 0.32 and above 0.72. **The blood moon is unchanged** --
+identical at all fifty phases, every light value -- because it is the twin this has to be told apart
+from at a glance.
+
+`?phase=0.6` pins the day cycle on any frame, and `&blood=1` forces the red sky that otherwise only a
+boss night brings. Every `?view=` used to run at the opening morning, because the clock stands still
+while the Queen is captive, so half the cycle had no frame anybody could look at. The board has the
+same camera at five times of day under **Times of day**, and `views-open` asserts the phase actually
+took -- a `?phase=` that quietly did nothing would show five copies of one sky under five labels.
 
 ## Rain
 

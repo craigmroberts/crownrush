@@ -218,6 +218,17 @@ const GROUPS = [
     ['road', 'The east road', '../?view=road', 'The King on the castle road inside the town wall, the trail beginning past the gate: edges, ruts, mud, the verge and the grass in it (#180).'],
     ['stable', 'The Stable', '../?view=stable', 'The block in the west strip: the yard in front, horses in it, one soldier riding. The building is the placeholder until the generated one lands (#82).'],
   ]],
+  // #194: THE SAME FRAME AT FIVE TIMES OF DAY. `?phase=` pins the day cycle, which every other frame
+  // on this page leaves at the opening morning -- the clock stands still while the Queen is captive,
+  // so half the cycle had no frame anyone could look at and dusk was judged by playing until it
+  // arrived. One camera, five skies, so a change to any of them is a comparison and not a memory.
+  ['day', 'Times of day', [
+    ['noon', 'Noon', '../?view=road&phase=0.3', 'The top of the day: white sun, no cast colour, the widest the palette ever is.'],
+    ['golden', 'Golden hour', '../?view=road&phase=0.52', 'The sun has dropped to 20 and gone amber. The last frame before the raid.'],
+    ['dusk', 'Dusk', '../?view=road&phase=0.62', 'Two seconds into the night. A warm low sun against a blue fill — the split this is tuned for (#194).'],
+    ['twilight', 'Twilight', '../?view=road&phase=0.70', 'The handover: the last warm light going, the violet coming up under it.'],
+    ['bloodmoon', 'Blood moon', '../?view=road&phase=0.64&blood=1', 'The twin of Dusk, at the same phase. It has to be told from it at a glance, which is the whole reason it exists.'],
+  ]],
   ['progress', 'Progress', [
     ['keep', 'Keep sheet', '../?view=keep', 'What the next Keep level costs and what it gives.'],
     ['levelup', 'Level up', '../?view=levelup', 'The reward panel: what the level gave, and the three cards it offers.'],

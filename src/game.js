@@ -66,14 +66,20 @@ export class Game {
     const { sun, hemi } = setupLights(this.scene);
     this.sun = sun;
     this.hemi = hemi;
-    // #81: what the sky is worth when it is dry. updateDaylight writes the sun, the hemisphere
-    // colours, the fog colour and the exposure every frame, so rain can just scale those on its way
-    // past -- but these four it never touches, so something has to remember them to put them back.
-    // Read off the lights rather than repeated in CFG, because two places holding the same number is
-    // how one of them goes stale.
-    this.dry = { hemi: hemi.intensity, fogNear: this.scene.fog.near, fogFar: this.scene.fog.far, shadow: sun.shadow.intensity };
+    // #81: what the sky is worth when it is dry. updateDaylight writes the sun, the hemisphere and
+    // the exposure every frame, so rain can just scale those on its way past -- but these three it
+    // never touches, so something has to remember them to put them back. Read off the lights rather
+    // than repeated in CFG, because two places holding the same number is how one of them goes stale.
+    // #194 took `hemi` out of here: the day cycle writes the hemisphere's INTENSITY now as well as
+    // its two colours, so rain scales what the day just set instead of restoring a fixed 1.45 over
+    // the top of it -- which would have flattened every dusk the moment a shower started.
+    this.dry = { fogNear: this.scene.fog.near, fogFar: this.scene.fog.far, shadow: sun.shadow.intensity };
     this.dayPhase = 0.05; // the run opens in early morning
     this.night = false;
+    // #194: an override for which sky table `updateDaylight` reads, and null every way but one --
+    // `?blood=1` on a board frame. Deliberately outside `reset()`, like `camLock`: a view that was
+    // asked for a time of day keeps it across a restart.
+    this.bloodSky = null;
     this.sunHeight = 34;
     // #193: the profile, onto the renderer and the light. Before the first frame, so nothing has been
     // compiled against the other setting and there is no recompile to pay for.

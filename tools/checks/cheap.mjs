@@ -30,13 +30,18 @@ export const CHEAP = {
     // length is the second half of it: an overlay can be visible and empty.
     const VIEWS = [
       ['?tour', null], ['?view=map', null], ['?view=stable', null], ['?view=road', null], ['?view=mesa', null], ['?view=elements', 'elements-sheet'],
+      // #194: the same view at a pinned time of day, and its red twin. The third column is the phase
+      // the URL asked for, because "the page loaded" is not the assertion that matters here -- a
+      // `?phase=` that quietly did nothing would open the road at the morning and pass everything
+      // above, and the board would be showing five copies of one sky under five different labels.
+      ['?view=road&phase=0.62', null, 0.62], ['?view=road&phase=0.64&blood=1', null, 0.64],
       ['?view=keep', 'keep-screen'], ['?view=levelup', 'offer-screen'], ['?view=scores', 'scores-screen'],
       ['?view=cast', 'cast-screen'], ['?view=diary', 'diary-screen'], ['?view=settings', 'settings-screen'],
       ['?view=credits', 'credits-screen'], ['?view=pause', 'pause-screen'],
       ['?view=defeat', 'gameover-screen'], ['?view=victory', 'victory-screen'],
     ];
     const bad = [];
-    for (const [q, panel] of VIEWS) {
+    for (const [q, panel, phase] of VIEWS) {
       await page.goto(url + q, { waitUntil: 'load', timeout: 150000 });
       // WAIT FOR THE GAME, not for the clock. `load` fires long before the models are in and the run
       // has started, and a flat sleep after it reported `?view=cast` and `?view=levelup` as broken
@@ -64,6 +69,7 @@ export const CHEAP = {
           missing: id ? !el : false,
           panelUp: id ? up(el) : false,
           words: id && el ? el.innerText.trim().length : 0,
+          phase: window.game ? +window.game.dayPhase.toFixed(3) : null,
         };
       }, panel);
       if (r.err) bad.push(`${q}: error screen -- ${r.msg}`);
@@ -72,6 +78,7 @@ export const CHEAP = {
       else if (r.missing) bad.push(`${q}: there is no #${panel} in the page`);
       else if (panel && !r.panelUp) bad.push(`${q}: the game ran but #${panel} never opened`);
       else if (panel && r.words < 20) bad.push(`${q}: #${panel} opened with ${r.words} characters in it`);
+      else if (phase !== undefined && Math.abs(r.phase - phase) > 1e-3) bad.push(`${q}: asked for phase ${phase}, the run is at ${r.phase}`);
     }
     return bad.length ? no(bad) : ok(`${VIEWS.length} views, each with its panel up`);
   },
