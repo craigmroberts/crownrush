@@ -31,8 +31,9 @@ the raids keep coming for a high score.
   when it fills, once per fill, because filling it is the moment that sentence is worth reading. It
   used to be said only when you walked onto a heap you could not lift, which is a refusal rather than
   a notice: the moment the bag actually filled, nothing was said and the swings went on landing (#129).
-- Roads grow out of the gates as you wall the village, and bridges over the river are built from pads at the
-  crossings. Until a bridge exists, raiders only come from your side of the river.
+- Roads grow out of the gates as you wall the village (#180: dirt tracks with ruts and a verge the
+  grass creeps into, trails past the town wall, paths to every home), and bridges over the river are
+  built from pads at the crossings. Until a bridge exists, raiders only come from your side of the river.
 - Unexplored land is hidden under fog that clears as the King travels. The minimap that read it is
   **parked** (#145, `CFG.minimap`) -- it owned the top-right corner and was not earning it. Off rather
   than deleted, the same shape as the run-length pills: a terrain bake, a fog layer and a big/small
@@ -109,6 +110,32 @@ the raids keep coming for a high score.
 
   It costs 273k triangles in a scene measuring 981k -- the largest single instanced cost in the world,
   next to 28 characters at 8,576 each for 240k (#52). `TUFTS` in `world.js` is the dial.
+- **The roads are dirt tracks now, not ribbons** (#180). A road used to be three flat ribbons stacked
+  on each other with two thin rut lines -- six draw calls, one colour each, a hard ruled edge against a
+  hard ruled line of grass, and the ribbons' own colour attribute never read, because `mat()` does not
+  turn vertex colours on. It was the one thing in a screenshot that read as a placeholder. Each road is
+  one mesh now, nine vertices across every sample and coloured per vertex: from the verge in, a verge
+  that fades to alpha 0 into whatever ground is there (no green to match, and it stays matched when
+  the daylight tints the ground), a darker seam where dirt meets grass, the edge, a rut, the crown
+  between the ruts, and the same again. Along it the two edges wander on their own (the old wobble
+  was mirrored, so the ribbon snaked at a constant width), the ruts wander, sit unevenly and fade out
+  in stretches, and the tone drifts between light dirt, dark dirt and the odd patch of mud, with a
+  different phase per lane so a patch is a patch and not a band. Grass creeps into the verge: a tuft is
+  placed by how far in it would stand, sure of a place a unit out and thinning to nothing 0.3 inside
+  the edge, and the flowers come with the tufts.
+
+  **Three kinds of road, read off where a sample is.** Inside the settlement's outer plot the road is
+  the castle road: full width, a firm edge, ruts, chips of stone on the surface. Past it the same road
+  is a trail: narrower, a ragged verge, more mud, ruts fading, and a few tufts growing in it. And a
+  **path** runs from every home's door to the nearest road, narrow and worn dark down the middle with
+  no ruts at all, grown out from the house the way a road grows out from a gate; it goes under the
+  road rather than meeting it, so the join is the road's own edge. The roads themselves are revealed
+  by `buildWall` now rather than by the mat that bought the wall, which is also what fixed a restored
+  run coming back with walls and no roads, and the opening village having none at all.
+
+  Measured from the King's camera on the east road: 240 draw calls against 241 before and 928k
+  triangles against 922k, on the phone frame 168 against 172; the map from above 608 against 588,
+  inside a frame-to-frame swing of 47 from pop-ins and smoke. `?view=road` frames it on the board.
 - The village starts as a small plot. "Expand Village" pads grow it in three stages, each with its own
   wall ring. When the outer ring is complete the old inner wall is torn down.
 - Walls are real: raiders are blocked and bash at short sections. A battered section degrades to the

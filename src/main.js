@@ -864,6 +864,7 @@ function runView() {
     levelup: () => { game.offerQueue = 1; game.offerLevel = game.baseLevel; game.showOffer(); },
     // #82: the Stable block, stood and filled, with the King beside it so the camera is on it.
     stable: () => game.showStableView(),
+    road: () => game.showRoadView(),   // #180
     // The two endings. `gameOver`/`victory` are not called: they clear the run, write a score row and
     // record a run, and a board frame that quietly adds a defeat to the player's own scoreboard every
     // time it loads is a view with a side effect. These open the same panels off live state instead.

@@ -379,6 +379,7 @@ export const BuildMethods = {
     this.horses = [];
     this.stable = null;
     if (this.world.clearSmokers) this.world.clearSmokers();
+    if (this.world.clearPaths) this.world.clearPaths();   // #180: the homes' paths go with the homes
     // and the ledger, so what he rebuilds he pays for
     this.built = {};
     this.buyCount = {};
@@ -566,15 +567,6 @@ export const BuildMethods = {
     if (def.bridge) {
       const m = this.world.buildBridge(def.bridge);
       if (m) this.popIn(m);
-    }
-    if (def.wall) {
-      // roads grow out of the gates as the walls go up
-      if (def.wall.tier === 0) {
-        this.world.revealRoad('south');
-        this.world.revealRoad('east');
-      }
-      if (def.wall.side === 'west') this.world.revealRoad('west');
-      if (def.wall.side === 'north') this.world.revealRoad('north');
     }
     if (!def.crew) this.addScore(pad.cost * CFG.score.buildPerCoin + pad.res.reduce((a, r) => a + r.need, 0) * CFG.score.buildPerMaterial);
     // #105: a mat that changed what the player can DO says so on a panel that takes the screen, and
@@ -1060,7 +1052,12 @@ export const BuildMethods = {
       this.queueTowerPad(def.id, 'crew');
     }
     // #48: a home is not just a roof. Someone moves in, and they work.
-    if (kind === 'house') this.addVillager(at[0], at[1], def.id);
+    if (kind === 'house') {
+      this.addVillager(at[0], at[1], def.id);
+      // #180: and a path runs from the door to the road, so the house stands on the map rather than
+      // beside it. Grown for a house that goes up mid-run; already there for one that was.
+      if (this.world.addPath) this.world.addPath(at[0], at[1], this.restoring || !this.openingDone);
+    }
     // #82: the Stable's yard, in world terms, is what the horses (#117) and their mats read.
     if (kind === 'stable') {
       const S = CFG.stable;
@@ -1787,6 +1784,18 @@ export const BuildMethods = {
       this.rebuildWall(w, this.wallLevel, i * 0.07);
       this.walls.push(w);
     });
+    // Roads grow out of the gates as the walls go up. #180 moved this here from `completePad`, so
+    // it happens however the wall was stood: bought, replayed from a save, or raised for the
+    // opening. Before, a restored run came back with its walls and none of its roads, and the
+    // opening village -- the kingdom the player is shown for a minute -- had no roads at all. A
+    // village that was already there gets them at once rather than growing.
+    const instant = this.restoring || !this.openingDone;
+    if (tier === 0) {
+      this.world.revealRoad('south', instant);
+      this.world.revealRoad('east', instant);
+    }
+    if (side === 'west') this.world.revealRoad('west', instant);
+    if (side === 'north') this.world.revealRoad('north', instant);
     // Once a full outer wall stands, the one it replaced comes down for materials -- but the citadel
     // is not one of those. It is the ring around the castle and it is meant to stand inside every
     // wall that goes up after it, which is a second line to fight on rather than a leftover.

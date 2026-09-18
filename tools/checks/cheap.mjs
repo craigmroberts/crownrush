@@ -29,7 +29,7 @@ export const CHEAP = {
     // showing the wrong thing looks exactly like a board frame showing the right thing. The text
     // length is the second half of it: an overlay can be visible and empty.
     const VIEWS = [
-      ['?tour', null], ['?view=map', null], ['?view=stable', null], ['?view=elements', 'elements-sheet'],
+      ['?tour', null], ['?view=map', null], ['?view=stable', null], ['?view=road', null], ['?view=elements', 'elements-sheet'],
       ['?view=keep', 'keep-screen'], ['?view=levelup', 'offer-screen'], ['?view=scores', 'scores-screen'],
       ['?view=cast', 'cast-screen'], ['?view=diary', 'diary-screen'], ['?view=settings', 'settings-screen'],
       ['?view=credits', 'credits-screen'], ['?view=pause', 'pause-screen'],

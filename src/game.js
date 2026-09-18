@@ -440,6 +440,7 @@ export class Game {
     // world roads/bridges/chimneys are scene-level: reset them
     if (this.world.clearSmokers) this.world.clearSmokers();
     if (this.world.clearRain) this.world.clearRain();
+    if (this.world.clearPaths) this.world.clearPaths();   // #180
     for (const r of this.world.roads) {
       r.revealed = false;
       r.progress = 0;

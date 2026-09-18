@@ -265,7 +265,7 @@ function breakTiling(m) {
 export function buildWorld(scene, soleShadows = false) {
   const size = CFG.world.size;
   const rand = rng(1337);
-  const world = { river: null, bridges: [], crossings: [], roads: [], fields: [], foam: [], time: 0, sway: { value: 0 }, flowerSpots: [], focus: new THREE.Vector3() };
+  const world = { river: null, bridges: [], crossings: [], roads: [], paths: [], fields: [], foam: [], time: 0, sway: { value: 0 }, flowerSpots: [], focus: new THREE.Vector3() };
   setSwayUniform(world.sway);
 
   // ---- ground ----
@@ -313,51 +313,199 @@ export function buildWorld(scene, soleShadows = false) {
   world.foamMesh = foam;
   for (let i = 0; i < 70; i++) world.foam.push({ t: rand(), side: (rand() - 0.5) * MAP.river.halfWidth * 1.4, speed: 0.012 + rand() * 0.01 });
 
-  // ---- roads (spline ribbons with a darker shoulder and wheel ruts); hidden until revealed ----
-  const rutMat = mat(0xd2ae74, { side: THREE.DoubleSide });
+  // ---- roads ----
+  // #180: one mesh per road, nine vertices across each sample, coloured per vertex. It replaced three
+  // stacked flat ribbons and two rut lines -- six draw calls a road -- and the colour attribute those
+  // ribbons carried was never read: `mat()` does not turn vertex colours on, so every shade in them
+  // was a flat material colour and the road was a smooth ribbon with almost no material definition.
+  // What a road needs is variation ALONG it and ACROSS it, and both are cheaper as vertex colour
+  // than as a texture: nine verts a sample is 1,424 triangles a road against the old 900 across five
+  // meshes, and one draw call against six.
+  //
+  // Across, from the left verge in: the verge (alpha 0, so the dirt fades into whatever ground is
+  // there -- no green to match, and it stays matched when the daylight tints the ground), a darker
+  // seam where dirt meets grass, the road's edge, the left rut, the crown between the ruts, the
+  // right rut, edge, seam, verge. Along: the two edges wander on their own (the old wobble was
+  // mirrored, `wr = w * (2 - wob)`, so the ribbon snaked at a constant width and never looked
+  // handmade), the ruts wander, sit unevenly and break, and the tone drifts between light dirt,
+  // dark dirt and the odd patch of mud, with a different phase per lane so a patch is a patch and
+  // not a band.
+  //
+  // `kind` is read off where a sample IS. Inside the settlement's outer plot (the last box in TIERS)
+  // the road is the castle road: full width, a firm edge, ruts, chips of stone. Past it the same road
+  // is a trail: narrower, a ragged verge, more mud, ruts fading out, and grass growing in it, which
+  // `roadOk` below tells the grass placer. A path is what runs from a home's door to the road
+  // (`world.addPath`): narrow, worn dark down the middle, and no ruts at all, because nothing with
+  // wheels goes to a front door.
+  //
+  // Transparent, for the verge, and drawn first among transparent things (`renderOrder` below the
+  // contact shadows' -1) so everything else blends over dirt that has already blended over grass.
+  // Not the cheaper trick of colouring the verge green to match: the ground is a mottled, untiled
+  // texture (#162) and any one green is wrong somewhere along 90 units of road.
+  const ROAD = {
+    castle: { width: MAP.roadWidth, shoulder: 0.75, edge: 0.05, verge: 0.35, rut: 1.0, mud: 0.64, chips: 34 },
+    trail: { width: 3.3, shoulder: 1.15, edge: 0.14, verge: 0.6, rut: 0.45, mud: 0.42, chips: 0 },
+    path: { width: 1.5, shoulder: 0.55, edge: 0.14, verge: 0.5, rut: 0, mud: 0.55, chips: 0 },
+  };
+  // Warm beige at the crown, darker in the ruts, darker again at the seam; the mud is the shoulder's
+  // hue pulled down and greyed rather than a brown of its own, so a patch reads as the same dirt wet.
+  const TONE = {
+    shoulder: new THREE.Color(0xc4a06a), seam: new THREE.Color(0xa07a4a), edge: new THREE.Color(0xd8b884),
+    rut: new THREE.Color(0xbb955d), crown: new THREE.Color(0xe7cf9f), mud: new THREE.Color(0xa6845c), worn: new THREE.Color(0xc6a271),
+  };
+  const roadMat = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, transparent: true, roughness: 0.92, metalness: 0, side: THREE.DoubleSide });
+  const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const lerp = (a, b, t) => a + (b - a) * t;
+  // three sines at unrelated frequencies: not noise, but it never repeats inside a road and it is
+  // continuous, which is what keeps a patch from having an edge
+  const drift = (i, ph) => 0.5 * Math.sin(i * 0.21 + ph) + 0.3 * Math.sin(i * 0.53 + ph * 1.7) + 0.2 * Math.sin(i * 1.31 + ph * 0.6);
+  // 0 inside the settlement's outer plot, 1 eight units past it: castle road to trail
+  const outerPlot = TIERS[TIERS.length - 1].bounds;
+  const kindAt = (x, z) => {
+    const dx = Math.max(outerPlot.x0 - x, x - outerPlot.x1, 0);
+    const dz = Math.max(outerPlot.z0 - z, z - outerPlot.z1, 0);
+    return smooth(1, 8, Math.hypot(dx, dz));
+  };
+  const LANES = 9;
+  const STRIDE = (LANES - 1) * 6;   // indices per sample: eight quads
+  const c1 = new THREE.Color();
+  const c2 = new THREE.Color();
+  function roadMesh(samples, opts) {
+    const n = samples.length;
+    const r = rng(opts.seed);
+    const ph = [];
+    for (let k = 0; k < 8; k++) ph.push(r() * Math.PI * 2);
+    const pos = new Float32Array(n * LANES * 3);
+    const nrm = new Float32Array(n * LANES * 3);
+    const col = new Float32Array(n * LANES * 4);
+    const idx = new Uint32Array((n - 1) * STRIDE);
+    const half = new Float32Array(n);
+    const kind = new Float32Array(n);
+    const isPath = opts.kind === 'path';
+    for (let i = 0; i < n; i++) {
+      const p = samples[i];
+      const q = samples[Math.min(n - 1, i + 1)];
+      const b = samples[Math.max(0, i - 1)];
+      let tx = q.x - b.x;
+      let tz = q.z - b.z;
+      const l = Math.hypot(tx, tz) || 1;
+      tx /= l;
+      tz /= l;
+      const k = isPath ? 0 : kindAt(p.x, p.z);
+      const K = isPath ? ROAD.path : {
+        width: lerp(ROAD.castle.width, ROAD.trail.width, k), shoulder: lerp(ROAD.castle.shoulder, ROAD.trail.shoulder, k),
+        edge: lerp(ROAD.castle.edge, ROAD.trail.edge, k), verge: lerp(ROAD.castle.verge, ROAD.trail.verge, k),
+        rut: lerp(ROAD.castle.rut, ROAD.trail.rut, k), mud: lerp(ROAD.castle.mud, ROAD.trail.mud, k),
+      };
+      // the far end of a road narrows to nothing over its last twelve samples, as before
+      const tap = opts.taper ? Math.min(1, (n - 1 - i) / 12 + 0.15) : 1;
+      const h = (K.width / 2) * tap;
+      half[i] = h;
+      kind[i] = k;
+      // each edge on its own: the same two frequencies, different phases
+      const eL = 1 + K.edge * (0.6 * Math.sin(i * 0.19 + ph[0]) + 0.4 * Math.sin(i * 0.47 + ph[1]));
+      const eR = 1 + K.edge * (0.6 * Math.sin(i * 0.19 + ph[2]) + 0.4 * Math.sin(i * 0.47 + ph[3]));
+      const hl = h * eL;
+      const hr = h * eR;
+      const sL = Math.max(0.25, K.shoulder * tap * (1 + K.verge * (0.5 * Math.sin(i * 0.33 + ph[4]) + 0.5 * Math.sin(i * 0.9 + ph[5]))));
+      const sR = Math.max(0.25, K.shoulder * tap * (1 + K.verge * (0.5 * Math.sin(i * 0.33 + ph[6]) + 0.5 * Math.sin(i * 0.9 + ph[7]))));
+      // the ruts: about 0.9 out, wandering, and never so far out they cross the edge lane
+      const rl = Math.min(hl - 0.45, tap * (0.9 + 0.28 * Math.sin(i * 0.17 + ph[1] * 2) + 0.12 * Math.sin(i * 0.41 + ph[3])));
+      const rr = Math.min(hr - 0.45, tap * (0.9 + 0.28 * Math.sin(i * 0.17 + ph[5] * 2) + 0.12 * Math.sin(i * 0.41 + ph[7])));
+      const off = [-(hl + sL), -hl, -(hl - 0.35), -Math.max(0.1, rl), 0, Math.max(0.1, rr), hr - 0.35, hr, hr + sR];
+      // the colour of this stretch: a drift in tone, a mud patch where a slower drift runs high, and
+      // the ruts fading out where a third one does
+      const mud = smooth(K.mud, K.mud + 0.22, 0.5 + 0.5 * drift(i * 0.7, ph[2]));
+      const brk = smooth(0.35, 0.65, 0.5 + 0.5 * drift(i * 0.9, ph[6]));
+      const rutMix = K.rut * (1 - brk);
+      for (let ln = 0; ln < LANES; ln++) {
+        const v = i * LANES + ln;
+        const nx = -tz;
+        const nz = tx;
+        pos[v * 3] = p.x + nx * off[ln];
+        pos[v * 3 + 1] = opts.y;
+        pos[v * 3 + 2] = p.z + nz * off[ln];
+        nrm[v * 3 + 1] = 1;
+        let base;
+        let alpha = 1;
+        if (ln === 0 || ln === 8) { base = TONE.shoulder; alpha = 0; }
+        else if (ln === 1 || ln === 7) base = TONE.seam;
+        else if (ln === 2 || ln === 6) base = TONE.edge;
+        else if (ln === 4) base = isPath ? TONE.worn : TONE.crown;
+        else base = isPath ? TONE.edge : c2.copy(TONE.edge).lerp(TONE.rut, rutMix);
+        c1.copy(base);
+        if (ln !== 0 && ln !== 8) c1.lerp(TONE.mud, mud * (isPath ? 0.5 : 0.85));
+        const tone = 1 + 0.07 * drift(i + ln * 2.3, ph[4] + ln);
+        col[v * 4] = c1.r * tone;
+        col[v * 4 + 1] = c1.g * tone;
+        col[v * 4 + 2] = c1.b * tone;
+        col[v * 4 + 3] = alpha;
+      }
+      if (i < n - 1) {
+        for (let ln = 0; ln < LANES - 1; ln++) {
+          const a = i * LANES + ln;
+          const o = i * STRIDE + ln * 6;
+          // wound so the face is the top: the lanes run along the left-hand normal and the samples
+          // along the tangent, and the other order made every road a back face lit from below --
+          // dark and green under the hemisphere's ground colour. `ribbon` above guards the same
+          // thing by recomputing normals and flipping; here the winding is simply right.
+          idx.set([a, a + 1, a + LANES, a + 1, a + LANES + 1, a + LANES], o);
+        }
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 4));
+    geo.setIndex(new THREE.BufferAttribute(idx, 1));
+    const m = new THREE.Mesh(geo, roadMat);
+    m.receiveShadow = true;
+    m.renderOrder = -2;
+    m.userData.half = half;
+    m.userData.kind = kind;
+    return m;
+  }
   MAP.roads.forEach((road, ri) => {
     const samples = spline(road.points, 90);
-    const entry = { id: road.id, samples, meshes: [], revealed: false, progress: 0 };
+    const entry = { id: road.id, samples, meshes: [], revealed: false, progress: 0, stride: STRIDE };
     // All four roads start at the castle and overlap in the square where they cross. Lifting each
     // one a hair above the last keeps that square from z-fighting; dirt over dirt reads the same.
     const ry = ri * 0.0012;
-    entry.meshes.push(ribbon(samples, MAP.roadWidth + 1.4, 0xcaa46c, 0.014 + ry, { taper: 'end', wobble: 0.12 }));
-    entry.meshes.push(ribbon(samples, MAP.roadWidth, 0xdfc08a, 0.018 + ry, { taper: 'end', wobble: 0.06 }));
-    entry.meshes.push(ribbon(samples, MAP.roadWidth * 0.55, 0xe8cd9c, 0.02 + ry, { taper: 'end', wobble: 0.08 }));
-    // stones scattered along the verge, revealed with the road
+    const m = roadMesh(samples, { seed: 400 + ri * 17, y: 0.014 + ry, taper: true });
+    entry.half = m.userData.half;
+    entry.kind = m.userData.kind;
+    entry.meshes.push(m);
+    // stones scattered along the verge, and chips of stone on the castle road's own surface -- the
+    // "more stone" a maintained road has over a trail. One instanced draw for both.
     const stoneGeo = new THREE.DodecahedronGeometry(0.16, 0);
-    const stones = new THREE.InstancedMesh(stoneGeo, matFlat(0xb7a58d), 40);
+    const STONES = 40 + ROAD.castle.chips;
+    // a shade lighter than the field stones, so a chip shows on the beige rather than hiding in it
+    const stones = new THREE.InstancedMesh(stoneGeo, matFlat(0xc4b49b), STONES);
     const sm = new THREE.Matrix4();
-    for (let k = 0; k < 40; k++) {
+    let sn = 0;
+    for (let k = 0; k < STONES * 3 && sn < STONES; k++) {
+      const chip = sn >= 40;
       const i = 4 + Math.floor(rand() * (samples.length - 8));
+      if (chip && entry.kind[i] > 0.3) continue;
       const p = samples[i];
       const q = samples[i + 1];
       const tx = q.x - p.x;
       const tz = q.z - p.z;
       const l = Math.hypot(tx, tz) || 1;
-      const off = (MAP.roadWidth / 2 + 0.4 + rand() * 0.6) * (k % 2 ? 1 : -1);
+      const off = chip ? (rand() * 2 - 1) * (entry.half[i] - 0.5) : (entry.half[i] + 0.4 + rand() * 0.6) * (k % 2 ? 1 : -1);
       sm.makeRotationY(rand() * Math.PI);
-      sm.scale(new THREE.Vector3(0.7 + rand() * 0.8, 0.5, 0.7 + rand() * 0.8));
-      sm.setPosition(p.x - (tz / l) * off, 0.05, p.z + (tx / l) * off);
-      stones.setMatrixAt(k, sm);
+      const sc = chip ? 0.75 : 1;
+      sm.scale(new THREE.Vector3((0.7 + rand() * 0.8) * sc, chip ? 0.3 : 0.5, (0.7 + rand() * 0.8) * sc));
+      sm.setPosition(p.x - (tz / l) * off, chip ? 0.03 : 0.05, p.z + (tx / l) * off);
+      stones.setMatrixAt(sn++, sm);
     }
+    stones.count = sn;
     stones.userData.noDrawRange = true;
     entry.meshes.push(stones);
-    for (const off of [-0.9, 0.9]) {
-      const shifted = samples.map((p, i) => {
-        const q = samples[Math.min(samples.length - 1, i + 1)];
-        const r = samples[Math.max(0, i - 1)];
-        const tx = q.x - r.x;
-        const tz = q.z - r.z;
-        const l = Math.hypot(tx, tz) || 1;
-        return new THREE.Vector3(p.x - (tz / l) * off, 0, p.z + (tx / l) * off);
-      });
-      entry.meshes.push(ribbon(shifted, 0.14, 0xc9a066, 0.022 + ry, { material: rutMat }));
-    }
-    for (const m of entry.meshes) {
-      m.visible = false;
-      if (!m.userData.noDrawRange) m.geometry.setDrawRange(0, 0);
-      scene.add(m);
+    for (const mesh of entry.meshes) {
+      mesh.visible = false;
+      if (!mesh.userData.noDrawRange) mesh.geometry.setDrawRange(0, 0);
+      scene.add(mesh);
     }
     world.roads.push(entry);
     // where this road crosses the river a bridge can be built
@@ -393,12 +541,51 @@ export function buildWorld(scene, soleShadows = false) {
     for (const part of best.crop.parts) part.count = n;
   };
 
-  // roads grow out from the village when revealed
-  world.revealRoad = (id) => {
+  // roads grow out from the village when revealed; `instant` is for a village that was already
+  // there -- a restored run, the opening -- where growing them would be a road being built in
+  // front of a wall that is already standing
+  world.revealRoad = (id, instant = false) => {
     const r = world.roads.find((r) => r.id === id);
     if (!r || r.revealed) return;
     r.revealed = true;
     for (const m of r.meshes) m.visible = true;
+    if (instant) {
+      r.progress = 1;
+      for (const m of r.meshes) if (!m.userData.noDrawRange) m.geometry.setDrawRange(0, Infinity);
+    }
+  };
+  // #180: a path from a home's door to the nearest road. It grows out from the house the way a road
+  // grows out from a gate, and it goes under the road rather than meeting it (0.011 against the
+  // roads' 0.014 and up), so the join is the road's own edge. Its own rng, seeded by its position,
+  // so the world's stream is not disturbed by a house going up mid-run.
+  world.addPath = (hx, hz, instant = false) => {
+    let best = null;
+    let bd = Infinity;
+    for (const r of world.roads) {
+      const q = nearestOnPolyline(r.samples, hx, hz);
+      if (q.d < bd) { bd = q.d; best = r.samples[q.i]; }
+    }
+    if (!best || bd < 3) return null;
+    const dx = best.x - hx;
+    const dz = best.z - hz;
+    const l = Math.hypot(dx, dz) || 1;
+    const ux = dx / l;
+    const uz = dz / l;
+    const p0 = [hx + ux * 2.2, hz + uz * 2.2];
+    const bend = ((Math.round(hx * 10) + Math.round(hz * 10)) % 2 ? 1 : -1) * 0.7;
+    const mid = [(p0[0] + best.x) / 2 - uz * bend, (p0[1] + best.z) / 2 + ux * bend];
+    const samples = spline([p0, mid, [best.x, best.z]], 16);
+    const m = roadMesh(samples, { kind: 'path', seed: 9000 + Math.round(hx * 13 + hz * 7), y: 0.011 });
+    m.visible = true;
+    m.geometry.setDrawRange(0, instant ? Infinity : 0);
+    scene.add(m);
+    const entry = { id: 'path', samples, meshes: [m], revealed: true, progress: instant ? 1 : 0, stride: STRIDE };
+    world.paths.push(entry);
+    return entry;
+  };
+  world.clearPaths = () => {
+    for (const p of world.paths) for (const m of p.meshes) { scene.remove(m); m.geometry.dispose(); }
+    world.paths = [];
   };
   world.buildBridge = (roadId) => {
     const c = world.crossings.find((c) => c.roadId === roadId);
@@ -466,8 +653,26 @@ export function buildWorld(scene, soleShadows = false) {
   // and off the mats, which carry a name and a price. `spend.padSize` is 3.6 across, so 2.6 keeps a
   // blade out of the lettering without drawing a bald circle around every pad.
   const nearPad = (x, z) => PADS.some((p) => Math.abs(p.pos[0] - x) < 2.6 && Math.abs(p.pos[1] - z) < 2.6);
+  // #180: grass creeps into the verge. It used to stop 0.5 short of the road on both sides, which
+  // drew a ruled line of bare dirt against a ruled line of grass -- the hard edge the ticket is
+  // about. Now a tuft is placed by how far into the verge it would stand: sure of a place a unit out
+  // from the edge, thinning to nothing 0.3 inside it. On a trail a few stand on the road itself,
+  // which is what "grass growing through" is. The road's own half-width at that spot, not
+  // `MAP.roadWidth`, because a trail is narrower and its verge is where the wander is.
+  const roadOk = (x, z) => {
+    let best = Infinity;
+    let h = MAP.roadWidth / 2;
+    let k = 0;
+    for (const r of world.roads) {
+      const q = nearestOnPolyline(r.samples, x, z);
+      if (q.d < best) { best = q.d; h = r.half[q.i]; k = r.kind[q.i]; }
+    }
+    if (best >= h + 1.0) return true;
+    if (best < h - 0.3) return k > 0.5 && rand() < 0.07;
+    return rand() < (best - (h - 0.3)) / 1.3;
+  };
   const grassFree = (x, z) => !inCitadel(x, z) && !inCliffs(x, z) && !inCamp(x, z)
-    && !nearRiver(x, z, 1.2) && !nearRoad(x, z, 0.5) && !nearNode(x, z) && !nearPad(x, z);
+    && !nearRiver(x, z, 1.2) && roadOk(x, z) && !nearNode(x, z) && !nearPad(x, z);
   const half = size / 2 - 6;
   const scenery = new THREE.Group();
   // CLUMPED, like the grass and the trees, and for the same reason: uniform random gives every square
@@ -1118,8 +1323,14 @@ export function buildWorld(scene, soleShadows = false) {
     for (const r of world.roads) {
       if (!r.revealed || r.progress >= 1) continue;
       r.progress = Math.min(1, r.progress + dt / 2.2);
-      const count = Math.floor(r.progress * (r.samples.length - 1)) * 6;
+      const count = Math.floor(r.progress * (r.samples.length - 1)) * r.stride;
       for (const m of r.meshes) if (!m.userData.noDrawRange) m.geometry.setDrawRange(0, count);
+    }
+    for (const r of world.paths) {
+      if (r.progress >= 1) continue;
+      r.progress = Math.min(1, r.progress + dt / 1.2);
+      const count = Math.floor(r.progress * (r.samples.length - 1)) * r.stride;
+      for (const m of r.meshes) m.geometry.setDrawRange(0, count);
     }
     const s = riverSamples;
     // #54: `TypeError: Cannot read properties of undefined (reading 'x')`, about one headless run in

@@ -1545,6 +1545,16 @@ export const ViewMethods = {
     return { taken, level: L, max: CFG.base.maxLevel, hasKeep: !!this.keep, queenCaptive: !!this.queen.captive, need, unlocks, padsNow, later, ranks, army, coins, wave: this.wave, finaleOpen: this.finaleOpen, finaleLevel: CFG.finale.level };
   },
 
+  // #180: the east road from the King's own camera, just inside the town wall, where it is the
+  // castle road with the trail beginning past the gate -- the frame the roads are judged in. All
+  // four roads shown, whatever walls the morning has.
+  showRoadView() {
+    for (const id of ['south', 'east', 'west', 'north']) this.world.revealRoad(id, true);
+    this.king.mesh.position.set(26, 0, 1.2);
+    this.king.mesh.rotation.y = Math.PI / 2;
+    this.queen.mesh.position.set(24.4, 0, 2.6);
+  },
+
   // #178: ONE character, alone, animated -- the board's character sheet.
   //
   // Not a screenshot and not a portrait. `renderPortrait` already exists and draws a still, which is
