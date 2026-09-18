@@ -13,7 +13,7 @@
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CHECKS } from './registry.mjs';
@@ -83,6 +83,21 @@ async function serve(port) {
   return p;
 }
 
+// The installed full Chromium, if there is one: `PLAYWRIGHT_BROWSERS_PATH/chromium-*/chrome-linux/chrome`.
+// Null when there is nothing there, which leaves Playwright to its own default.
+function findChromium() {
+  const root = process.env.PLAYWRIGHT_BROWSERS_PATH;
+  if (!root || !existsSync(root)) return null;
+  for (const d of readdirSync(root).sort().reverse()) {
+    if (!d.startsWith('chromium-')) continue;
+    for (const rel of ['chrome-linux/chrome', 'chrome-mac/Chromium.app/Contents/MacOS/Chromium', 'chrome-win/chrome.exe']) {
+      const p = join(root, d, rel);
+      if (existsSync(p)) return p;
+    }
+  }
+  return null;
+}
+
 async function main() {
   const list = selected();
   if (flag('list') || !list.length) return show(list);
@@ -103,7 +118,13 @@ async function main() {
     const port = await freePort();
     server = await serve(port);
     const url = `http://localhost:${port}/`;
-    browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox'] });
+    // WHICH CHROMIUM. Playwright's default is the headless shell it downloads, and a machine can have
+    // the full browser without it -- which is the container these sessions run in, where every cheap
+    // check came back as one launch error and the board would have shown six ambers for a game that
+    // was fine. `CHROME_PATH` first (what CI would set), then whatever `PLAYWRIGHT_BROWSERS_PATH`
+    // actually holds, then Playwright's own guess.
+    const exe = process.env.CHROME_PATH || findChromium();
+    browser = await chromium.launch({ ...(exe ? { executablePath: exe } : {}), args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox'] });
     for (const c of cheap) {
       // A FRESH CONTEXT PER CHECK. Sharing one page across all six meant the first check that
       // navigated a lot left the next one's `page.goto` timing out, and five checks reported failures

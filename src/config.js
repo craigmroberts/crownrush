@@ -374,6 +374,51 @@ export const CFG = {
   },
   gatePost: { height: 1.55 },
 
+  // #191: THE GRASS FOLLOWS THE KING. 13,000 tufts used to be scattered once over the whole 190 x 190
+  // map -- about one every 1.6 units -- and the camera shows roughly 35 units of ground, so the player
+  // saw under 2% of them at a time and the other 98% were submitted every frame and never looked at.
+  // That is why an open field read as scattered objects with bare ground between them rather than as
+  // a surface: the density was set by the map's area, not by the frame's.
+  //
+  // The same tufts are placed in a window of cells around him instead, filled from a per-cell
+  // deterministic seed and cached, so a field looks the same every time he walks back onto it. Same
+  // count, same triangles, same one draw call -- roughly six times the density where he is standing.
+  //
+  // `cell` 8 and `radius` 6 is a 13 x 13 window, 104 units across, against a frame that reaches about
+  // 27 units ahead of him on a phone and 20 on a desktop. `full` is the fraction of the radius at full
+  // density (0.55 of 6 rings is everything inside 28 units, which is the whole of what is on screen);
+  // past it the per-cell count tapers to `edge`, so the window has no boundary to see -- the taper
+  // lands between 28 and 52 units out, where the scene fog (near 42 from a camera that sits 13 to 18
+  // behind him) is already taking it.
+  //
+  // A cell is filled at most `fillPerFrame` at a time. Walking into new country brings 13 uncached
+  // cells in at once and filling them all in one frame is a hitch on a phone; they arrive over the
+  // next two, at the far edge of the window, behind the fog.
+  //
+  // `spread` and `clumped` are the old map-wide clumping, rebalanced: uniform random gives every
+  // square metre the same amount of grass, which is the one thing real ground never does -- but the
+  // old 78% into 240 patches of radius 5 was tuned at a fifth of this density, where the clumps were
+  // the grass and the gaps were most of the field. At this density the same numbers left clump-shaped
+  // voids four to six units across, which is the bare ground the ticket is about. Three smaller
+  // patches per cell with 45% loose between them keeps the variation and closes them.
+  //
+  // `fill` is how hard a cell is packed against the buffer's cap, and 1.0 is the answer rather than
+  // the default. A cell places what it can and `grassFree` turns much of it down -- the citadel, the
+  // roads, the river, the mats -- so the window draws about 9,000 in the village and 11,600 in open
+  // country against a buffer of 13,000, and the obvious move is to spend that difference. 1.1 was
+  // tried and put the clover on its cap exactly (3,600 of 3,600) with the tufts 1.7% off theirs.
+  // That is the one place the headroom must not go: the cap truncates the buffer from the far end,
+  // and the far end is the taper that hides the window's edge.
+  ground: {
+    cell: 8, radius: 6, full: 0.55, edge: 0.1, fillPerFrame: 3, fill: 1,
+    spread: 3.8, clumped: 0.55, patches: 3,
+    // A clover patch is a metre and a half across and half the cells have one, which is what makes it
+    // read as a plant that spreads rather than as confetti. Stones come in groups of six to eight in
+    // two cells out of five. `flowerChance` is per tuft: 900 flowers against 13,000 tufts is 6.9%,
+    // which is what the old placement's per-colour cap of 300 actually produced.
+    cloverChance: 0.5, cloverSpread: 1.6, stoneChance: 0.4, stoneSpread: 1.2, flowerChance: 0.069,
+  },
+
   // #43: how much ground each building actually covers, width x depth, measured off the built meshes.
   // This lived only in `tools/layout/check.mjs`, which was fine while the only thing that needed it
   // was a script checking the hand-written plan. Now that a building can be put somewhere the plan

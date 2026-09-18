@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-18T13:00:20.795Z",
+  "at": "2026-09-18T15:15:21.897Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -145,32 +145,32 @@
   "checks": {
     "pads-requires-exist": {
       "pass": true,
-      "at": "2026-09-18T13:00:20.789Z"
+      "at": "2026-09-18T15:15:21.891Z"
     },
     "pads-buildat-in-bounds": {
       "pass": true,
-      "at": "2026-09-18T13:00:20.790Z"
+      "at": "2026-09-18T15:15:21.891Z"
     },
     "pads-no-overlap": {
       "pass": true,
-      "at": "2026-09-18T13:00:20.792Z"
+      "at": "2026-09-18T15:15:21.893Z"
     },
     "opening-homes-legal": {
       "pass": true,
-      "at": "2026-09-18T13:00:20.792Z"
+      "at": "2026-09-18T15:15:21.893Z"
     },
     "icons-exist": {
       "pass": true,
-      "at": "2026-09-18T13:00:20.795Z"
+      "at": "2026-09-18T15:15:21.896Z"
     },
     "upgrade-mods-exist": {
       "pass": true,
       "note": "17 of 17 upgrades declare a mod key, all 17 resolve",
-      "at": "2026-09-18T13:00:20.795Z"
+      "at": "2026-09-18T15:15:21.897Z"
     },
     "footprints-cover-kinds": {
       "pass": true,
-      "at": "2026-09-18T13:00:20.795Z"
+      "at": "2026-09-18T15:15:21.897Z"
     },
     "walls-solid": {
       "pass": true,
@@ -217,12 +217,12 @@
     "tokens-resolve": {
       "pass": true,
       "note": "no cycles; 3 tokens nothing reads -- --frame-hi, --frame-lo, --danger-edge (#135)",
-      "at": "2026-09-18T13:00:20.795Z"
+      "at": "2026-09-18T15:15:21.896Z"
     },
     "icons-unique": {
       "pass": true,
       "note": "54 icons, no key declared twice",
-      "at": "2026-09-18T13:00:20.795Z"
+      "at": "2026-09-18T15:15:21.896Z"
     }
   }
 }

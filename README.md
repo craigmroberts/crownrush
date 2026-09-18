@@ -65,6 +65,41 @@ the raids keep coming for a high score.
   paved and walked over all game. Everything beyond it is countryside, including the ground inside the
   later walls, because those enclose farmland and homes rather than a city. The mats are kept clear
   too: `spend.padSize` is 3.6 across and grass is held 2.6 off, so nothing grows through a price.
+  Grass has its own margins elsewhere as well, tighter than a tree's: it grows into a road's verge
+  (#180) and up to a wheat field's fence, because a bald border round every farm is the one thing in
+  an open field you cannot help looking at.
+
+  **And it follows the King** (#191). The tufts used to be scattered once over the whole 190 x 190
+  map, one every 1.6 units -- and the camera shows about 35 units of ground, so the player saw under
+  2% of them at a time and the rest were submitted every frame and never looked at. That is why an
+  open field read as scattered objects with bare ground between them rather than as a surface, and
+  raising the count cannot fix it: at 21 triangles a clump, the density that closes the gaps map-wide
+  is several times the triangle budget and nearly all of it is spent on ground nobody sees. The same
+  13,000 live in a **window of 8-unit cells** around him instead (`CFG.ground`), 13 cells either way,
+  and the far field has none. Same count, same draw call, **about six times the density** where he is
+  standing -- 11,600 tufts inside 52 units against 360 in the frame before.
+
+  Three things make it hold together. A cell is placed from an rng **seeded by its own coordinates**,
+  so walking away and back finds the same field (checked: 249 tufts within six units of him, identical
+  after crossing the map four times); the result is cached, which is sound because `grassFree` is a
+  pure function of a point -- the roads all exist from the first frame whether or not they have been
+  revealed. Cells are written **nearest first** and each takes a fraction of what it holds, tapering
+  from full inside 28 units to a tenth at 52, so there is no line where grass stops; the taper lands
+  behind the fog, which starts 42 units from a camera that sits 13 to 18 behind him. And writing
+  nearest first hands adaptive quality (#168) the right thing for free: `count` truncates the buffer,
+  so thinning takes the **farthest** cells rather than a random scatter -- the farthest drawn tuft
+  goes 64.6, 41.7, 35.7, 27.3 units across the four tiers and the ground under his feet keeps its
+  grass at every one of them.
+
+  It costs less than it replaced: **790-836k triangles** at the King's camera on the east road against
+  885-929k before, and 230-234 draw calls against 238-240. Filling a cell the first time is the only
+  work, three cells a frame, so walking into new country is 1.5 ms once and 0.1 ms a crossing after
+  that. Clover, flowers and the field stones ride in the same window. The one thing it could break is
+  **coins in grass** -- they rest at about y 0.25 and a blade stands 0.42 to 0.74 -- so they were
+  checked on the phone frame with 26 dropped in open field, and they read.
+
+  `?view=map` widens the window to 12 cells instead, which covers the board: the same budget over the
+  whole map is what a map should show anyway -- everything, thinner.
 
   **Coverage is three layers and the models are the top one.** 9000 tufts on the old flat ground was
   already close to a reference's density and still read as a lawn with things stuck in it, which is
@@ -108,8 +143,9 @@ the raids keep coming for a high score.
   in the world the same footprint and a different stature -- oddly uniform seen from above, which is
   the angle this game is played at.
 
-  It costs 273k triangles in a scene measuring 981k -- the largest single instanced cost in the world,
-  next to 28 characters at 8,576 each for 240k (#52). `TUFTS` in `world.js` is the dial.
+  It costs about 240k triangles in a scene measuring 830k -- still the largest single instanced cost in
+  the world, next to 28 characters at 8,576 each for 240k (#52). `TUFTS` in `world.js` is the dial,
+  and `CFG.ground` is where the window it is spread over lives.
 - **The roads are dirt tracks now, not ribbons** (#180). A road used to be three flat ribbons stacked
   on each other with two thin rut lines -- six draw calls, one colour each, a hard ruled edge against a
   hard ruled line of grass, and the ribbons' own colour attribute never read, because `mat()` does not
@@ -1605,9 +1641,10 @@ run that is slowly leaking looks identical to a healthy one there until it does 
 panel now prints the JS heap (Chrome only, which is the phone) with the last sixty seconds' direction
 -- `heap 74.5 MB · 60s 73.8→74.5 (+0.7) min 73.8 max 74.6` -- then the arrays that fill and drain
 (arrows and the pool, ground coins, popups, pile flies, chips, fx, dying, popping, spawn queue), the
-instance counts that must not move (grass, flowers, contact shadows, pebbles, smoke, crowd), and the
-GPU objects and for-ever caches (geometries, textures, programs; materials, tags, popups). A count
-that only ever climbs across a run is the leak, named.
+instance counts (contact shadows, pebbles, smoke and the crowd must not move; grass, clover, flowers
+and stones breathe with the window around the King since #191), and the GPU objects and for-ever
+caches (geometries, textures, programs; materials, tags, popups). A count that only ever climbs
+across a run is the leak, named.
 
 The numbers are sampled into `game.perfLog` every two seconds of game time, kept for an hour, whether
 or not the overlay is up -- so a run that went wrong can be read afterwards from the console -- and

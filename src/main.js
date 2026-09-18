@@ -919,6 +919,10 @@ function runView() {
       // it -- the buildings were all there and all behind their own smoke. A map is not a weather
       // report.
       if (game.world.clearSmokers) game.world.clearSmokers();
+      // #191: the grass is a window around the King, and from up here the rest of the board would be
+      // bare. The same budget over a window wide enough to hold the map is what a map should show
+      // anyway -- everything, thinner.
+      if (game.world.setGrassWindow) game.world.setGrassWindow(12);
       if (game.scene.fog) {
         game.scene.fog.near = 120;
         game.scene.fog.far = 400;

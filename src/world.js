@@ -659,20 +659,33 @@ export function buildWorld(scene, soleShadows = false) {
   // from the edge, thinning to nothing 0.3 inside it. On a trail a few stand on the road itself,
   // which is what "grass growing through" is. The road's own half-width at that spot, not
   // `MAP.roadWidth`, because a trail is narrower and its verge is where the wander is.
-  const roadOk = (x, z) => {
+  //
+  // #191: the roll is the CELL's rng rather than the world's, so a verge is the same verge every time
+  // he walks back to it. Everything else `grassFree` asks is a fixed fact about the point -- the
+  // roads all exist from the first frame whether or not they have been revealed -- which is what
+  // makes a cell's placement cacheable at all.
+  const roadOk = (x, z, r) => {
     let best = Infinity;
     let h = MAP.roadWidth / 2;
     let k = 0;
-    for (const r of world.roads) {
-      const q = nearestOnPolyline(r.samples, x, z);
-      if (q.d < best) { best = q.d; h = r.half[q.i]; k = r.kind[q.i]; }
+    for (const rd of world.roads) {
+      const q = nearestOnPolyline(rd.samples, x, z);
+      if (q.d < best) { best = q.d; h = rd.half[q.i]; k = rd.kind[q.i]; }
     }
     if (best >= h + 1.0) return true;
-    if (best < h - 0.3) return k > 0.5 && rand() < 0.07;
-    return rand() < (best - (h - 0.3)) / 1.3;
+    if (best < h - 0.3) return k > 0.5 && r() < 0.07;
+    return r() < (best - (h - 0.3)) / 1.3;
   };
-  const grassFree = (x, z) => !inCitadel(x, z) && !inCliffs(x, z) && !inCamp(x, z)
-    && !nearRiver(x, z, 1.2) && roadOk(x, z) && !nearNode(x, z) && !nearPad(x, z);
+  // #191: and its own margin around a node and a field, for the same reason the roads have one. A
+  // tree or a rock needs 4.5 of clearance and a wheat field needs three more than its own size,
+  // because the King has to be able to stand at one and swing -- but grass held that far off drew a
+  // bald ring round every node and a bald border round every farm, which at this density is the one
+  // thing in an open field you cannot help looking at. Grass growing up to a fence is what a farm in
+  // a field looks like; 2.2 round a node still leaves the rock standing on bare earth.
+  const grassNode = (x, z) => NODES.some((n) => Math.hypot(n.pos[0] - x, n.pos[1] - z) < 2.2)
+    || MAP.fields.some((f) => Math.abs(f.pos[0] - x) < f.size[0] / 2 + 0.6 && Math.abs(f.pos[1] - z) < f.size[1] / 2 + 0.6);
+  const grassFree = (x, z, r) => !inCitadel(x, z) && !inCliffs(x, z) && !inCamp(x, z)
+    && !nearRiver(x, z, 1.2) && roadOk(x, z, r) && !grassNode(x, z) && !nearPad(x, z);
   const half = size / 2 - 6;
   const scenery = new THREE.Group();
   // CLUMPED, like the grass and the trees, and for the same reason: uniform random gives every square
@@ -824,6 +837,9 @@ export function buildWorld(scene, soleShadows = false) {
   const tufts = new THREE.InstancedMesh(tuftGeo, swayMaterial(0xffffff), TUFTS);
   tufts.material.vertexColors = true;   // #162: the root darkening above
   tufts.material.customProgramCacheKey = () => 'sway-tinted-rooted';
+  // #191: built rather than grown by `setColorAt`, because the window writes whole cells into the
+  // array at once and there is no first call to allocate it.
+  tufts.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(TUFTS * 3), 3);
   // Flowers carry more of the lushness than their number suggests, so there are four times as many
   // and each is cheaper: 5 by 3 segments is 20 triangles against the old 6 by 5's 48, and at this
   // size nobody has ever counted the facets on a daisy.
@@ -831,70 +847,6 @@ export function buildWorld(scene, soleShadows = false) {
   const flowerColors = [0xffffff, 0xffd54a, 0xff8aa8];
   const FLOWERS = 300;
   const flowers = flowerColors.map((c) => new THREE.InstancedMesh(flowerGeo, mat(c), FLOWERS));
-  const m4 = new THREE.Matrix4();
-  const tuftScale = new THREE.Vector3();
-  const tuftColor = new THREE.Color();
-  let ti = 0;
-  const fi = [0, 0, 0];
-  // CLUMPED, NOT SPRINKLED, and this is free -- it is where the tufts go, not how many there are.
-  // Uniform random gives every square metre the same amount of grass, which is the one thing real
-  // ground never does: it grows in patches with thinner ground between them, and that variation is
-  // most of what makes a field look grown rather than applied. The trees already do this (`clumps`
-  // above, for the same reason); the grass was the only scattered thing left.
-  //
-  // 78% into a patch and the rest loose, so the thin ground between them is not bald either. The 0.55
-  // power pulls them toward the middle of a patch, which gives each one a dense heart and a soft edge
-  // instead of a disc with a rim.
-  const patches = [];
-  for (let i = 0; i < 240; i++) patches.push([(rand() * 2 - 1) * half, (rand() * 2 - 1) * half]);
-  for (let tries = 0; tries < TUFTS * 8 && ti < TUFTS; tries++) {
-    let x;
-    let z;
-    if (rand() < 0.78) {
-      const [px, pz] = patches[(rand() * patches.length) | 0];
-      const a = rand() * Math.PI * 2;
-      const d = (rand() ** 0.55) * 5;
-      x = px + Math.cos(a) * d;
-      z = pz + Math.sin(a) * d;
-      if (Math.abs(x) > half || Math.abs(z) > half) continue;
-    } else {
-      x = (rand() * 2 - 1) * half;
-      z = (rand() * 2 - 1) * half;
-    }
-    if (!grassFree(x, z)) continue;
-    m4.makeRotationY(rand() * Math.PI);
-    // Width as well as height. It varied in height alone before, which gives every tuft in the world
-    // the same footprint and a different stature -- oddly uniform from above, which is the angle this
-    // game is played at. Width and depth move together so a clump stays a clump rather than an oval.
-    const wide = 0.82 + rand() * 0.42;
-    m4.scale(tuftScale.set(wide, 0.8 + rand() * 0.6, wide));
-    m4.setPosition(x, 0, z);
-    // Its own green. Hue is the one that does the work -- 84 to 100 degrees, so a patch reads as
-    // several kinds of grass rather than one repeated -- with saturation and lightness widening it
-    // enough that no two neighbours match. The base is the old flat 0x88bd5a: hue 92, sat 43, light 55.
-    tuftColor.setHSL(
-      0.2559 + (rand() - 0.5) * 0.044,
-      Math.min(1, Math.max(0, 0.429 + (rand() - 0.5) * 0.12)),
-      Math.min(0.92, Math.max(0.05, 0.547 + (rand() - 0.5) * 0.22)),
-      THREE.SRGBColorSpace,
-    );
-    tufts.setColorAt(ti, tuftColor);
-    tufts.setMatrixAt(ti++, m4);
-    if (rand() < 0.28) {
-      const k = Math.floor(rand() * 3);
-      if (fi[k] < FLOWERS) {
-        m4.makeTranslation(x + 0.4, 0.3, z + 0.2);
-        flowers[k].setMatrixAt(fi[k]++, m4);
-        world.flowerSpots.push(new THREE.Vector3(x + 0.4, 0.3, z + 0.2));
-      }
-    }
-  }
-  tufts.count = ti;
-  if (tufts.instanceColor) tufts.instanceColor.needsUpdate = true;
-  flowers.forEach((f, k) => {
-    f.count = fi[k];
-    scenery.add(f);
-  });
   // #162 (item 3): clover, and stones in the open ground -- the small things a field has that a lawn
   // does not. Clover is three flat lobes, 9 triangles, lying on the ground in tight patches of its
   // own (a metre and a half across, dense at the heart) so it reads as a plant that spreads rather
@@ -913,63 +865,295 @@ export function buildWorld(scene, soleShadows = false) {
   cloverGeo.translate(0, 0.045, 0);   // just proud of the ground, under the grass
   const CLOVER = 3600;
   const clovers = new THREE.InstancedMesh(cloverGeo, matFlat(0x3f8a34), CLOVER);
-  const cloverPatches = [];
-  for (let i = 0; i < 110; i++) cloverPatches.push([(rand() * 2 - 1) * half, (rand() * 2 - 1) * half]);
-  let ci = 0;
-  for (let tries = 0; tries < CLOVER * 6 && ci < CLOVER; tries++) {
-    const [px, pz] = cloverPatches[(rand() * cloverPatches.length) | 0];
-    const a = rand() * Math.PI * 2;
-    const d = (rand() ** 0.5) * 1.6;
-    const x = px + Math.cos(a) * d;
-    const z = pz + Math.sin(a) * d;
-    if (Math.abs(x) > half || Math.abs(z) > half || !grassFree(x, z)) continue;
-    m4.makeRotationY(rand() * Math.PI * 2);
-    m4.scale(tuftScale.setScalar(0.8 + rand() * 0.5));
-    m4.setPosition(x, 0, z);
-    clovers.setMatrixAt(ci++, m4);
-  }
-  clovers.count = ci;
-  scenery.add(clovers);
   const fieldStoneGeo = new THREE.IcosahedronGeometry(0.17, 0);
   fieldStoneGeo.scale(1, 0.5, 1);
   const FIELD_STONES = 320;
   const fieldStones = new THREE.InstancedMesh(fieldStoneGeo, matFlat(0xa8987f), FIELD_STONES);
-  const stoneSpots = [];
-  for (let i = 0; i < 80; i++) stoneSpots.push([(rand() * 2 - 1) * half, (rand() * 2 - 1) * half]);
-  let si = 0;
-  for (let tries = 0; tries < FIELD_STONES * 6 && si < FIELD_STONES; tries++) {
-    let x;
-    let z;
-    if (rand() < 0.7) {
-      const [px, pz] = stoneSpots[(rand() * stoneSpots.length) | 0];
-      const a = rand() * Math.PI * 2;
-      const d = (rand() ** 0.6) * 1.2;
-      x = px + Math.cos(a) * d;
-      z = pz + Math.sin(a) * d;
-    } else {
-      x = (rand() * 2 - 1) * half;
-      z = (rand() * 2 - 1) * half;
-    }
-    if (Math.abs(x) > half || Math.abs(z) > half || !grassFree(x, z)) continue;
-    m4.makeRotationY(rand() * Math.PI);
-    m4.scale(tuftScale.set(0.6 + rand() * 0.9, 0.7 + rand() * 0.6, 0.6 + rand() * 0.9));
-    m4.setPosition(x, 0.04, z);
-    fieldStones.setMatrixAt(si++, m4);
+
+  // ---- #191: the ground cover follows the King ----
+  //
+  // THE COUNT WAS NEVER THE WHOLE ANSWER and this is the other half of it. 9,000 three-blade tufts on
+  // flat ground read as a lawn with things stuck in it, which is why the ground texture and its
+  // speckle carry most of the coverage (#162) and the tufts supply silhouette. But the tufts were
+  // spread over the MAP and the player looks at a FRAME: 13,000 over 190 x 190 is one every 1.6
+  // units, and an open field came out as countable objects with bare ground between them. Raising the
+  // number cannot fix it -- at 21 triangles a clump, the density that closes the gaps map-wide is
+  // several times the triangle budget, and it would be spent almost entirely on ground nobody sees.
+  //
+  // So the same 13,000 live in a window of cells around him (`CFG.ground`), and the far field has
+  // none. Same count, same 273k triangles, same one draw call each, about six times the density
+  // where he is standing.
+  //
+  // HOW A CELL STAYS THE SAME FIELD. Every cell is placed from an rng seeded by its own coordinates,
+  // so walking away and back finds the same tufts in the same spots; the result is cached, so the
+  // work is done once per cell per run. `grassFree` is a pure function of a point -- the roads, the
+  // river, the cliffs, the camp, the nodes and the mats are all fixed for the run, and a road being
+  // REVEALED does not move it -- which is what makes caching sound.
+  //
+  // HOW THE EDGE HIDES. Cells are written nearest-first and each takes only a fraction of what it
+  // holds, tapering from full inside `full` of the radius to `edge` at the rim, so there is no line
+  // where grass stops. Writing nearest-first also gives adaptive quality (#168) the right thing for
+  // free: `count` truncates the buffer, so thinning drops the farthest cells rather than a random
+  // scatter, and the ground he is standing on keeps its grass at every tier.
+  //
+  // WHAT IS NOT IN HERE. The ground texture underneath (`groundTexture`, `breakTiling`) is the layer
+  // that has to carry the gaps this cannot close, and it is a separate ticket (#192).
+  const G = CFG.ground;
+  const CELL = G.cell;
+  const m4 = new THREE.Matrix4();   // scratch, shared with the river foam below
+  // The meshes, in the order a cell writes them. Flowers are three meshes off one placement pass: a
+  // tuft rolls for one, so a flower is always standing in grass rather than alone on the dirt.
+  const COVER = [
+    { mesh: tufts, cap: TUFTS, tint: true },
+    { mesh: clovers, cap: CLOVER },
+    { mesh: flowers[0], cap: FLOWERS },
+    { mesh: flowers[1], cap: FLOWERS },
+    { mesh: flowers[2], cap: FLOWERS },
+    { mesh: fieldStones, cap: FIELD_STONES },
+  ];
+  for (const c of COVER) {
+    c.mesh.count = 0;
+    c.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    // The window moves with him, so a bounding sphere computed once would be wrong a second later --
+    // and these are centred on the camera by construction, so there is never anything to cull.
+    c.mesh.frustumCulled = false;
   }
-  fieldStones.count = si;
-  scenery.add(fieldStones);
+  // full inside `full` of the radius, then a smoothstep down to `edge` at the rim
+  const ringWeight = (d, R) => {
+    const t = (d - R * G.full) / Math.max(0.001, R * (1 - G.full));
+    if (t <= 0) return 1;
+    const s = Math.min(1, t);
+    return 1 - (1 - G.edge) * (s * s * (3 - 2 * s));
+  };
+  const windowWeight = (R) => {
+    let w = 0;
+    for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) w += ringWeight(Math.max(Math.abs(dx), Math.abs(dz)), R);
+    return w;
+  };
+  // What one cell holds at full density: the whole budget divided by the window's weight. Cached
+  // cells are always filled to THIS, so a wider window (`setGrassWindow`, for the board's map view)
+  // only ever takes a shorter prefix of a cell it already has.
+  const fullWeight = windowWeight(G.radius);
+  // Clover and stones come in one group per cell and only some cells have one, so a cell that does
+  // has to hold the whole budget's share of the cells that do not. Flowers are rolled off the tufts
+  // rather than budgeted, so theirs is what that roll produces with room not to clip the tail.
+  const perCell = [Math.ceil(TUFTS * G.fill / fullWeight), Math.ceil(CLOVER * G.fill / fullWeight / G.cloverChance), 0, 0, 0, Math.ceil(FIELD_STONES * G.fill / fullWeight / G.stoneChance)];
+  perCell[2] = perCell[3] = perCell[4] = Math.ceil(perCell[0] * G.flowerChance) + 3;
+  let winR = G.radius;
+  let density = 1;
+  let order = [];
+  const buildOrder = () => {
+    order = [];
+    for (let dx = -winR; dx <= winR; dx++) {
+      for (let dz = -winR; dz <= winR; dz++) order.push([dx, dz, ringWeight(Math.max(Math.abs(dx), Math.abs(dz)), winR), dx * dx + dz * dz]);
+    }
+    // by distance rather than by ring, so `count` truncation leaves a disc of grass around him
+    order.sort((a, b) => a[3] - b[3]);
+  };
+  buildOrder();
+
+  // One cell's placements, packed as instance matrices ready to memcpy. A cell runs to about 10 kB
+  // and the window is 169 of them, so the cap holds the whole of what is on screen with room to spare
+  // and the eviction below only throws away country he left. It is least-recently-used -- a hit moves
+  // the cell back to the end of the Map, which keeps insertion order meaning what the eviction needs
+  // it to mean -- so nothing in view can be dropped however he walks. The board's map view is the one
+  // caller that asks for more cells than the cap holds; it pays about 250 ms once, on a frame that
+  // then never moves.
+  const cells = new Map();
+  const CELL_CACHE = 240;
+  const cm = new THREE.Matrix4();
+  const cv = new THREE.Vector3();
+  const cc = new THREE.Color();
+  function fillCell(cx, cz) {
+    const key = cx * 8192 + cz;
+    const had = cells.get(key);
+    if (had) {
+      cells.delete(key);
+      cells.set(key, had);
+      return had;
+    }
+    // deterministic per cell, and its own stream: the world's `rand` must not depend on where anybody
+    // has walked, or a run would build a different map every time
+    const r = rng((((cx * 73856093) ^ (cz * 19349663)) >>> 0) + 1);
+    const x0 = cx * CELL;
+    const z0 = cz * CELL;
+    const c = { m: COVER.map((v, i) => new Float32Array(perCell[i] * 16)), tint: new Float32Array(perCell[0] * 3), n: [0, 0, 0, 0, 0, 0] };
+    const put = (i, x, y, z, rotY, sx, sy, sz) => {
+      if (c.n[i] >= perCell[i]) return false;
+      cm.makeRotationY(rotY);
+      cm.scale(cv.set(sx, sy, sz));
+      cm.setPosition(x, y, z);
+      cm.toArray(c.m[i], c.n[i] * 16);
+      c.n[i]++;
+      return true;
+    };
+    // ---- tufts, clumped around two centres of this cell's own
+    const px = [];
+    for (let i = 0; i < G.patches; i++) px.push([x0 + r() * CELL, z0 + r() * CELL]);
+    for (let tries = 0; tries < perCell[0] * 5 && c.n[0] < perCell[0]; tries++) {
+      let x;
+      let z;
+      if (r() < G.clumped) {
+        const [ax, az] = px[(r() * px.length) | 0];
+        const a = r() * Math.PI * 2;
+        // the 0.55 power pulls them toward the middle, so a patch has a dense heart and a soft edge
+        const d = (r() ** 0.55) * G.spread;
+        x = ax + Math.cos(a) * d;
+        z = az + Math.sin(a) * d;
+      } else {
+        x = x0 + r() * CELL;
+        z = z0 + r() * CELL;
+      }
+      if (Math.abs(x) > half || Math.abs(z) > half || !grassFree(x, z, r)) continue;
+      // Width as well as height. It varied in height alone before, which gives every tuft in the world
+      // the same footprint and a different stature -- oddly uniform from above, which is the angle this
+      // game is played at. Width and depth move together so a clump stays a clump rather than an oval.
+      const wide = 0.82 + r() * 0.42;
+      const at = c.n[0];
+      if (!put(0, x, 0, z, r() * Math.PI, wide, 0.8 + r() * 0.6, wide)) break;
+      // Its own green. Hue is the one that does the work -- 84 to 100 degrees, so a patch reads as
+      // several kinds of grass rather than one repeated -- with saturation and lightness widening it
+      // enough that no two neighbours match. The base is the old flat 0x88bd5a: hue 92, sat 43, light 55.
+      cc.setHSL(
+        0.2559 + (r() - 0.5) * 0.044,
+        Math.min(1, Math.max(0, 0.429 + (r() - 0.5) * 0.12)),
+        Math.min(0.92, Math.max(0.05, 0.547 + (r() - 0.5) * 0.22)),
+        THREE.SRGBColorSpace,
+      );
+      c.tint[at * 3] = cc.r;
+      c.tint[at * 3 + 1] = cc.g;
+      c.tint[at * 3 + 2] = cc.b;
+      if (r() < G.flowerChance) put(2 + ((r() * 3) | 0), x + 0.4, 0.3, z + 0.2, 0, 1, 1, 1);
+    }
+    // ---- clover: one tight patch, in half the cells
+    if (r() < G.cloverChance) {
+      const ax = x0 + r() * CELL;
+      const az = z0 + r() * CELL;
+      for (let tries = 0; tries < perCell[1] * 4 && c.n[1] < perCell[1]; tries++) {
+        const a = r() * Math.PI * 2;
+        const d = (r() ** 0.5) * G.cloverSpread;
+        const x = ax + Math.cos(a) * d;
+        const z = az + Math.sin(a) * d;
+        if (Math.abs(x) > half || Math.abs(z) > half || !grassFree(x, z, r)) continue;
+        const s = 0.8 + r() * 0.5;
+        put(1, x, 0, z, r() * Math.PI * 2, s, s, s);
+      }
+    }
+    // ---- field stones: one group, in two cells out of five
+    if (r() < G.stoneChance) {
+      const ax = x0 + r() * CELL;
+      const az = z0 + r() * CELL;
+      for (let tries = 0; tries < perCell[5] * 4 && c.n[5] < perCell[5]; tries++) {
+        const a = r() * Math.PI * 2;
+        const d = (r() ** 0.6) * G.stoneSpread;
+        const x = ax + Math.cos(a) * d;
+        const z = az + Math.sin(a) * d;
+        if (Math.abs(x) > half || Math.abs(z) > half || !grassFree(x, z, r)) continue;
+        put(5, x, 0.04, z, r() * Math.PI, 0.6 + r() * 0.9, 0.7 + r() * 0.6, 0.6 + r() * 0.9);
+      }
+    }
+    // trimmed to what it actually holds: a cell in the citadel or under a road keeps almost none, and
+    // half of them have no clover patch at all, so the full arrays would be mostly empty
+    for (let i = 0; i < 6; i++) c.m[i] = c.m[i].slice(0, c.n[i] * 16);
+    c.tint = c.tint.slice(0, c.n[0] * 3);
+    cells.set(key, c);
+    if (cells.size > CELL_CACHE) cells.delete(cells.keys().next().value);
+    return c;
+  }
+
+  // What is actually drawn, before adaptive quality thins it. Kept so `setQuality` can re-thin
+  // without rewriting the buffers.
+  const drawn = [0, 0, 0, 0, 0, 0];
+  // hoisted out of the write loop: it runs a thousand times per crossing and a property lookup is not
+  // free at that count
+  const caps = COVER.map((c) => c.cap);
+  const mats = COVER.map((c) => c.mesh.instanceMatrix.array);
+  const tint = tufts.instanceColor.array;
+  let qGrass = 1;
+  let qFlowers = 1;
+  let atX = 1e9;
+  let atZ = 1e9;
+  let pending = false;
+  function writeWindow(cx, cz, budget) {
+    let toFill = budget;
+    pending = false;
+    for (let i = 0; i < 6; i++) drawn[i] = 0;
+    for (const [dx, dz, w] of order) {
+      const key = (cx + dx) * 8192 + (cz + dz);
+      let c = cells.get(key);
+      if (!c) {
+        if (toFill <= 0) { pending = true; continue; }
+        c = fillCell(cx + dx, cz + dz);
+        toFill--;
+      }
+      const f = w * density;
+      for (let i = 0; i < 6; i++) {
+        const n = c.n[i];
+        if (!n) continue;
+        const take = Math.min(n, Math.round(n * f), caps[i] - drawn[i]);
+        if (take <= 0) continue;
+        // A cell's arrays are trimmed to exactly what it holds, so the whole of one can go in without
+        // a view -- which is the common case, because every cell inside the taper takes all of itself.
+        mats[i].set(take === n ? c.m[i] : c.m[i].subarray(0, take * 16), drawn[i] * 16);
+        if (i === 0) tint.set(take === n ? c.tint : c.tint.subarray(0, take * 3), drawn[i] * 3);
+        drawn[i] += take;
+      }
+    }
+    for (let i = 0; i < 6; i++) {
+      const mesh = COVER[i].mesh;
+      mesh.instanceMatrix.needsUpdate = true;
+      if (COVER[i].tint) mesh.instanceColor.needsUpdate = true;
+      mesh.count = Math.round(drawn[i] * (i >= 2 && i <= 4 ? qFlowers : qGrass));
+    }
+    atX = cx;
+    atZ = cz;
+  }
+  // Called every frame from `world.update`. Nothing happens on the frames he has not crossed a cell,
+  // which at 7.5 units a second is about one frame in twenty.
+  world.updateCover = (x, z) => {
+    const cx = Math.floor(x / CELL);
+    const cz = Math.floor(z / CELL);
+    if (cx === atX && cz === atZ && !pending) return;
+    writeWindow(cx, cz, G.fillPerFrame);
+  };
+  // #178: the board's map view pulls the camera to 72 and shows the whole board at once, where a
+  // window centred on the King would be a patch of grass in a bare field. A wider window at the same
+  // budget is what a map should show anyway: everything, thinner. Cells already cached are reused as
+  // a prefix, so this is not a second placement pass.
+  world.setGrassWindow = (radiusCells) => {
+    winR = radiusCells;
+    density = fullWeight / windowWeight(winR);
+    buildOrder();
+    writeWindow(atX === 1e9 ? 0 : atX, atZ === 1e9 ? 0 : atZ, Infinity);
+  };
   // #168: the dials adaptive quality turns. `count` on an instanced mesh is how many of the buffer
-  // are drawn, so thinning is free -- the last instances placed simply stop being drawn, and since
-  // every patch was placed at a random spot, the ones that go are random patches. Wind is a flag
-  // read by `world.update`; the contact discs are one mesh with a `visible`.
+  // are drawn, and the window is written nearest-first, so thinning takes the FARTHEST cells away and
+  // leaves the ground he is standing on alone -- which is the opposite of what it used to do, when
+  // the last instances placed were a random scatter over the map. Wind is a flag read by
+  // `world.update`; the contact discs are one mesh with a `visible`.
   world.setQuality = (s) => {
-    tufts.count = Math.round(ti * s.grass);
-    clovers.count = Math.round(ci * s.grass);
-    flowers.forEach((f, k) => { f.count = Math.round(fi[k] * s.flowers); });
+    qGrass = s.grass;
+    qFlowers = s.flowers;
+    for (let i = 0; i < 6; i++) COVER[i].mesh.count = Math.round(drawn[i] * (i >= 2 && i <= 4 ? qFlowers : qGrass));
     world.windOff = !s.wind;
     if (world.shadows) world.shadows.visible = s.shadows;
   };
-  scenery.add(tufts);
+  // The first window, eagerly: the world is being built, nothing is on screen yet, and this is the
+  // same work the old map-wide placement did at the same moment.
+  writeWindow(0, 0, Infinity);
+  // #191: WHERE THE BUTTERFLIES LIVE, and it is a real decision rather than a detail. They are made
+  // once and stay where they were born (#162), and their sixteen homes used to be picked from the
+  // flowers -- which were scattered over the whole map, so the butterflies were too. Reading them off
+  // the opening window instead put all sixteen in the village: four of them in one frame of the east
+  // road against one before, which is fifteen draw calls of insects and a swarm where there was a
+  // hint. So the spots are sampled over the map as they effectively were, on grass rather than on a
+  // flower -- the flowers have moved into the window and a far-field one has nothing to stand on any
+  // more, and at 0.13 units across, beyond the fog, nobody is checking.
+  for (let tries = 0; tries < 900 && world.flowerSpots.length < 40; tries++) {
+    const x = (rand() * 2 - 1) * half;
+    const z = (rand() * 2 - 1) * half;
+    if (grassFree(x, z, rand)) world.flowerSpots.push(new THREE.Vector3(x, 0.3, z));
+  }
   // CONTACT SHADOWS, and on a phone they are the only ones there are. `shadowMap.enabled` is
   // `!(safe || (mobile && !hq))`, so on an ordinary phone -- the device this game is played on --
   // nothing casts at all: characters get their instanced blob and every tree, rock, bush and bale
@@ -1012,6 +1196,10 @@ export function buildWorld(scene, soleShadows = false) {
       world.shadows = shade;
     }
   }
+  // #191: after the discs, not before. The pass above sizes a disc from each child's bounding box,
+  // and the cover meshes are a window a hundred units across -- they were only ever skipped because
+  // that is wider than the 2.6 it will draw, which is an accident to depend on.
+  for (const c of COVER) scenery.add(c.mesh);
 
   mergeGroup(scenery); // trees, bushes, rocks and barricades, merged per material and per 30-unit cell
   scene.add(scenery);
@@ -1202,6 +1390,7 @@ export function buildWorld(scene, soleShadows = false) {
   // ---- per-frame animation ----
   world.update = (dt) => {
     world.time += dt;
+    world.updateCover(world.focus.x, world.focus.z);   // #191
     // birds
     world.birdTimer -= dt;
     if (world.birdTimer <= 0 && world.flocks.length < 2 && world.rain.level < 0.5) {
@@ -1382,9 +1571,15 @@ export function buildWorld(scene, soleShadows = false) {
   world.nearBridge = (x, z) => world.bridges.some((b) => Math.hypot(b.x - x, b.z - z) < MAP.river.bridgeRadius);
   world.crossingFor = (roadId) => world.crossings.find((c) => c.roadId === roadId);
 
-  // #166: the instance counts, for the perf overlay. Every one of these is fixed once the world is
-  // built (smoke is the exception and is capped), which is the point of putting them on screen: a
-  // number here that moves during a run is a bug with its name on it.
+  // #166: the instance counts, for the perf overlay. Pebbles and the contact discs are fixed once the
+  // world is built and smoke is capped, which is the point of putting them on screen: one of those
+  // moving during a run is a bug with its name on it.
+  //
+  // #191 took the ground cover out of that promise and it is worth saying so here rather than leaving
+  // the next person to find it. Grass, clover, flowers and stones are a window around the King now,
+  // so they breathe as he walks -- about 9,000 tufts in the village against 11,600 in open country,
+  // because `grassFree` turns down whatever falls on a road, a mat, the citadel or the river. What
+  // would be the bug is a count that climbs and never comes back down.
   world.counts = () => ({
     tufts: tufts.count,
     flowers: flowers.reduce((n, f) => n + f.count, 0),
