@@ -446,9 +446,12 @@ export function makeKingFoot() {
   return finish(g);
 }
 
-export function makeKing() {
+// #117: the horse without anyone on it -- what stands in the Stable's yard, walks out to a rider
+// and trots home when he falls. `makeKing` is this with the King seated; a mounted soldier is this
+// with a swordsman seated (game-horses.js), which is why the parts come out unbaked: whoever rides
+// is added and then the whole thing is baked once, with the legs and the body kept for the walk.
+function horseParts() {
   const g = new THREE.Group();
-  // horse
   const hb = sphere(0.36, 0xe8d5b5, 0, 0.9, 0, 0.95, 0.9, 1.9);
   const chest = sphere(0.3, 0xe8d5b5, 0, 0.95, 0.55, 1, 1, 1);
   const neck = capsule(0.17, 0.4, 0xe8d5b5, 0, 1.25, 0.72);
@@ -476,6 +479,18 @@ export function makeKing() {
   const saddle = sphere(0.3, P.leather, 0, 1.2, -0.05, 1.1, 0.35, 1.2);
   const reins = sbox(0.5, 0.03, 0.03, P.leather, 0, 1.55, 1.0);
   g.add(hb, chest, neck, hhead, muzzle, earL, earR, mane, tail, eyeL, eyeR, blanket, saddle, reins, ...legs);
+  return { g, legs, hb };
+}
+
+export function makeHorse() {
+  const { g, legs, hb } = horseParts();
+  g.userData.legs = legs;
+  g.userData.body = hb;
+  return bake(g, [...legs, hb]);
+}
+
+export function makeKing() {
+  const { g, legs, hb } = horseParts();
   // rider sits on top
   const rider = kingRider();
   rider.position.set(0, 0.95, -0.05);

@@ -756,9 +756,9 @@ the lock messages go red, and *Bought -- step off, or wait to buy another* in th
 whether or not you stay on the mat, so buying three batches in a row is still one stand; five archer
 batches in a row cost 2.4s more than they used to, and nothing else changes.
 
-Three mats change what you can *do* rather than what stands in the village: Train Archers, the
-Warhorse and the Royal Guard -- the pads carrying an `effect` that is the player's rather than the
-village's. Buying one stops the game and says where you have got to, and waits to be dismissed:
+Four mats change what you can *do* rather than what stands in the village: Train Archers, the
+Warhorse, Train the Horse and Royal Armour -- the pads carrying an `effect` that is the player's
+rather than the village's. Buying one stops the game and says where you have got to, and waits to be dismissed:
 *Training 3 of 5*, what an arrow hits for now against an untrained archer's, how many are left on the
 mat and what the next one costs (`capabilityGains` in [src/game-view.js](src/game-view.js)). It says
 the state and not the delta, because a per-level percentage is a true sentence that answers nothing on
@@ -1147,6 +1147,48 @@ holding a breach has no business reappearing wherever the King happens to be.
 
 `countFollowers` still counts everyone: the army cap is about how many soldiers the Keep supports, not
 about where they are standing.
+
+### The Stable, and the horses in its yard
+
+The Warhorse used to be a bare mat outside the citadel's west gate: 25 coins once, `mountKing()`,
+and the King's speed never moved again for thirty nights (#82). Now the horse comes from a
+**Stable**, the way archers come from the Range, and the building keeps giving. It is a tier-1
+building: the citadel was sized for three buildings and a paddock needs more ground than a hall, so
+it stands in the west strip north of the west road, just outside the citadel's gate, where the
+King's own line already lives (Royal Armour, the King's Guard). `tools/layout/check.mjs` has the
+numbers, and the West Wall mat moved south of the road to make room. The block is laid out in
+`CFG.stable` about its own centre -- building at the back, yard in front, because the camera looks
+north and a yard behind the building would be hidden by it -- so `CFG.footprint.stable` is one
+rectangle.
+
+Three mats, in a chain. **Stable** (15) stands the block. **Warhorse** (20) is what the old mat did,
+and it no longer appears for a King who is already riding. **Train the Horse** (15, +10 a level,
+four levels) adds a tenth of the mounted speed per level, additive like Train Archers, so he rides at
+7.5, then 10.5 after four -- measured over one game-second each, on open ground. `horseLevel` is
+saved like `archerPower`, and the panel it opens says the state the way the archers' does: *You ride
+at 10.5 instead of 7.5: 40% faster than an untrained horse*.
+
+The yard (#117) is the block's front half, a post-and-rail paddock with a gap on the road side, and
+**the horses standing in it are the capacity**. **A Horse for the Yard** (18, +6, four at most) puts
+one there; **Mount a Swordsman** (8) sends the nearest one walking out through the gap to a swordsman
+on the grounds. He rides at half again his speed, times the training, and instead of standing at his
+post he rides the ring of them (#116), a lap in 34 seconds. When he falls he comes off where he sat
+and goes over like anyone else, and the horse turns for home on its own -- the only word the game has
+for a soldier dying somewhere the player is not looking -- walks in through the gap and is a yard
+horse again. A horse is never spent, so the mat only ever shuts for a reason it can name: *The yard
+is empty*, or *No swordsman to ride*.
+
+Measured: the horse reached the first rider in 8.1 seconds from the yard; the rider does 17.85
+against a footman's 8.5, trained four times; over ten quiet seconds he covered 35.8 units of the ring
+while the posted footman beside him moved 0; killed, his horse was back in the yard 3.4 seconds
+later. Save, reload, and it all comes back: the level, the three horses in the yard, the one still
+riding. Four horses wandered the yard for fifteen seconds without one stepping outside the rails.
+
+A riderless horse is `makeHorse()` -- the King's own from `makeKing()` with nobody on it -- and a
+mounted soldier is that horse with the swordsman's rig seated where the King sits, on Idle rather
+than Walk while the horse's legs carry him; the crowd renderer reads a rider's world matrix, so it
+needs nothing new. The building is a built placeholder, `makeStable`, until the generated one lands;
+the brief for it and the import steps are on #82. `?view=stable` frames the block on the board.
 
 ## The King's two verbs: the warhorn and the banner
 

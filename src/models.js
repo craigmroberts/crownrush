@@ -338,7 +338,7 @@ export function mergeGroup(group, cell = 30) {
 // The linter found it by pulling a thread: `face` was unused, removing it left `faceMaterial`
 // unused, and removing that left the cache and fifty lines of canvas drawing with nothing to draw.
 // ---- characters live in characters.js (smooth, painted-face figures) ----
-export { makeArcher, makeSwordsman, makeVillager, makeKnight, makeElite, makeBrute, makeBoss, makeKing, makeKingFoot, makeQueen } from './characters.js';
+export { makeArcher, makeSwordsman, makeVillager, makeKnight, makeElite, makeBrute, makeBoss, makeKing, makeKingFoot, makeHorse, makeQueen } from './characters.js';
 
 // The Royal Keep: a small stone castle with a balcony the Queen stands on.
 // #3: one palette per material age. Buildings are rebuilt in the current material when the Keep
@@ -896,6 +896,111 @@ export function makeBarracks(material = 'stone') {
   const crate = rbox(0.7, 0.7, 0.7, 0xd6b24a, -2.6, 0.35, 0.9, 0.06);
   const crate2 = rbox(0.55, 0.55, 0.55, 0xd6b24a, -2.5, 0.28, 0.1, 0.06);
   g.add(door, arch, flagPole, flag, swords, swords2, crate, crate2);
+  return bake(g);
+}
+
+// #82: the Stable, built, until the generated one lands (the brief is on the ticket). A long low
+// barn with its ridge along x and the doors on the long +z side, looking into the yard: a double
+// door in the middle a King tall -- the import will be sized by that door, the way every building
+// is (tools/imports/README.md) -- and a half-door stall either side of it. Follows the village
+// material like the Barracks does. No chimney: nothing here needs smoke, and `buildStructure` only
+// hangs a smoker where `userData.chimney` says.
+export function makeStable(material = 'wood') {
+  const P = MATERIALS[material] || MATERIALS.wood;
+  const g = new THREE.Group();
+  const W = 5.6;
+  const D = 4.6;
+  const H = 2.3;
+  const base = new THREE.Mesh(new RoundedBoxGeometry(W, H, D, 2, 0.1), mat(P.wall));
+  base.position.y = H / 2;
+  base.castShadow = base.receiveShadow = true;
+  g.add(base);
+  // timber frame: corner posts, a post between each opening, and a sill and a plate along the front
+  for (const x of [-W / 2 + 0.1, -1.55, 1.55, W / 2 - 0.1]) g.add(box(0.2, H, 0.22, P.wallDark, x, H / 2, D / 2 - 0.02));
+  for (const x of [-W / 2 + 0.1, W / 2 - 0.1]) g.add(box(0.2, H, 0.22, P.wallDark, x, H / 2, -D / 2 + 0.02));
+  g.add(box(W + 0.02, 0.16, 0.24, P.wallDark, 0, H - 0.08, D / 2 - 0.02));
+  g.add(box(W + 0.02, 0.12, 0.24, P.wallDark, 0, 0.06, D / 2 - 0.02));
+  // the double door: 2.0 wide, 1.9 tall, in a dark frame, one leaf cracked open
+  g.add(box(2.2, 2.05, 0.1, P.wallDark, 0, 1.02, D / 2 + 0.02));
+  const leafL = box(0.95, 1.9, 0.08, 0x3a2a1a, -0.5, 0.95, D / 2 + 0.08);
+  const leafR = box(0.95, 1.9, 0.08, 0x3a2a1a, 0.66, 0.95, D / 2 + 0.34);
+  leafR.rotation.y = 0.55;
+  g.add(leafL, leafR);
+  // stall half-doors either side: the top half open and dark, a plank door below
+  for (const x of [-2.1, 2.1]) {
+    g.add(box(1.1, 1.6, 0.06, 0x2a1d12, x, 0.85, D / 2 + 0.02));
+    g.add(box(1.0, 0.8, 0.08, P.plank, x, 0.42, D / 2 + 0.08));
+    g.add(box(1.0, 0.06, 0.1, P.wallDark, x, 0.82, D / 2 + 0.1));
+  }
+  // the roof runs the long way: `roof` extrudes its triangle along z, so it is built across the
+  // depth and turned a quarter to lie along the width
+  const r = roof(D + 0.9, W + 0.7, 1.7, P.roof, H, P.roofDark);
+  r.rotation.y = Math.PI / 2;
+  g.add(r);
+  g.add(box(W + 0.9, 0.2, 0.22, P.roofDark, 0, H + 1.72, 0));
+  // a hay-loft hatch in each gable, and a pennant on the west one
+  for (const x of [-W / 2 - 0.02, W / 2 + 0.02]) g.add(box(0.06, 0.7, 0.8, 0x2a1d12, x, H + 0.55, 0));
+  const pole = cyl(0.05, 0.05, 1.6, C.darkWood, -W / 2 + 0.3, H + 2.4, 0, 5);
+  const flag = box(0.05, 0.42, 0.8, P.accent, -W / 2 + 0.3, H + 2.95, 0.42);
+  g.add(pole, flag);
+  materialFlourish(g, material, W / 2 - 0.5, 1.5, D / 2 + 0.16);
+  // hay by the door, and a trough on the yard side
+  const bale = makeHayBale();
+  bale.position.set(-W / 2 + 0.7, 0, D / 2 + 0.9);
+  const bale2 = makeHayBale();
+  bale2.position.set(-W / 2 + 1.5, 0, D / 2 + 0.7);
+  bale2.scale.setScalar(0.8);
+  g.add(bale, bale2);
+  return bake(g);
+}
+
+// #117: the paddock in front of the Stable: post-and-two-rail, open on one side where `gate` says
+// (x, z, width, relative to the yard's centre), a trough and a bale inside so it reads as a yard
+// even when it is empty -- and empty is a state that means something, because the horses standing
+// in it are the number of soldiers that can still be mounted.
+export function makePaddock(w, d, gate) {
+  const g = new THREE.Group();
+  const post = (x, z) => g.add(box(0.18, 1.15, 0.18, C.darkWood, x, 0.57, z));
+  const rails = (x0, z0, x1, z1) => {
+    const len = Math.hypot(x1 - x0, z1 - z0);
+    if (len < 0.2) return;
+    for (const y of [0.5, 0.95]) {
+      const b = box(len, 0.1, 0.1, C.wood, (x0 + x1) / 2, y, (z0 + z1) / 2);
+      b.rotation.y = Math.atan2(-(z1 - z0), x1 - x0);
+      g.add(b);
+    }
+  };
+  // a run of fence from a to b with posts every 1.5 or so, split around the gate if it is on it
+  const run = (x0, z0, x1, z1, gap) => {
+    const len = Math.hypot(x1 - x0, z1 - z0);
+    const n = Math.max(1, Math.round(len / 1.5));
+    const at = (t) => [x0 + (x1 - x0) * t, z0 + (z1 - z0) * t];
+    for (let i = 0; i <= n; i++) post(...at(i / n));
+    if (!gap) { rails(x0, z0, x1, z1); return; }
+    // the gap is along this side: rails up to it and after it, and a post either side of it
+    const [gx, gz, gw] = gap;
+    const t0 = Math.max(0, (Math.hypot(gx - x0, gz - z0) - gw / 2) / len);
+    const t1 = Math.min(1, (Math.hypot(gx - x0, gz - z0) + gw / 2) / len);
+    post(...at(t0));
+    post(...at(t1));
+    rails(x0, z0, ...at(t0));
+    rails(...at(t1), x1, z1);
+  };
+  const [gx, gz, gw] = gate;
+  const hx = w / 2;
+  const hz = d / 2;
+  const onSouth = Math.abs(gz - hz) < 0.3;
+  run(-hx, -hz, hx, -hz, null);
+  run(hx, -hz, hx, hz, null);
+  run(hx, hz, -hx, hz, onSouth ? [gx, gz, gw] : null);
+  run(-hx, hz, -hx, -hz, null);
+  // the trough, against the back rail, and a bale in the far corner
+  const trough = box(1.4, 0.4, 0.5, C.darkWood, -hx + 1.2, 0.2, -hz + 0.5);
+  const water = box(1.3, 0.06, 0.4, 0x5fa8d6, -hx + 1.2, 0.38, -hz + 0.5);
+  g.add(trough, water);
+  const bale = makeHayBale();
+  bale.position.set(hx - 0.9, 0, -hz + 0.9);
+  g.add(bale);
   return bake(g);
 }
 

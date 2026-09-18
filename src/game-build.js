@@ -6,7 +6,7 @@ import { audio } from './audio.js';
 import { makeRigged } from './rig.js';
 import { pickOffer } from './upgrades.js';
 import {
-  makeKing, makeKeep, makeResourceCube, makeArcher, makeCoin, makeHut, makeTower, makeTowerLevelBits, makeBarracks, makeWallSegment, makeGate, makeRubble, makeBridge, makePad, drawPad, ghostify, makeHealthBar, setHealthBar, makeBank, makeGatePost,
+  makeKing, makeKeep, makeResourceCube, makeArcher, makeCoin, makeHut, makeTower, makeTowerLevelBits, makeBarracks, makeWallSegment, makeGate, makeRubble, makeBridge, makePad, drawPad, ghostify, makeHealthBar, setHealthBar, makeBank, makeGatePost, makeStable, makePaddock, makeHorse,
 } from './models.js';
 import { makeProp } from './props.js';
 import { V3, HAIR, plural, PAD_STYLE, rand, tmp } from './game-shared.js';
@@ -14,6 +14,11 @@ import { V3, HAIR, plural, PAD_STYLE, rand, tmp } from './game-shared.js';
 // Clear of the castle's crown, which is the tallest thing on it. The built Keep is shorter, but the
 // bar sitting a little high over it costs nothing and one number is easier to keep true than two.
 const KEEP_BAR_Y = 11.3;
+
+// #117: what a mat says on its face for the locks that are not a Keep level. `padLocked` answers a
+// level number for a full army and one of these words otherwise; the Guard's read "Keep Lv noguard"
+// on the mat before there was a table for it.
+const LOCK_WORD = { noguard: 'Nobody to promote', nohorse: 'The yard is empty', norider: 'No swordsman to ride' };
 
 export const BuildMethods = {
   // ---------- pads ----------
@@ -30,6 +35,9 @@ export const BuildMethods = {
       // frame teaches nothing and adds a mat to walk over
       if (def.afterRescue && this.queen.captive) continue;
       if (def.maxBuys && (this.buyCount[def.id] || 0) >= def.maxBuys) continue;
+      // #82: the Warhorse mat has nothing to sell a King who is already riding -- the legacy that
+      // starts a run mounted, or a save from when the horse was a mat of its own with this id.
+      if (def.effect === 'horse' && this.mounted) continue;
       this.addPad(def);
       added++;
     }
@@ -122,6 +130,9 @@ export const BuildMethods = {
       }
     } else if (def.effect === 'horse') {
       ghost(makeKing(), true).position.set(def.pos[0], 0, def.pos[1] - 1.2);
+    } else if (def.effect === 'stableHorse' || def.effect === 'mount') {
+      // #117: a riderless horse on the mat's far side, the way the Warhorse shows the King mounted
+      ghost(makeHorse(), true).position.set(def.pos[0], 0, def.pos[1] - 1.2);
     } else if (def.structure && def.buildAt && !this.structures.some((st) => st.id === def.id)) {
       // #111: and not when the thing it is previewing is already standing there. A translucent copy
       // of a building fading in and out ON TOP of the real one is the double-draw half of that
@@ -166,7 +177,7 @@ export const BuildMethods = {
       icon: pad.def.icon, label: this.padName(pad.def), paid: total ? paidAll / total : 0,
       active: !!pad.active,
       sub: this.padSub(pad.def),
-      locked: pad.locked === 'rescue' ? 'Free Wren' : pad.locked ? `Keep Lv ${pad.locked}` : null,
+      locked: pad.locked === 'rescue' ? 'Free Wren' : typeof pad.locked === 'number' ? `Keep Lv ${pad.locked}` : pad.locked ? LOCK_WORD[pad.locked] : null,
       lockIcon: pad.locked === 'rescue' ? 'tiara' : 'keep',
       shape: style.shape, rim: style.rim,
       // #37: the cost lived only in the sheet along the bottom edge, and the eyes are on the King.
@@ -185,7 +196,7 @@ export const BuildMethods = {
       // King stands on the mat and the ghost previews stand on it too, so at a sharp angle the pill
       // is half covered. It is the mat's FACE changing that does the work at that distance, the way
       // the price strip underneath already does.
-      blocker: pad.boughtT > 0 ? 'Bought' : pad.locked === 'rescue' ? 'Free Wren first' : pad.locked ? `Needs Lv. ${pad.locked}` : null,
+      blocker: pad.boughtT > 0 ? 'Bought' : pad.locked === 'rescue' ? 'Free Wren first' : typeof pad.locked === 'number' ? `Needs Lv. ${pad.locked}` : pad.locked ? LOCK_WORD[pad.locked] : null,
       blockerOk: pad.boughtT > 0,
     });
   },
@@ -243,6 +254,22 @@ export const BuildMethods = {
       return makeTower(level, m);
     }
     if (kind === 'barracks') return makeProp('barracks', CFG.structureTint[m]) || makeBarracks(m);
+    if (kind === 'stable') {
+      // #82: one block, two things. The building sits at the back and the paddock in front of it,
+      // laid out by `CFG.stable` about the block's centre so the footprint is one rectangle. The
+      // generated building (`stable_ai`) drops into the same slot as the built one; the yard is the
+      // game's own either way, because the horses in it are gameplay (#117) and have to walk out
+      // through a gap the game knows about rather than through whatever fence the model brought.
+      const S = CFG.stable;
+      const g = new THREE.Group();
+      const b = makeProp('stable', CFG.structureTint[m]) || makeStable(m);
+      b.position.z = S.buildingAt;
+      g.add(b);
+      const yard = makePaddock(S.yard[0], S.yard[1], S.gate);
+      yard.position.z = S.yardAt;
+      g.add(yard);
+      return g;
+    }
     return new THREE.Group();
   },
 
@@ -343,6 +370,14 @@ export const BuildMethods = {
       this.disposeEntity(this.gleaner.mesh);
       this.gleaner = null;
     }
+    // #117: the horses with their yard (the Stable is tier 1 and never in the opening, so this is
+    // for the record rather than for the morning)
+    for (const h of this.horses) {
+      this.root.remove(h.mesh);
+      this.disposeEntity(h.mesh);
+    }
+    this.horses = [];
+    this.stable = null;
     if (this.world.clearSmokers) this.world.clearSmokers();
     // and the ledger, so what he rebuilds he pays for
     this.built = {};
@@ -396,6 +431,7 @@ export const BuildMethods = {
         if (this.queen.inKeep) this.queenToBalcony();
       }
       if (t) t.mesh = m;
+      if (s.kind === 'stable' && this.stable) this.stable.mesh = m;   // #82
       this.root.remove(s.mesh);
       this.root.add(m);
       this.popIn(m, i * 0.08);
@@ -523,6 +559,9 @@ export const BuildMethods = {
     if (def.feed) this.levelUp();
     if (def.effect === 'expand') this.expand();
     if (def.effect === 'horse') this.mountKing();
+    if (def.effect === 'horseSpeed') this.trainHorses();
+    if (def.effect === 'stableHorse') this.addYardHorse();   // #117
+    if (def.effect === 'mount') this.sendHorse();
     if (def.effect === 'guard') this.promoteGuard(2);
     if (def.bridge) {
       const m = this.world.buildBridge(def.bridge);
@@ -1022,6 +1061,15 @@ export const BuildMethods = {
     }
     // #48: a home is not just a roof. Someone moves in, and they work.
     if (kind === 'house') this.addVillager(at[0], at[1], def.id);
+    // #82: the Stable's yard, in world terms, is what the horses (#117) and their mats read.
+    if (kind === 'stable') {
+      const S = CFG.stable;
+      this.stable = {
+        x: at[0], z: at[1], mesh: m,
+        yard: { x: at[0], z: at[1] + S.yardAt, w: S.yard[0], d: S.yard[1] },
+        gate: { x: at[0] + S.gate[0], z: at[1] + S.yardAt + S.gate[1] },
+      };
+    }
     if (m.userData.chimney) {
       const c = m.userData.chimney;
       this.world.addSmoker(at[0] + c.x, c.y, at[1] + c.z);
@@ -1176,6 +1224,8 @@ export const BuildMethods = {
     // "Your army is full" stays: the chip puts that as a count, and a count is not the same as being
     // told you have hit the ceiling.
     if (locked === 'noguard') return `There is nobody left to promote. Recruit soldiers first, then some of them can join the Guard.`;
+    if (locked === 'nohorse') return `The yard is empty. Buy a horse for it on the mat beside this one, then a swordsman can ride.`;
+    if (locked === 'norider') return `There is no swordsman to put on a horse. Recruit some at the Barracks first.`;
     if (pad.def.units) return `Your army is full. Pay coin into the Keep to raise the limit.`;
     return `Pay coin into the Keep to raise it, then ${name} will open.`;
   },
@@ -1208,6 +1258,8 @@ export const BuildMethods = {
     // rather than a Keep level. A string where every other answer here is a level number or null:
     // the two places that read this -- the "Level N needed" chip and `lockReason` -- both check.
     if (def.effect === 'guard') return this.guardCandidates() > 0 ? null : 'noguard';
+    // #117: the same shape twice over -- a horse standing in the yard, and a swordsman to put on it
+    if (def.effect === 'mount') return this.yardHorses() === 0 ? 'nohorse' : this.riderCandidates().length ? null : 'norider';
     if (!def.units) return null;
     const wanted = this.unitCount(def.units.type) + def.units.count;
     if (wanted <= this.unitCap(def.units.type)) return null;
@@ -1247,9 +1299,12 @@ export const BuildMethods = {
           const need = r.need - r.paid;
           chips.push({ icon: r.type, text: `${need} ${r.type} (have ${this.res[r.type]})`, state: need <= 0 || this.res[r.type] >= need ? 'ok' : this.res[r.type] > 0 ? '' : 'short' });
         }
-        if (locked && locked !== 'noguard') chips.push({ icon: 'keep', text: `Level ${locked} needed`, state: 'short' });
+        if (typeof locked === 'number') chips.push({ icon: 'keep', text: `Level ${locked} needed`, state: 'short' });
         // #116: the Guard says how big it already is, the way a recruit mat says how full the army is.
         if (def.effect === 'guard') chips.push({ icon: 'shield', text: `${this.units.filter((u) => u.guard).length} in the Guard`, state: locked ? 'short' : 'ok' });
+        // #117: and the yard's mats say what is standing in it
+        if (def.effect === 'stableHorse') chips.push({ icon: 'horse', text: `${this.buyCount[def.id] || 0} / ${CFG.horse.yard} horses`, state: 'ok' });
+        if (def.effect === 'mount') chips.push({ icon: 'horse', text: `${this.yardHorses()} in the yard, ${this.riderCandidates().length} to ride`, state: locked ? 'short' : 'ok' });
         if (def.units) chips.push({ icon: def.units.type, text: `${this.unitCount(def.units.type)} / ${this.unitCap(def.units.type)} ${def.units.type}s`, state: locked ? 'short' : 'ok' });
       }
       // #122: the cooldown says so. A mat that quietly ignores payment for a second reads as the game
@@ -1257,7 +1312,7 @@ export const BuildMethods = {
       // moving to pay". It goes above the blockers because it is the newest thing to have happened.
       const note = nearest.boughtT > 0 ? 'Bought — step off, or wait to buy another'
         : this.keep && this.keep.state !== 'built' && def.repairKeep ? 'It has to stand again before it can be raised'
-        : this.queen.captive ? (this.queen.taken ? 'Cut off the escort and bring her back' : 'Rescue Wren first') : locked === 'noguard' ? 'Recruit soldiers before promoting any' : locked ? 'Feed the Keep to raise the limit' : this.king.moving && (nearest.holdT || 0) < CFG.spend.walkHold ? 'Stop moving to pay' : def.feed ? `Pouring in coin…` : def.crew ? 'Sending archers…' : 'Paying…';
+        : this.queen.captive ? (this.queen.taken ? 'Cut off the escort and bring her back' : 'Rescue Wren first') : locked === 'noguard' ? 'Recruit soldiers before promoting any' : locked === 'nohorse' ? 'Buy a horse for the yard first' : locked === 'norider' ? 'Recruit swordsmen first' : locked ? 'Feed the Keep to raise the limit' : this.king.moving && (nearest.holdT || 0) < CFG.spend.walkHold ? 'Stop moving to pay' : def.feed ? `Pouring in coin…` : def.crew ? 'Sending archers…' : 'Paying…';
       const total = nearest.cost + nearest.res.reduce((a, r) => a + r.need, 0);
       const paidAll = nearest.paid + nearest.res.reduce((a, r) => a + r.paid, 0);
       this.hud.showPadTip({

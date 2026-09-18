@@ -1486,9 +1486,22 @@ export const ViewMethods = {
       };
     }
 
+    // #82: the horse's training, in the same shape as the archers' -- the state, not the delta.
+    if (def.effect === 'horseSpeed') {
+      const n = this.horseLevel;
+      const rows = [
+        { icon: 'horse', text: `You ride at ${num(this.horseSpeed() * this.mods.kingSpeed)} instead of ${num(CFG.king.speed * this.mods.kingSpeed)}: ${pct(n * CFG.horseTraining.speed)} faster than an untrained horse` },
+        { icon: 'sack', text: 'The long walks are where it counts: iron at the mesas and diamond across the river are round trips' },
+        { icon: 'swordsman', text: 'Every horse in the yard is trained too, and so is every soldier riding one' },
+        more || { icon: 'star', text: 'The horses are trained as far as training goes' },
+      ];
+      return { title: `Horse training ${soFar(n, def.maxBuys)}`, sub: 'Your horses', rows };
+    }
+
     if (def.effect === 'kinghp') {
       return {
-        title: `Royal Guard ${soFar(bought, def.maxBuys)}`,
+        // #116 renamed the mat to Royal Armour; the panel it opens had kept the old name
+        title: `Royal Armour ${soFar(bought, def.maxBuys)}`,
         sub: 'The King himself',
         rows: [
           { icon: 'crown', text: `You can take ${this.king.maxHp} damage before the run ends, up from ${CFG.king.hp} at the start` },

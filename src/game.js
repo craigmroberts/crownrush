@@ -13,6 +13,7 @@ import { EnemiesMethods } from './game-enemies.js';
 import { UnitsMethods } from './game-units.js';
 import { ViewMethods } from './game-view.js';
 import { VillagerMethods } from './game-villagers.js';
+import { HorseMethods } from './game-horses.js';
 import { SaveMethods, readLength } from './game-save.js';
 import { QualityMethods } from './game-quality.js';
 
@@ -330,6 +331,9 @@ export class Game {
     this.ruins = [];        // #152: heaps where the opening's buildings stood, until they fade
     this.gleaner = null;    // #169: made the first frame the Keep stands
     this.villagers = [];    // #48: one gatherer per villager home, working on their own
+    this.stable = null;     // #82: { x, z, mesh, yard, gate } once the Stable stands
+    this.horses = [];       // #117: the yard's horses, and any out on the field or trotting home
+    this.horseLevel = 0;    // #82: "Train the Horse" buys, like archerPower
     this.tradePost = null;  // the bank, once its pad is paid for
     this.tradePos = null;   // and where you stand to sell at it: its own mat, not a constant
     this.tradeMat = null;
@@ -991,6 +995,7 @@ export class Game {
       this.updateTrade(dt);
       this.updateVillagers(dt);
       this.updateGleaner(dt);
+      this.updateHorses(dt);
       this.tickDiary();
       // #132: the capability notice's own clock, before `updatePads` decides whether the mat chip
       // gets the lane -- so a notice that closed on this frame hands the lane straight back.
@@ -1097,12 +1102,14 @@ export class Game {
         rig.mixer.update(ent.animAcc);
         ent.animAcc = 0;
       } else rig.mixer.update(dt);
-      if (!ent.rigOnce || ent.rigOnce <= this.time) rig.play(ent.moving ? 'Walk' : 'Idle');
+      // #117: a rider's rig is the rig on his horse's group, and a seated man does not walk -- Idle
+      // is near enough the saddle, and the horse's own legs carry the movement.
+      if (!ent.rigOnce || ent.rigOnce <= this.time) rig.play(ent.moving && !ent.mounted ? 'Walk' : 'Idle');
       // #55: and at the speed it is actually travelling. Everything shared one Walk cycle at one
       // rate, across speeds from the boss's 2.3 to an army archer's 9.0, so most of the field was
       // either moonwalking or paddling. The stride is baked into the clip, so the rate that stops
       // the feet sliding is just speed / the speed it was baked for -- see CFG.walkAnim.
-      if (rig.setRate) rig.setRate(ent.moving ? this.walkRate(ent) : 1);
+      if (rig.setRate) rig.setRate(ent.moving && !ent.mounted ? this.walkRate(ent) : 1);
     }
     // Instanced characters have a mixer that does nothing, so the loop above costs them a call and
     // leaves. Their poses come from here instead: one matrix and four floats each, no skeletons.
@@ -1223,4 +1230,4 @@ export class Game {
 
 // The rest of the class. These were cut out of this file to keep it readable; they are ordinary
 // methods of Game and behave exactly as they did when they were written inline.
-Object.assign(Game.prototype, BuildMethods, EnemiesMethods, UnitsMethods, ViewMethods, VillagerMethods, SaveMethods, QualityMethods);
+Object.assign(Game.prototype, BuildMethods, EnemiesMethods, UnitsMethods, ViewMethods, VillagerMethods, HorseMethods, SaveMethods, QualityMethods);

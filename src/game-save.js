@@ -114,6 +114,7 @@ export const SaveMethods = {
       score: this.score,
       res: { ...this.res },
       archerPower: this.archerPower,
+      horseLevel: this.horseLevel,   // #82: additive, no VERSION bump -- an older save restores untrained
       damageMul: this.damageMul,
       mounted: this.mounted,
       recaptures: this.recaptures,
@@ -187,8 +188,13 @@ export const SaveMethods = {
         // #116: `guard` is who marches with the King rather than holding the grounds. Added without
         // bumping VERSION, like #58's `len` -- a save written before it simply has nobody in the
         // Guard, which is exactly what a run from before this ticket had.
-        type: u.type, veteran: !!u.veteran, guard: !!u.guard, hp: round(u.hp), maxHp: round(u.maxHp), at: pos(u.mesh),
+        // #117: `mounted` the same way -- a save from before the Stable has nobody on a horse.
+        type: u.type, veteran: !!u.veteran, guard: !!u.guard, mounted: !!u.mounted, hp: round(u.hp), maxHp: round(u.maxHp), at: pos(u.mesh),
       })),
+      // #117: the yard's horses. A horse out on the way to a rider comes back as one walking home,
+      // which forfeits that one mount purchase; it is a second or two of a run, and storing the
+      // promise would mean storing which unit it was made to.
+      horses: this.horses.map((h) => ({ at: pos(h.mesh), state: h.state === 'yard' ? 'yard' : 'home' })),
       turrets: this.turrets.map((t) => ({
         at: [round(t.pos.x), round(t.pos.y), round(t.pos.z)], tower: t.tower, hp: round(t.hp),
       })),
@@ -268,6 +274,7 @@ export const SaveMethods = {
     this.score = s.score;
     this.res = { ...this.res, ...s.res };
     this.archerPower = s.archerPower;
+    this.horseLevel = s.horseLevel || 0;   // #82
     this.damageMul = s.damageMul;
     this.recaptures = s.recaptures;
     this.finaleOpen = !!s.finaleOpen;
@@ -285,6 +292,8 @@ export const SaveMethods = {
 
     // --- the village, in pad order so an expansion happens before the walls it makes room for
     this.rebuildVillage(s);
+    // #117: and the horses, once there is a yard for them to stand in
+    if (this.stable) for (const h of s.horses || []) this.addHorse(h.at[0], h.at[1], h.state);
 
     // --- the royals
     const k = this.king;
@@ -324,6 +333,7 @@ export const SaveMethods = {
       spawned.popT = 0;
       spawned.mesh.scale.setScalar(spawned.scale);
       setHealthBar(spawned.bar, spawned.hp / spawned.maxHp);
+      if (u.mounted) this.mountUnit(spawned);   // #117: straight into the saddle, no walk
     }
     for (const t of s.turrets) {
       this.addTurret(t.at[0], t.at[2], t.at[1], t.tower);

@@ -86,6 +86,21 @@ export const UnitsMethods = {
     this.spawnFx(k.mesh.position.x, k.mesh.position.z, 0xffd166);
   },
 
+  // #82: what the King's horse does, trained. `horseLevel` is the Stable's "Train the Horse" count,
+  // stored in the save like `archerPower`; the factor is shared with every horse in the yard (#117).
+  horseFactor() {
+    return 1 + this.horseLevel * CFG.horseTraining.speed;
+  },
+  horseSpeed() {
+    return CFG.king.speed * this.horseFactor();
+  },
+  // "Train the Horse" was bought: the level rises, and every horse already out is retrained with it,
+  // the way Train Archers retrains the archers on the wall (#117 riders carry the factor in `stats`).
+  trainHorses() {
+    this.horseLevel++;
+    for (const u of this.units) if (u.mounted) u.stats = this.riderStats();
+  },
+
   // ---------- spawning ----------
   spawnUnit(type, x, z, veteran = false) {
     let mesh;
@@ -148,7 +163,7 @@ export const UnitsMethods = {
   updatePlayer(dt) {
     const k = this.king;
     const inp = this.input.read();
-    const speed = (this.mounted ? k.stats.speed : k.stats.footSpeed) * this.mods.kingSpeed;
+    const speed = (this.mounted ? this.horseSpeed() : k.stats.footSpeed) * this.mods.kingSpeed;
     k.vel.set(inp.x * speed, 0, inp.z * speed);
     if (k.mesh.userData.body && k.mesh.userData.body.rotation.x > 0) k.mesh.userData.body.rotation.x = Math.max(0, k.mesh.userData.body.rotation.x - dt * 3);
     const p = k.mesh.position;
@@ -356,7 +371,11 @@ export const UnitsMethods = {
         ox = threat.mesh.position.x + mux * A.standoff;
         oz = threat.mesh.position.z + muz * A.standoff;
       } else if (posted) {
-        this.postFor(i, troopN, tmp2);
+        // #117: a rider does not stand at a post, he rides the ring of them. His slot slides round
+        // it, a whole lap in `patrolLap` seconds, so a mounted soldier covers the ground between
+        // the posts -- and reaches a breach sooner, which is what the horse buys him.
+        if (u.mounted) u.patrol = (u.patrol || 0) + dt * (troopN / CFG.horse.patrolLap);
+        this.postFor(i + (u.patrol || 0), troopN, tmp2);
         ox = tmp2.x;
         oz = tmp2.z;
       }
@@ -494,7 +513,8 @@ export const UnitsMethods = {
       if (u.type === 'king') this.gameOver(u.type);
       this.units.splice(this.units.indexOf(u), 1);
       u.bar.visible = false;
-      this.fell(u.mesh, from, 0.5);
+      // #117: a rider comes off and falls where he sat; the horse is a horse again and goes home
+      this.fell(u.mounted ? this.riderFell(u) : u.mesh, from, 0.5);
     }
   },
 

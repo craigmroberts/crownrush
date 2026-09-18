@@ -153,7 +153,7 @@ export const CFG = {
     // so showing him exactly it, finished, is a sharper promise than a sprawl he never gets back to.
     tier: 0,
     level: 5,
-    skip: ['stable'],              // the horse is the player's to earn
+    skip: ['stable'],              // the horse is the player's to earn (and the Stable is tier 1 now, #82)
     // THE PEOPLE, placed by hand inside the starting plot. A morning with nobody living in it is not
     // a kingdom, and the homes are tier-1 pads standing at tier-1 coordinates -- outside the wall the
     // opening has.
@@ -384,7 +384,18 @@ export const CFG = {
   footprint: {
     bank: [3.46, 3.46], barracks: [7.68, 7.96], hut: [5.58, 4.49],
     keep: [6.02, 5.38], tower: [2.50, 3.32], house: [4.03, 3.71],
+    // #82: the Stable's footprint is the building AND the paddock in front of it -- one block, see
+    // `CFG.stable` -- because the horses standing in the yard are the thing the building is for.
+    stable: [6.2, 11.4],
   },
+  // #82: how the Stable block is laid out, relative to its own origin, which is the centre of the
+  // whole block so that `footprint.stable` is one rectangle about `buildAt`. The BUILDING is at the
+  // back (north, -z) and the YARD in front, because the camera looks north over the King's shoulder:
+  // a yard behind the building would be hidden by it, and the yard is the readout (#117). `gate` is
+  // where the fence is open, on the yard's road side, so a horse leaving or coming home walks out
+  // through a gap rather than through a rail. The placeholder building is `makeStable` in models.js
+  // until the generated one lands; its door is on the +z face, looking into the yard.
+  stable: { building: [5.6, 4.6], buildingAt: -3.1, yard: [6.0, 5.4], yardAt: 2.7, gate: [2.0, 2.7, 1.6] },
   // #19: the raider camp. Raids come from it; the war ends when the King marches on it and kills
   // the Warlord. The march opens at Keep `level`, or on the run's last night, whichever comes first.
   // #58 took the night out of here: it was `night: 30` and there is no longer one answer, because a
@@ -537,6 +548,21 @@ export const CFG = {
   banner: { duration: 18, cooldown: 28 },
   // "Train Archers" pad at the range: each level makes every archer hit harder and tougher
   archerTraining: { damage: 0.25, hp: 0.2 },
+  // #82: "Train the Horse" at the Stable, the same shape. Each level adds `speed` of the mounted
+  // King's base speed, so four levels take 7.5 to 10.5 -- a third again, which is what the late
+  // materials ask for: iron at the mesas and diamond across the river are round trips, and `carry`
+  // caps a trip, so the run's longest walks are where a faster horse is felt. Additive rather than
+  // compounding so the fourth level is worth exactly what the first was and the mat's price is the
+  // only thing that rises. Every horse in the yard is trained too (#117): a mounted soldier rides at
+  // its own `horse.soldierSpeed` times the same factor.
+  horseTraining: { speed: 0.1 },
+  // #117: the Stable's yard. `yard` is how many horses it holds, which is the number of soldiers that
+  // can be put on horseback -- the paddock IS the capacity, read by looking at it. `soldierSpeed`
+  // is what a horse does for a swordsman: 8.5 -> 12.75, above the mounted King's 7.5 untrained so a
+  // rider always gets to a breach before he could. `walk` is a horse's own pace about the yard and
+  // on the way to a rider; `home` is the trot back when its rider falls. `patrolLap` is how many
+  // seconds a mounted soldier takes to ride the whole post ring (#116) while the grounds are quiet.
+  horse: { yard: 4, soldierSpeed: 1.5, walk: 2.0, home: 4.6, patrolLap: 34, reach: 1.3, idle: [1.5, 4] },
 
   // One currency, and enemies drop more of it the higher their rank.
   // Coins are gold, always. They used to change colour with the Keep (bronze, silver, gold,
@@ -1020,14 +1046,15 @@ export const PADS = [
   { id: 'palisade', tier: 0, pos: [-5, 9], cost: 20, icon: 'wall', label: 'Palisade', requires: ['recruit'], wall: { tier: 0, side: 'all' }, desc: 'A wooden wall around the plot with two gates. Upgrades to brick, stone and iron as you level up.', toast: 'Palisade raised. Raiders must break through!' },
   { id: 'crew-gates1', tier: 0, pos: [5, -5], crew: 4, icon: 'shield', label: 'Gate Guards', requires: ['palisade'], posts: true, postTier: 0, desc: 'Four archers take posts beside the gates.', toast: 'Archers now watch the gates from their posts.' },
   { id: 'expand1', tier: 0, pos: [-5, 21], cost: 60, minLevel: 2, icon: 'expand', label: 'Expand Village', requires: ['palisade', 'keep'], effect: 'expand', desc: 'Grows the village onto a bigger plot with new pads, towers and the barracks.', toast: 'The village grows! Wall the new ground.' },
-  { id: 'stable', tier: 0, pos: [-21, 5], cost: 25, icon: 'horse', label: 'Warhorse', requires: ['keep'], effect: 'horse', desc: 'The King rides: much faster around the map.', toast: 'The King rides! Much faster now.' },
   { id: 'bridge-south', tier: 0, pos: [6, 44], cost: 30, icon: 'bridge', label: 'South Bridge', requires: ['palisade'], bridge: 'south', desc: 'Crosses the river: new land to mine, and new directions raiders can come from.', toast: 'Bridge built. New lands, and new raiders, across the river.' },
   { id: 'bridge-east', tier: 0, pos: [47, 7], cost: 30, icon: 'bridge', label: 'East Bridge', requires: ['palisade'], bridge: 'east', desc: 'Crosses the river: new land to mine, and new directions raiders can come from.', toast: 'Bridge built. New lands, and new raiders, across the river.' },
 
   // ---- tier 1 ----
   W('wall2-south', 1, [-16, 21], 25, 'south', 'South Wall'),
   W('wall2-east', 1, [22, -4.8], 25, 'east', 'East Wall'),
-  W('wall2-west', 1, [-23, -10], 25, 'west', 'West Wall'),
+  // #82: south of the west road now, where the old Warhorse mat stood; the Stable block has the
+  // shoulder north of it.
+  W('wall2-west', 1, [-24, 5], 25, 'west', 'West Wall'),
   W('wall2-north', 1, [6, -22], 25, 'north', 'North Wall'),
   { id: 'crew-gates2', tier: 1, pos: [21, 5], crew: 6, icon: 'shield', label: 'Gate Guards', requires: ['wall2-south', 'wall2-east', 'wall2-west'], posts: true, postTier: 1, desc: 'Six archers take posts beside the new gates.', toast: 'Archers now watch the new gates.' },
   { ...T('tower-1-nw', 1, [-26.2, -22.2], 25, [-30, -26]), requires: ['expand1'] },
@@ -1040,6 +1067,27 @@ export const PADS = [
   // never had anything to do with a guard -- and this ticket adds a pad that really is one, two mats
   // away. Two pads called Royal Guard and King's Guard, one of them an HP buff, is a trap.
   { id: 'crown', tier: 1, pos: [-12, -21], cost: 35, growth: 25, maxBuys: 3, icon: 'crown', label: 'Royal Armour', requires: ['expand1'], repeatable: true, effect: 'kinghp', desc: 'King max HP +80 and a full heal.', toast: 'King max HP +80 and fully healed' },
+  // #82: the Stable. The Warhorse used to be a bare tier-0 mat at [-21, 5] with no building behind
+  // it: 25 coins once, and the King's speed never moved again for thirty nights. Now the horse comes
+  // from a building, like the archers from the Range, and the building keeps giving -- training on
+  // a rising price (#82) and horses for the army (#117). It is the fourth building and the citadel
+  // was sized for three (see TIERS), and a paddock needs more ground than a hall does, so it stands
+  // in the west strip between the citadel and the town wall, north of the west road: the widest open
+  // ground inside the walls once the town is walled, right outside the citadel's west gate. That
+  // makes it tier 1, which is where the King's own line already lives (Royal Armour, the Guard).
+  // The mats sit on the road's north shoulder in front of the yard and beside it: the citadel ring
+  // crosses x -18.4 here, the town wall stands at -30, and a mat is 3.6 across, so there is room for
+  // two in front and a column of them down the west side. `tools/layout/check.mjs` has the numbers.
+  { id: 'stable', tier: 1, pos: [-22.8, -4.7], cost: 15, icon: 'horse', label: 'Stable', requires: ['expand1'], structure: 'stable', buildAt: [-22.8, -12.4], desc: 'A stable and a paddock. The horse comes from here, and so does everything that makes it faster.', toast: 'Stable built! Now for a horse.' },
+  { id: 'warhorse', tier: 1, pos: [-22.8, -4.7], cost: 20, icon: 'horse', label: 'Warhorse', requires: ['stable'], effect: 'horse', desc: 'The King rides: much faster around the map.', toast: 'The King rides! Much faster now.' },
+  { id: 'train-horse', tier: 1, pos: [-27.7, -4.7], cost: 15, growth: 10, maxBuys: 4, icon: 'horse', label: 'Train the Horse', requires: ['warhorse'], repeatable: true, effect: 'horseSpeed', desc: 'Every horse, now and later, runs faster. All four levels: a third again on the King, and on every soldier who rides.', toast: 'The horses are trained: faster, every one.' },
+  // #117: the yard. A horse bought here stands in the paddock; the mat below puts a swordsman on
+  // one, and the horse walks out of the yard to him. `maxBuys` is the yard's size and never comes
+  // back, because a horse is never lost -- when its rider falls it walks home and is there to spend
+  // again. Down the west side of the block, a column of two, so the yard has its mats beside it the
+  // way the Range has the archers' beside it.
+  { id: 'stable-horse', tier: 1, pos: [-27.7, -9], cost: 18, growth: 6, maxBuys: 4, icon: 'horse', label: 'A Horse for the Yard', requires: ['stable'], repeatable: true, effect: 'stableHorse', desc: 'Another horse in the paddock. Every horse standing there is a swordsman you can put on horseback.', toast: 'A new horse in the yard.' },
+  { id: 'mount', tier: 1, pos: [-27.7, -13.2], cost: 8, icon: 'swordsman', label: 'Mount a Swordsman', requires: ['stable-horse'], repeatable: true, effect: 'mount', desc: 'A horse leaves the yard for a swordsman on the grounds. He rides half again as fast and patrols the ring of posts instead of standing at one. When he falls, the horse walks home.', toast: 'A horse leaves the yard for its rider.' },
   // #116: the retinue. Soldiers promoted here leave the grounds and stand with the King instead, so
   // this is a real choice rather than a free upgrade -- every guard is a soldier taken off the walls.
   { id: 'guard', tier: 1, pos: [-5.4, 15.4], cost: 26, growth: 18, maxBuys: 4, icon: 'shield', label: "King's Guard", requires: ['barracks'], repeatable: true, effect: 'guard', desc: 'Two soldiers leave their posts and march with the King wherever he goes. The rest of the army holds the grounds.', toast: 'Two soldiers join the King\u2019s Guard' },
