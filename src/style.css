@@ -245,11 +245,13 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #699a3f; f
 .panel .irow, .panel .irow *,
 .panel .ichip, .panel .info-note, .panel .ks-need, .panel .ks-track { text-shadow: none; }
 
+/* #170: outside the corner, on a dark disc with the frame's wood round it -- the reference's close */
 .panel .panel-x {
-  position: absolute; top: -4px; right: -2px; width: 44px; height: 44px;
-  border-radius: 50%; border-bottom: 0; margin: 0;
-  display: grid; place-items: center; border: 0; background: none; cursor: pointer; padding: 0;
-  color: var(--ink); font-size: 30px; line-height: 1; font-weight: 700;
+  position: absolute; top: -18px; right: -14px; width: 46px; height: 46px; z-index: 2;
+  border-radius: 50%; margin: 0;
+  display: grid; place-items: center; border: 2px solid #6b4a27; background: #182a22; cursor: pointer; padding: 0;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  color: var(--ink); font-size: 28px; line-height: 1; font-weight: 700;
   font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
   text-shadow: 0 1px 2px rgba(0,0,0,0.6); -webkit-text-stroke: 0;
   -webkit-tap-highlight-color: transparent; transition: transform 0.12s ease-out, color 0.12s ease-out;
@@ -257,24 +259,96 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #699a3f; f
 .panel .panel-x:active { transform: scale(0.85); color: #fff; }
 .panel.info .panel-x, .panel.keep-sheet .panel-x { position: sticky; float: right; top: 0; margin: -8px -8px 0 0; }
 
-/* No background, no border, no box. The width caps that remain are not a card -- they are line
-   length, which is the one thing a full-width paragraph on a desktop monitor genuinely loses. */
+/* #170: the framed window. The owner supplied a set of designs and this is the one component under
+   all of them: a dark green panel with a wooden frame, bracket corners, a hexagonal wooden badge on
+   the top edge carrying the window's glyph, a round close outside the corner, one gold call to
+   action and dark rows for the rest.
+   This REVERSES #135's "no background, no border, no box". That decision was right for the panel it
+   had -- light text on a blurred photograph needs shadows, not a card -- and the reference is a solid
+   window, so the text-shadow that held the type over a changing world comes off with it: the surface
+   is fixed now. The width cap stays for the reason it had: it is line length, not a card.
+   Everything here is CSS -- gradients, a clip-path, borders. The title screen is measured in bytes to
+   a clickable Play and the house rule holds for every window: ornament that arrives as a request costs
+   the thing it decorates. */
 .panel {
-  background: none; border: 0; box-shadow: none; border-radius: 0;
-  padding: 28px 24px; max-width: 30rem; width: calc(100% - 36px); text-align: center;
+  background: linear-gradient(180deg, rgba(31, 52, 42, 0.95), rgba(19, 34, 28, 0.975));
+  border: 2px solid #6b4a27; border-radius: 12px;
+  box-shadow: inset 0 0 0 1px rgba(255, 224, 160, 0.09), inset 0 0 48px rgba(0, 0, 0, 0.42), 0 14px 34px rgba(0, 0, 0, 0.5);
+  padding: 30px 22px 22px; max-width: 30rem; width: calc(100% - 36px); text-align: center;
   position: relative; color: var(--ink);
-  /* light text on a blurred photograph of the game, not on a flat panel: the world behind moves
-     between runs and materials, and a diamond-age village blurs much lighter than grass */
-  text-shadow: 0 1px 0 rgba(0,0,0,0.55), 0 2px 10px rgba(0,0,0,0.65);
+  text-shadow: none;
 }
+/* the bracket corners: eight gradient strips, two per corner, on a pseudo-element inset from the
+   frame so they read as fittings on the wood rather than as a second border */
+.panel::before {
+  content: ''; position: absolute; inset: 5px; pointer-events: none; border-radius: 7px; --c: #c99a4e;
+  background:
+    linear-gradient(var(--c), var(--c)) top left / 22px 3px no-repeat,
+    linear-gradient(var(--c), var(--c)) top left / 3px 22px no-repeat,
+    linear-gradient(var(--c), var(--c)) top right / 22px 3px no-repeat,
+    linear-gradient(var(--c), var(--c)) top right / 3px 22px no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom left / 22px 3px no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom left / 3px 22px no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / 22px 3px no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / 3px 22px no-repeat;
+}
+/* the title screen keeps the world behind it; its own ticket (#175) decides its treatment */
+.panel.title { background: none; border: 0; box-shadow: none; }
+.panel.title::before { content: none; }
+/* #170: the badge on the top edge. `badged` on the panel makes the room: the hexagon overhangs by
+   36px, so the panel starts lower and the content starts lower still. The hexagon is a clip-path on
+   the inner `.hex` and not on the badge itself, because a clip-path cuts the drop shadow off with
+   everything else; the shadow lives on the outer box. The two leaves are the outer box's pseudo
+   elements: an ellipse with two square corners is a leaf at this size. */
+.panel.badged { margin-top: 34px; padding-top: 46px; }
+.panel-badge {
+  position: absolute; top: -36px; left: 50%; transform: translateX(-50%); width: 78px; height: 70px;
+  filter: drop-shadow(0 5px 6px rgba(0, 0, 0, 0.55)); pointer-events: none; z-index: 1;
+}
+.panel-badge .hex {
+  position: absolute; inset: 0; display: grid; place-items: center; color: var(--accent);
+  background: linear-gradient(180deg, #a8783f 0%, #7d5528 55%, #5a3a19 100%);
+  clip-path: polygon(50% 0, 96% 25%, 96% 75%, 50% 100%, 4% 75%, 4% 25%);
+}
+.panel-badge .hex::before {
+  content: ''; position: absolute; inset: 4px; pointer-events: none;
+  background: linear-gradient(180deg, #8c6234, #6b4520);
+  clip-path: polygon(50% 0, 96% 25%, 96% 75%, 50% 100%, 4% 75%, 4% 25%);
+}
+.panel-badge .hex .icon { position: relative; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5)); }
+.panel-badge::before, .panel-badge::after {
+  content: ''; position: absolute; top: 30px; width: 26px; height: 13px; background: linear-gradient(90deg, #5f9a3a, #8cc45a);
+  border-radius: 0 100% 0 100%; box-shadow: 0 1px 2px rgba(0,0,0,0.4);
+}
+.panel-badge::before { left: -22px; transform: rotate(-28deg); }
+.panel-badge::after { right: -22px; transform: rotate(28deg) scaleX(-1); }
 /* #135: the heading was orange with a 1px stroke and a hard gold drop under it -- enough ornament
    that it read as a different typeface from everything around it, which is what was reported. It is
-   the same Baloo 2 it always was; what went is the costume. Panel text colour, one soft shadow to
-   hold it over a blurred world, and the size does the emphasis. */
+   the same Baloo 2 it always was; what went is the costume.
+   #170: cream on the dark window, the reference's colour, and a hairline under it that fades out at
+   both ends -- the rule the reference draws between the title block and the content. */
 .panel h1 {
-  font-size: 40px; color: var(--ink); -webkit-text-stroke: 0;
-  text-shadow: 0 2px 10px rgba(0,0,0,0.55); margin-bottom: 12px;
+  font-size: 38px; color: #f4ead0; -webkit-text-stroke: 0;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.45); margin-bottom: 8px;
 }
+.panel h1::after {
+  content: ''; display: block; height: 1px; width: 62%; margin: 8px auto 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 214, 122, 0.5) 25%, rgba(255, 214, 122, 0.5) 75%, transparent);
+}
+.panel.title h1::after { content: none; }
+/* #170: the stat box -- an inset darker box of `icon · label …… value` rows, the reference's way of
+   saying how a run went. `stat-row b` is the value, pushed to the right edge. */
+.panel .stat-box {
+  background: rgba(0, 0, 0, 0.26); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 12px;
+  padding: 4px 14px; margin: 14px 0 16px; text-align: left;
+}
+.panel .stat-row {
+  display: flex; align-items: center; gap: 10px; padding: 9px 2px; font-size: 15px; font-weight: 700; color: var(--ink);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.panel .stat-row:last-child { border-bottom: 0; }
+.panel .stat-row .icon { flex: 0 0 22px; opacity: 0.9; }
+.panel .stat-row b { margin-left: auto; font-size: 17px; color: #fff; font-weight: 800; }
 .panel p { color: var(--ink); margin-bottom: 14px; line-height: 1.4; }
 .panel .hint { font-size: 13px; color: var(--ink-dim); }
 .panel .best { font-size: 14px; color: var(--ink-dim); margin-top: 14px; margin-bottom: 0; }
@@ -301,7 +375,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #699a3f; f
      preferred. It is not quite the skip button's own numbers: at 9px vertical that button measured
      43px tall, a pixel under the 44 a thumb wants, so 10 buys the target back for every button
      including that one. Measured: 47px for an 18px CTA, 45px for the 16px skip. */
-  padding: 10px 18px; color: var(--btn-ink);
+  padding: 12px 18px; color: var(--ink);
   /* #135: 18, not 22, and not four sizes. The button carried 22px here, 21 on the title screen and
      20 on two of the sheets -- four figures for what is meant to be ONE component, which is the
      drift this ticket exists about, in miniature. 18 is 1.125x the panel's 16px body: enough to be
@@ -309,11 +383,16 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #699a3f; f
      The height is the thumb target and it comes from the padding, not the type: 13px top and bottom
      puts this at about 48px, which is over the 44 a thumb wants. Shrinking the type does not shrink
      the target. */
-  font-size: 18px; font-weight: 800; font-style: italic;
+  font-size: 18px; font-weight: 800; font-style: normal;
   text-shadow: 0 1px 2px rgba(0,0,0,0.6); -webkit-text-stroke: 0;
-  box-shadow: 0 5px 16px rgba(0,0,0,0.38);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.38), 0 6px 14px rgba(0, 0, 0, 0.3);
   transition: border-color 0.12s ease-out, box-shadow 0.12s ease-out, transform 0.1s ease-out;
 }
+/* #170: the reference stacks its buttons full width. Direct children of the panel only -- the offer
+   cards, the intro row and the sheets lay their buttons out their own way. */
+.panel > button { width: 100%; margin: 0 0 10px; }
+.panel > button:last-child { margin-bottom: 0; }
+.panel button .icon { flex: 0 0 auto; }
 .panel button:hover { border-color: rgba(255, 255, 255, 0.45); }
 /* #135: the press IS the selected state. The old button said "button" with a gold frame and a
    diamond at each end on every single one of them, so the ornament was spent on the resting state
@@ -325,7 +404,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #699a3f; f
    makes, so that is where the emphasis goes. */
 .panel button:active {
   transform: translateY(1px);
-  border: 3px solid var(--accent); padding: 8.5px 16.5px;
+  border: 3px solid var(--accent); padding: 10.5px 16.5px;
   box-shadow: 0 0 0 1px rgba(0,0,0,0.55), 0 0 15px 2px rgba(255, 210, 74, 0.55),
               inset 0 0 12px rgba(0,0,0,0.6);
 }
@@ -336,13 +415,14 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #699a3f; f
    looking. The PRIMARY action takes the accent edge at rest instead. One per panel, so the emphasis
    still means "this one" and not "this is a button" -- which is what went wrong when every button
    wore the frame. */
+/* #170: the gold tab. Dark ink on a gold gradient with a hard bevel under it -- the one button on
+   any window wearing the colour, which is what makes it the call to action. */
 .panel button.primary {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.45), 0 0 14px rgba(255, 210, 74, 0.28), 0 5px 16px rgba(0,0,0,0.38);
+  background: linear-gradient(180deg, #ffdd6a 0%, #f2ab1e 58%, #d68a0c 100%);
+  border-color: #8a5a10; color: #3a2408; text-shadow: 0 1px 0 rgba(255, 240, 190, 0.55);
+  box-shadow: 0 3px 0 #7a4d0c, 0 6px 14px rgba(0, 0, 0, 0.35);
 }
-.panel button.primary:hover {
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.45), 0 0 19px rgba(255, 210, 74, 0.45), 0 5px 16px rgba(0,0,0,0.38);
-}
+.panel button.primary:hover { border-color: #a8701a; box-shadow: 0 3px 0 #7a4d0c, 0 0 16px rgba(255, 210, 74, 0.35), 0 6px 14px rgba(0, 0, 0, 0.35); }
 
 /* not "the same button, fainter": unavailable is its own material -- no fill of its own, a fainter
    edge and a muted label, so it never reads as something that would work if you pressed harder. */

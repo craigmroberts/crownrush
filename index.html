@@ -429,7 +429,9 @@
       </div>
     </div>
     <div id="pause-screen" class="overlay hidden">
-      <div class="panel">
+      <!-- #170: the badge is the window's glyph on the top edge; `badged` makes the room for it -->
+      <div class="panel badged">
+        <div class="panel-badge"><span class="hex"><i data-icon="pause" data-size="32"></i></span></div>
         <button class="panel-x" id="pause-x" aria-label="Close" title="Close">&times;</button>
         <h1>Paused</h1>
         <p class="hint">Press P or Esc to resume</p>

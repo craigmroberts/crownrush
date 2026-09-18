@@ -502,19 +502,30 @@ line.
 ## The buttons, and the palette they come from
 
 One rule paints every call to action in the game -- Play, Continue, Play Again, Next, Back to the
-game -- so the treatment is decided once. It is a **near-black fill with a hairline edge and an
-italic label**: no frame, no ornament, **no glyph**, nothing to say "button" except being one. The
-icons went with the frame (#135) -- a crown on Continue and a leaf on Play were the last of the
-decoration, and a word a player is about to tap does not need illustrating.
+game -- so the treatment is decided once. **#170 repainted it to the owner's window designs**: a
+button is a dark green row with a hairline edge, an icon on the left where it has one, and an upright
+bold label; the **primary** action of a panel -- one per panel -- is the same row in **gold**, dark
+ink on a gold gradient with a hard bevel under it, so it is the one thing on the window wearing the
+colour. Direct children of a panel stack full width, the way the reference stacks them; the offer
+cards, the intro row and the sheets lay theirs out their own way.
 
-That is a repaint (#135). It was a gold frame on a dark fill with a rotated diamond at each end, and
-the frame was the affordance -- which meant every button in the game had to wear the full ornament to
-read as one, and a panel offering three of them had no way left to say *this one*. The emphasis moved
-to where it can mean something:
+The window itself is the same ticket: a dark green panel with a wooden frame and bracket corners
+(eight gradient strips on one pseudo-element), a hexagonal wooden badge on the top edge carrying the
+window's glyph with a leaf either side (`.panel.badged` makes the room; the hexagon is a clip-path on
+an inner box so the shadow survives), a cream title over a hairline that fades at both ends, an inset
+stat box of `icon · label …… value` rows for the endings, and a round close on a dark disc outside the
+top-right corner. **This reverses #135's "no background, no border, no box"**: that was right for
+light text on a blurred photograph, and the reference is a solid window, so the text-shadow that held
+the type over a changing world came off with it. All of it is CSS; nothing arrives as a request. The
+title screen keeps the world behind it until its own ticket (#175) decides.
 
-- **The primary action** of a panel -- one per panel -- takes the accent edge with a soft glow at
-  rest. Play is findable on the title screen without looking, which is the one thing the old frame
-  genuinely did well.
+Before #170 the buttons were #135's repaint: a near-black fill with a hairline edge and an italic
+label, no glyph, after a gold frame with a rotated diamond at each end had made every button wear the
+full ornament and left a panel offering three of them no way to say *this one*. The emphasis that
+ticket moved is still where it put it:
+
+- **The primary action** of a panel -- one per panel -- is the one in gold. Play is findable on the
+  title screen without looking, which is the one thing the old frame genuinely did well.
 - **The press** takes a heavier accent ring. `:hover` is a state a touchscreen never enters and this
   game is played with a thumb, so an affordance that only appears on hover is one that never appears
   at all -- #121 learned that on the reward cards. A press is the one gesture a thumb always makes.
