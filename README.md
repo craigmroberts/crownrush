@@ -74,6 +74,17 @@ the raids keep coming for a high score.
   `anisotropy: 4`, because the far half of every frame is ground seen at 45 degrees and without it the
   speckle turns to porridge fifteen units out.
 
+  **The tile period is broken now** (#162). At 11.9 units a frame held three copies of the same tile,
+  which is where the eye starts reading a field as wallpaper, and it is why the earth patches had to
+  be kept faint. The standard cure, done in a hook on the ground's standard material so lighting, fog
+  and the daylight tint keep working: the same tile sampled a second time at a different scale, and
+  the two mixed by a 128px mask of soft blobs whose period is about 135 units -- four frames wide --
+  so within any one frame the ground is unique. No second image, no second upload, no extra draw.
+  And the tufts are **dark at the root**: the contact-shadow pass skips the grass (its bounding box
+  is the whole map), so a tuft met the ground with no contact at all. It is a colour attribute on the
+  blade, 0.5 at the base to 1.0 at the tip, multiplied by the per-tuft green the shader already
+  applies -- 13,000 discs would have been the other way, and this costs nothing per frame.
+
   The tufts themselves are **seven blades for the price of three**: the cones were closed, and a
   cone's base cap faces straight down at ground level where nothing can ever see it, so open-ending
   them halved the cost per blade. A seven-blade clump is 21 triangles where the old three-blade one

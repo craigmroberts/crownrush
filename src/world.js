@@ -204,6 +204,62 @@ function groundTexture() {
   return tex;
 }
 
+// #162: the ground texture's remaining limit was not detail, it was TILING. At repeat 16 over 190
+// units the tile is 11.9 world units and the camera sees about 35, so every frame held three copies
+// of the same tile, which is where the eye starts reading a field as wallpaper -- and it is why the
+// earth patches in `groundTexture` are kept faint, because anything with an edge announces the
+// repeat. This is the standard cure: the same tile sampled a second time at a different scale, and
+// the two mixed by a mask sampled at a third, much larger one. The three periods never line up, so
+// within any 35-unit frame the ground is unique.
+//
+// The mask is 128px of soft blobs at repeat 1.4 -- a period of about 135 units, four times the frame
+// -- so the mixing itself never repeats in view. The second sample is the tile at repeat 5.9 (a
+// 32-unit period). Both are the same texture: no second image to download, no second upload.
+//
+// A hook on the standard material rather than a ShaderMaterial, so lighting, fog, shadows and the
+// daylight tint on `groundMat.color` all keep working untouched. Its own program cache key, because
+// this is the difference between two shaders that three.js cannot see (#155 was that mistake).
+function maskTexture() {
+  const S = 128;
+  const c = document.createElement('canvas');
+  c.width = S;
+  c.height = S;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, S, S);
+  const r = rng(7);
+  for (let i = 0; i < 14; i++) {
+    const x = r() * S;
+    const y = r() * S;
+    const rad = 18 + r() * 30;
+    // radial falloff, drawn wrapped so the mask tiles without a seam
+    for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) {
+      const g = ctx.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, rad);
+      g.addColorStop(0, 'rgba(255,255,255,0.85)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(x + ox - rad, y + oy - rad, rad * 2, rad * 2);
+    }
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+function breakTiling(m) {
+  const mask = maskTexture();
+  m.customProgramCacheKey = () => 'ground-untiled';
+  m.onBeforeCompile = (shader) => {
+    shader.uniforms.uMask = { value: mask };
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform sampler2D uMask;')
+      .replace('#include <map_fragment>', `
+        vec4 sampledDiffuseColor = texture2D( map, vMapUv );
+        vec4 sampledDiffuseColor2 = texture2D( map, vMapUv * 0.37 + vec2( 0.13, 0.41 ) );
+        float untile = texture2D( uMask, vMapUv * 0.0875 ).r;
+        diffuseColor *= mix( sampledDiffuseColor, sampledDiffuseColor2, untile );`);
+  };
+}
+
 // `soleShadows` is true when nothing else casts -- see the contact-shadow block below for what it
 // changes and why it has to be told rather than worked out here.
 export function buildWorld(scene, soleShadows = false) {
@@ -215,6 +271,7 @@ export function buildWorld(scene, soleShadows = false) {
   // ---- ground ----
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshStandardMaterial({ map: groundTexture(), color: 0xffffff, roughness: 1 }));
   world.groundMat = ground.material;
+  breakTiling(ground.material);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
@@ -510,6 +567,21 @@ export function buildWorld(scene, soleShadows = false) {
     const h = 0.42 + (i % 3) * 0.16;
     const b = new THREE.ConeGeometry(0.055, h, 3, 1, true);
     b.translate(0, h * 0.5, 0);
+    // #162: dark at the root, full colour at the tip, written into the vertices. The contact-shadow
+    // pass skips the grass (its bounding box is the whole map), so a tuft met the ground with no
+    // contact at all -- a bright stalk standing on a bright lawn. A disc per tuft would have been
+    // 13,000 more instances; this is a colour attribute the shader already multiplies by, and costs
+    // nothing per frame. Read off `y` here, before the lean below tilts the blade, so the root is the
+    // root whichever way it leans. 0.5 at the base: measured against 0.35 (mud) and 0.65 (nothing).
+    {
+      const pos = b.attributes.position;
+      const col = new Float32Array(pos.count * 3);
+      for (let v = 0; v < pos.count; v++) {
+        const k = 0.5 + 0.5 * Math.min(1, pos.getY(v) / h);
+        col[v * 3] = col[v * 3 + 1] = col[v * 3 + 2] = k;
+      }
+      b.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    }
     b.rotateX(((i % 3) - 1) * 0.42);       // lean, pivoting on the root rather than the middle
     b.rotateY(i * 1.63);
     const a = i * 2.39996;                 // golden angle
@@ -545,7 +617,8 @@ export function buildWorld(scene, soleShadows = false) {
   // with `USE_INSTANCING_COLOR` and the wheat's does not, and the difference between two shaders
   // being handed the same program is silent.
   const tufts = new THREE.InstancedMesh(tuftGeo, swayMaterial(0xffffff), TUFTS);
-  tufts.material.customProgramCacheKey = () => 'sway-tinted';
+  tufts.material.vertexColors = true;   // #162: the root darkening above
+  tufts.material.customProgramCacheKey = () => 'sway-tinted-rooted';
   // Flowers carry more of the lushness than their number suggests, so there are four times as many
   // and each is cheaper: 5 by 3 segments is 20 triangles against the old 6 by 5's 48, and at this
   // size nobody has ever counted the facets on a daisy.
