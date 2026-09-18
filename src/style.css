@@ -336,6 +336,9 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #699a3f; f
   background: linear-gradient(90deg, transparent, rgba(255, 214, 122, 0.5) 25%, rgba(255, 214, 122, 0.5) 75%, transparent);
 }
 .panel.title h1::after { content: none; }
+/* #172: the line under an ending's headline -- the reason in words, dim, before the stat box */
+.panel .sub { font-size: 14px; color: var(--ink-dim); margin: -2px 0 6px; line-height: 1.4; }
+.panel .stat-box + .hint { margin-top: -8px; }
 /* #171: the one line under a window's title -- `☾ Night 3 · ★ Score 939` -- glyphs and figures on one
    row, the reference's way of saying where the run is without a stat box. */
 .panel .meta {

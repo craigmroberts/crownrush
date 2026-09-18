@@ -110,6 +110,7 @@ export const SaveMethods = {
       wallLevel: this.wallLevel,
       coinsCarried: this.coinsCarried,
       coinsEarned: this.coinsEarned,
+      kills: this.kills,   // #172: additive, no VERSION bump -- an older save restores as 0
       score: this.score,
       res: { ...this.res },
       archerPower: this.archerPower,
@@ -263,6 +264,7 @@ export const SaveMethods = {
     this.wallLevel = s.wallLevel;
     this.coinsCarried = s.coinsCarried;
     this.coinsEarned = s.coinsEarned;
+    this.kills = s.kills || 0;
     this.score = s.score;
     this.res = { ...this.res, ...s.res };
     this.archerPower = s.archerPower;

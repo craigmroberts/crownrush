@@ -361,6 +361,7 @@ export class Game {
     this.settingsPaused = false;
     this.coinsCarried = 0; // the starting coins lie on the ground (#20): picking them up is the first thing you do
     this.coinsEarned = 0;
+    this.kills = 0;        // #172: raiders defeated this run, for the ending's stat box
     this.archerPower = 0;
     this.rankSeen = {};
     this.typeSeen = {};
@@ -813,7 +814,7 @@ export class Game {
       // #58: the pills on the end screen say what Play Again will start, which is the stored preference
     // rather than this run's length -- they differ after a Continue, where the run being finished is
     // whatever was saved and the next one is whatever the player last chose.
-    this.hud.showGameOver(this.baseLevel, this.coinsEarned, this.score, this.bestScore, reason, readLength(), this.legacyProgress());
+    this.hud.showGameOver(this.baseLevel, this.coinsEarned, this.score, this.bestScore, reason, readLength(), this.legacyProgress(), this.wave, this.kills);
   }
 
   victory() {
@@ -828,7 +829,7 @@ export class Game {
     this.saveScore();
     this.recordRun('won');
     const legacy = this.legacyProgress();
-    setTimeout(() => this.hud.showVictory(this.coinsEarned, this.units.length - 1 + this.turrets.length, this.score, readLength(), legacy), 600);
+    setTimeout(() => this.hud.showVictory(this.coinsEarned, this.units.length - 1 + this.turrets.length, this.score, readLength(), legacy, this.wave, this.kills), 600);
   }
 
   addScore(n) {

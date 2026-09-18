@@ -280,12 +280,23 @@
     </div>
 
     <div id="gameover-screen" class="overlay hidden">
-      <div class="panel">
+      <!-- #172: the reference's ending. The headline is still the sentence for how it ended; under it
+           one line of why, then the stat box -- night, Keep level, score, gold, raiders defeated --
+           and Try Again in gold over Main Menu. "Villagers lost" from the reference is not a number
+           this game has (villagers flee, they do not die), so the row is the Keep level, which is
+           what a run loses. -->
+      <div class="panel badged">
+        <div class="panel-badge"><span class="hex"><i data-icon="skull" data-size="32"></i></span></div>
         <h1 id="gameover-title">The King Has Fallen</h1>
-        <!-- #119: level, then points. The night you reached was the headline here and it is no longer
-             the number the game keeps score in anywhere else. -->
-        <p>You got as far as <strong id="final-level">Lv. 1</strong> and earned <strong id="final-coins">0</strong> coins.</p>
-        <p class="score">Score <strong id="final-score">0</strong> <span class="hint">· best <span id="final-best">0</span></span></p>
+        <p class="sub" id="gameover-sub">The raiders have the field.</p>
+        <div class="stat-box">
+          <div class="stat-row"><i data-icon="moon" data-size="20"></i>Night reached<b id="final-night">1</b></div>
+          <div class="stat-row"><i data-icon="keep" data-size="20"></i>Keep<b id="final-level">Lv. 1</b></div>
+          <div class="stat-row"><i data-icon="star" data-size="20"></i>Score<b id="final-score">0</b></div>
+          <div class="stat-row"><i data-icon="coin" data-size="20"></i>Gold collected<b id="final-coins">0</b></div>
+          <div class="stat-row"><i data-icon="swords" data-size="20"></i>Raiders defeated<b id="final-kills">0</b></div>
+        </div>
+        <p class="hint">Best score <span id="final-best">0</span></p>
         <!-- #58: the length Play Again will use, changeable here. The end of a run is the one moment a
              player knows what the last one cost them, and the title screen is shown once at load and
              never again -- so without this, changing length meant reloading the page. -->
@@ -293,7 +304,8 @@
              something, so it goes above Play Again rather than below it. -->
         <div id="over-legacy" class="legacy hidden"></div>
         <div id="over-length" class="seg length-pick" role="radiogroup" aria-label="Run length"></div>
-        <button class="primary" id="restart-btn">Play Again</button>
+        <button class="primary" id="restart-btn"><i data-icon="restart" data-size="20"></i><span>Try Again</span></button>
+        <button id="over-menu"><i data-icon="door" data-size="20"></i><span>Main Menu</span></button>
       </div>
     </div>
 
@@ -447,18 +459,28 @@
     </div>
 
     <div id="victory-screen" class="overlay hidden">
-      <div class="panel">
+      <!-- #173: the reference's victory, same box as the ending with the army in the row the reference
+           gives to villagers saved. Keep Playing stays the gold one: it is what Continue means here. -->
+      <div class="panel badged">
+        <div class="panel-badge"><span class="hex"><i data-icon="crown" data-size="32"></i></span></div>
         <h1>The War Is Over</h1>
-        <p>The Warlord is dead and the raiders are scattered. Wren stands on her own wall again. You marched with an army of <strong id="victory-army">0</strong> and earned <strong id="victory-coins">0</strong> coins.</p>
-        <p class="score">Score <strong id="victory-score">0</strong></p>
+        <p class="sub">The Warlord is dead and the raiders are scattered. Wren stands on her own wall again.</p>
+        <div class="stat-box">
+          <div class="stat-row"><i data-icon="moon" data-size="20"></i>Night reached<b id="victory-night">1</b></div>
+          <div class="stat-row"><i data-icon="star" data-size="20"></i>Score<b id="victory-score">0</b></div>
+          <div class="stat-row"><i data-icon="coin" data-size="20"></i>Gold collected<b id="victory-coins">0</b></div>
+          <div class="stat-row"><i data-icon="archer" data-size="20"></i>Marched with<b id="victory-army">0</b></div>
+          <div class="stat-row"><i data-icon="swords" data-size="20"></i>Raiders defeated<b id="victory-kills">0</b></div>
+        </div>
         <p class="hint">Stragglers will keep coming at night. Keep going for a high score?</p>
-        <button class="primary" id="continue-btn">Keep Playing</button>
+        <button class="primary" id="continue-btn"><i data-icon="play" data-size="20"></i><span>Keep Playing</span></button>
         <!-- #58: and here especially. Winning a fifteen-night run is the moment the thirty-night one
              is meant to be graduated to, so the choice belongs beside "Start over" rather than back
              on a title screen this session will not show again. -->
         <div id="victory-legacy" class="legacy hidden"></div>
         <div id="victory-length" class="seg length-pick" role="radiogroup" aria-label="Run length"></div>
-        <p class="best"><a href="#" id="victory-restart">Start over</a></p>
+        <button id="victory-restart"><i data-icon="restart" data-size="20"></i><span>Start Over</span></button>
+        <button id="victory-menu"><i data-icon="door" data-size="20"></i><span>Main Menu</span></button>
       </div>
     </div>
 

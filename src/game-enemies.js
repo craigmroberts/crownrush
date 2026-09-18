@@ -1217,6 +1217,7 @@ export const EnemiesMethods = {
 
   killEnemy(e, from = null) {
     this.enemies.splice(this.enemies.indexOf(e), 1);
+    this.kills++;   // #172: every death path comes through here, so this is the one place to count
     if (e.escort && this.queen.taken && !this.enemies.some((x) => x.escort)) this.rescueTaken();
     e.bar.visible = false;
     this.fell(e.mesh, from, 0.5);

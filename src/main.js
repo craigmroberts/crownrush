@@ -189,10 +189,16 @@ document.getElementById('continue-run-btn').addEventListener('click', () => {
 });
 document.getElementById('restart-btn').addEventListener('click', () => game.start());
 document.getElementById('continue-btn').addEventListener('click', () => game.resume());
-document.getElementById('victory-restart').addEventListener('click', (e) => {
-  e.preventDefault();
-  game.start();
-});
+document.getElementById('victory-restart').addEventListener('click', () => game.start());
+// #172/#173: Main Menu from an ending. The run is already over and written down, so this is the
+// pause window's Quit with nothing to save: the world stops with nothing over it and the title is
+// redrawn.
+for (const id of ['over-menu', 'victory-menu']) {
+  document.getElementById(id).addEventListener('click', () => {
+    game.quitToMenu();
+    refreshStart();
+  });
+}
 
 document.getElementById('next-wave-btn').addEventListener('click', () => game.callWave());
 // #145: only while the map exists. `hud.minimap` is null when it is parked, and a listener on a

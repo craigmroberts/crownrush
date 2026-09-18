@@ -531,6 +531,17 @@ world and redraws the title screen, so Continue picks the run up from where it w
 from the last dawn. Driven: Settings out and back keeps the pause; two taps restart with the score
 at 0; quit saves score 650, shows the title with Continue, and Continue comes back running at 650.
 
+**The two endings** (#172, #173) take the reference's shape: a skull or a crown on the badge, the
+headline the game already had for how it ended (*The King Has Fallen*, *They Carried Wren Away*,
+*The War Is Over*), one dim line of why under it, and the **stat box** -- night reached, Keep level
+(or the army you marched with, on a win), score, gold collected, raiders defeated -- with the best
+score, the legacy block (#56) and the run-length pills (#58) under it, then Try Again or Keep
+Playing in gold over Main Menu. Raiders defeated is a new counter, `kills`, counted in `killEnemy`
+because every death path comes through it, and in the save as an additive field (no `VERSION` bump;
+an older save restores it as 0). The reference's "villagers lost" is not a number this game has --
+villagers flee, they do not die -- so the row is the Keep level, which is what a run loses. Main
+Menu from an ending is the pause window's Quit with nothing left to save.
+
 Before #170 the buttons were #135's repaint: a near-black fill with a hairline edge and an italic
 label, no glyph, after a gold frame with a rotated diamond at each end had made every button wear the
 full ornament and left a panel offering three of them no way to say *this one*. The emphasis that

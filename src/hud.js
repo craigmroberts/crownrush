@@ -644,14 +644,21 @@ export class Hud {
   hideStart() {
     this.startScreen.classList.add('hidden');
   }
-  showGameOver(level, coins, score, best, reason = 'king', len = CFG.defaultLength, legacy = null) {
+  // #172: the reference's ending -- a headline, one line under it, and a stat box. The headline is
+  // still the sentence for how it ended; the line under it is the reason in words.
+  showGameOver(level, coins, score, best, reason = 'king', len = CFG.defaultLength, legacy = null, wave = 0, kills = 0) {
     this.renderLengths(document.getElementById('over-length'), len, true);
     this.renderLegacy(document.getElementById('over-legacy'), legacy, 'end');
     document.getElementById('gameover-title').textContent = reason === 'taken' ? 'They Carried Wren Away' : reason === 'queen' ? 'Wren Is Lost' : 'The King Has Fallen';
+    document.getElementById('gameover-sub').textContent = reason === 'taken'
+      ? 'They got her past the picket, and the war is lost with her.'
+      : reason === 'queen' ? 'Twice taken is once too many.' : 'The raiders have the field.';
+    document.getElementById('final-night').textContent = Math.max(1, wave);
     // #119: a run that ended before the Keep was built has no level to report, and `Lv. 0` is not the
     // sentence to end it on -- the rescue is where it ended, so say that.
     document.getElementById('final-level').textContent = level > 0 ? `Lv. ${level}` : 'the rescue';
-    document.getElementById('final-coins').textContent = coins;
+    document.getElementById('final-coins').textContent = coins.toLocaleString();
+    document.getElementById('final-kills').textContent = kills.toLocaleString();
     document.getElementById('final-score').textContent = score.toLocaleString();
     document.getElementById('final-best').textContent = best.toLocaleString();
     this.overScreen.classList.remove('hidden');
@@ -1247,11 +1254,13 @@ export class Hud {
   hidePause() {
     document.getElementById('pause-screen').classList.add('hidden');
   }
-  showVictory(coins, army, score, len = CFG.defaultLength, legacy = null) {
+  showVictory(coins, army, score, len = CFG.defaultLength, legacy = null, wave = 0, kills = 0) {
     this.renderLengths(document.getElementById('victory-length'), len, true);
     this.renderLegacy(document.getElementById('victory-legacy'), legacy, 'end');
-    document.getElementById('victory-coins').textContent = coins;
+    document.getElementById('victory-night').textContent = Math.max(1, wave);
+    document.getElementById('victory-coins').textContent = coins.toLocaleString();
     document.getElementById('victory-army').textContent = army;
+    document.getElementById('victory-kills').textContent = kills.toLocaleString();
     document.getElementById('victory-score').textContent = score.toLocaleString();
     this.winScreen.classList.remove('hidden');
   }
