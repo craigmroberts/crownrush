@@ -266,7 +266,12 @@ export const SaveMethods = {
     this.night = !!s.night;
     this.duskWarned = !!s.duskWarned;
     this.baseLevel = s.baseLevel;
-    this.tier = s.tier;
+    // NOT `this.tier = s.tier`. The tier is what the expansions below replay: `rebuildVillage` calls
+    // `expand()` for every Expand Village in `built`, from the 0 that `reset()` left, and setting it
+    // from the save first counted each expansion twice -- a tier-1 run came back from every reload
+    // at tier 2, with the outer plot's mats on the field and the army posted to a ring it had never
+    // paid for. Measured: buy Expand Village, save, reload, tier 2. `s.tier` stays in the save as
+    // the record; nothing reads it now.
     this.wallLevel = s.wallLevel;
     this.coinsCarried = s.coinsCarried;
     this.coinsEarned = s.coinsEarned;
