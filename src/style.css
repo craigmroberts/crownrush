@@ -336,6 +336,16 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #699a3f; f
   background: linear-gradient(90deg, transparent, rgba(255, 214, 122, 0.5) 25%, rgba(255, 214, 122, 0.5) 75%, transparent);
 }
 .panel.title h1::after { content: none; }
+/* #171: the one line under a window's title -- `☾ Night 3 · ★ Score 939` -- glyphs and figures on one
+   row, the reference's way of saying where the run is without a stat box. */
+.panel .meta {
+  display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;
+  font-size: 17px; font-weight: 700; color: var(--ink); margin: 6px 0 16px;
+}
+.panel .meta .dot { opacity: 0.45; margin: 0 2px; }
+.panel .meta strong { color: #fff; font-weight: 800; }
+/* a button asked to confirm itself: the row goes red and says so */
+.panel button.armed { background: linear-gradient(180deg, #6a2a2a, #4a1c1c); border-color: #b04a4a; color: #ffd0cc; }
 /* #170: the stat box -- an inset darker box of `icon · label …… value` rows, the reference's way of
    saying how a run went. `stat-row b` is the value, pushed to the right edge. */
 .panel .stat-box {

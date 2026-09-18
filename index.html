@@ -434,10 +434,15 @@
         <div class="panel-badge"><span class="hex"><i data-icon="pause" data-size="32"></i></span></div>
         <button class="panel-x" id="pause-x" aria-label="Close" title="Close">&times;</button>
         <h1>Paused</h1>
-        <p class="hint">Press P or Esc to resume</p>
-        <p class="score">Score <strong id="pause-score">0</strong> <span class="hint">· night <span id="pause-wave">1</span></span></p>
-        <button class="primary" id="resume-btn">Resume</button>
-        <p class="best"><a href="#" id="pause-restart">Restart</a></p>
+        <!-- #171: the reference's one line under the title -- night and score with their glyphs -- and
+             four stacked buttons. Restart asks twice, the way the settings row does: this window is
+             opened casually and one stray tap must not throw away a run. Settings opens the sheet and
+             comes back here; Quit to Menu saves what can be saved and shows the title screen. -->
+        <p class="meta"><i data-icon="moon" data-size="18"></i><span>Night <span id="pause-wave">1</span></span><span class="dot">·</span><i data-icon="star" data-size="18"></i><span>Score <strong id="pause-score">0</strong></span></p>
+        <button class="primary" id="resume-btn"><i data-icon="play" data-size="20"></i><span>Resume</span></button>
+        <button id="pause-restart"><i data-icon="restart" data-size="20"></i><span>Restart</span></button>
+        <button id="pause-settings"><i data-icon="gear" data-size="20"></i><span>Settings</span></button>
+        <button id="pause-quit"><i data-icon="door" data-size="20"></i><span>Quit to Menu</span></button>
       </div>
     </div>
 

@@ -745,6 +745,20 @@ export class Game {
     this.infoOpen = false;
   }
 
+  // #171: Quit to Menu. The run is written down if it can be -- `quietEnoughToSave` is the rule the
+  // dawn save follows and the save carries a live raid (#150), so Continue on the title picks up from
+  // here and not from the last dawn -- then the world stops with nothing over it and the title screen
+  // comes back (main.js redraws it, because that is where its readers live). Both `running` and
+  // `paused` false is the title's own state: `pause` knows it as "nothing to pause".
+  quitToMenu() {
+    if (this.quietEnoughToSave()) this.saveRun();
+    this.fromPause = false;
+    this.paused = false;
+    this.running = false;
+    audio.setActive(false);
+    this.hud.hidePanels();
+  }
+
   togglePause() {
     if (this.paused) this.unpause();
     else this.pause();

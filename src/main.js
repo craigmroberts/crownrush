@@ -204,9 +204,35 @@ if (hud.minimap) {
   });
 }
 document.getElementById('resume-btn').addEventListener('click', () => game.unpause());
-document.getElementById('pause-restart').addEventListener('click', (e) => {
-  e.preventDefault();
-  game.start();
+// #171: Restart asks twice. The pause window is opened casually -- Esc, P, a tab switch -- and one
+// stray tap on it must not throw away a run; the settings row has the same rule for the same reason.
+const pauseRestart = document.getElementById('pause-restart');
+let pauseRestartArmed = 0;
+// Disarmed the moment it fires or the window is left, not only on the timer: a new run paused inside
+// four seconds would otherwise open on a red "Tap again" one tap from throwing itself away.
+const disarmPauseRestart = () => {
+  clearTimeout(pauseRestartArmed);
+  pauseRestartArmed = 0;
+  pauseRestart.classList.remove('armed');
+  pauseRestart.querySelector('span').textContent = 'Restart';
+};
+pauseRestart.addEventListener('click', () => {
+  if (pauseRestartArmed) {
+    disarmPauseRestart();
+    game.start();
+    return;
+  }
+  pauseRestart.classList.add('armed');
+  pauseRestart.querySelector('span').textContent = 'Restart? Tap again';
+  pauseRestartArmed = setTimeout(disarmPauseRestart, 4000);
+});
+document.getElementById('pause-settings').addEventListener('click', () => { disarmPauseRestart(); game.showSettingsFromPause(); });
+// Quit to Menu: the game stops and the title screen is redrawn with whatever the quit saved, so
+// Continue picks the run back up from here.
+document.getElementById('pause-quit').addEventListener('click', () => {
+  disarmPauseRestart();
+  game.quitToMenu();
+  refreshStart();
 });
 document.getElementById('offer-cards').addEventListener('click', (e) => {
   const card = e.target.closest('.offer-card');

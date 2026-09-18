@@ -1221,6 +1221,21 @@ export const ViewMethods = {
     // #94: a pause handed to a screen the sheet opens and expects back. Only the scoreboard returns.
     this.sheetPause = keepPaused && wasPaused;
     if (wasPaused && !keepPaused) this.unpause();
+    // #171: opened from the pause window, so closing goes back to it rather than to a stopped game
+    // with nothing on screen -- the pause was the player's, not the sheet's, and `wasPaused` is false.
+    if (this.fromPause && !keepPaused) {
+      this.fromPause = false;
+      if (this.paused && !this.offer) this.hud.showPause();
+    }
+  },
+
+  // #171: Settings, from the pause window. The pause panel sits above the sheet (#114's z-index),
+  // so it is taken down first and put back by `hideSettings` when the sheet closes.
+  showSettingsFromPause() {
+    if (!this.paused || this.settingsOpen) return;
+    this.hud.hidePause();
+    this.fromPause = true;
+    this.showSettings();
   },
 
   // #94: opened through hideSettings(true), the way How to Play goes, so the sheet's pause survives

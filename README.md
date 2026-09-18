@@ -519,6 +519,18 @@ light text on a blurred photograph, and the reference is a solid window, so the 
 the type over a changing world came off with it. All of it is CSS; nothing arrives as a request. The
 title screen keeps the world behind it until its own ticket (#175) decides.
 
+**The pause window** (#171) is the first of the windows to take the reference's content as well as
+its chrome: the ⏸ badge, *Paused*, one line of `☾ Night 3 · ★ Score 939`, and four stacked buttons.
+**Resume** is the gold one. **Restart asks twice** -- the window is opened casually, by Esc, P or a
+tab switch, and one stray tap must not throw away a run -- and disarms the moment it fires or the
+window is left, not only on its four-second timer. **Settings** opens the sheet and closing it comes
+back *here*, not to a stopped game with nothing on screen (the pause was the player's, not the
+sheet's, so `hideSettings` has to be told). **Quit to Menu** writes the run down if it can -- the same
+`quietEnoughToSave` rule the dawn save follows, and the save carries a live raid -- then stops the
+world and redraws the title screen, so Continue picks the run up from where it was quit rather than
+from the last dawn. Driven: Settings out and back keeps the pause; two taps restart with the score
+at 0; quit saves score 650, shows the title with Continue, and Continue comes back running at 650.
+
 Before #170 the buttons were #135's repaint: a near-black fill with a hairline edge and an italic
 label, no glyph, after a gold frame with a rotated diamond at each end had made every button wear the
 full ornament and left a panel offering three of them no way to say *this one*. The emphasis that
