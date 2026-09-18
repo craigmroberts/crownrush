@@ -163,9 +163,45 @@ the raids keep coming for a high score.
   silent: if three renames the one line the patch rewrites, the replace is a no-op and the game
   renders un-banded with nothing in the console.
 
-  The clover, the flowers and the field stones are **not** banded and sit on the same surface. They
-  come from the `mat()` cache, so banding them bands everything else sharing those colours -- the
-  white flower is `mat(0xffffff)` -- and that is #186's to untangle.
+- **And then the rest of the world** (#186). The same helper and the same constants on every other
+  environment surface: tree trunks, canopies, bushes, rocks, mesas, cliffs, the roads, the wheat, the
+  clover, the field stones, the pebbles and the river bank. Most of it arrives at once, because
+  `bake()` folds nearly every prop onto `BAKED_MAT`/`BAKED_STD` and the canopies onto `BAKED_SWAY`,
+  so banding three singletons carries the bulk of it -- and reaches the built buildings and the
+  procedural character fallbacks too, which is the global change #184 allows rather than an accident.
+  The imported buildings carry their own materials from `props.js` and are untouched, and `GHOST_MAT`
+  is a `MeshLambertMaterial`, which does not even compile the chunk this patches.
+
+  **`mat()` was the hard part, not the shader.** It hands the same object to everyone who asks for a
+  colour and several of those colours are computed at runtime -- a cliff's strata, a building's age
+  palette -- so "band the clover's green" cannot be shown to band only clover. `mat()` takes a
+  `banded` option now: it is stripped before the constructor sees it (three warns about parameters it
+  does not know) and it is part of the cache key, so a banded material is a different entry from an
+  unbanded one of the same colour and nothing can acquire it by accident.
+
+  **Which surfaces are actually on the ramp is measured, not argued.** Walking the scene at
+  `?view=map`: 25 lit materials carrying 512k triangles are banded. `bands-hooked` now asserts that
+  every lit standard material with more than 200 triangles on it is banded, so a surface added later
+  cannot quietly be the one thing left on a smooth ramp -- and the boundary it draws is **where the
+  object lives**: `buildWorld` adds to the scene, everything a run spawns goes under `game.root`,
+  and that line is exactly "environment" against "characters and props". Four things on the scene are
+  exempt by name, each for its own reason: the crowd's meshes and the imported rigs and props (out of
+  scope for #184), the coin field (a gameplay object, not a surface), the chimney smoke (a soft
+  volumetric fake, which hard steps would read as a fault on) and the river (#188's). The last two
+  were given cache keys so the sweep can name them instead of reporting an anonymous white surface --
+  which is also the #155 guard they had been missing.
+
+  **Draw calls do not move**, and that is structural rather than lucky: `mergeGroup` merges by
+  material *identity*, and banding in place does not change identity. Measured on a frozen scene,
+  before and after: 522 and 522 in the map frame, 275 and 275 on the phone, 61 and 61 on the phone
+  road frame. Rank contrast is unchanged within noise, because the ranks are read against grass that
+  #185 had already banded.
+
+  One correction this turned up in #185's own helper: three's **default** `customProgramCacheKey`
+  returns `this.onBeforeCompile.toString()`, so a material with no key of its own is identified by
+  the source of its hook. Read that *after* the band wrapper is installed and every banded material
+  reports the same string -- one function literal, and `toString` cannot see what it closes over.
+  `band()` takes the base key before it replaces anything, which is #155 again wearing a third hat.
 - **Grass, and where it is not.** 13,000 instanced tufts in one draw call. What is kept bare is the
   **citadel** -- the tight first ring the Keep and its three service buildings stand in, which is
   paved and walked over all game. Everything beyond it is countryside, including the ground inside the

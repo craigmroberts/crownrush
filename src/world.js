@@ -77,7 +77,7 @@ function ribbon(samples, width, color, y, opts = {}) {
     geo.setIndex(flipped);
     geo.computeVertexNormals();
   }
-  const m = new THREE.Mesh(geo, opts.material || mat(color, { side: THREE.DoubleSide }));
+  const m = new THREE.Mesh(geo, opts.material || mat(color, { side: THREE.DoubleSide, banded: true }));
   m.receiveShadow = true;
   return m;
 }
@@ -442,12 +442,16 @@ export function buildWorld(scene, soleShadows = false) {
   world.river = { samples: riverSamples, halfWidth: MAP.river.halfWidth };
   scene.add(ribbon(riverSamples, MAP.river.halfWidth * 2 + 2.6, 0xd8cc9d, 0.012, { wobble: 0.1 }));
   const waterTex = waterTexture();
+  // #186: deliberately NOT banded, and it carries a key now so the band sweep can say so by name
+  // rather than reporting an anonymous white surface. The river is #188's ticket, and a moving,
+  // scrolling surface is the one place hard steps in the lighting would read as a fault.
   const waterMat = new THREE.MeshStandardMaterial({ map: waterTex, color: 0xffffff, roughness: 0.35, metalness: 0.05, side: THREE.DoubleSide });
+  waterMat.customProgramCacheKey = () => 'river-water';
   scene.add(ribbon(riverSamples, MAP.river.halfWidth * 2, 0x3d9bd4, 0.02, { material: waterMat }));
   world.waterTex = waterTex;
   // pebbles along both banks
   const pebbleGeo = new THREE.DodecahedronGeometry(0.22, 0);
-  const pebbles = new THREE.InstancedMesh(pebbleGeo, matFlat(0xb0a18d), 240);
+  const pebbles = new THREE.InstancedMesh(pebbleGeo, matFlat(0xb0a18d, { banded: true }), 240);
   const pm = new THREE.Matrix4();
   for (let i = 0; i < 240; i++) {
     const t = rand();
@@ -514,7 +518,10 @@ export function buildWorld(scene, soleShadows = false) {
     shoulder: new THREE.Color(0xc4a06a), seam: new THREE.Color(0xa07a4a), edge: new THREE.Color(0xd8b884),
     rut: new THREE.Color(0xbb955d), crown: new THREE.Color(0xe7cf9f), mud: new THREE.Color(0xa6845c), worn: new THREE.Color(0xc6a271),
   };
-  const roadMat = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, transparent: true, roughness: 0.92, metalness: 0, side: THREE.DoubleSide });
+  // #186: banded like everything else it runs through. The bands touch the DIFFUSE term only, so the
+  // vertex alpha that fades the verge into the grass is untouched, and so is `renderOrder` -- a road
+  // still draws under the contact shadows. Its own instance, so nothing else shares this.
+  const roadMat = band(new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, transparent: true, roughness: 0.92, metalness: 0, side: THREE.DoubleSide }));
   const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   const lerp = (a, b, t) => a + (b - a) * t;
   // three sines at unrelated frequencies: not noise, but it never repeats inside a road and it is
@@ -641,7 +648,7 @@ export function buildWorld(scene, soleShadows = false) {
     const stoneGeo = new THREE.DodecahedronGeometry(0.16, 0);
     const STONES = 40 + ROAD.castle.chips;
     // a shade lighter than the field stones, so a chip shows on the beige rather than hiding in it
-    const stones = new THREE.InstancedMesh(stoneGeo, matFlat(0xc4b49b), STONES);
+    const stones = new THREE.InstancedMesh(stoneGeo, matFlat(0xc4b49b, { banded: true }), STONES);
     const sm = new THREE.Matrix4();
     let sn = 0;
     for (let k = 0; k < STONES * 3 && sn < STONES; k++) {
@@ -1012,7 +1019,7 @@ export function buildWorld(scene, soleShadows = false) {
   const flowerGeo = new THREE.SphereGeometry(0.12, 5, 3);
   const flowerColors = [0xffffff, 0xffd54a, 0xff8aa8];
   const FLOWERS = 300;
-  const flowers = flowerColors.map((c) => new THREE.InstancedMesh(flowerGeo, mat(c), FLOWERS));
+  const flowers = flowerColors.map((c) => new THREE.InstancedMesh(flowerGeo, mat(c, { banded: true }), FLOWERS));
   // #162 (item 3): clover, and stones in the open ground -- the small things a field has that a lawn
   // does not. Clover is three flat lobes, 9 triangles, lying on the ground in tight patches of its
   // own (a metre and a half across, dense at the heart) so it reads as a plant that spreads rather
@@ -1030,11 +1037,11 @@ export function buildWorld(scene, soleShadows = false) {
   cloverGeo.rotateX(-Math.PI / 2);
   cloverGeo.translate(0, 0.045, 0);   // just proud of the ground, under the grass
   const CLOVER = 3600;
-  const clovers = new THREE.InstancedMesh(cloverGeo, matFlat(0x3f8a34), CLOVER);
+  const clovers = new THREE.InstancedMesh(cloverGeo, matFlat(0x3f8a34, { banded: true }), CLOVER);
   const fieldStoneGeo = new THREE.IcosahedronGeometry(0.17, 0);
   fieldStoneGeo.scale(1, 0.5, 1);
   const FIELD_STONES = 320;
-  const fieldStones = new THREE.InstancedMesh(fieldStoneGeo, matFlat(0xa8987f), FIELD_STONES);
+  const fieldStones = new THREE.InstancedMesh(fieldStoneGeo, matFlat(0xa8987f, { banded: true }), FIELD_STONES);
 
   // ---- #191: the ground cover follows the King ----
   //
@@ -1470,6 +1477,11 @@ export function buildWorld(scene, soleShadows = false) {
   const smokeAlpha = new THREE.InstancedBufferAttribute(new Float32Array(SMOKE_MAX), 1);
   smokeGeo.setAttribute('aAlpha', smokeAlpha);
   const smokeMat = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 1, transparent: true, depthWrite: false });
+  // #186: a key of its own, for the reason the note on `swayMaterial` gives -- without one its cache
+  // key is the SOURCE of the hook below, which works but is unreadable and breaks the moment the
+  // hook is edited. Not banded on purpose: a smoke puff is a soft volumetric fake and hard steps
+  // across one read as a fault rather than as a style.
+  smokeMat.customProgramCacheKey = () => 'smoke-alpha';
   smokeMat.onBeforeCompile = (shader) => {
     shader.vertexShader = `attribute float aAlpha;\nvarying float vAlpha;\n${shader.vertexShader}`
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvAlpha = aAlpha;');

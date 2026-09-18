@@ -83,38 +83,77 @@ export const CHEAP = {
     return bad.length ? no(bad) : ok(`${VIEWS.length} views, each with its panel up`);
   },
 
-  // #185: the band hook, and it is here because EVERY WAY IT FAILS IS QUIET.
+  // #185/#186: the band hook, and it is here because EVERY WAY IT FAILS IS QUIET.
   //
   // The patch works by rewriting one line inside three's `lights_physical_pars_fragment`. If three
   // ever renames that line the replace is a no-op, the shader compiles perfectly, and the game
   // renders exactly as it did before with nothing in the console -- so `bandedShader` is set only
-  // when all three replaces changed something, and this reads it back off the live material.
+  // when all three replaces changed something, and this reads it back off the live materials.
   //
   // The keys are the other half. `customProgramCacheKey` is what stops two materials with matching
   // DEFINES being handed each other's compiled program (#155), so `band` APPENDS to whatever key was
   // there rather than replacing it. A key of plain '+band' would mean the ground had thrown away
   // 'ground-untiled-patched' and is racing the tufts for a program.
+  //
+  // THE SWEEP IS THE POINT OF THE SECOND HALF. #186 put every environment surface on one ramp, and
+  // the way that decays is somebody adding a surface later and nobody noticing it is the one thing
+  // still on a smooth ramp. So rather than name the materials, this walks the scene and requires
+  // every lit standard material with real geometry on it to be banded -- with an allowlist of the
+  // things that are deliberately NOT: the character rigs and the imported props, which #184 puts out
+  // of scope. Anything else new has to be argued for here, which is the intent.
   async 'bands-hooked'(page, url) {
     await boot(page, url);
     const r = await page.evaluate(() => {
+      // What lives on the scene rather than under the run's root and is deliberately NOT banded, each
+      // for its own reason: the crowd's per-model meshes and the imported rigs and props, which #184
+      // puts out of scope; the coin field, which is a gameplay object and not a surface; the chimney
+      // smoke, which is a soft volumetric fake that hard steps would read as a fault on; and the
+      // river, which is #188's. Every one of them carries a cache key so it can be named here
+      // instead of turning up as an anonymous white surface.
+      const OUT_OF_SCOPE = /^(crowd-lit-|crownrush-prop-tint|crownrush-rig|coin-alpha|smoke-alpha|river-water)/;
       const g = window.game;
-      const out = { ground: null, tufts: null };
-      const read = (m) => ({ shader: !!m.userData.bandedShader, key: m.customProgramCacheKey() });
-      if (g.world.groundMat) out.ground = read(g.world.groundMat);
+      const named = {};
+      const rogues = new Map();
+      // THE BOUNDARY IS WHERE THE OBJECT LIVES. `buildWorld` adds to the SCENE; everything a run
+      // spawns -- characters, coins, pads, the buildings it stands up -- goes under `game.root`.
+      // That line is exactly "environment" against "characters and props", so it is the one this
+      // draws, rather than trying to recognise a character by the colour of its leather.
+      const inRun = new Set();
+      if (g.root) g.root.traverse((o) => inRun.add(o));
       g.scene.traverse((o) => {
-        if (out.tufts || !o.isInstancedMesh || !o.material || !o.material.userData.banded) return;
-        if (o.count !== undefined && o.geometry && o.material.userData.banded) out.tufts = read(o.material);
+        if (!(o.isMesh || o.isInstancedMesh) || !o.material) return;
+        for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
+          // Lit standard materials only: a Basic or Lambert material never runs the chunk this
+          // patches, so "not banded" is meaningless for the contact discs and the ghost.
+          if (m.type !== 'MeshStandardMaterial' && m.type !== 'MeshPhysicalMaterial') continue;
+          const key = (m.customProgramCacheKey ? m.customProgramCacheKey() : '') || '';
+          if (key.startsWith('ground-untiled')) named.ground = { key, shader: !!m.userData.bandedShader };
+          if (key.startsWith('sway-tinted-rooted')) named.tufts = { key, shader: !!m.userData.bandedShader };
+          if (key.startsWith('baked-sway')) named.canopies = { key, shader: !!m.userData.bandedShader };
+          if (m.userData.banded || OUT_OF_SCOPE.test(key) || inRun.has(o)) continue;
+          const geo = o.geometry;
+          const tri = geo ? (geo.index ? geo.index.count / 3 : (geo.attributes.position ? geo.attributes.position.count / 3 : 0)) : 0;
+          const n = o.isInstancedMesh ? (o.count || 0) : 1;
+          if (tri * n < 200) continue;    // a handful of triangles is a fitting, not a surface
+          const k = m.uuid;
+          const row = rogues.get(k) || { colour: m.color ? '#' + m.color.getHexString() : '-', key: key.slice(0, 40), tris: 0 };
+          row.tris += tri * n;
+          rogues.set(k, row);
+        }
       });
-      return out;
+      return { named, rogues: [...rogues.values()] };
     });
     const bad = [];
-    for (const [what, want] of [['ground', 'ground-untiled-patched+band'], ['tufts', 'sway-tinted-rooted+band']]) {
-      const got = r[what];
-      if (!got) bad.push(`${what}: no banded material found at all`);
-      else if (!got.shader) bad.push(`${what}: compiled without the patch -- three's dotNL line has moved`);
+    for (const [what, want] of [['ground', 'ground-untiled-patched+band'], ['tufts', 'sway-tinted-rooted+band'], ['canopies', 'baked-sway+band']]) {
+      const got = r.named[what];
+      if (!got) bad.push(`${what}: no material with that key is in the scene at all`);
       else if (got.key !== want) bad.push(`${what}: cache key is "${got.key}", wanted "${want}"`);
+      else if (!got.shader) bad.push(`${what}: compiled without the patch -- three's dotNL line has moved`);
     }
-    return bad.length ? no(bad) : ok('ground and tufts banded, both keys composed');
+    for (const x of r.rogues.sort((a, b) => b.tris - a.tris).slice(0, 6)) {
+      bad.push(`un-banded lit surface: ${x.colour}, ${Math.round(x.tris / 100) / 10}k triangles, key "${x.key}"`);
+    }
+    return bad.length ? no(bad) : ok('ground, tufts and canopies banded; every lit world surface over 200 triangles with them');
   },
 
   async 'walls-solid'(page, url) {

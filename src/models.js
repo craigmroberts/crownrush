@@ -75,8 +75,15 @@ export const BAND_AVAILABLE = THREE.ShaderChunk.lights_physical_pars_fragment.in
 export function band(m, tag = 'band') {
   if (m.userData.banded) return m;    // twice would chain the hook twice and double the key
   const prevCompile = m.onBeforeCompile;
-  const prevKey = m.customProgramCacheKey;
-  m.customProgramCacheKey = function () { return `${prevKey ? prevKey.call(this) : ''}+${tag}`; };
+  // THE BASE KEY IS TAKEN NOW, before `onBeforeCompile` is replaced, and that is not tidiness.
+  // Three's DEFAULT `customProgramCacheKey` returns `this.onBeforeCompile.toString()` -- so a
+  // material with no key of its own is identified by the source of its hook. Read it after the
+  // wrapper is installed and every banded material reports the same string, because the wrapper is
+  // one function literal and `toString` cannot see what it closes over. Two materials with matching
+  // DEFINES, matching keys and different inner hooks is #155 exactly. Reading it first gives each
+  // material the identity it had before this touched it.
+  const baseKey = m.customProgramCacheKey ? m.customProgramCacheKey() : '';
+  m.customProgramCacheKey = () => `${baseKey}+${tag}`;
   m.onBeforeCompile = function (shader, renderer) {
     if (prevCompile) prevCompile.call(this, shader, renderer);
     Object.assign(shader.uniforms, bandUniforms);
@@ -104,7 +111,17 @@ export function mat(color, opts = {}) {
   // A THREE.Color stringifies to "[object Object]", so keying on it directly hands every caller the
   // same material whatever colour they asked for -- silently, and it looks like one deliberate colour.
   const key = (color && color.isColor ? color.getHex() : color) + JSON.stringify(opts);
-  if (!matCache.has(key)) matCache.set(key, new THREE.MeshStandardMaterial({ color, roughness: 0.88, metalness: 0, ...opts }));
+  if (!matCache.has(key)) {
+    // #186: `banded` is OURS and never reaches the constructor -- three's `setValues` warns about a
+    // parameter it does not know, and more to the point a banded material has to be a DIFFERENT
+    // cache entry from an unbanded one of the same colour. That is the whole difficulty of this
+    // ticket: `mat()` hands the same object to everyone who asks for a colour, several of the
+    // colours are computed at runtime (the strata of a cliff, a building's age palette), and so
+    // "band the clover's green" cannot be proved to band only clover. Asking for it by opt can.
+    const { banded, ...rest } = opts;
+    const m = new THREE.MeshStandardMaterial({ color, roughness: 0.88, metalness: 0, ...rest });
+    matCache.set(key, banded ? band(m) : m);
+  }
   return matCache.get(key);
 }
 // vertex-shader sway for grass and crops: bends with height, phase from the instance position
@@ -231,8 +248,16 @@ export function ghostify(group) {
 }
 
 // ---- baking: collapse a model's static parts into one vertex-coloured mesh (one draw call) ----
-export const BAKED_MAT = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.88, metalness: 0, vertexColors: true });
-export const BAKED_STD = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, metalness: 0.05, vertexColors: true });
+// #186: banded, and banding these is how most of the world gets there -- `bake()` folds nearly every
+// prop, tree trunk, rock and barricade onto them, and `mergeGroup` merges by material IDENTITY,
+// which banding in place does not change. So the draw-call count cannot move.
+//
+// It reaches the built buildings and the procedural character fallbacks too, because they bake onto
+// the same two singletons. That is the global change #184 allows rather than an accident: the
+// imported buildings carry their own textured materials from props.js and are untouched, and
+// GHOST_MAT below is a MeshLambertMaterial, which does not even use the chunk this patches.
+export const BAKED_MAT = band(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.88, metalness: 0, vertexColors: true }));
+export const BAKED_STD = band(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, metalness: 0.05, vertexColors: true }));
 // Wind for things that are NOT instanced. `swayMaterial` takes its phase from `instanceMatrix`, which
 // grass and wheat have and a merged tree does not -- every tree would have swung in unison, which is
 // worse than not moving at all.
@@ -263,7 +288,9 @@ export const BAKED_SWAY = (() => {
         transformed.x += sin(uSway * 1.15 + ph) * 0.038 * bend;
         transformed.z += cos(uSway * 0.9 + ph * 1.3) * 0.022 * bend;`);
   };
-  return m;
+  // #186: and banded, after the sway hook rather than instead of it -- `band` chains what is there
+  // and appends to the key, so a canopy compiles as 'baked-sway+band'.
+  return band(m);
 })();
 // Every material `bake` produces. Anything here is skipped on a second bake -- see the note in `bake`.
 const BAKED = new Set([BAKED_MAT, BAKED_STD, BAKED_SWAY]);
@@ -1562,14 +1589,14 @@ export function makeWheatField(w, d) {
   const per = Math.floor(d / 0.5);
   const stalkGeo = new THREE.CylinderGeometry(0.035, 0.05, 1.1, 5);
   stalkGeo.translate(0, 0.55, 0);
-  const stalks = new THREE.InstancedMesh(stalkGeo, swayMaterial(0xcdb04a), rows * per);
+  const stalks = new THREE.InstancedMesh(stalkGeo, band(swayMaterial(0xcdb04a)), rows * per);
   const headGeo = new THREE.CapsuleGeometry(0.09, 0.22, 3, 6);
   headGeo.translate(0, 1.2, 0);
-  const heads = new THREE.InstancedMesh(headGeo, swayMaterial(0xe9d27a), rows * per);
+  const heads = new THREE.InstancedMesh(headGeo, band(swayMaterial(0xe9d27a)), rows * per);
   const leafGeo = new THREE.ConeGeometry(0.06, 0.5, 3);
   leafGeo.translate(0, 0.6, 0);
   leafGeo.rotateX(0.5);
-  const leaves = new THREE.InstancedMesh(leafGeo, swayMaterial(0xb9a83c), rows * per);
+  const leaves = new THREE.InstancedMesh(leafGeo, band(swayMaterial(0xb9a83c)), rows * per);
   const m = new THREE.Matrix4();
   const q = new THREE.Quaternion();
   const sc = new THREE.Vector3();
@@ -1615,7 +1642,7 @@ export function makeWheatField(w, d) {
 
 export function makeCliff(w, h, d) {
   const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), matFlat(0x88765e));
+  const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), matFlat(0x88765e, { banded: true }));
   body.position.y = h / 2 - 0.05;
   body.castShadow = true;
   body.receiveShadow = true;
@@ -1624,7 +1651,7 @@ export function makeCliff(w, h, d) {
   // cool greys; the cool ones are what made a mesa look like slate, so the contrast is carried by
   // value alone now and every band is the same warm family.
   for (const [f, col, t] of [[0.22, 0xa08562, 0.32], [0.48, 0x70614e, 0.22], [0.7, 0xa89882, 0.28], [0.88, 0x6c5d4a, 0.18]]) {
-    g.add(box(w + 0.08, h * t * 0.35, d + 0.08, col, 0, h * f, 0, matFlat(col)));
+    g.add(box(w + 0.08, h * t * 0.35, d + 0.08, col, 0, h * f, 0, matFlat(col, { banded: true })));
   }
   const cap = new THREE.Mesh(new RoundedBoxGeometry(w + 0.2, 0.6, d + 0.2, 2, 0.25), matFlat(C.grass));
   cap.position.y = h - 0.15;

@@ -70,8 +70,8 @@ export const CHECKS = [
   },
   {
     id: 'bands-hooked', area: 'Render', cost: 'cheap',
-    asserts: 'The ground and the tufts both compile with #185\'s band hook, and both keep the cache key they had.',
-    why: 'Every way this fails is silent. If three renames the line the hook patches, the replace is a no-op and the game renders un-banded with no error; if the cache key were overwritten instead of appended, two materials with matching defines get handed each other\'s program (#155).',
+    asserts: 'Every lit environment surface is banded, and the ground, tufts and canopies keep the cache keys they had.',
+    why: 'Every way this fails is silent. If three renames the line the hook patches, the replace is a no-op and the game renders un-banded with no error; if the cache key were overwritten instead of appended, two materials with matching defines get handed each other\'s program (#155). The sweep is so that a surface added later cannot be the one thing left on a smooth ramp.',
   },
   {
     id: 'walls-solid', area: 'Walls', cost: 'cheap',

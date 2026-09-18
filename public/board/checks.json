@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-18T21:38:13.749Z",
+  "at": "2026-09-18T22:59:13.224Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -75,8 +75,8 @@
       "id": "bands-hooked",
       "area": "Render",
       "cost": "cheap",
-      "asserts": "The ground and the tufts both compile with #185's band hook, and both keep the cache key they had.",
-      "why": "Every way this fails is silent. If three renames the line the hook patches, the replace is a no-op and the game renders un-banded with no error; if the cache key were overwritten instead of appended, two materials with matching defines get handed each other's program (#155)."
+      "asserts": "Every lit environment surface is banded, and the ground, tufts and canopies keep the cache keys they had.",
+      "why": "Every way this fails is silent. If three renames the line the hook patches, the replace is a no-op and the game renders un-banded with no error; if the cache key were overwritten instead of appended, two materials with matching defines get handed each other's program (#155). The sweep is so that a surface added later cannot be the one thing left on a smooth ramp."
     },
     {
       "id": "walls-solid",
@@ -152,84 +152,84 @@
   "checks": {
     "pads-requires-exist": {
       "pass": true,
-      "at": "2026-09-18T21:18:33.816Z"
+      "at": "2026-09-18T22:39:25.511Z"
     },
     "pads-buildat-in-bounds": {
       "pass": true,
-      "at": "2026-09-18T21:18:33.817Z"
+      "at": "2026-09-18T22:39:25.512Z"
     },
     "pads-no-overlap": {
       "pass": true,
-      "at": "2026-09-18T21:18:33.819Z"
+      "at": "2026-09-18T22:39:25.519Z"
     },
     "opening-homes-legal": {
       "pass": true,
-      "at": "2026-09-18T21:18:33.819Z"
+      "at": "2026-09-18T22:39:25.520Z"
     },
     "icons-exist": {
       "pass": true,
-      "at": "2026-09-18T21:18:33.823Z"
+      "at": "2026-09-18T22:39:25.523Z"
     },
     "upgrade-mods-exist": {
       "pass": true,
       "note": "17 of 17 upgrades declare a mod key, all 17 resolve",
-      "at": "2026-09-18T21:18:33.823Z"
+      "at": "2026-09-18T22:39:25.524Z"
     },
     "footprints-cover-kinds": {
       "pass": true,
-      "at": "2026-09-18T21:18:33.823Z"
+      "at": "2026-09-18T22:39:25.524Z"
     },
     "walls-solid": {
       "pass": true,
       "note": "24 directions, held every time",
-      "at": "2026-09-18T21:21:52.382Z"
+      "at": "2026-09-18T22:42:39.789Z"
     },
     "gates-passable": {
       "pass": true,
       "note": "4 gates",
-      "at": "2026-09-18T21:22:01.750Z"
+      "at": "2026-09-18T22:42:49.373Z"
     },
     "wall-ring-unbroken": {
       "pass": true,
       "note": "360 samples",
-      "at": "2026-09-18T21:22:10.209Z"
+      "at": "2026-09-18T22:42:57.975Z"
     },
     "views-open": {
       "pass": true,
       "note": "18 views, each with its panel up",
-      "at": "2026-09-18T21:21:35.440Z"
+      "at": "2026-09-18T22:42:25.961Z"
     },
     "opening-resolves": {
       "pass": true,
       "note": "taken after 787 frames of running",
-      "at": "2026-09-18T21:29:55.547Z"
+      "at": "2026-09-18T22:50:43.838Z"
     },
     "queen-visible": {
       "pass": false,
       "detail": [
         "inside the King (0.76 apart) at frame 2"
       ],
-      "at": "2026-09-18T21:30:05.602Z"
+      "at": "2026-09-18T22:50:55.137Z"
     },
     "rebuild-after-fall": {
       "pass": true,
       "note": "empty plot, clear ledger, every mat on it buys",
-      "at": "2026-09-18T21:38:09.667Z"
+      "at": "2026-09-18T22:59:09.583Z"
     },
     "tokens-resolve": {
       "pass": true,
       "note": "no cycles; 3 tokens nothing reads -- --frame-hi, --frame-lo, --danger-edge (#135)",
-      "at": "2026-09-18T21:18:33.822Z"
+      "at": "2026-09-18T22:39:25.523Z"
     },
     "icons-unique": {
       "pass": true,
       "note": "54 icons, no key declared twice",
-      "at": "2026-09-18T21:18:33.823Z"
+      "at": "2026-09-18T22:39:25.523Z"
     },
     "bands-hooked": {
       "pass": true,
-      "note": "ground and tufts banded, both keys composed",
-      "at": "2026-09-18T21:21:43.052Z"
+      "note": "ground, tufts and canopies banded; every lit world surface over 200 triangles with them",
+      "at": "2026-09-18T22:42:32.192Z"
     }
   }
 }
