@@ -43,6 +43,15 @@ node tools/probe/probe.mjs        # draw calls, triangles, characters, bytes
 Headless Chromium is at `/opt/pw-browsers/chromium-1194/chrome-linux/chrome` and needs
 `--use-gl=swiftshader --enable-unsafe-swiftshader --no-sandbox`.
 
+### The download size budget is parked
+
+**Do not raise it, and do not let it shape a decision.** No flagging how close bytes-to-Play is to
+the limit, no choosing a smaller asset to stay under it, no asking whether something is worth the
+kilobytes. The game is still growing features; the owner will say when it is time to look at load
+size again. It is waived in `tools/probe/probe.mjs` so CI cannot put the question back either.
+
+The draw-call and triangle budgets are NOT parked -- those are about whether it runs on the phone.
+
 **Wall-clock time is not game time under SwiftShader.** A frame takes about a second and `dt` is
 capped at 0.05, so waiting ten seconds advances the simulation by about half. Anything that depends
 on game time — regen, cooldowns, the day cycle — has to be driven directly rather than waited out.

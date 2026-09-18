@@ -471,6 +471,11 @@ const WAIVED = {
   // already known and already ticketed just teaches everyone to stop reading CI.
   drawCallsPeak: '#52 -- crowd models are ~8.7k triangles against a ~5k budget',
   trianglesMedian: '#52 -- same cause',
+  // PARKED BY THE OWNER, 2026-09-18, and this one is a decision rather than a defect. The load budget
+  // is not being held while the game is still growing features, and it comes back off this list when
+  // he says so -- not when a number happens to look better. Until then it is measured and printed,
+  // because knowing the figure costs nothing, and it does not fail a build or gate a change.
+  wireKbToPlay: 'parked until the game is feature-complete -- the owner will call when to look again',
 };
 
 function assertBudgets(results) {
