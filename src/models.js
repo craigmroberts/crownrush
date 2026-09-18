@@ -1885,9 +1885,19 @@ export function makeHeap(type) {
   return g;
 }
 
+// #167: the same for-ever shape #165 found in the tag cache, found in this one by measuring a run.
+// Keyed on text and colour, so every distinct damage number is an entry -- "-3", "-12", "-40" -- and
+// each holds a 160x80 canvas and an uploaded texture. Thirty nights of scaling damage reached 34
+// entries and was still climbing. A small LRU, like the tags: a live sprite holds a clone of the
+// material and the texture by reference, so evicting its entry does not blank it.
+const POPUP_CACHE_MAX = 64;
 export function makePopup(text, color = '#ffffff') {
   const key = text + color;
-  if (!popupCache.has(key)) {
+  if (popupCache.has(key)) {
+    const e = popupCache.get(key);
+    popupCache.delete(key);
+    popupCache.set(key, e);
+  } else {
     const canvas = document.createElement('canvas');
     canvas.width = 160;
     canvas.height = 80;
@@ -1902,6 +1912,13 @@ export function makePopup(text, color = '#ffffff') {
     ctx.fillText(text, 80, 42);
     const tex = new THREE.CanvasTexture(canvas);
     popupCache.set(key, new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+    if (popupCache.size > POPUP_CACHE_MAX) {
+      const oldest = popupCache.keys().next().value;
+      const gone = popupCache.get(oldest);
+      popupCache.delete(oldest);
+      gone.map.dispose();
+      gone.dispose();
+    }
   }
   const s = new THREE.Sprite(popupCache.get(key).clone());
   s.scale.set(2.0, 1.0, 1);

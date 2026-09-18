@@ -64,6 +64,12 @@ export class Game {
     this.world = buildWorld(this.scene, plain);
     // #165 / #166: how big the for-ever caches in models.js are, for the perf overlay and for tests.
     this.cacheSizes = cacheSizes;
+    // #166: a sample every two seconds of GAME time, kept for an hour, whether or not anyone is
+    // looking. The overlay reads the trend off it and a tap copies it out; `game.perfLog` in the
+    // console is the same array. It lives on the game and not in `reset`, so a restart does not
+    // throw away the run that was being watched.
+    this.perfLog = [];
+    this.perfT = 0;
     this.buildFog();
     // every health bar in the game is drawn by this one instanced mesh
     this.bars = new HealthBars(600);
@@ -495,6 +501,27 @@ export class Game {
   // How much of the crowd is on the instanced path, for ?perf=1.
   crowdStats() {
     return crowdStats();
+  }
+
+  // #166: everything that comes and goes, and everything that should not. The frame-cost numbers
+  // (`renderer.info.render`) are a snapshot of this frame's work and cannot show a leak; these are
+  // the arrays that fill and drain, the GPU objects that are uploaded and (should be) disposed, the
+  // for-ever caches, and the heap -- Chrome only, which is the phone this is played on. A count that
+  // only ever climbs across a run is the leak, named.
+  perfSample() {
+    const m = performance.memory;
+    const im = this.renderer.info.memory;
+    const c = cacheSizes();
+    return {
+      t: Math.round(this.time), night: this.wave,
+      heap: m ? Math.round(m.usedJSHeapSize / 104857.6) / 10 : null,
+      arrows: this.arrows.length, pool: this.arrowPool.length, coins: this.coins.length, flyCoins: this.flyCoins.length,
+      popups: this.popups.length, pileFlies: this.pileFlies.length, chips: this.chips.length, fx: this.fx.length,
+      dying: this.dying.length, popping: this.popping.length, queue: this.spawnQueue.length,
+      enemies: this.enemies.length, units: this.units.length, villagers: this.villagers.length, piles: this.piles.length,
+      geometries: im.geometries, textures: im.textures, programs: this.renderer.info.programs.length,
+      materials: c.materials, tags: c.tags, popupMats: c.popups,
+    };
   }
 
   // What the graphics stack actually is, in one line, for a screenshot from a device I cannot hold.
@@ -956,6 +983,12 @@ export class Game {
       this.checkBagFull();
       this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, this.finaleOpen ? 'camp' : `${this.baseLevel}/${CFG.finale.level}`, this.res, this.score, this.loadCap());
       this.updateIndicators(dt);
+      this.perfT -= dt;
+      if (this.perfT <= 0) {
+        this.perfT = 2;
+        this.perfLog.push(this.perfSample());
+        if (this.perfLog.length > 1800) this.perfLog.shift();
+      }
     }
     this.world.focus.copy(this.king.mesh.position);
     // #81: the weather clock stops when the game does, the way the day clock already does, and it

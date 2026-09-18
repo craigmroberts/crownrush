@@ -726,6 +726,58 @@ let perfMs = 0;
 // next one visible to anyone holding a phone with ?perf=1 on it.
 let caught = 0;
 let lastError = '';
+// #166: the half of the panel that can show something GROWING. Every number above is this frame's
+// work; a run that is slowly leaking looks identical to a healthy one there until it does not. The
+// heap line reads the last sixty seconds of `game.perfLog` (one sample per two seconds of game time)
+// and says which way it went, because a single number cannot answer the only question that matters.
+// Then the arrays that fill and drain, the instance counts that must not move, and the GPU objects
+// and caches that are uploaded and should be let go.
+function perfGrowth() {
+  const s = game.perfSample();
+  const win = game.perfLog.slice(-30);
+  const heaps = win.map((x) => x.heap).filter((h) => h != null);
+  let heap = 'heap n/a (not Chrome)';
+  if (s.heap != null) {
+    heap = `heap ${s.heap} MB`;
+    if (heaps.length > 1) {
+      const d = heaps[heaps.length - 1] - heaps[0];
+      heap += ` · 60s ${heaps[0]}→${heaps[heaps.length - 1]} (${d >= 0 ? '+' : ''}${d.toFixed(1)}) min ${Math.min(...heaps)} max ${Math.max(...heaps)}`;
+    }
+  }
+  const w = game.world.counts();
+  const cr = game.crowdStats();
+  return heap
+    + `\nlive: arrows ${s.arrows} (${s.pool} pooled) · coins ${s.coins} · flying ${s.flyCoins} · popups ${s.popups} · flies ${s.pileFlies} · chips ${s.chips} · fx ${s.fx} · dying ${s.dying} · popping ${s.popping} · queue ${s.queue}`
+    + `\ninstanced: grass ${w.tufts} · flowers ${w.flowers} · shadows ${w.shadows} · pebbles ${w.pebbles} · smoke ${w.smoke} · crowd ${cr.drawn}/${cr.characters}`
+    + `\ngpu: ${s.geometries} geometries · ${s.textures} textures · ${s.programs} programs · caches ${s.materials} materials · ${s.tags} tags · ${s.popupMats} popups`
+    + `\n${game.perfLog.length} samples${perfNote ? ' · ' + perfNote : ''}`;
+}
+// The log, as CSV, for a phone: a tap copies it and the numbers get off the device without anyone
+// retyping them. #74 did the same for the size line, for the same reason.
+function perfCsv() {
+  const log = game.perfLog;
+  if (!log.length) return 'no samples yet';
+  const keys = Object.keys(log[0]);
+  return [keys.join(','), ...log.map((r) => keys.map((k) => r[k]).join(','))].join('\n');
+}
+// The button is a separate node so the panel's text can be rewritten every half second without
+// tearing the button out from under a finger, and so the panel itself can stay `pointer-events: none`.
+let perfBtn = null;
+let perfNote = '';
+if (perf) {
+  perfBtn = document.createElement('button');
+  perfBtn.textContent = 'copy log';
+  perfBtn.addEventListener('click', async () => {
+    const text = perfCsv();
+    try {
+      await navigator.clipboard.writeText(text);
+      perfNote = `copied ${game.perfLog.length} samples`;
+    } catch (e) {
+      console.log(text);
+      perfNote = 'no clipboard: see the console (game.perfLog)';
+    }
+  });
+}
 
 let last = performance.now();
 function frame(now) {
@@ -757,7 +809,9 @@ function frame(now) {
         + (crowd.characters ? ` (${crowd.drawn}/${crowd.characters} instanced in ${crowd.models} draws)` : '')
         + ` · ${c.width}x${c.height} buf @${game.renderer.getPixelRatio()}${game.contextLost ? ' · GL CONTEXT LOST' : ''}`
         + (caught ? `\n${caught} caught error${caught > 1 ? 's' : ''}: ${lastError}` : '')
+        + `\n${perfGrowth()}`
         + `\n${sizeReport()}`;
+      perf.appendChild(perfBtn);   // textContent just wiped the children; the button goes back on the end
       perf.style.color = ms > 33 ? '#ff7a7a' : ms > 16 ? '#ffd27a' : '#b8ffb0';
       perfT = 0;
       perfFrames = 0;

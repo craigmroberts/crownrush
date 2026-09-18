@@ -657,6 +657,7 @@ export function buildWorld(scene, soleShadows = false) {
       });
       shade.renderOrder = -1;   // under the grass, which is also transparent-adjacent and drawn after
       scenery.add(shade);
+      world.shadows = shade;
     }
   }
 
@@ -1023,6 +1024,16 @@ export function buildWorld(scene, soleShadows = false) {
   world.nearBridge = (x, z) => world.bridges.some((b) => Math.hypot(b.x - x, b.z - z) < MAP.river.bridgeRadius);
   world.crossingFor = (roadId) => world.crossings.find((c) => c.roadId === roadId);
 
+  // #166: the instance counts, for the perf overlay. Every one of these is fixed once the world is
+  // built (smoke is the exception and is capped), which is the point of putting them on screen: a
+  // number here that moves during a run is a bug with its name on it.
+  world.counts = () => ({
+    tufts: tufts.count,
+    flowers: flowers.reduce((n, f) => n + f.count, 0),
+    shadows: world.shadows ? world.shadows.count : 0,
+    pebbles: pebbles.count,
+    smoke: smoke.count,
+  });
   return world;
 }
 

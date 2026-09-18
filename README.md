@@ -1407,6 +1407,39 @@ when it has happened. `npm run probe -- --crowd 120` collects the rest without y
 so a change can be measured rather than argued about --
 see [tools/probe/README.md](tools/probe/README.md).
 
+**The half that can show something growing** (#166). Every number above is this frame's work, and a
+run that is slowly leaking looks identical to a healthy one there until it does not. Under it the
+panel now prints the JS heap (Chrome only, which is the phone) with the last sixty seconds' direction
+-- `heap 74.5 MB · 60s 73.8→74.5 (+0.7) min 73.8 max 74.6` -- then the arrays that fill and drain
+(arrows and the pool, ground coins, popups, pile flies, chips, fx, dying, popping, spawn queue), the
+instance counts that must not move (grass, flowers, contact shadows, pebbles, smoke, crowd), and the
+GPU objects and for-ever caches (geometries, textures, programs; materials, tags, popups). A count
+that only ever climbs across a run is the leak, named.
+
+The numbers are sampled into `game.perfLog` every two seconds of game time, kept for an hour, whether
+or not the overlay is up -- so a run that went wrong can be read afterwards from the console -- and
+the **copy log** button on the panel puts the whole thing on the clipboard as CSV, for the same reason
+#74 made the size line copyable: retyping a wall of numbers off a phone is how a digit gets lost. The
+panel itself stays `pointer-events: none`; the first version took the tap and swallowed the Play
+button on a phone, which is how that was found.
+
+**Does a full run leak?** (#167) Measured rather than reasoned: thirty nights of game time driven
+headlessly with the renderer stubbed out (SwiftShader would take a day and the JS heap does not need
+pixels), the King and the Keep topped up by fiat so the base holds, every raider still spawning,
+walking, fighting and dying through the real path, and the heap read after a forced GC every ten
+game-seconds so what is left is what is *retained*. The post-GC heap at dawn went **67.4 → 75.5 MB
+over 28 dawns, rising on 27 of them** -- a staircase, not a sawtooth -- and the sample table names
+it: **ground coins, 10 → 3,106.** Nobody picks them up in a soak, and nothing else ever removes
+one. Everything else held: arrows 0–4 live against a pool of 7, dying 0–3, fx 0–4, popups 0–3,
+`matCache` flat at 69, the geometry count stepping up only as new enemy ranks were first baked (312 →
+508, plateauing), and the one other climber -- `popupCache`, one canvas texture per distinct damage
+number, 34 by night 28 -- is a disposing LRU now, the same fix #165 gave the tags. Attributed at the end of the run rather than inferred: with the run over at 76.2 MB, dropping the
+coin list and collecting again gave back **4.9 MB** on its own; the rest is the 123 raiders alive at
+that moment, the popup textures, and the rank variants, all of which have a ceiling. So the one
+thing in the game that grows without one is a coin nobody walks over -- which is a design question
+(do coins expire, or is the field capped?) rather than a bug, and is ticketed as one.
+The soak is `soak167.mjs` in the session scratchpad and takes about five minutes.
+
 `probe.mjs --assert` measures a run against the table below and exits non-zero naming whatever it
 broke. Frame time is not among the asserted ones and cannot be: the probe renders through SwiftShader
 on a CPU. Budgets:

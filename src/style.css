@@ -1100,11 +1100,19 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
   background: rgba(0, 0, 0, 0.55);
   color: #b8ffb0;
   font: 12px/1.4 ui-monospace, Menlo, monospace;
+  /* #166: the panel itself stays out of the way of the finger -- it sits over the Play button on a
+     phone and over the joystick's ground once the game is up, and taking the tap made it swallow
+     both (found by driving it: Playwright could not reach Play). The copy button inside it is the
+     one thing that takes a tap. */
   pointer-events: none;
   /* #74: the readout is two lines now -- the second is every size the page can be asked for -- and a
      phone is narrow, so it has to be allowed to break and to wrap. */
   white-space: pre-wrap;
   max-width: calc(100vw - 32px);
+}
+#perf button {
+  pointer-events: auto; cursor: pointer; margin-left: 8px; padding: 1px 7px; border: 1px solid #b8ffb0;
+  border-radius: 6px; background: transparent; color: inherit; font: inherit;
 }
 
 
