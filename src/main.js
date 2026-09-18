@@ -848,6 +848,9 @@ const CHAR = (/[?&]id=([a-z_]+)/.exec(location.search) || [])[1] || '';
 const CLIP = (/[?&]clip=([A-Za-z]+)/.exec(location.search) || [])[1] || 'Walk';
 // `as=knight` wears the tints `spawnEnemy` would have given it; omitted, the model shows untinted.
 const AS = (/[?&]as=([a-z]+)/.exec(location.search) || [])[1] || '';
+// `?view=build&id=keep&age=diamond&level=3` -- which structure, at which age, at which tower level.
+const AGE = (/[?&]age=([a-z]+)/.exec(location.search) || [])[1] || 'stone';
+const LEVEL = Number((/[?&]level=(\d+)/.exec(location.search) || [])[1] || 1);
 function runView() {
   if (!VIEW || !game) return;
   const panels = {
@@ -868,6 +871,19 @@ function runView() {
     victory: () => game.hud.showVictory(game.coinsEarned, game.units.length - 1 + game.turrets.length,
       game.score, game.runLength, game.legacyProgress(), game.wave, game.kills),
   };
+  if (VIEW === 'elements') {
+    setTimeout(() => game.showElements(), 500);
+    return;
+  }
+  if (VIEW === 'build') {
+    setTimeout(async () => {
+      if (!await game.showStructure(CHAR, AGE, LEVEL)) {
+        document.getElementById('error-msg').textContent = `No structure called "${CHAR}".`;
+        document.getElementById('error-screen').classList.remove('hidden');
+      }
+    }, 300);
+    return;
+  }
   if (VIEW === 'char') {
     // The rigs are in by the time a view runs -- `startForView` is called from the same `.then` as
     // the preload -- so there is nothing to wait for here beyond a frame of layout.

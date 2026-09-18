@@ -128,6 +128,21 @@ export const FREE = {
     return bad.length ? no(bad) : ok();
   },
 
+  'icons-unique'() {
+    // An object literal with the same key twice is legal JavaScript and the last one silently wins.
+    // `ICONS.iron` was declared twice -- an ingot, then a riveted wall panel -- so the iron RESOURCE
+    // chip showed a wall for as long as nobody looked. It is fixed; this is what stops it coming
+    // back, because no assertion about the game's behaviour can see it: the icon set still has an
+    // entry for every name anything asks for, and the wrong picture is still a picture.
+    const src = readFileSync(join(resolve(dirname(fileURLToPath(import.meta.url)), '../..'), 'src', 'icons.js'), 'utf8');
+    const keys = [...src.matchAll(/^\s{2}([a-zA-Z]\w*):\s*`/gm)].map((m) => m[1]);
+    const seen = new Set();
+    const dupes = [...new Set(keys.filter((k) => (seen.has(k) ? true : (seen.add(k), false))))];
+    return dupes.length
+      ? no(dupes.map((k) => `ICONS.${k} is declared twice -- the later one silently wins`))
+      : { pass: true, note: `${keys.length} icons, no key declared twice` };
+  },
+
   'icons-exist'() {
     const bad = [];
     for (const d of PADS) if (d.icon && !ICONS[d.icon]) bad.push(`pad ${d.id} wants icon "${d.icon}"`);

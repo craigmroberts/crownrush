@@ -1945,3 +1945,52 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
    coming up to full opacity and the pulse already say "ready"; the ring saying it too was the same
    news three ways. */
 #horn-btn.ready .ring, #banner-btn.ready .ring { display: none; }
+
+/* #178: the element sheet, `?view=elements`.
+   Only ever on screen when the board asks for it, which is why it is scoped to one id and adds
+   nothing to any selector the game uses. The ground is the overlay's own scrim over a flat dark
+   green rather than white: half of these are painted to be legible over the world, and judging a
+   gold-on-dark button against a white page is judging the wrong thing. */
+#elements-sheet {
+  position: fixed; inset: 0; z-index: 60; overflow-y: auto; overscroll-behavior: contain;
+  background: #23301f; color: var(--ink);
+  font-family: "Nunito", "Trebuchet MS", system-ui, sans-serif;
+  padding: 28px clamp(16px, 4vw, 44px) 80px;
+}
+#elements-sheet header { max-width: 60rem; margin-bottom: 30px; }
+#elements-sheet h1 {
+  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 34px; margin: 0 0 8px;
+  color: var(--accent);
+}
+#elements-sheet header p { margin: 0; color: var(--ink-dim); font-size: 14.5px; line-height: 1.55; max-width: 62ch; }
+#elements-sheet code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: rgba(0,0,0,.3); padding: 1px 5px; border-radius: 3px; }
+#elements-sheet section { margin-bottom: 38px; }
+#elements-sheet h2 {
+  font-family: "Baloo 2", sans-serif; font-size: 19px; margin: 0 0 4px; color: var(--ink);
+  border-bottom: 1px solid rgba(255,255,255,.14); padding-bottom: 7px;
+}
+#elements-sheet .gnote { margin: 8px 0 16px; color: var(--ink-dim); font-size: 13.5px; max-width: 70ch; }
+#elements-sheet .bench { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+#elements-sheet figure { margin: 0; background: rgba(0,0,0,.22); border: 1px solid rgba(255,255,255,.1); border-radius: 10px; overflow: hidden; }
+/* The stage is where the clone lands. `position: relative` so anything the game had fixed has a new
+   containing block and cannot escape back to the corner of the screen it was written for. */
+#elements-sheet .stage {
+  position: relative; min-height: 96px; display: flex; align-items: center; justify-content: center;
+  padding: 18px 14px; background: radial-gradient(ellipse at 50% 40%, #6fa54e, #4f7d3a);
+}
+#elements-sheet .stage > * { position: static !important; inset: auto !important; max-width: 100%; }
+#elements-sheet figcaption { padding: 10px 13px 12px; display: flex; flex-direction: column; gap: 3px; }
+#elements-sheet figcaption b { font-size: 13px; color: var(--ink); }
+#elements-sheet figcaption span { font-size: 12px; color: var(--ink-dim); line-height: 1.4; }
+#elements-sheet figcaption code { align-self: flex-start; margin-top: 3px; }
+#elements-sheet .missing { font-style: normal; font-size: 11px; color: var(--danger-hi); font-weight: 700; }
+/* The ancestor a specimen needs, neutralised as a layout box: it exists so the descendant selector
+   matches, not so the panel's own padding, scrim and max-width come with it. */
+#elements-sheet .el-host {
+  all: unset; display: contents;
+}
+/* `display: contents` drops the host's own box and keeps its pseudo-elements, so `.panel`'s gold
+   corner ornaments were drawing around every button that needed a `.panel` ancestor -- reading as if
+   each button had corners of its own. The host exists to make a descendant selector match, and
+   nothing else. */
+#elements-sheet .el-host::before, #elements-sheet .el-host::after { content: none !important; }

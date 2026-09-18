@@ -63,6 +63,9 @@ try {
     review[id] = {
       name,
       story: field('Story says'),
+      // The art pass is a SECOND brief, older than the bible, and where a model looks wrong it is
+      // often following this one faithfully. Kept apart from the gap for exactly that reason.
+      art: field('Art pass says'),
       model: field('Model is'),
       gap: field('Gap'),
       close: field('Would close it'),

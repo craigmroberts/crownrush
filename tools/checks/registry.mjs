@@ -42,6 +42,11 @@ export const CHECKS = [
     why: '`--figure: var(--figure)` shipped -- a cycle, so six rules fell back to inherit and no number was gold.',
   },
   {
+    id: 'icons-unique', area: 'Brand', cost: 'free',
+    asserts: 'No icon name is declared twice in the icon set.',
+    why: '`ICONS.iron` was an ingot and then a wall; the wall won, and the iron chip showed a wall.',
+  },
+  {
     id: 'icons-exist', area: 'UI', cost: 'free',
     asserts: 'Every `icon:` named in config exists in the icon set.',
     why: 'A missing icon draws nothing and says nothing.',
@@ -60,7 +65,7 @@ export const CHECKS = [
   // ---- cheap: the real game, headless, no tokens ----
   {
     id: 'views-open', area: 'Tooling', cost: 'cheap',
-    asserts: 'All twelve `?view=` URLs reach a running game with their panel open and filled.',
+    asserts: 'Every `?view=` URL reaches a running game with its panel open and filled.',
     why: 'The board is iframes of these. A frame that opens on the wrong thing looks exactly like one that opened on the right thing.',
   },
   {

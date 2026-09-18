@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-18T12:07:54.947Z",
+  "at": "2026-09-18T12:40:20.553Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -37,6 +37,13 @@
       "why": "`--figure: var(--figure)` shipped -- a cycle, so six rules fell back to inherit and no number was gold."
     },
     {
+      "id": "icons-unique",
+      "area": "Brand",
+      "cost": "free",
+      "asserts": "No icon name is declared twice in the icon set.",
+      "why": "`ICONS.iron` was an ingot and then a wall; the wall won, and the iron chip showed a wall."
+    },
+    {
       "id": "icons-exist",
       "area": "UI",
       "cost": "free",
@@ -61,7 +68,7 @@
       "id": "views-open",
       "area": "Tooling",
       "cost": "cheap",
-      "asserts": "All twelve `?view=` URLs reach a running game with their panel open and filled.",
+      "asserts": "Every `?view=` URL reaches a running game with its panel open and filled.",
       "why": "The board is iframes of these. A frame that opens on the wrong thing looks exactly like one that opened on the right thing."
     },
     {
@@ -138,32 +145,32 @@
   "checks": {
     "pads-requires-exist": {
       "pass": true,
-      "at": "2026-09-18T12:07:54.940Z"
+      "at": "2026-09-18T12:40:20.550Z"
     },
     "pads-buildat-in-bounds": {
       "pass": true,
-      "at": "2026-09-18T12:07:54.941Z"
+      "at": "2026-09-18T12:40:20.550Z"
     },
     "pads-no-overlap": {
       "pass": true,
-      "at": "2026-09-18T12:07:54.943Z"
+      "at": "2026-09-18T12:40:20.551Z"
     },
     "opening-homes-legal": {
       "pass": true,
-      "at": "2026-09-18T12:07:54.943Z"
+      "at": "2026-09-18T12:40:20.551Z"
     },
     "icons-exist": {
       "pass": true,
-      "at": "2026-09-18T12:07:54.947Z"
+      "at": "2026-09-18T12:40:20.553Z"
     },
     "upgrade-mods-exist": {
       "pass": true,
-      "note": "16 of 16 upgrades declare a mod key, all 16 resolve",
-      "at": "2026-09-18T12:07:54.947Z"
+      "note": "17 of 17 upgrades declare a mod key, all 17 resolve",
+      "at": "2026-09-18T12:40:20.553Z"
     },
     "footprints-cover-kinds": {
       "pass": true,
-      "at": "2026-09-18T12:07:54.947Z"
+      "at": "2026-09-18T12:40:20.553Z"
     },
     "walls-solid": {
       "pass": true,
@@ -210,7 +217,12 @@
     "tokens-resolve": {
       "pass": true,
       "note": "no cycles; 3 tokens nothing reads -- --frame-hi, --frame-lo, --danger-edge (#135)",
-      "at": "2026-09-18T12:07:54.947Z"
+      "at": "2026-09-18T12:40:20.553Z"
+    },
+    "icons-unique": {
+      "pass": true,
+      "note": "54 icons, no key declared twice",
+      "at": "2026-09-18T12:40:20.553Z"
     }
   }
 }
