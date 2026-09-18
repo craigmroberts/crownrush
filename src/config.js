@@ -178,6 +178,11 @@ export const CFG = {
     // and `?perf=1`: a query flag, read once, off by default, and it says so on screen so a run that
     // never starts is never a mystery.
     tourFlag: /[?&]tour/.test(typeof location === 'undefined' ? '' : location.search),
+    // #178: and every `?view=` holds it too. A board frame is a display -- it was showing a village
+    // that had been knocked down thirty seconds after the frame loaded, because `?view=map` is not
+    // `?tour` and the clock was running. Anything being LOOKED at holds the morning; only `?tour`
+    // gets the badge, because only `?tour` is a person walking around rather than a frame.
+    holdFlag: /[?&](tour|view=)/.test(typeof location === 'undefined' ? '' : location.search),
   },
 
   // Opening: the Queen has been carried off. Find her, clear her captors, and she follows you home.

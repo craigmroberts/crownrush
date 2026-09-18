@@ -58,6 +58,42 @@ on game time — regen, cooldowns, the day cycle — has to be driven directly r
 `tools/probe/README.md` explains this; it has already produced one wrong bug report and two wrong
 test failures.
 
+## Every ticket says what it costs to do
+
+A ticket ends with a **Model and effort** line, because the price of doing the work belongs on the
+work and not in somebody's head. Judge cost per finished job, not per request — a cheaper model that
+needs three more turns is not cheaper.
+
+    **Model and effort:** Sonnet 5, medium — mechanical change, the verification is the hard part.
+
+Rough shape, and say why in half a sentence rather than just naming one:
+
+| | For |
+| --- | --- |
+| **Haiku 4.5** | Mechanical passes with an obvious right answer: a copy change, a rename, a lint sweep |
+| **Sonnet 5** | Ordinary build-and-verify. Most tickets. A clear spec and a way to check it |
+| **Opus 5** | Anything where being wrong is expensive or invisible — touching a system with a history, or a fix whose test would pass either way |
+| **Fable 5.1** | Decisions with long tails: the story, an opening, a name, an architecture you will live with. Twice Opus per token, so it has to be earning it |
+
+Effort is the second dial: `low` for the mechanical, `medium` as the default, `high` when correctness
+matters more than tokens, `max` rarely. Lower effort on a stronger model often beats high effort on a
+weaker one.
+
+**The reason this rule exists:** three bugs in one session passed every assertion and were still
+wrong — a character standing on a roof, a character standing inside another one, and a fix that
+worked by deleting the thing it was meant to protect. None was a coding failure. That is the class of
+ticket that wants a better model, and it is not always the one that looks hardest.
+
+## The board, and keeping it honest
+
+`public/board/` is the admin page, served at `/board/` with the game. It is built on one rule:
+**nothing on it is a copy of something else.** The game views are `<iframe>`s of the real game at
+`?view=…`, the tickets are fetched live from the GitHub API, the budgets point at the README. Nothing
+there can go out of sync, because there is no second copy to drift.
+
+If you add a thing worth looking at, add a `?view=` for it and frame it. Do not put a screenshot on
+the board — a screenshot is a copy, and it starts rotting the moment it is taken.
+
 ## House style
 
 - Balance lives in `src/config.js`. A tuning number goes there with the measurements that pinned it

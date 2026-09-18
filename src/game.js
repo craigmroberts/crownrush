@@ -230,11 +230,15 @@ export class Game {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     // portrait phones need a higher camera to see the same play area
-    this.camDist = this.camera.aspect < 0.8 ? 23 : this.camera.aspect < 1.3 ? 19 : 16.5;
+    // #178: unless a view has pinned it. `resize` fires whenever the canvas settles -- which an
+    // iframe does after it loads -- so a one-shot `camDist` written by `?view=map` was being
+    // overwritten a frame later and the map view looked exactly like the game.
+    this.camDist = this.camLock || (this.camera.aspect < 0.8 ? 23 : this.camera.aspect < 1.3 ? 19 : 16.5);
   }
 
   // ---------- lifecycle ----------
   reset() {
+    this.camLock = this.camLock || 0;   // #178: a `?view=` camera survives a restart and a resize
     if (this.root) this.scene.remove(this.root);
     // Dropping the old root unparents everything but frees nothing: the pads standing on the field
     // still hold a canvas texture each, and a player who restarts five times would be carrying five
