@@ -761,7 +761,7 @@ function perfGrowth() {
   return heap
     + `\n${game.qualityLabel()}`
     + `\nlive: arrows ${s.arrows} (${s.pool} pooled) · coins ${s.coins} · flying ${s.flyCoins} · popups ${s.popups} · flies ${s.pileFlies} · chips ${s.chips} · fx ${s.fx} · dying ${s.dying} · popping ${s.popping} · queue ${s.queue}`
-    + `\ninstanced: grass ${w.tufts} · flowers ${w.flowers} · shadows ${w.shadows} · pebbles ${w.pebbles} · smoke ${w.smoke} · crowd ${cr.drawn}/${cr.characters}`
+    + `\ninstanced: grass ${w.tufts} · clover ${w.clover} · flowers ${w.flowers} · stones ${w.stones} · shadows ${w.shadows} · pebbles ${w.pebbles} · smoke ${w.smoke} · crowd ${cr.drawn}/${cr.characters}`
     + `\ngpu: ${s.geometries} geometries · ${s.textures} textures · ${s.programs} programs · caches ${s.materials} materials · ${s.tags} tags · ${s.popupMats} popups`
     + `\n${game.perfLog.length} samples${perfNote ? ' · ' + perfNote : ''}`;
 }

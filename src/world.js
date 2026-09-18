@@ -690,12 +690,76 @@ export function buildWorld(scene, soleShadows = false) {
     f.count = fi[k];
     scenery.add(f);
   });
+  // #162 (item 3): clover, and stones in the open ground -- the small things a field has that a lawn
+  // does not. Clover is three flat lobes, 9 triangles, lying on the ground in tight patches of its
+  // own (a metre and a half across, dense at the heart) so it reads as a plant that spreads rather
+  // than as confetti; a darker, bluer green than the grass so the patch shows as a patch from the
+  // camera's height. The stones are flattened icosahedra in small groups, the same shape the river's
+  // pebbles have and a shade greyer than the rock nodes, so they are not mistaken for something you
+  // can mine. Both are one instanced draw each, and both thin with the grass under adaptive quality.
+  const cloverLobe = new THREE.CircleGeometry(0.075, 5);
+  const cloverGeo = mergeGeometries([0, 1, 2].map((i) => {
+    const g = cloverLobe.clone();
+    const a = i * 2.094;
+    g.translate(Math.cos(a) * 0.06, Math.sin(a) * 0.06, 0);
+    return g;
+  }), false);
+  cloverGeo.rotateX(-Math.PI / 2);
+  cloverGeo.translate(0, 0.045, 0);   // just proud of the ground, under the grass
+  const CLOVER = 3600;
+  const clovers = new THREE.InstancedMesh(cloverGeo, matFlat(0x3f8a34), CLOVER);
+  const cloverPatches = [];
+  for (let i = 0; i < 110; i++) cloverPatches.push([(rand() * 2 - 1) * half, (rand() * 2 - 1) * half]);
+  let ci = 0;
+  for (let tries = 0; tries < CLOVER * 6 && ci < CLOVER; tries++) {
+    const [px, pz] = cloverPatches[(rand() * cloverPatches.length) | 0];
+    const a = rand() * Math.PI * 2;
+    const d = (rand() ** 0.5) * 1.6;
+    const x = px + Math.cos(a) * d;
+    const z = pz + Math.sin(a) * d;
+    if (Math.abs(x) > half || Math.abs(z) > half || !grassFree(x, z)) continue;
+    m4.makeRotationY(rand() * Math.PI * 2);
+    m4.scale(tuftScale.setScalar(0.8 + rand() * 0.5));
+    m4.setPosition(x, 0, z);
+    clovers.setMatrixAt(ci++, m4);
+  }
+  clovers.count = ci;
+  scenery.add(clovers);
+  const fieldStoneGeo = new THREE.IcosahedronGeometry(0.17, 0);
+  fieldStoneGeo.scale(1, 0.5, 1);
+  const FIELD_STONES = 320;
+  const fieldStones = new THREE.InstancedMesh(fieldStoneGeo, matFlat(0xa8987f), FIELD_STONES);
+  const stoneSpots = [];
+  for (let i = 0; i < 80; i++) stoneSpots.push([(rand() * 2 - 1) * half, (rand() * 2 - 1) * half]);
+  let si = 0;
+  for (let tries = 0; tries < FIELD_STONES * 6 && si < FIELD_STONES; tries++) {
+    let x;
+    let z;
+    if (rand() < 0.7) {
+      const [px, pz] = stoneSpots[(rand() * stoneSpots.length) | 0];
+      const a = rand() * Math.PI * 2;
+      const d = (rand() ** 0.6) * 1.2;
+      x = px + Math.cos(a) * d;
+      z = pz + Math.sin(a) * d;
+    } else {
+      x = (rand() * 2 - 1) * half;
+      z = (rand() * 2 - 1) * half;
+    }
+    if (Math.abs(x) > half || Math.abs(z) > half || !grassFree(x, z)) continue;
+    m4.makeRotationY(rand() * Math.PI);
+    m4.scale(tuftScale.set(0.6 + rand() * 0.9, 0.7 + rand() * 0.6, 0.6 + rand() * 0.9));
+    m4.setPosition(x, 0.04, z);
+    fieldStones.setMatrixAt(si++, m4);
+  }
+  fieldStones.count = si;
+  scenery.add(fieldStones);
   // #168: the dials adaptive quality turns. `count` on an instanced mesh is how many of the buffer
   // are drawn, so thinning is free -- the last instances placed simply stop being drawn, and since
   // every patch was placed at a random spot, the ones that go are random patches. Wind is a flag
   // read by `world.update`; the contact discs are one mesh with a `visible`.
   world.setQuality = (s) => {
     tufts.count = Math.round(ti * s.grass);
+    clovers.count = Math.round(ci * s.grass);
     flowers.forEach((f, k) => { f.count = Math.round(fi[k] * s.flowers); });
     world.windOff = !s.wind;
     if (world.shadows) world.shadows.visible = s.shadows;
@@ -1115,6 +1179,8 @@ export function buildWorld(scene, soleShadows = false) {
     flowers: flowers.reduce((n, f) => n + f.count, 0),
     shadows: world.shadows ? world.shadows.count : 0,
     pebbles: pebbles.count,
+    clover: clovers.count,
+    stones: fieldStones.count,
     smoke: smoke.count,
   });
   return world;

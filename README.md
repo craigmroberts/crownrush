@@ -84,6 +84,11 @@ the raids keep coming for a high score.
   is the whole map), so a tuft met the ground with no contact at all. It is a colour attribute on the
   blade, 0.5 at the base to 1.0 at the tip, multiplied by the per-tuft green the shader already
   applies -- 13,000 discs would have been the other way, and this costs nothing per frame.
+  And the small things a field has that a lawn does not: **clover** in tight patches of its own (3,600
+  three-lobed sprigs, 9 triangles each, a darker bluer green so a patch reads as a patch from the
+  camera's height) and **field stones** in small groups (320 flattened icosahedra, a shade greyer than
+  the rock nodes so they are not mistaken for something to mine). One instanced draw each, and both
+  thin with the grass under adaptive quality.
 
   The tufts themselves are **seven blades for the price of three**: the cones were closed, and a
   cone's base cap faces straight down at ground level where nothing can ever see it, so open-ending
