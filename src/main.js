@@ -232,7 +232,7 @@ pauseRestart.addEventListener('click', () => {
   pauseRestart.querySelector('span').textContent = 'Restart? Tap again';
   pauseRestartArmed = setTimeout(disarmPauseRestart, 4000);
 });
-document.getElementById('pause-settings').addEventListener('click', () => { disarmPauseRestart(); game.showSettingsFromPause(); });
+document.getElementById('pause-settings').addEventListener('click', () => { disarmPauseRestart(); prepSettings(); game.showSettingsFromPause(); });
 // Quit to Menu: the game stops and the title screen is redrawn with whatever the quit saved, so
 // Continue picks the run back up from here.
 document.getElementById('pause-quit').addEventListener('click', () => {
@@ -414,7 +414,9 @@ const settingsBtn = document.getElementById('settings-btn');
 const startUpdateBtn = document.getElementById('start-update');
 const startUpdateNote = document.getElementById('start-update-note');
 startUpdateBtn.addEventListener('click', installUpdate);
-settingsBtn.addEventListener('click', () => {
+// Everything the sheet reads fresh on open, in one place: the corner button, the pause window's
+// Settings and the title's Settings all go through it.
+const prepSettings = () => {
   disarmRestart();
   syncUpdateRow();     // whether a reload would cost anything depends on where the run is right now
   syncSizeLine();
@@ -422,7 +424,12 @@ settingsBtn.addEventListener('click', () => {
   game.hud.setDiaryCount(readDiary().length);   // #154: the row's own count, read fresh on open
   game.hud.setCastCount(readDiary());          // #159: same list, counted as people met
   syncSettings();                               // #174: sliders, pills and the tab, read fresh on open
-  game.toggleSettings();
+};
+// #176: the corner button is the pause. It opens the pause window, where Settings is one of the four
+// rows; a second tap resumes, the way P and Esc do.
+settingsBtn.addEventListener('click', () => {
+  disarmRestart();
+  if (game.running || game.paused) game.togglePause();
 });
 const closeSettings = () => {
   disarmRestart();
@@ -508,10 +515,7 @@ document.getElementById('diary-screen').addEventListener('click', (e) => {
 // with no run to pause; Credits opens from here and from the sheet's About tab, and closing it goes
 // back to whichever opened it.
 document.getElementById('start-settings').addEventListener('click', () => {
-  disarmRestart();
-  syncUpdateRow();
-  syncSizeLine();
-  syncSettings();
+  prepSettings();
   game.showSettings();
 });
 document.getElementById('start-credits').addEventListener('click', () => game.showCredits('title'));
@@ -607,7 +611,7 @@ function syncUpdateRow() {
   // than in `Hud.set`, which runs every frame: this changes on registration, `updatefound`, a manual
   // check and an install, and every one of those already calls this.
   settingsBtn.classList.toggle('update', ready);
-  settingsBtn.title = ready ? 'Settings — an update is ready to install' : 'Settings';
+  settingsBtn.title = ready ? 'Pause — an update is ready to install' : 'Pause';
   syncStartUpdate();
   if (!swState.reg) return;                  // no worker to ask: the row stays hidden
   updateRow.classList.remove('hidden');

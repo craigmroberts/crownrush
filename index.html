@@ -153,7 +153,10 @@
         <b id="army-count" hidden>0</b>
         <i id="load-track" hidden></i>
       </div>
-      <button id="settings-btn" title="Settings"><i data-icon="gear" data-size="34"></i></button>
+      <!-- #176: the corner button is a pause now, the reference's glyph. It opens the pause window
+           (#171), and Settings lives inside that -- the same tap it always was, with a clearer face.
+           The id stays: #120's update dot rides on it and half a dozen readers know it by name. -->
+      <button id="settings-btn" title="Pause"><i data-icon="pause" data-size="26"></i></button>
       <button id="next-wave-btn" class="hidden" title="Bring on the night"><b id="next-wave-btn-t">0:00</b><span>skip</span></button>
       <button id="horn-btn" class="hidden" title="Warhorn (Space): rally the army"><span class="ring"></span><i data-icon="horn" data-size="30"></i><b id="horn-cd"></b></button>
       <!-- #57: the rally banner, left of the horn rather than above it -- the purse (#131) has the

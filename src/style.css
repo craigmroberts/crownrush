@@ -849,7 +849,12 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
    number, and `:first-child` still finds the icon. The purse is pinned to the right edge of the
    screen, so the icons now make a straight right-hand column and the numbers grow inward, which is
    the direction there is room in. */
-#purse .hud-cell { font-size: 21px; gap: 7px; flex-direction: row-reverse; }
+/* #176: the reference's counters sit in small dark pills -- local to the number, not a plaque behind
+   the HUD, which #68 and the README still forbid. The pill is the cell's own background, so nothing
+   is written per frame. The hearts stay bare: five red shapes are their own pill. */
+.hud-pill { background: rgba(8, 26, 20, 0.52); border: 1px solid rgba(255, 255, 255, 0.11); border-radius: 999px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25); }
+#purse .hud-cell { font-size: 21px; gap: 7px; flex-direction: row-reverse; padding: 3px 8px 3px 4px; background: rgba(8, 26, 20, 0.52); border: 1px solid rgba(255, 255, 255, 0.11); border-radius: 999px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25); }
+#level-cell, #next-wave { padding: 4px 11px; background: rgba(8, 26, 20, 0.52); border: 1px solid rgba(255, 255, 255, 0.11); border-radius: 999px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25); }
 #purse .hud-cell > :first-child { flex: 0 0 38px; display: grid; place-items: center; }
 #purse .hud-cell > b { flex: 1 1 auto; text-align: right; }
 #purse .bagring { width: 38px; height: 38px; }
@@ -959,10 +964,15 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
    horn and the banner are both live down there) and this is the slot above the lowest
    strip rather than in it, but a drag started in that corner is the thing to check before calling
    this done. */
+/* #176: the reference's corner buttons -- a dark disc in a wooden ring. One rule for the three of
+   them (the pause, the horn, the banner) so they read as a set, written as a custom property so the
+   horn's ready-pulse and the banner's flying state can keep the ring while they change the glow. */
+:root { --wood-ring: 0 0 0 3px #7d5528, 0 0 0 4.5px #3a2410; }
 #settings-btn {
   position: fixed; right: 12px; right: max(12px, env(safe-area-inset-right));
   bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 5;
-  pointer-events: auto; width: 48px; height: 48px; border: 0; background: none; cursor: pointer;
+  pointer-events: auto; width: 46px; height: 46px; border: 0; cursor: pointer; border-radius: 50%;
+  background: rgba(20, 38, 30, 0.86); box-shadow: var(--wood-ring), 0 6px 14px rgba(0, 0, 0, 0.4);
   display: grid; place-items: center; -webkit-tap-highlight-color: transparent;
   transition: transform 0.12s ease-out, filter 0.12s ease-out;
 }
@@ -1557,7 +1567,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 #horn-btn {
   position: fixed; right: 12px; bottom: max(12px, env(safe-area-inset-bottom));
   width: 64px; height: 64px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; pointer-events: auto;
-  background: var(--surface); box-shadow: 0 6px 16px rgba(0,0,0,0.35); z-index: 5;
+  background: rgba(20, 38, 30, 0.86); box-shadow: var(--wood-ring), 0 6px 16px rgba(0,0,0,0.35); z-index: 5;   /* #176 */
   display: grid; place-items: center; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
 }
 #horn-btn.hidden { display: none; }
@@ -1567,7 +1577,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 #horn-btn.ready i { opacity: 1; transform: scale(1.1); }
 #horn-btn.ready { animation: hornReady 1.2s ease-in-out infinite alternate; }
 #horn-btn b { position: absolute; color: #fff; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-size: 20px; text-shadow: 0 2px 0 rgba(0,0,0,0.5); }
-@keyframes hornReady { from { box-shadow: 0 6px 16px rgba(0,0,0,0.35); } to { box-shadow: 0 0 22px rgba(245,184,0,0.75); } }
+@keyframes hornReady { from { box-shadow: var(--wood-ring), 0 6px 16px rgba(0,0,0,0.35); } to { box-shadow: var(--wood-ring), 0 0 22px rgba(245,184,0,0.75); } }
 /* #57: the banner, to the LEFT of the horn. Above it is the purse (bottom 84px), and pushing that up
    would push the notice line (--notice-bottom) with it. 56px against the horn's 64 so the two read as
    a primary and a secondary, sitting on the same centreline: (64-56)/2 = 4px of extra bottom.
@@ -1578,7 +1588,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 #banner-btn {
   position: fixed; bottom: max(16px, calc(4px + env(safe-area-inset-bottom)));
   width: 56px; height: 56px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; pointer-events: auto;
-  background: var(--surface); box-shadow: 0 6px 16px rgba(0,0,0,0.35); z-index: 5;
+  background: rgba(20, 38, 30, 0.86); box-shadow: var(--wood-ring), 0 6px 16px rgba(0,0,0,0.35); z-index: 5;   /* #176 */
   display: grid; place-items: center; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
 }
 #banner-btn { right: max(84px, calc(72px + env(safe-area-inset-right))); }
@@ -1591,7 +1601,7 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 /* #57: while the banner is actually STANDING the button says so, because the cooldown ring cannot --
    it is filling for the ten seconds after the banner falls as well as the eighteen it is up for, and
    those are opposite states. A steady blue edge, not a pulse: it is a status, not a summons. */
-#banner-btn.flying { background: rgba(28, 46, 78, 0.85); box-shadow: 0 0 0 2px #2f6fd6, 0 6px 16px rgba(0,0,0,0.35); }
+#banner-btn.flying { background: rgba(28, 46, 78, 0.85); box-shadow: var(--wood-ring), 0 0 12px #2f6fd6, 0 6px 16px rgba(0,0,0,0.35); }
 #banner-btn.flying i { opacity: 1; }
 /* the horn has the corner, so the pad tip sits above it */
 

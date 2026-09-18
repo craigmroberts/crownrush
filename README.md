@@ -129,7 +129,11 @@ the raids keep coming for a high score.
 - Watchtowers are built empty. A "Man the Tower" pad next to each one takes archers from your army
   (the price is people, not coins). Gate guards work the same way.
 - Red arrows at the screen edge point at raiders you can't see, with a count and a skull for bosses.
-- The HUD floats on the scene: no plaque, no capsule, no panel behind any of it. Everything that reads
+- The HUD floats on the scene: no plaque, no capsule, no panel behind any of it (#176 put the owner's
+  small dark pills behind the counters -- the coin, the bag, the level, the clock -- and wooden rings
+  round the three corner buttons; those are local to the number and the button, not furniture behind
+  the HUD, and the hearts stay bare). The corner button is a **pause** now: it opens the pause window
+  (#171) and Settings is a row inside it, the same tap with a clearer face. Everything that reads
   as *status* stacks down the top-left in three lines -- what you carry, then the King's health, then
   what is happening right now -- and coin and bag take the top-right corner that leaves (the minimap
   had it until #145 parked it). It used to be
