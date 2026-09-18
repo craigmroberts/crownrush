@@ -176,6 +176,12 @@ export const CHEAP = {
     const r = await page.evaluate(async () => {
       const g = window.game;
       const bad = [];
+      // #180: this check is RIGHT, and was disbelieved twice before it was reproduced. It reported
+      // Wren inside the King and the first two readings of it were "the harness is starting mid-
+      // settle" -- a settle wait was added, the number got worse, and the settle wait came out again.
+      // Driving it in a real browser is what settled it: turn the King 180 degrees and her follow
+      // point flips to the far side, and she walks THROUGH him to reach it. Closest approach 0.04.
+      // Nothing to do with SwiftShader. The lesson is in #179 and it is not the one #179 first said.
       for (let i = 0; i < 400; i++) {
         g.running = true; g.paused = false;
         if (i === 120) g.king.mesh.position.set(-6, 0, 9);
@@ -213,11 +219,25 @@ export const CHEAP = {
       g.king.mesh.position.copy(g.queen.mesh.position);
       tick(40);
       if (g.queen.captive) bad.push('she could not be freed');
-      const pad = g.pads.find((p) => p.def.structure);
-      if (!pad) bad.push('no buildable mat after the fall');
-      else { g.coinsCarried = 999; g.completePad(pad); if (!g.structures.length) bad.push('buying a mat built nothing'); }
+      // BUYING IT HAS TO PUT SOMETHING ON THE FIELD -- and where that something is recorded depends
+      // on the kind. `buildStructure` deliberately keeps the trade post OUT of `structures` and hangs
+      // it on `tradePost` instead, because it is not a thing raiders attack. The first version of
+      // this took the first pad with a `structure` and asserted `structures.length`, which picked the
+      // trade post and reported "buying a mat built nothing" against a game that had built it
+      // correctly. The fourth check in this file to be wrong about the game rather than the other way
+      // round; the tell is the same every time, an assertion that knows one shape of a right answer.
+      const pads = g.pads.filter((p) => p.def.structure);
+      if (!pads.length) bad.push('no buildable mat after the fall');
+      for (const pad of pads) {
+        const kind = pad.def.structure;
+        const before = kind === 'bank' ? !!g.tradePost : g.structures.length;
+        g.coinsCarried = 999;
+        g.completePad(pad);
+        const after = kind === 'bank' ? !!g.tradePost : g.structures.length;
+        if (kind === 'bank' ? !after : after <= before) bad.push(`buying "${pad.def.id}" (${kind}) built nothing`);
+      }
       return { bad };
     });
-    return r.bad.length ? no(r.bad) : ok('empty plot, clear ledger, first mat buys');
+    return r.bad.length ? no(r.bad) : ok('empty plot, clear ledger, every mat on it buys');
   },
 };

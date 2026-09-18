@@ -166,6 +166,23 @@ game: the branding makes it harder, not easier, to tell a control from the thing
 that throws — a `page.goto` timeout, a crashed context — comes back as `error`, and the board shows it
 amber as **could not run**, separately from the red of an assertion that actually ran and was false.
 
+### A red check gets reproduced before it gets explained
+
+Drive it in a real browser and watch it happen. Not argued about from the code, not fixed by
+adjusting the check first — **reproduced**. Only if it will not reproduce there is the harness the
+suspect.
+
+This rule was bought expensively (#179). Four checks really had been wrong about the game rather than
+the other way round, and that built a habit of explaining the next one away. `queen-visible` reported
+Wren inside the King; it was called a harness artefact twice, a settle wait was added, and **the
+number got worse** — frame 3 at 0.64 became frame 1 at 0.52. A fix that makes a number worse has
+disproved its own premise, and that was the moment to stop reasoning and go and look. Turning the
+King 180° in a console shows her closest approach is 0.04: she walks through him on every turn
+(#181), and always had.
+
+A suite that has cried wolf teaches you to disbelieve the one real failure it finds. That cost is
+bigger than the noise.
+
 That distinction is not decoration. Under SwiftShader a cold load of the real build measures **18
 seconds** to `load` and 22 to a world with a King in it, on an idle machine; with a dev server up it
 is slower still. A 60s timeout once turned the entire sweep red and had the board reporting that the

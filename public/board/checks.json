@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-18T12:40:20.553Z",
+  "at": "2026-09-18T12:59:35.844Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -203,16 +203,16 @@
     "queen-visible": {
       "pass": false,
       "detail": [
-        "inside the King (0.64 apart) at frame 3"
+        "inside the King (0.76 apart) at frame 0",
+        "DIAG trace: []",
+        "DIAG now: king=0.00,8.00 wren=0.00,8.76 captive=false taken=undefined seize=false keep=true snatched=false"
       ],
-      "at": "2026-09-18T11:44:02.992Z"
+      "at": "2026-09-18T12:48:42.405Z"
     },
     "rebuild-after-fall": {
-      "pass": false,
-      "detail": [
-        "buying a mat built nothing"
-      ],
-      "at": "2026-09-18T11:52:54.357Z"
+      "pass": true,
+      "note": "empty plot, clear ledger, every mat on it buys",
+      "at": "2026-09-18T12:59:32.777Z"
     },
     "tokens-resolve": {
       "pass": true,
