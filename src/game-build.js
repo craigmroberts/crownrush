@@ -1946,6 +1946,51 @@ export const BuildMethods = {
     this.rebuildWall(w, this.wallLevel);
   },
 
+  // #177: what a card changes, as the number the player can already point at -- "arrows hit for
+  // 10 -> 13", not "x1.3". The multiplier is resolved against the stat it scales, read off the game
+  // as it stands (`mods`, the archers' training, the wall level), so Volley reads 1 -> 2 the first
+  // time it is offered and 2 -> 3 the second, and every card gets a figure or the one without it
+  // reads as a bug. The same shape the purchase panel (#105) uses for the same numbers afterwards,
+  // so a card promises what the panel then confirms. The prose stays beside it: the ladder of words
+  // says whether a change is big, the figure says what it is.
+  upgradeChange(u) {
+    const a = u.apply;
+    if (!a || !a.key) return null;
+    const cur = this.mods[a.key];
+    const next = a.op === 'mul' ? cur * a.by : cur + a.by;
+    const one = (x) => String(Math.round(x * 10) / 10);
+    const whole = (x) => String(Math.round(x));
+    const trained = 1 + this.archerPower * CFG.archerTraining.damage;
+    const hearty = 1 + this.archerPower * CFG.archerTraining.hp;
+    const recruitBase = (PADS.find((d) => d.id === 'recruit') || { units: { count: 2 } }).units.count;
+    const R = {
+      archerDamage: ['Arrows hit for', (m) => one(CFG.archer.damage * trained * m)],
+      archerHp: ['Archer health', (m) => whole(CFG.archer.hp * hearty * m)],
+      archerRange: ['Archers shoot from', (m) => one(CFG.archer.range * m)],
+      recruitBonus: ['Archers per recruit mat', (m) => whole(recruitBase + m)],
+      towerDamage: ['Tower arrows hit for', (m) => one(CFG.tower.damage * this.damageMul * m)],
+      towerRange: ['Towers shoot from', (m) => one(CFG.tower.range * m)],
+      towerSlots: ['Archers per tower', (m) => whole(CFG.tower.levels[0].slots + m)],
+      wallHp: ['Wall health', (m) => whole(CFG.wallLevels[this.wallLevel].hp * m)],
+      wallThorns: ['Damage to a raider hitting a wall', (m) => whole(m)],
+      pickup: ['Coins pulled from', (m) => one(CFG.king.pickupRadius * m)],
+      coinBonus: ['Extra coin per raider', (m) => whole(m)],
+      mineSpeed: ['A swing at wood takes', (m) => `${(CFG.materials.wood.mine / m).toFixed(2)}s`],
+      carryBonus: ['The bag holds', (m) => whole(CFG.carry.base + CFG.carry.perUpgrade * m)],
+      kingSpeed: ['The King walks at', (m) => one(CFG.king.footSpeed * m)],
+      kingArrows: ['Arrows per shot', (m) => whole(m)],
+      regen: ['Health back each second', (m) => one(CFG.regen.perSecond * m)],
+    };
+    const r = R[a.key];
+    if (!r) return null;
+    return { label: r[0], now: r[1](cur), next: r[1](next) };
+  },
+
+  // the list the HUD gets: each card with its figure, and `apply` still on it for `takeUpgrade`
+  offerForHud(list) {
+    return list.map((u) => ({ ...u, change: this.upgradeChange(u) }));
+  },
+
   // Present one upgrade choice. Pauses the game; `takeUpgrade` resumes it or shows the next in the queue.
   showOffer() {
     const list = this.over || this.won || this.offerQueue <= 0 ? [] : pickOffer(this.taken);
@@ -1965,7 +2010,7 @@ export const BuildMethods = {
     this.pause(true);
     this.hud.hideInfo();
     this.infoOpen = false;
-    this.hud.showOffer(list, this.offerLevel, this.offerQueue, this.levelGains(this.offerLevel));
+    this.hud.showOffer(this.offerForHud(list), this.offerLevel, this.offerQueue, this.levelGains(this.offerLevel));
   },
 
   takeUpgrade(id) {

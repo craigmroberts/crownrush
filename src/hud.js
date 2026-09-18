@@ -1160,6 +1160,7 @@ export class Hud {
           <em class="opool">${esc(POOL_NAME[u.pool] || '')}</em>
           <b>${esc(u.name)}</b>
           <span>${esc(u.desc)}</span>
+          ${u.change ? `<em class="ochange">${esc(u.change.label)} <b>${esc(u.change.now)}</b><i class="oarrow">\u2192</i><b>${esc(u.change.next)}</b></em>` : ''}
         </div>
       </button>`).join('');
     document.getElementById('offer-screen').classList.remove('hidden');

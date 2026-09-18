@@ -23,8 +23,11 @@ export const MODS = {
   regen: 1,
 };
 
-const mul = (key, by) => (g) => { g.mods[key] *= by; };
-const add = (key, by) => (g) => { g.mods[key] += by; };
+// #177: the key and the amount are hung on the function itself, so a card can be asked what it
+// touches and by how much (`upgradeChange`) without a second description of each upgrade that could
+// drift from the first. The closure is unchanged; it just carries its own facts.
+const mul = (key, by) => Object.assign((g) => { g.mods[key] *= by; }, { key, by, op: 'mul' });
+const add = (key, by) => Object.assign((g) => { g.mods[key] += by; }, { key, by, op: 'add' });
 
 // #107: a card says what the player will SEE, not what the multiplier is. "30% more damage" is an
 // arithmetic instruction against `CFG.archer.damage`, a number that is on no screen in the game, in

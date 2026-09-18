@@ -753,7 +753,7 @@ export class Game {
       // #99: the level this offer was opened for. `baseLevel` would be right only until a second
       // level lands while the first offer is still on screen.
       const lv = this.offerLevel || this.baseLevel;
-      this.hud.showOffer(this.offer, lv, this.offerQueue, this.levelGains(lv));
+      this.hud.showOffer(this.offerForHud(this.offer), lv, this.offerQueue, this.levelGains(lv));
       return;
     }
     this.paused = false;

@@ -571,6 +571,17 @@ the same sheet with no run to pause; **Credits** is a new sheet -- who made it, 
 reached from here and from Settings > About, and closing it goes back to whichever opened it. At
 320px the two-up row stacks; it overran the panel by 25px until it did.
 
+**A reward card carries its figure** (#177): under the prose, a chip with what the card changes and
+to what, as the number the player can already point at -- `Arrows hit for 10 → 13`, `Arrows per shot
+1 → 2`, `The bag holds 18 → 26`. Every card, not only the countable ones: a multiplier is resolved
+against the stat it scales, read off the game as it stands (`upgradeChange` in `game-build.js`), so
+Volley reads 1 → 2 the first time and 2 → 3 the second, and the same numbers the purchase panel
+(#105) shows afterwards are the ones the card promised. The key and the amount are hung on the
+`mul`/`add` helpers themselves rather than written a second time, so the figure cannot drift from the
+effect. The prose stays: #107's ladder of words says whether a change is big, the figure says what it
+is. Verified on every one of the sixteen cards, and by taking one: a card promising 10 → 13 landed
+on 13.
+
 Before #170 the buttons were #135's repaint: a near-black fill with a hairline edge and an italic
 label, no glyph, after a gold frame with a rotated diamond at each end had made every button wear the
 full ornament and left a panel offering three of them no way to say *this one*. The emphasis that

@@ -1503,6 +1503,16 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
    the pool, so a second colour saying the same thing would be one too many, and white on a knocked-
    back fill is the one that keeps reading whichever of the five is underneath. */
 .panel.offer .offer-card .otext { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+/* #177: the figure. What the card changes and to what, as the number the player can point at, in a
+   dark chip under the prose so it reads as a fact beside a sentence rather than as more sentence. */
+.panel.offer .offer-card .ochange {
+  display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap; justify-content: center;
+  font-style: normal; font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.9);
+  background: rgba(0, 0, 0, 0.26); border-radius: 999px; padding: 3px 10px; margin-top: 3px; max-width: 100%;
+}
+.panel.offer .offer-card .ochange b { font-size: 13.5px; font-weight: 800; color: #fff; }
+/* a real arrow character, not a CSS triangle: a screen reader read "10 13" off the triangle */
+.panel.offer .offer-card .ochange .oarrow { font-style: normal; font-size: 12px; opacity: 0.85; }
 .panel.offer .offer-card .opool {
   font-style: normal; font-size: 10.5px; font-weight: 800; letter-spacing: 0.07em;
   text-transform: uppercase; color: #fff; line-height: 1.32;
