@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-18T12:59:47.413Z",
+  "at": "2026-09-18T13:00:19.805Z",
   "enforced": [
     {
       "key": "wireKbToPlay",
@@ -17,12 +17,12 @@
       "waived": "#52 -- same cause"
     }
   ],
-  "total": 7158257,
+  "total": 7169493,
   "files": 43,
   "groups": [
     {
       "name": "JavaScript",
-      "bytes": 1198273,
+      "bytes": 1208693,
       "files": 3
     },
     {
@@ -53,8 +53,8 @@
   ],
   "biggest": [
     {
-      "path": "assets/index-ClHhgnr3.js",
-      "bytes": 1134771
+      "path": "assets/index-C7P-6tG9.js",
+      "bytes": 1145191
     },
     {
       "path": "assets/basis_transcoder-VXdx5NbI.wasm",
