@@ -25,7 +25,13 @@ const has = (fn) => new RegExp(`export function ${fn}\\b`).test(MODELS);
 // "the Keep" means a different object depending on whether its prop loaded, and the board should not
 // pretend otherwise. Read from game-build.js so it cannot drift from what the game actually does.
 const BUILD = readFileSync(join(ROOT, 'src', 'game-build.js'), 'utf8');
-const imported = new Set([...BUILD.matchAll(/makeProp\('(\w+)'/g)].map((m) => m[1]));
+// #82: reaching for a prop is not the same as having one. The Stable's slot was cut before its
+// model existed, so "imported" also asks whether the file the code would load is actually in
+// public/models -- read off `PROP_FILE` in props.js, the same map the loader uses.
+const PROPS = readFileSync(join(ROOT, 'src', 'props.js'), 'utf8');
+const propFile = Object.fromEntries([...(/const PROP_FILE = \{([^}]*)\}/.exec(PROPS) || ['', ''])[1].matchAll(/(\w+): '(\w+)'/g)].map((m) => [m[1], m[2]]));
+const imported = new Set([...BUILD.matchAll(/makeProp\('(\w+)'/g)].map((m) => m[1])
+  .filter((k) => propFile[k] && existsSync(join(ROOT, 'public', 'models', `${propFile[k]}.glb`))));
 
 // The ages, in the order the Keep unlocks them, straight off `CFG.wallLevels`.
 const ages = CFG.wallLevels.map((w, i) => ({ i, name: w.name.toLowerCase(), label: w.name, hp: w.hp, gateHp: w.gateHp, repair: w.repair }));
@@ -40,6 +46,7 @@ const GROUPS = [
       { id: 'hut', name: 'Archery range', builder: 'makeHut', ages: true, why: 'Where archers are trained.' },
       { id: 'house', name: 'Villager home', builder: 'makeHut', ages: true, why: 'Six of them. What the village is for.' },
       { id: 'barracks', name: 'Barracks', builder: 'makeBarracks', ages: true, why: 'Where swordsmen come from.' },
+      { id: 'stable', name: 'Stable', builder: 'makeStable', ages: true, why: 'Where the horse comes from, and the yard whose horses the army rides (#82, #117). Built placeholder until the generated one lands.' },
       { id: 'bank', name: 'Trade post', builder: 'makeBank', ages: false, why: 'Where a full bag turns into coin.' },
     ],
   },

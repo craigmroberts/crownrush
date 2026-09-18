@@ -1787,9 +1787,11 @@ export const ViewMethods = {
     this.charView = null;
     const L = { wood: 0, stone: 1, iron: 2, diamond: 3 }[age] ?? 1;
     this.wallLevel = L;
-    const OWN = { keep: 'keep', hut: 'hut', house: 'house', tower: 'tower', barracks: 'barracks', bank: 'bank' };
+    const OWN = { keep: 'keep', hut: 'hut', house: 'house', tower: 'tower', barracks: 'barracks', bank: 'bank', stable: 'stable' };
     if (OWN[id]) {
-      const prop = { keep: 'keep', hut: 'hut', house: 'house', tower: 'tower', barracks: 'barracks' }[id];
+      // #82: `stable` is here for the day its import exists; until then the preload fails quietly
+      // and the built placeholder stands in, which is what the field does too
+      const prop = { keep: 'keep', hut: 'hut', house: 'house', tower: 'tower', barracks: 'barracks', stable: 'stable' }[id];
       if (prop && !propReady(prop)) {
         try { await preloadProps([prop]); } catch (e) { /* the game's own fallback takes over */ }
       }
@@ -1799,6 +1801,7 @@ export const ViewMethods = {
       hut: () => this.makeStructureMesh('hut'),
       house: () => this.makeStructureMesh('house'),
       barracks: () => this.makeStructureMesh('barracks'),
+      stable: () => this.makeStructureMesh('stable'),   // #82: the block, yard and all
       tower: () => this.makeStructureMesh('tower', level),
       bank: () => this.makeStructureMesh('bank'),
       wall: () => makeWallSegment(7, L),
