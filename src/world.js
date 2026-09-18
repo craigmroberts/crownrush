@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CFG, MAP, TIERS, NODES, PADS } from './config.js';
 import {
   mat, matFlat, swayMaterial, setSwayUniform, makeTree, makeBush, makeRock, makeSpikes, makeCliff, makePeak, makeBridge, makeHayBale, makeWheatField, mergeGroup,
+  band,
 } from './models.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
@@ -427,6 +428,11 @@ export function buildWorld(scene, soleShadows = false) {
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshStandardMaterial({ map: groundTexture(), color: 0xffffff, roughness: 1 }));
   world.groundMat = ground.material;
   breakTiling(ground.material);
+  // #185: and banded, AFTER the untile hook rather than instead of it -- `band` chains whatever
+  // `onBeforeCompile` is already there and appends to the cache key, so this material compiles as
+  // 'ground-untiled-patched+band'. The ground goes first and the tufts follow it: if the ground is
+  // banded and the grass is not, the grass reads as stuck on rather than growing out of it.
+  band(ground.material);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
@@ -992,6 +998,11 @@ export function buildWorld(scene, soleShadows = false) {
   const tufts = new THREE.InstancedMesh(tuftGeo, swayMaterial(0xffffff), TUFTS);
   tufts.material.vertexColors = true;   // #162: the root darkening above
   tufts.material.customProgramCacheKey = () => 'sway-tinted-rooted';
+  // #185: the same bands as the ground, from the same uniforms, so the two surfaces step together.
+  // `band` chains the sway hook rather than replacing it, and the key becomes
+  // 'sway-tinted-rooted+band'. The wheat's `swayMaterial` is a different instance and is untouched:
+  // that is #186's, along with the trees, rocks and roads.
+  band(tufts.material);
   // #191: built rather than grown by `setColorAt`, because the window writes whole cells into the
   // array at once and there is no first call to allocate it.
   tufts.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(TUFTS * 3), 3);

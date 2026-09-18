@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-18T20:31:25.572Z",
+  "at": "2026-09-18T21:38:13.749Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -70,6 +70,13 @@
       "cost": "cheap",
       "asserts": "Every `?view=` URL reaches a running game with its panel open and filled.",
       "why": "The board is iframes of these. A frame that opens on the wrong thing looks exactly like one that opened on the right thing."
+    },
+    {
+      "id": "bands-hooked",
+      "area": "Render",
+      "cost": "cheap",
+      "asserts": "The ground and the tufts both compile with #185's band hook, and both keep the cache key they had.",
+      "why": "Every way this fails is silent. If three renames the line the hook patches, the replace is a no-op and the game renders un-banded with no error; if the cache key were overwritten instead of appended, two materials with matching defines get handed each other's program (#155)."
     },
     {
       "id": "walls-solid",
@@ -145,79 +152,84 @@
   "checks": {
     "pads-requires-exist": {
       "pass": true,
-      "at": "2026-09-18T20:12:09.093Z"
+      "at": "2026-09-18T21:18:33.816Z"
     },
     "pads-buildat-in-bounds": {
       "pass": true,
-      "at": "2026-09-18T20:12:09.093Z"
+      "at": "2026-09-18T21:18:33.817Z"
     },
     "pads-no-overlap": {
       "pass": true,
-      "at": "2026-09-18T20:12:09.100Z"
+      "at": "2026-09-18T21:18:33.819Z"
     },
     "opening-homes-legal": {
       "pass": true,
-      "at": "2026-09-18T20:12:09.100Z"
+      "at": "2026-09-18T21:18:33.819Z"
     },
     "icons-exist": {
       "pass": true,
-      "at": "2026-09-18T20:12:09.104Z"
+      "at": "2026-09-18T21:18:33.823Z"
     },
     "upgrade-mods-exist": {
       "pass": true,
       "note": "17 of 17 upgrades declare a mod key, all 17 resolve",
-      "at": "2026-09-18T20:12:09.104Z"
+      "at": "2026-09-18T21:18:33.823Z"
     },
     "footprints-cover-kinds": {
       "pass": true,
-      "at": "2026-09-18T20:12:09.104Z"
+      "at": "2026-09-18T21:18:33.823Z"
     },
     "walls-solid": {
       "pass": true,
       "note": "24 directions, held every time",
-      "at": "2026-09-18T20:15:17.902Z"
+      "at": "2026-09-18T21:21:52.382Z"
     },
     "gates-passable": {
       "pass": true,
       "note": "4 gates",
-      "at": "2026-09-18T20:15:26.153Z"
+      "at": "2026-09-18T21:22:01.750Z"
     },
     "wall-ring-unbroken": {
       "pass": true,
       "note": "360 samples",
-      "at": "2026-09-18T20:15:34.484Z"
+      "at": "2026-09-18T21:22:10.209Z"
     },
     "views-open": {
       "pass": true,
       "note": "18 views, each with its panel up",
-      "at": "2026-09-18T20:15:10.043Z"
+      "at": "2026-09-18T21:21:35.440Z"
     },
     "opening-resolves": {
       "pass": true,
-      "note": "taken after 785 frames of running",
-      "at": "2026-09-18T20:23:11.409Z"
+      "note": "taken after 787 frames of running",
+      "at": "2026-09-18T21:29:55.547Z"
     },
     "queen-visible": {
       "pass": false,
       "detail": [
         "inside the King (0.76 apart) at frame 2"
       ],
-      "at": "2026-09-18T20:23:22.131Z"
+      "at": "2026-09-18T21:30:05.602Z"
     },
     "rebuild-after-fall": {
       "pass": true,
       "note": "empty plot, clear ledger, every mat on it buys",
-      "at": "2026-09-18T20:31:22.588Z"
+      "at": "2026-09-18T21:38:09.667Z"
     },
     "tokens-resolve": {
       "pass": true,
       "note": "no cycles; 3 tokens nothing reads -- --frame-hi, --frame-lo, --danger-edge (#135)",
-      "at": "2026-09-18T20:12:09.103Z"
+      "at": "2026-09-18T21:18:33.822Z"
     },
     "icons-unique": {
       "pass": true,
       "note": "54 icons, no key declared twice",
-      "at": "2026-09-18T20:12:09.104Z"
+      "at": "2026-09-18T21:18:33.823Z"
+    },
+    "bands-hooked": {
+      "pass": true,
+      "note": "ground and tufts banded, both keys composed",
+      "at": "2026-09-18T21:21:43.052Z"
     }
   }
 }

@@ -249,7 +249,7 @@ export class Game {
     const was = this.renderer.shadowMap.enabled;
     this.shadowProfile = name;
     this.renderer.shadowMap.enabled = on;
-    this.renderer.shadowMap.type = P.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;   // the only one r186 still implements
     const sh = this.sun.shadow;
     if (sh.map && (sh.mapSize.x !== P.size || was !== on)) {
       sh.map.dispose();

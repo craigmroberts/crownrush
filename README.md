@@ -66,10 +66,15 @@ the raids keep coming for a high score.
   out why -- inherited ever since, on hardware two generations newer, without being retested. There
   are two profiles now and `?shadows=off|cheap|full` picks one for a run:
 
-  | | texels | extent | units a texel | fill |
-  | --- | --- | --- | --- | --- |
-  | **full** | 1536 | ±36 | 0.047 | 2,359k |
-  | **cheap** | 768 | ±30 | 0.078 | 590k |
+  | | texels | extent | units a texel | PCF radius | fill |
+  | --- | --- | --- | --- | --- | --- |
+  | **full** | 1536 | ±36 | 0.047 | 4 | 2,359k |
+  | **cheap** | 768 | ±30 | 0.078 | 1 | 590k |
+
+  The filter is `PCFShadowMap` on both, and that is a correction #185 turned up rather than a choice:
+  three r186 has **removed** `PCFSoftShadowMap` -- the renderer logs *"has been removed. Using
+  PCFShadowMap instead"* and quietly substitutes. So the soft filter the desktop path asked for has
+  not existed for some time, and `radius` is what actually separates the two profiles.
 
   The extent is what makes a small map usable: it is a box around the **King**, whom the sun follows,
   so it only has to cover the frame -- which reaches about 27 units ahead of him and 12 behind. ±20
@@ -108,6 +113,59 @@ the raids keep coming for a high score.
   dials and keeps them. `?view=mesa` frames the one place terrain throws a real shadow across open
   ground, which is where this is worth judging, and `?perf=1` names the profile and its texel density.
   The default stays off on a phone until somebody has measured `cheap` on one.
+- **Banded shading on the ground and the grass** (#185). The lit-to-unlit ramp on every surface was
+  continuous, and a continuous ramp is what reads as a render rather than as a picture. `band()` in
+  `models.js` quantises the diffuse light into three steps and is applied to exactly two materials:
+  the ground and the 13,000 tufts.
+
+  **It cuts `dotNL` inside `RE_Direct_Physical`, before the tone map and before exposure**, and that
+  is the load-bearing decision. `exp` runs 0.98 at dusk to 1.26 at noon and rain dims it further, so a
+  threshold on the finished pixel would sit on a moving floor. Driven by walking the sun through
+  elevation and reading one patch of flat ground -- where `dotNL` *is* sin(elevation), so the steps
+  can be checked against the constants -- the boundaries land at the same sun elevations at noon, at
+  noon in full rain, and at dusk. Only the levels move.
+
+  | | shade | mid | lit | range |
+  | --- | --- | --- | --- | --- |
+  | **before** | 0.267 | *(a smooth ramp, no steps)* | 0.456 | 1.7× |
+  | **after** | 0.135 | 0.335 | 0.487 | **3.7×** |
+
+  That doubling is the ticket's first prerequisite -- widen the tonal range before banding it --
+  and it is done **without moving a light**, because moving `sun.intensity` would have reopened
+  #194's dusk keyframes, which are pinned by rank contrast. The lit band is worth 1.20, above one, so
+  a sunlit face is brighter than the sun alone makes it; the dark band pulls the *indirect* term down
+  to `fill`, which is an ambient-occlusion term in all but name and is what makes shade properly dark.
+
+  **The edges are not a taste decision.** The ground is one flat plane, so its `dotNL` is a single
+  number per frame -- 0.94 at noon, 0.53 at golden hour, 0.36 at dusk, 0.28 at night. The first
+  edges tried were 0.26 and 0.55, and both land *on* one of those: the whole field was mid-crossing
+  at two of the five hours and night came out 17% darker. 0.20 and 0.48 put every hour cleanly inside
+  a band.
+
+  **Rank contrast**, measured with the four ranks stood in open grass and the sway frozen, because a
+  waving blade is ±0.2 of noise on anything read off a grass pixel:
+
+  | | Bandit | Raider | Marauder | Warlord |
+  | --- | --- | --- | --- | --- |
+  | noon | 2.20 → **2.45** | 4.53 → 4.50 | 6.19 → **6.94** | 6.38 → **6.56** |
+  | golden hour | 2.23 → **2.46** | 3.08 → **3.28** | 4.79 → **5.27** | 3.80 → 3.69 |
+  | dusk | 1.23 → **1.51** | 2.00 → **2.81** | 2.93 → **4.08** | 2.91 → **3.21** |
+  | night | 1.14 → 1.07 | 1.60 → 1.58 | 1.56 → 1.56 | 2.04 → 1.99 |
+
+  Dusk gains most and night is flat. **Draw calls and triangles are unchanged** -- 208 and 977k at
+  noon either way, across every candidate tried; a shader change costs no geometry.
+
+  Two traps, both of which have bitten before. `band()` **chains** whatever `onBeforeCompile` the
+  material already has, because the ground's untile hook and the tufts' sway are both load-bearing;
+  and it **appends** to `customProgramCacheKey` rather than replacing it, so the keys are
+  `ground-untiled-patched+band` and `sway-tinted-rooted+band`. A key of plain `+band` would have the
+  two racing for one program (#155). `bands-hooked` asserts both, because every way this fails is
+  silent: if three renames the one line the patch rewrites, the replace is a no-op and the game
+  renders un-banded with nothing in the console.
+
+  The clover, the flowers and the field stones are **not** banded and sit on the same surface. They
+  come from the `mat()` cache, so banding them bands everything else sharing those colours -- the
+  white flower is `mat(0xffffff)` -- and that is #186's to untangle.
 - **Grass, and where it is not.** 13,000 instanced tufts in one draw call. What is kept bare is the
   **citadel** -- the tight first ring the Keep and its three service buildings stand in, which is
   paved and walked over all game. Everything beyond it is countryside, including the ground inside the

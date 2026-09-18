@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { iconImage } from './icons.js';
+import { CFG } from './config.js';
 
 // ---- shared materials: cel-shaded for the soft cartoon look ----
 const gradCanvas = document.createElement('canvas');
@@ -18,6 +19,85 @@ export const gradientMap = new THREE.CanvasTexture(gradCanvas);
 gradientMap.minFilter = THREE.NearestFilter;
 gradientMap.magFilter = THREE.NearestFilter;
 gradientMap.colorSpace = THREE.NoColorSpace;
+
+// ---- #185: banded shading, as a hook the material keeps rather than a material swap ----
+//
+// WHY NOT `MeshToonMaterial`. The two surfaces this goes on carry, between them: the untile hook
+// (#162/#192), the sway vertex shader, fog, the daylight tint on `color`, `instanceColor` for
+// per-tuft green, and vertex colours for the root darkening. Swapping the class throws all of it
+// away. `gradientMap` above is the toon ramp and it stays where it is, used by the one toon material
+// it was made for -- it is also a texture capped at 1.0, and the top band here is 1.24 on purpose.
+//
+// WHERE IT CUTS. `dotNL` inside `RE_Direct_Physical`, before the tone map and before exposure, for
+// the reason `CFG.bands` gives. `crBandLit` carries how lit the fragment came out past the light
+// loop so the indirect term can be pulled down in the dark band -- a global written in one function
+// and read after another, which is ugly and is the only way to get the direct result to that point.
+const B = CFG.bands;
+const BAND_GLSL = `
+uniform vec2 uBandEdge;
+uniform vec3 uBandVal;
+uniform float uBandSoft;
+uniform float uBandFill;
+float crBandLit = 1.0;
+float crBand( float t ) {
+  float a = smoothstep( uBandEdge.x - uBandSoft, uBandEdge.x + uBandSoft, t );
+  float b = smoothstep( uBandEdge.y - uBandSoft, uBandEdge.y + uBandSoft, t );
+  return uBandVal.x + ( uBandVal.y - uBandVal.x ) * a + ( uBandVal.z - uBandVal.y ) * b;
+}`;
+// The chunk is inlined and patched rather than the `#include` being replaced wholesale, because the
+// line this needs is INSIDE it and `onBeforeCompile` sees the include directive, not the chunk.
+const DOTNL = 'float dotNL = saturate( dot( geometryNormal, directLight.direction ) );';
+const BANDED_PHYSICAL = THREE.ShaderChunk.lights_physical_pars_fragment.replace(
+  DOTNL,
+  `float dotNL = crBand( saturate( dot( geometryNormal, directLight.direction ) ) );
+	crBandLit = clamp( dotNL / max( uBandVal.z, 0.001 ), 0.0, 1.0 );`,
+);
+// ONE SHARED UNIFORM OBJECT, the way `swayUniform` is shared: both banded materials are handed the
+// same objects, so there is one place to change a band and nothing to keep in step.
+export const bandUniforms = {
+  uBandEdge: { value: new THREE.Vector2(B.edge[0], B.edge[1]) },
+  uBandVal: { value: new THREE.Vector3(B.val[0], B.val[1], B.val[2]) },
+  uBandSoft: { value: B.soft },
+  uBandFill: { value: B.fill },
+};
+// Whether three's chunk still contains the line this patches. If it ever does not, the replace above
+// is a silent no-op and the game renders un-banded with no error anywhere -- so it is a value a check
+// can assert rather than something anyone has to notice.
+export const BAND_AVAILABLE = THREE.ShaderChunk.lights_physical_pars_fragment.includes(DOTNL);
+
+// Band a material IN PLACE, keeping whatever hook it already had.
+//
+// Both halves of this are the #155 trap. `onBeforeCompile` is chained rather than replaced, because
+// the ground's untile hook is load-bearing and the tufts' sway is the wind. And the cache key is
+// APPENDED to rather than overwritten: `customProgramCacheKey` is what keeps two materials with
+// identical DEFINES from being handed each other's compiled program, so the ground has to become
+// 'ground-untiled-patched+band' and not 'band'.
+export function band(m, tag = 'band') {
+  if (m.userData.banded) return m;    // twice would chain the hook twice and double the key
+  const prevCompile = m.onBeforeCompile;
+  const prevKey = m.customProgramCacheKey;
+  m.customProgramCacheKey = function () { return `${prevKey ? prevKey.call(this) : ''}+${tag}`; };
+  m.onBeforeCompile = function (shader, renderer) {
+    if (prevCompile) prevCompile.call(this, shader, renderer);
+    Object.assign(shader.uniforms, bandUniforms);
+    const before = shader.fragmentShader;
+    shader.fragmentShader = before
+      .replace('#include <common>', `#include <common>${BAND_GLSL}`)
+      .replace('#include <lights_physical_pars_fragment>', BANDED_PHYSICAL)
+      // after, not before: `lights_fragment_end` is where `RE_IndirectDiffuse` runs, so this is the
+      // first point at which there is an indirect term to pull down.
+      .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+  reflectedLight.indirectDiffuse *= mix( uBandFill, 1.0, crBandLit );`);
+    // Proof the patch landed, for the check to read. Every one of the three replaces has to have
+    // changed something; a shader that compiled fine and bands nothing is the failure to catch.
+    this.userData.bandedShader = BAND_AVAILABLE && shader.fragmentShader !== before
+      && shader.fragmentShader.includes('crBand(');
+  };
+  m.userData.banded = true;
+  m.userData.band = bandUniforms;   // so a harness can move a band without a rebuild
+  m.needsUpdate = true;
+  return m;
+}
 
 const matCache = new Map();
 export function mat(color, opts = {}) {

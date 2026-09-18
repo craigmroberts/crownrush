@@ -417,10 +417,50 @@ export const CFG = {
   // drop means a stall of every program at the exact moment the device is already behind. The
   // controller has four cheaper dials and keeps them. `?shadows=off|cheap|full` picks a profile for a
   // run, which is what a measurement on a real phone needs.
+  // #185 found `soft` to be a lie and it is gone. Three r186 has REMOVED PCFSoftShadowMap -- the
+  // renderer logs "has been removed. Using PCFShadowMap instead." and quietly substitutes -- so the
+  // full profile never got the soft filter #193 said it did, and neither did the desktop path before
+  // #193 existed. `radius` is what actually separates the two now, and it always was: 4 against 1.
   shadowMap: {
-    full: { size: 1536, extent: 36, radius: 4, bias: -0.0006, normalBias: 0.02, soft: true },
-    cheap: { size: 768, extent: 30, radius: 1, bias: -0.0012, normalBias: 0.035, soft: false },
+    full: { size: 1536, extent: 36, radius: 4, bias: -0.0006, normalBias: 0.02 },
+    cheap: { size: 768, extent: 30, radius: 1, bias: -0.0012, normalBias: 0.035 },
   },
+
+  // #185: BANDED SHADING, and the one number that is not a hue. Every environment surface is a
+  // MeshStandardMaterial under one sun and one hemisphere, and the lit-to-unlit ramp on all of them is
+  // continuous -- which is what reads as a render rather than as a picture. These quantise it.
+  //
+  // WHERE THE CUT IS. `edge` and `val` are applied to `dotNL` INSIDE `RE_Direct_Physical`, before the
+  // tone map and before exposure. That is deliberate and it is the whole reason this is not a
+  // threshold on the final pixel: `exp` in `updateDaylight` runs 0.98 at dusk to 1.26 at noon and rain
+  // dims it further, so a cut on the finished pixel would sit on a moving floor -- the same boundary
+  // would collapse into one flat step at dusk and spread under the blood moon. Cut before exposure and
+  // the steps are the same steps at every hour; exposure only moves where they land on screen.
+  //
+  // `val` is what each band is WORTH, not where it is -- which is how the tonal range widens without
+  // touching a light. Everything in this scene sat in one mid band: nothing properly bright, nothing
+  // properly dark. The top band is 1.24, ABOVE one, so a sunlit face is brighter than the sun alone
+  // would make it; that is the lever, and it only touches the two surfaces this is hooked onto rather
+  // than every material in the game. Moving `sun.intensity` instead would have reopened #194, whose
+  // dusk keyframes are pinned by rank contrast.
+  //
+  // `fill` is the other half of the range and it works on the INDIRECT term: in the darkest band the
+  // hemisphere's contribution is scaled to this, so shade is genuinely dark instead of the flat
+  // hemisphere wash that made the old frames tonally narrow. It is an ambient-occlusion term in all
+  // but name. 0.62 is as low as it goes before dusk grass loses the rank ladder -- see the README.
+  //
+  // `soft` is the half-width of a smoothstep at each boundary, in dotNL. NOT a softer look: at 0 the
+  // band edge is a step function sampled once per pixel and it crawls with jagged stair-steps along
+  // every blade of grass. 0.035 is about a pixel of edge at this camera and reads as hard.
+  //
+  // WHERE THE EDGES ARE IS NOT A TASTE DECISION. The ground is ONE FLAT PLANE, so its `dotNL` is a
+  // single number per frame -- and `updateCamera` puts the sun at (18 + (34-h)*0.6, h, 12 + (34-h)*0.4),
+  // which makes that number h/|v|: 0.94 at noon, 0.84 at dawn, 0.53 at golden hour, 0.36 at dusk,
+  // 0.28 at night. The first edges tried were 0.26 and 0.55 and both of those land ON one: golden
+  // hour sat astride the upper edge and night astride the lower, so the whole field was mid-crossing
+  // at two of the five hours and night came out 17% darker than it had been. 0.20 and 0.48 put every
+  // hour cleanly inside a band, which is what a step is for.
+  bands: { edge: [0.20, 0.48], val: [0.0, 0.58, 1.20], fill: 0.62, soft: 0.035 },
 
   // #191: THE GRASS FOLLOWS THE KING. 13,000 tufts used to be scattered once over the whole 190 x 190
   // map -- about one every 1.6 units -- and the camera shows roughly 35 units of ground, so the player

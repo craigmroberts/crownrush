@@ -83,6 +83,40 @@ export const CHEAP = {
     return bad.length ? no(bad) : ok(`${VIEWS.length} views, each with its panel up`);
   },
 
+  // #185: the band hook, and it is here because EVERY WAY IT FAILS IS QUIET.
+  //
+  // The patch works by rewriting one line inside three's `lights_physical_pars_fragment`. If three
+  // ever renames that line the replace is a no-op, the shader compiles perfectly, and the game
+  // renders exactly as it did before with nothing in the console -- so `bandedShader` is set only
+  // when all three replaces changed something, and this reads it back off the live material.
+  //
+  // The keys are the other half. `customProgramCacheKey` is what stops two materials with matching
+  // DEFINES being handed each other's compiled program (#155), so `band` APPENDS to whatever key was
+  // there rather than replacing it. A key of plain '+band' would mean the ground had thrown away
+  // 'ground-untiled-patched' and is racing the tufts for a program.
+  async 'bands-hooked'(page, url) {
+    await boot(page, url);
+    const r = await page.evaluate(() => {
+      const g = window.game;
+      const out = { ground: null, tufts: null };
+      const read = (m) => ({ shader: !!m.userData.bandedShader, key: m.customProgramCacheKey() });
+      if (g.world.groundMat) out.ground = read(g.world.groundMat);
+      g.scene.traverse((o) => {
+        if (out.tufts || !o.isInstancedMesh || !o.material || !o.material.userData.banded) return;
+        if (o.count !== undefined && o.geometry && o.material.userData.banded) out.tufts = read(o.material);
+      });
+      return out;
+    });
+    const bad = [];
+    for (const [what, want] of [['ground', 'ground-untiled-patched+band'], ['tufts', 'sway-tinted-rooted+band']]) {
+      const got = r[what];
+      if (!got) bad.push(`${what}: no banded material found at all`);
+      else if (!got.shader) bad.push(`${what}: compiled without the patch -- three's dotNL line has moved`);
+      else if (got.key !== want) bad.push(`${what}: cache key is "${got.key}", wanted "${want}"`);
+    }
+    return bad.length ? no(bad) : ok('ground and tufts banded, both keys composed');
+  },
+
   async 'walls-solid'(page, url) {
     await boot(page, url);
     const r = await page.evaluate(async () => {
