@@ -159,6 +159,20 @@
   .ch dt:first-child { margin-top: 0; }
   .ch dd { margin: 3px 0 0; font-size: 13px; line-height: 1.5; }
   .ch dd.gap { color: var(--bad); }
+
+  .warnbox { background: #fdf3e0; border: 1px solid #f0dcb4; border-radius: 8px; padding: 12px 16px;
+    margin-bottom: 18px; font-size: 13.5px; color: var(--warn); }
+  .warnbox code { background: rgba(0,0,0,.05); color: inherit; }
+  .pagehead { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
+  .seg a { padding: 6px 15px; font-size: 13px; text-decoration: none; color: var(--dim); }
+  .seg a + a { border-left: 1px solid var(--line); }
+  .seg a:hover { background: #f2f4f7; color: var(--ink); }
+  .seg a.on { background: var(--accent); color: #fff; font-weight: 600; }
+  /* The phone frame is a real 390x844 viewport, not a scaled picture of one: the iframe is that many
+     CSS pixels wide, so the game's media queries fire for the same reason they do on a phone. */
+  .views.phone { grid-template-columns: repeat(auto-fit, minmax(390px, 422px)); justify-content: start; }
+  .views.phone .frame { aspect-ratio: 390/844; max-width: 390px; margin: 0 auto; }
   @media (max-width: 860px) { .shell { grid-template-columns: 1fr; } aside { position: static; } }
 </style>
 </head>
@@ -186,6 +200,7 @@ const PAGES = [
   { id: 'brand', label: 'Brand' },
   { id: 'cast', label: 'Cast' },
   { id: 'world', label: 'World' },
+  { id: 'tools', label: 'Tools' },
   { id: 'tests', label: 'Tests' },
   { id: 'tickets', label: 'Tickets' },
 ];
@@ -193,6 +208,9 @@ const PAGES = [
 // a browser keeps roughly sixteen before it starts dropping the oldest one it has; four at a time
 // leaves room and keeps each frame big enough to actually read.
 const GROUPS = [
+  ['elements', 'Elements', [
+    ['elements', 'Every element', '../?view=elements', 'Every button, notice and HUD part, cloned out of the running page with the real stylesheet on it. Not specimens — the actual elements.'],
+  ]],
   ['world', 'The world', [
     ['kingdom', 'The kingdom', '../?tour', 'The opening village, held open at morning. Walls, Keep, towers, four homes, Wren beside the King.'],
     ['map', 'Whole map', '../?view=map', 'Camera up, fog off, smoke off. The only place the whole board is visible at once.'],
@@ -229,18 +247,19 @@ const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt
 // the README is markdown and the board is not rendering markdown — just take the emphasis off
 const plain = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, '$1').replace(/`(.+?)`/g, '$1');
 
-const D = { tickets: null, checks: null, stats: null, brand: null, cast: null, world: null, commit: null };
+const D = { tickets: null, checks: null, stats: null, brand: null, cast: null, world: null, tools: null, commit: null };
 
 async function load() {
   const j = (u) => fetch(u).then((r) => r.ok ? r.json() : Promise.reject(r.status));
-  const [checks, stats, brand, cast, world] = await Promise.all([
+  const [checks, stats, brand, cast, world, tools] = await Promise.all([
     j('./checks.json').catch(() => null),
     j('./stats.json').catch(() => null),
     j('./brand.json').catch(() => null),
     j('./cast.json').catch(() => null),
     j('./world.json').catch(() => null),
+    j('./tools.json').catch(() => null),
   ]);
-  D.checks = checks; D.stats = stats; D.brand = brand; D.cast = cast; D.world = world;
+  D.checks = checks; D.stats = stats; D.brand = brand; D.cast = cast; D.world = world; D.tools = tools;
   render();
   // GitHub second: it is the only part that can be rate-limited, and the page is useful without it
   try {
@@ -270,12 +289,16 @@ const cost = (i) => (/\*\*Model and effort:\*\*\s*(.+)/.exec(i.body || '') || []
 
 function page() { return (location.hash.replace('#/', '') || 'home').split('/')[0]; }
 function sub() { return (location.hash.replace('#/', '').split('/')[1]) || ''; }
+// The third segment, used by the UI section for the device. In the hash rather than a toggle held in
+// memory so `#/ui/world/phone` is a LINK -- CLAUDE.md sends people straight to it, and a view you
+// cannot link to is a view nobody checks.
+function sub2() { return (location.hash.replace('#/', '').split('/')[2]) || ''; }
 
 function render() {
   const p = page();
   document.getElementById('mainnav').innerHTML = PAGES
     .map((x) => `<a href="#/${x.id}" class="${x.id === p ? 'on' : ''}">${x.label}</a>`).join('');
-  ({ home: renderHome, ui: renderUI, brand: renderBrand, cast: renderCast, world: renderWorld, tests: renderTests, tickets: renderTickets }[p] || renderHome)();
+  ({ home: renderHome, ui: renderUI, brand: renderBrand, cast: renderCast, world: renderWorld, tools: renderTools, tests: renderTests, tickets: renderTickets }[p] || renderHome)();
 }
 function side(title, items) {
   document.getElementById('sidetitle').textContent = title;
@@ -340,17 +363,28 @@ function renderHome() {
 
 function renderUI() {
   const want = sub() || 'world';
+  const phone = sub2() === 'phone';
   const group = GROUPS.find((g) => g[0] === want);
   const one = !group && VIEWS.find((v) => v[0] === want);
+  const to = (id) => `#/ui/${id}${phone ? '/phone' : ''}`;
   side('Views', GROUPS.flatMap(([gid, glabel, vs]) => [
-    { label: glabel, href: `#/ui/${gid}`, on: gid === want, count: vs.length },
-    ...vs.map(([id, label]) => ({ label, href: `#/ui/${id}`, on: id === want, under: true })),
+    { label: glabel, href: to(gid), on: gid === want, count: vs.length },
+    ...vs.map(([id, label]) => ({ label, href: to(id), on: id === want, under: true })),
   ]));
   const list = group ? group[2] : one ? [one] : GROUPS[0][2];
   document.getElementById('main').innerHTML = `
-    <h1>UI${group ? ' — ' + group[1] : one ? ' — ' + one[1] : ''}</h1>
-    <p class="lede">The real game in frames, each at a URL that jumps straight to that state. Not screenshots — there is nothing here that can go out of sync, and nothing to refresh.</p>
-    <div class="views">${list.map(([id, label, src, note], i) => `
+    <div class="pagehead">
+      <h1>UI${group ? ' — ' + group[1] : one ? ' — ' + one[1] : ''}</h1>
+      <nav class="seg" role="tablist">
+        <a href="#/ui/${want}" class="${phone ? '' : 'on'}">Desktop</a>
+        <a href="#/ui/${want}/phone" class="${phone ? 'on' : ''}">Phone</a>
+      </nav>
+    </div>
+    <p class="lede">The real game in frames, each at a URL that jumps straight to that state. Not screenshots — there is nothing here that can go out of sync, and nothing to refresh.
+      ${phone
+        ? 'Each frame is <strong>390 × 844</strong>, so the game\'s own <code>≤560</code>, <code>≤480</code> and <code>≤430</code> media queries all fire — this is the phone layout, not the desktop one shrunk.'
+        : 'Frames are the width of the card. <a href="#/ui/' + want + '/phone">Phone</a> puts each one in a 390 × 844 viewport instead.'}</p>
+    <div class="views${phone ? ' phone' : ''}">${list.map(([id, label, src, note], i) => `
       <div class="view">
         <header><b>${label}</b><button data-i="${i}">Reload</button></header>
         <div class="frame"><iframe data-src="${src}" title="${label}" loading="lazy"></iframe></div>
@@ -635,10 +669,11 @@ function renderWorld() {
 
   document.getElementById('main').innerHTML = `
     <h1>${esc(group.name)}</h1>
-    <p class="lede">${esc(group.note || '')} Every frame is the real builder from <code>src/models.js</code>, standing on the game's own grass and turning. Not photographs — the page this replaces held 37 of those, taken by a tool that is no longer in the repo.</p>
+    <p class="lede">${esc(group.note || '')} Every frame is built by the game's own <code>makeStructureMesh</code>, standing on its own grass and turning — so the imported models are the imported models, not the code fallbacks behind them. Not photographs — the page this replaces held 37 of those, taken by a tool that is no longer in the repo.</p>
     ${group.items.some((i) => i.footprint || i.pads.length) ? `<table style="margin-bottom:22px">
-      <tr><th>Structure</th><th>Footprint</th><th>On the field</th><th>What it is for</th></tr>
+      <tr><th>Structure</th><th>Model</th><th>Footprint</th><th>On the field</th><th>What it is for</th></tr>
       ${group.items.map((i) => `<tr><td><strong>${esc(i.name)}</strong></td>
+        <td>${i.imported ? '<span class="pill blue">imported</span>' : '<span class="pill">built in code</span>'}</td>
         <td class="muted">${i.footprint ? i.footprint.join(' × ') + ' units' : '—'}</td>
         <td class="muted">${i.pads.length ? i.pads.length + (i.pads.length > 1 ? ' pads' : ' pad') : 'not placed by a pad'}</td>
         <td class="muted">${esc(i.why || '')}</td></tr>`).join('')}
@@ -658,6 +693,41 @@ function renderWorld() {
     f.addEventListener('load', () => setTimeout(next, 700), { once: true });
     setTimeout(next, 9000);
   })();
+}
+
+// Everything built to build the game with. Read off `tools/` rather than listed: ten of them exist
+// and a hand-kept list would be missing the eleventh within a week. Each one's description is its own
+// header comment, which house style already requires and already maintains.
+function renderTools() {
+  const t = D.tools;
+  if (!t) {
+    side('Tools', [{ label: 'Everything', href: '#/tools', on: true }]);
+    document.getElementById('main').innerHTML = '<h1>Tools</h1><p class="lede">Not measured yet — <code>npm run board</code>.</p>';
+    return;
+  }
+  const want = sub();
+  const runnable = t.tools.filter((x) => x.scripts.length);
+  side('Tools', [{ label: 'Everything', href: '#/tools', on: !want, count: t.tools.length }]
+    .concat(t.tools.map((x) => ({ label: x.name, href: `#/tools/${x.name}`, on: x.name === want, under: true }))));
+  const list = want ? t.tools.filter((x) => x.name === want) : t.tools;
+  document.getElementById('main').innerHTML = `
+    <h1>Tools</h1>
+    <p class="lede">${t.tools.length} of them, ${runnable.length} with an npm script. Everything here is read off <code>tools/</code> — the descriptions are each tool's own header comment, so a tool documents itself or says it has not.</p>
+    ${!want && t.orphans.length ? `<div class="warnbox"><strong>${t.orphans.length} with neither an npm script nor a README:</strong>
+      ${t.orphans.map((o) => `<code>tools/${esc(o)}/</code>`).join(' ')}.
+      These are the ones you only find by grepping.</div>` : ''}
+    <table>
+      <tr><th>Tool</th><th>Run it with</th><th>What it does</th></tr>
+      ${list.map((x) => `<tr>
+        <td><strong>${esc(x.name)}</strong><span class="why"><code>${esc(x.path)}</code></span>
+          ${x.readme ? '<span class="pill blue" style="margin-top:4px">README</span>' : ''}</td>
+        <td style="white-space:nowrap">${x.scripts.length
+          ? x.scripts.map((sc) => `<code>npm run ${esc(sc.name)}</code>`).join('<br>')
+          : x.entry ? `<span class="muted">node ${esc(x.path + x.entry)}</span>` : '<span class="pill warn">no entry point</span>'}</td>
+        <td class="muted" style="max-width:44em">${x.why ? esc(x.why) : '<span class="pill warn">no header comment, no README</span>'}
+          ${want && x.code.length > 1 ? `<span class="why">${x.code.map((f) => `<code>${esc(f)}</code>`).join(' ')}</span>` : ''}</td>
+      </tr>`).join('')}
+    </table>`;
 }
 
 function renderTests() {

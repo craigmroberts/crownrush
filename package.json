@@ -14,7 +14,7 @@
     "models": "node tools/models/compress.mjs",
     "icons": "node tools/icons/make-app-icons.mjs",
     "check": "node tools/checks/checks.mjs",
-    "board": "node tools/board/stats.mjs && node tools/board/brand.mjs && node tools/board/cast.mjs && node tools/board/world.mjs"
+    "board": "node tools/board/stats.mjs && node tools/board/brand.mjs && node tools/board/cast.mjs && node tools/board/world.mjs && node tools/board/tools.mjs"
   },
   "dependencies": {
     "three": "^0.186.0"

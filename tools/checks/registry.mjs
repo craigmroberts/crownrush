@@ -65,7 +65,7 @@ export const CHECKS = [
   // ---- cheap: the real game, headless, no tokens ----
   {
     id: 'views-open', area: 'Tooling', cost: 'cheap',
-    asserts: 'All twelve `?view=` URLs reach a running game with their panel open and filled.',
+    asserts: 'Every `?view=` URL reaches a running game with its panel open and filled.',
     why: 'The board is iframes of these. A frame that opens on the wrong thing looks exactly like one that opened on the right thing.',
   },
   {

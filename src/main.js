@@ -869,9 +869,13 @@ function runView() {
     victory: () => game.hud.showVictory(game.coinsEarned, game.units.length - 1 + game.turrets.length,
       game.score, game.runLength, game.legacyProgress(), game.wave, game.kills),
   };
+  if (VIEW === 'elements') {
+    setTimeout(() => game.showElements(), 500);
+    return;
+  }
   if (VIEW === 'build') {
-    setTimeout(() => {
-      if (!game.showStructure(CHAR, AGE, LEVEL)) {
+    setTimeout(async () => {
+      if (!await game.showStructure(CHAR, AGE, LEVEL)) {
         document.getElementById('error-msg').textContent = `No structure called "${CHAR}".`;
         document.getElementById('error-screen').classList.remove('hidden');
       }

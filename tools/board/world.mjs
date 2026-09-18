@@ -20,6 +20,13 @@ const MODELS = readFileSync(join(ROOT, 'src', 'models.js'), 'utf8');
 // A builder exists or it does not; asking the file is how this stays true when one is renamed.
 const has = (fn) => new RegExp(`export function ${fn}\\b`).test(MODELS);
 
+// WHICH ONES ARE IMPORTS. `makeStructureMesh` reaches for `makeProp` first and only falls back to the
+// built mesh, so five of these are Meshy models and the rest are code. Worth saying on the page:
+// "the Keep" means a different object depending on whether its prop loaded, and the board should not
+// pretend otherwise. Read from game-build.js so it cannot drift from what the game actually does.
+const BUILD = readFileSync(join(ROOT, 'src', 'game-build.js'), 'utf8');
+const imported = new Set([...BUILD.matchAll(/makeProp\('(\w+)'/g)].map((m) => m[1]));
+
 // The ages, in the order the Keep unlocks them, straight off `CFG.wallLevels`.
 const ages = CFG.wallLevels.map((w, i) => ({ i, name: w.name.toLowerCase(), label: w.name, hp: w.hp, gateHp: w.gateHp, repair: w.repair }));
 
@@ -30,7 +37,8 @@ const GROUPS = [
     name: 'The Keep and its village', note: 'These change with the Keep’s age — one building drawn four ways, not four buildings.',
     items: [
       { id: 'keep', name: 'The Keep', builder: 'makeKeep', ages: true, why: 'The heart of it. Feeding it raises every other building’s age.' },
-      { id: 'hut', name: 'Hut', builder: 'makeHut', ages: true, why: 'Housing. Raises the cap on how big the army can grow.' },
+      { id: 'hut', name: 'Archery range', builder: 'makeHut', ages: true, why: 'Where archers are trained.' },
+      { id: 'house', name: 'Villager home', builder: 'makeHut', ages: true, why: 'Six of them. What the village is for.' },
       { id: 'barracks', name: 'Barracks', builder: 'makeBarracks', ages: true, why: 'Where swordsmen come from.' },
       { id: 'bank', name: 'Trade post', builder: 'makeBank', ages: false, why: 'Where a full bag turns into coin.' },
     ],
@@ -89,6 +97,7 @@ const groups = GROUPS.map((g) => ({
       gives: it.gives || null,
       levels: it.levels || null,
       builder: it.builder,
+      imported: imported.has(it.id),
       footprint: CFG.footprint[it.id] || null,
       pads: padsFor[it.id] || [],
       ages: it.ages

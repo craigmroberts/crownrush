@@ -8,11 +8,12 @@ import { UPGRADES } from './upgrades.js';
 import { readScores, readDiary } from './scores.js';
 import {
   makeLumberTree, makeOreRock, makeIronSeam, makeGemNode, makeResourceCube, RES_MATS, CHIP_GEO, makeTool, disposeHealthBar, makePopup, makeTag, makeHeap, makeSpawnFx, makeBurst, makeHeart, COIN_TIER_COLORS,
-  makeKeep, makeHut, makeBarracks, makeTower, makeWallSegment, makeGate, makeRubble, makeFence,
-  makeSpikes, makeGatePost, makeBridge, makeCamp, makeBank, makeHayBale, makeWheatField,
+  makeWallSegment, makeGate, makeRubble, makeFence,
+  makeSpikes, makeGatePost, makeBridge, makeCamp, makeHayBale, makeWheatField,
 } from './models.js';
 import { tmp, tmp2, tmpM, cap, rand } from './game-shared.js';
 import { makeRigged } from './rig.js';
+import { preloadProps, propReady } from './props.js';
 
 const GROUND = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 // #178: the character sheet's ground. A number, not a Color -- see `showCharacter`.
@@ -1620,21 +1621,173 @@ export const ViewMethods = {
     return true;
   },
 
+  // #178: every element the game actually draws, in one scrolling sheet.
+  //
+  // CLONED FROM THE LIVE DOM, never rebuilt. The temptation was to hand-write a gallery of
+  // `<button class="panel button">Play</button>` specimens, and that is a copy: it renders whatever
+  // the class name means today and goes silently wrong the day a class is renamed or a wrapper is
+  // added. `cloneNode(true)` takes the real element out of the real page, with its real classes,
+  // under the real stylesheet. If a button changes, this changes, because it IS that button.
+  //
+  // Anything the game builds at runtime rather than declaring in the markup -- the reward cards, the
+  // pad chip -- is produced by calling the game's own code first, for the same reason.
+  showElements() {
+    this.running = false;
+    for (const id of ['hud', 'toast', 'alarm-lane', 'pad-tip']) {
+      const n = document.getElementById(id);
+      if (n) n.style.display = 'none';
+    }
+    // Several of these are EMPTY until the game fills them, and an empty clone looks identical to a
+    // broken one. So: build them first, through the game's own code, and where that is not possible
+    // say "empty" on the card rather than showing a blank stage and letting it read as a bug.
+    try {
+      this.offerQueue = 1;
+      this.offerLevel = this.baseLevel;
+      this.showOffer();
+      this.hud.hidePanels();
+    } catch (e) { /* reported as empty below */ }
+    try { this.hud.renderLengths(document.getElementById('length-pick'), this.runLength, true); }
+    catch (e) { /* reported as empty below */ }
+    // The Keep sheet writes its own headline, goal line and figures; unopened, they are blank nodes.
+    try { this.showKeep(); this.hud.hidePanels(); this.keepOpen = false; }
+    catch (e) { /* reported as empty below */ }
+
+    const GROUPS = [
+      ['Buttons', 'Every treatment a tap target currently wears. The README says one rule paints every call to action; these are what is actually on screen.', [
+        ['#start-btn', '.panel button', 'Play, and the primary action of every panel', 'panel'],
+        ['#over-menu', '.panel button', 'The secondary action beside it', 'panel'],
+        ['#next-wave-btn', '#next-wave-btn', 'Skip to night — the one button that interrupts play'],
+        ['#place-btn', '#place-btn', 'Build here'],
+        ['#move-btn', '#move-btn', 'Move a building'],
+        ['#horn-btn', '#horn-btn', 'The warhorn'],
+        ['#banner-btn', '#banner-btn', 'The rally banner'],
+        ['#settings-btn', '#settings-btn', 'The pause corner'],
+        ['#ks-x', '.panel-x', 'Close, on a panel that styles its own', 'panel keep-sheet'],
+        ['#set-x', '.panel-x', 'Close, the shared rule', 'panel'],
+        ['#set-sound', '.sheet-row', 'A settings row', 'panel sheet'],
+        ['#length-pick', '.seg', 'The run-length pills — a chosen option, not a press. PARKED: `CFG.lengthPick` is false, so the row is deliberately emptied rather than hidden', 'panel'],
+        ['#offer-cards', '.ocard', 'The three reward cards', 'panel offer'],
+      ]],
+      ['The HUD', 'What is on screen while you play. Cloned mid-run, so the numbers are whatever the game last wrote.', [
+        ['#raid-bar', '#raid-bar', 'The raid meter, top and centre'],
+        ['#keep-plaque', '.hud-group', 'Hearts, Keep level, and the clock or the raid', '#topbar'],
+        ['#purse', '#purse', 'Coin and bag — the two counts you spend'],
+        ['#minimap', '#minimap', 'The map'],
+      ]],
+      ['Notices', 'Four surfaces carry messages. Which one gets what is a decision — see docs/brand.md.', [
+        ['#toast', '#toast', 'Narration, centre-bottom'],
+        ['#alarm', '#alarm', 'Urgent, stacked above the notice line'],
+        ['#pad-tip', '#pad-tip', 'Build-pad detail'],
+        ['#gain-note', '#gain-note', 'What a capability just gave you'],
+      ]],
+      ['Panels', 'The frame under every window. Twelve overlays share it and then fork.', [
+        ['#ks-title', '.panel h1', 'A panel headline', 'panel'],
+        ['#ks-goal', '.sub', 'The line under it', 'panel'],
+        ['#ks-body', '.ks-row', 'What a level gives you', 'panel keep-sheet'],
+        ['#set-tabs', '.tabs', 'The tab row Settings is built on', 'panel sheet'],
+      ]],
+      ['Type', 'Two faces. Baloo 2 for anything that announces itself, Nunito for anything that is read. The measured ramp — every size and radius the stylesheet uses — is on the board at /board/#/brand/type.', [
+        ['#gameover-title', '.panel h1', 'Baloo 2, the display face', 'panel'],
+        ['#gameover-sub', '.sub', 'Nunito, the reading face', 'panel'],
+        ['#continue-note', '.hint', 'The quiet line', 'panel'],
+        ['#toast-text', '#toast-text', 'Notice copy, which is Nunito at its smallest'],
+      ]],
+    ];
+
+    const wrap = document.createElement('div');
+    wrap.id = 'elements-sheet';
+    let html = '<header><h1>Elements</h1><p>Every one of these was taken out of the running page with '
+      + '<code>cloneNode</code> — it is the real element under the real stylesheet, not a specimen of one. '
+      + 'Anything missing is reported as missing rather than drawn.</p></header>';
+    for (const [name, note, items] of GROUPS) {
+      html += `<section><h2>${name}</h2><p class="gnote">${note}</p><div class="bench">`;
+      for (const [sel, label, why] of items) {
+        const src = document.querySelector(sel);
+        // A canvas IS its content -- `#minimap` has no children and no text and is not empty. Same
+        // for anything drawn rather than written.
+        const drawn = src && !!src.querySelector('canvas, svg, img');
+        const empty = src && !drawn && !src.children.length && !src.textContent.trim()
+          && src.tagName !== 'CANVAS' && src.tagName !== 'IMG';
+        html += '<figure><div class="stage" data-for="' + sel + '"></div>'
+          + `<figcaption><b>${label}</b><span>${why}</span><code>${sel}</code>`
+          + (src ? (empty ? '<em class="missing">in the page, but empty right now</em>' : '')
+                 : '<em class="missing">not in the page</em>') + '</figcaption></figure>';
+      }
+      html += '</div></section>';
+    }
+    wrap.innerHTML = html;
+    document.body.appendChild(wrap);
+
+    // The clones go in after the markup, so a missing element cannot break the layout around it.
+    for (const [, , items] of GROUPS) {
+      for (const [sel, , , ancestor] of items) {
+        const src = document.querySelector(sel);
+        const slot = wrap.querySelector(`[data-for="${sel}"]`);
+        if (!src || !slot) continue;
+        // THE ANCESTOR MATTERS. `.panel button` paints nothing outside a `.panel`, so a clone dropped
+        // straight onto the stage showed the browser's default grey button and looked like a bug in
+        // the game rather than a missing wrapper here. Each specimen names the chain its own selector
+        // needs. `#topbar` is given as an id because that is what the rule asks for -- a duplicate id
+        // is invalid markup and CSS matches it anyway, and this sheet never ships to a player.
+        let host = slot;
+        if (ancestor) {
+          host = document.createElement('div');
+          if (ancestor.startsWith('#')) host.id = ancestor.slice(1);
+          else host.className = ancestor;
+          host.classList.add('el-host');
+          slot.appendChild(host);
+        }
+        const clone = src.cloneNode(true);
+        clone.removeAttribute('id');
+        // `hidden` is how the game parks half of these; the sheet is where they are meant to be seen.
+        clone.classList.remove('hidden');
+        for (const el of clone.querySelectorAll('.hidden')) el.classList.remove('hidden');
+        clone.style.position = 'static';
+        clone.style.display = '';
+        clone.style.transform = 'none';
+        clone.style.margin = '0';
+        host.appendChild(clone);
+      }
+    }
+    return true;
+  },
+
   // #178: one STRUCTURE on the same stand, for the same reason as one character.
   //
   // This replaces a page of 37 PNGs. They were shot by `tools/shots/buildings.mjs`, which is not in
   // the repo any more -- so the pictures could not be retaken even if somebody wanted to, and the
   // only record of what a diamond-age gate looks like was an image nothing could regenerate. Every
   // builder here is the one `makeStructureMesh` calls, at the age the game would call it with.
-  showStructure(id, age = 'stone', level = 1) {
+  // WHAT THE GAME BUILDS, not what the game could build. The first version of this called
+  // `makeKeep`, `makeHut`, `makeTower` and `makeBarracks` straight out of models.js -- and those are
+  // the FALLBACKS. `makeStructureMesh` reaches for `makeProp` first, so five of the buildings on the
+  // field are Meshy imports and only drop back to the built ones when a prop fails to load. The
+  // board was showing a set of buildings nobody has seen since the imports landed, which is the exact
+  // failure it exists to prevent, committed by the page that was supposed to prevent it.
+  //
+  // So these five go through the game's own function. It reads the age off `this.wallLevel` via
+  // `materialName()`, hence the assignment rather than an argument. Async because two of the props
+  // are deferred until after the first run starts (#53's byte work) and a sheet asking for the
+  // Barracks at second 0 would otherwise silently get the fallback -- the same bug again, quieter.
+  async showStructure(id, age = 'stone', level = 1) {
     this.running = false;
     this.charView = null;
     const L = { wood: 0, stone: 1, iron: 2, diamond: 3 }[age] ?? 1;
+    this.wallLevel = L;
+    const OWN = { keep: 'keep', hut: 'hut', house: 'house', tower: 'tower', barracks: 'barracks', bank: 'bank' };
+    if (OWN[id]) {
+      const prop = { keep: 'keep', hut: 'hut', house: 'house', tower: 'tower', barracks: 'barracks' }[id];
+      if (prop && !propReady(prop)) {
+        try { await preloadProps([prop]); } catch (e) { /* the game's own fallback takes over */ }
+      }
+    }
     const build = {
-      keep: () => makeKeep(age),
-      hut: () => makeHut(age),
-      barracks: () => makeBarracks(age),
-      tower: () => makeTower(level, age),
+      keep: () => this.makeStructureMesh('keep'),
+      hut: () => this.makeStructureMesh('hut'),
+      house: () => this.makeStructureMesh('house'),
+      barracks: () => this.makeStructureMesh('barracks'),
+      tower: () => this.makeStructureMesh('tower', level),
+      bank: () => this.makeStructureMesh('bank'),
       wall: () => makeWallSegment(7, L),
       gate: () => makeGate(L),
       rubble: () => makeRubble(7, L),
@@ -1643,7 +1796,6 @@ export const ViewMethods = {
       gatepost: () => makeGatePost(),
       bridge: () => makeBridge(10, 4),
       camp: () => makeCamp(9),
-      bank: () => makeBank(),
       lumber: () => makeLumberTree(),
       ore: () => makeOreRock(),
       iron: () => makeIronSeam(),

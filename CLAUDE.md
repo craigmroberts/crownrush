@@ -91,6 +91,37 @@ ticket that wants a better model, and it is not always the one that looks hardes
 `?view=…`, the tickets are fetched live from the GitHub API, the budgets point at the README. Nothing
 there can go out of sync, because there is no second copy to drift.
 
+### Check the design here, on a phone, before calling anything done
+
+The board is not only a place to look at the game — it is where a UI change gets checked. Open the
+view, at phone size, and look:
+
+| | |
+| --- | --- |
+| Any panel, window or HUD change | `/board/#/ui/<group>/phone` |
+| A button, a notice, a tap target | `/board/#/ui/elements/phone` |
+| A character model | `/board/#/cast/<id>` |
+| A building | `/board/#/world` |
+
+**Phone is the real thing, not a preview of it.** The frame is a 390 × 844 viewport, so the game's
+own `≤560`, `≤480` and `≤430` blocks fire for the same reason they do on a phone. If it looks right
+there it looks right on the device — and the device is what this game is played on. The desktop
+frame is the wider case, not the normal one.
+
+The element sheet is `?view=elements`, and every specimen on it is `cloneNode`d out of the running
+page. It is the real button under the real stylesheet, so a change to `.panel button` shows up there
+without anybody updating anything.
+
+### Keeping the board honest is part of the change, not a follow-up
+
+**Anything added to the game is added to the board in the same commit.** A new panel gets a
+`?view=`. A new character or building appears on its sheet because the sheet is read from the
+directory — check that it did. A new tool gets a header comment saying why it exists, because that
+comment is its description on `/board/#/tools`.
+
+The board is only worth having while it is complete. The moment it shows eleven of twelve windows it
+stops being the place you look, and after that nobody looks.
+
 If you add a thing worth looking at, add a `?view=` for it and frame it. Do not put a screenshot on
 the board — a screenshot is a copy, and it starts rotting the moment it is taken.
 
@@ -103,6 +134,7 @@ The board has two kinds of content and they live in different places on purpose.
 | What the build weighs | `public/board/stats.json` | `npm run board` |
 | Colour census, tokens, type, icons | `public/board/brand.json` | `npm run board` |
 | Which rigs exist, who they play | `public/board/cast.json` | `npm run board` |
+| Every tool, and what it is for | `public/board/tools.json` | `npm run board` |
 | Every structure, its ages and footprints | `public/board/world.json` | `npm run board` |
 | Test results | `public/board/checks.json` | `npm run check` |
 | Brand direction and decisions | `docs/brand.md` | a person |

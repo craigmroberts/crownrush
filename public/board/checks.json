@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-18T12:15:56.317Z",
+  "at": "2026-09-18T12:40:20.553Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -68,7 +68,7 @@
       "id": "views-open",
       "area": "Tooling",
       "cost": "cheap",
-      "asserts": "All twelve `?view=` URLs reach a running game with their panel open and filled.",
+      "asserts": "Every `?view=` URL reaches a running game with its panel open and filled.",
       "why": "The board is iframes of these. A frame that opens on the wrong thing looks exactly like one that opened on the right thing."
     },
     {
@@ -145,32 +145,32 @@
   "checks": {
     "pads-requires-exist": {
       "pass": true,
-      "at": "2026-09-18T12:15:56.306Z"
+      "at": "2026-09-18T12:40:20.550Z"
     },
     "pads-buildat-in-bounds": {
       "pass": true,
-      "at": "2026-09-18T12:15:56.307Z"
+      "at": "2026-09-18T12:40:20.550Z"
     },
     "pads-no-overlap": {
       "pass": true,
-      "at": "2026-09-18T12:15:56.310Z"
+      "at": "2026-09-18T12:40:20.551Z"
     },
     "opening-homes-legal": {
       "pass": true,
-      "at": "2026-09-18T12:15:56.310Z"
+      "at": "2026-09-18T12:40:20.551Z"
     },
     "icons-exist": {
       "pass": true,
-      "at": "2026-09-18T12:15:56.317Z"
+      "at": "2026-09-18T12:40:20.553Z"
     },
     "upgrade-mods-exist": {
       "pass": true,
       "note": "17 of 17 upgrades declare a mod key, all 17 resolve",
-      "at": "2026-09-18T12:15:56.317Z"
+      "at": "2026-09-18T12:40:20.553Z"
     },
     "footprints-cover-kinds": {
       "pass": true,
-      "at": "2026-09-18T12:15:56.317Z"
+      "at": "2026-09-18T12:40:20.553Z"
     },
     "walls-solid": {
       "pass": true,
@@ -217,12 +217,12 @@
     "tokens-resolve": {
       "pass": true,
       "note": "no cycles; 3 tokens nothing reads -- --frame-hi, --frame-lo, --danger-edge (#135)",
-      "at": "2026-09-18T12:15:56.316Z"
+      "at": "2026-09-18T12:40:20.553Z"
     },
     "icons-unique": {
       "pass": true,
       "note": "54 icons, no key declared twice",
-      "at": "2026-09-18T12:15:56.317Z"
+      "at": "2026-09-18T12:40:20.553Z"
     }
   }
 }
