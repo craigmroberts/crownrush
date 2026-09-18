@@ -146,6 +146,7 @@
   .ch > header b { font-size: 14px; }
   .ch > header .muted { font-size: 11.5px; margin-top: 2px; }
   .ch .frame { aspect-ratio: 1/1; background: #12171d; position: relative; }
+  .ch .frame.grass { background: #6aa84f; }
   .ch iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
   .ch .clips { display: flex; gap: 1px; background: var(--line); border-bottom: 1px solid var(--line); }
   .ch .clips button { flex: 1; font: inherit; font-size: 12px; border: 0; background: var(--panel);
@@ -184,6 +185,7 @@ const PAGES = [
   { id: 'ui', label: 'UI' },
   { id: 'brand', label: 'Brand' },
   { id: 'cast', label: 'Cast' },
+  { id: 'world', label: 'World' },
   { id: 'tests', label: 'Tests' },
   { id: 'tickets', label: 'Tickets' },
 ];
@@ -227,17 +229,18 @@ const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt
 // the README is markdown and the board is not rendering markdown — just take the emphasis off
 const plain = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, '$1').replace(/`(.+?)`/g, '$1');
 
-const D = { tickets: null, checks: null, stats: null, brand: null, cast: null, commit: null };
+const D = { tickets: null, checks: null, stats: null, brand: null, cast: null, world: null, commit: null };
 
 async function load() {
   const j = (u) => fetch(u).then((r) => r.ok ? r.json() : Promise.reject(r.status));
-  const [checks, stats, brand, cast] = await Promise.all([
+  const [checks, stats, brand, cast, world] = await Promise.all([
     j('./checks.json').catch(() => null),
     j('./stats.json').catch(() => null),
     j('./brand.json').catch(() => null),
     j('./cast.json').catch(() => null),
+    j('./world.json').catch(() => null),
   ]);
-  D.checks = checks; D.stats = stats; D.brand = brand; D.cast = cast;
+  D.checks = checks; D.stats = stats; D.brand = brand; D.cast = cast; D.world = world;
   render();
   // GitHub second: it is the only part that can be rate-limited, and the page is useful without it
   try {
@@ -272,7 +275,7 @@ function render() {
   const p = page();
   document.getElementById('mainnav').innerHTML = PAGES
     .map((x) => `<a href="#/${x.id}" class="${x.id === p ? 'on' : ''}">${x.label}</a>`).join('');
-  ({ home: renderHome, ui: renderUI, brand: renderBrand, cast: renderCast, tests: renderTests, tickets: renderTickets }[p] || renderHome)();
+  ({ home: renderHome, ui: renderUI, brand: renderBrand, cast: renderCast, world: renderWorld, tests: renderTests, tickets: renderTickets }[p] || renderHome)();
 }
 function side(title, items) {
   document.getElementById('sidetitle').textContent = title;
@@ -581,6 +584,61 @@ function renderCast() {
           ${x.close ? `<dt>Would close it</dt><dd>${esc(x.close)}</dd>` : ''}
           ${x.wears ? `<dt>Wears</dt><dd class="muted">${esc(x.wears)}</dd>` : ''}
         </dl>
+      </article>`).join('')}</div>`;
+
+  const frames = [...document.querySelectorAll('.ch iframe')];
+  let n = 0;
+  (function next() {
+    if (n >= frames.length) return;
+    const f = frames[n++];
+    f.src = f.dataset.src;
+    f.addEventListener('load', () => setTimeout(next, 700), { once: true });
+    setTimeout(next, 9000);
+  })();
+}
+
+// Every structure, live. The page it replaces held 37 PNGs shot by a tool that is no longer in the
+// repo -- so they could not be retaken, and a diamond-age gate existed only as a picture nothing
+// could regenerate. These are `?view=build&id=…`, the real builder out of src/models.js.
+function renderWorld() {
+  const w = D.world;
+  if (!w) {
+    side('World', [{ label: 'Everything', href: '#/world', on: true }]);
+    document.getElementById('main').innerHTML = '<h1>World</h1><p class="lede">Not measured yet — <code>npm run board</code>.</p>';
+    return;
+  }
+  const want = sub() || w.groups[0].name.toLowerCase().replace(/\W+/g, '-');
+  const slug = (g) => g.name.toLowerCase().replace(/\W+/g, '-');
+  const group = w.groups.find((g) => slug(g) === want) || w.groups[0];
+  side('World', w.groups.map((g) => ({ label: g.name, href: `#/world/${slug(g)}`, on: slug(g) === want, count: g.items.length })));
+
+  // A structure with ages gets one frame per age; one without gets a single frame. The age is the
+  // whole point for the first group — it is one building drawn four ways, not four buildings.
+  const cards = [];
+  for (const it of group.items) {
+    if (it.levels) {
+      for (const lv of it.levels) cards.push({ it, label: `${it.name} · level ${lv}`, q: `id=${it.id}&level=${lv}&age=stone`, meta: null });
+    } else if (it.ages) {
+      for (const a of it.ages) cards.push({ it, label: `${it.name} · ${a.label}`, q: `id=${it.id}&age=${a.name}`, meta: a.hp ? `${a.hp.toLocaleString()} hp · repairs for ${a.repair}` : `unlocked at Keep level ${a.i * 4}` });
+    } else {
+      cards.push({ it, label: it.name, q: `id=${it.id}`, meta: it.gives ? `gives ${it.gives}` : it.note });
+    }
+  }
+
+  document.getElementById('main').innerHTML = `
+    <h1>${esc(group.name)}</h1>
+    <p class="lede">${esc(group.note || '')} Every frame is the real builder from <code>src/models.js</code>, standing on the game's own grass and turning. Not photographs — the page this replaces held 37 of those, taken by a tool that is no longer in the repo.</p>
+    ${group.items.some((i) => i.footprint || i.pads.length) ? `<table style="margin-bottom:22px">
+      <tr><th>Structure</th><th>Footprint</th><th>On the field</th><th>What it is for</th></tr>
+      ${group.items.map((i) => `<tr><td><strong>${esc(i.name)}</strong></td>
+        <td class="muted">${i.footprint ? i.footprint.join(' × ') + ' units' : '—'}</td>
+        <td class="muted">${i.pads.length ? i.pads.length + (i.pads.length > 1 ? ' pads' : ' pad') : 'not placed by a pad'}</td>
+        <td class="muted">${esc(i.why || '')}</td></tr>`).join('')}
+    </table>` : ''}
+    <div class="cast">${cards.map((c, i) => `
+      <article class="ch">
+        <header><div><b>${esc(c.label)}</b>${c.meta ? `<div class="muted">${esc(c.meta)}</div>` : ''}</div></header>
+        <div class="frame grass"><iframe data-src="../?view=build&${c.q}" title="${esc(c.label)}" loading="lazy"></iframe></div>
       </article>`).join('')}</div>`;
 
   const frames = [...document.querySelectorAll('.ch iframe')];

@@ -8,6 +8,8 @@ import { UPGRADES } from './upgrades.js';
 import { readScores, readDiary } from './scores.js';
 import {
   makeLumberTree, makeOreRock, makeIronSeam, makeGemNode, makeResourceCube, RES_MATS, CHIP_GEO, makeTool, disposeHealthBar, makePopup, makeTag, makeHeap, makeSpawnFx, makeBurst, makeHeart, COIN_TIER_COLORS,
+  makeKeep, makeHut, makeBarracks, makeTower, makeWallSegment, makeGate, makeRubble, makeFence,
+  makeSpikes, makeGatePost, makeBridge, makeCamp, makeBank, makeHayBale, makeWheatField,
 } from './models.js';
 import { tmp, tmp2, tmpM, cap, rand } from './game-shared.js';
 import { makeRigged } from './rig.js';
@@ -1618,14 +1620,94 @@ export const ViewMethods = {
     return true;
   },
 
+  // #178: one STRUCTURE on the same stand, for the same reason as one character.
+  //
+  // This replaces a page of 37 PNGs. They were shot by `tools/shots/buildings.mjs`, which is not in
+  // the repo any more -- so the pictures could not be retaken even if somebody wanted to, and the
+  // only record of what a diamond-age gate looks like was an image nothing could regenerate. Every
+  // builder here is the one `makeStructureMesh` calls, at the age the game would call it with.
+  showStructure(id, age = 'stone', level = 1) {
+    this.running = false;
+    this.charView = null;
+    const L = { wood: 0, stone: 1, iron: 2, diamond: 3 }[age] ?? 1;
+    const build = {
+      keep: () => makeKeep(age),
+      hut: () => makeHut(age),
+      barracks: () => makeBarracks(age),
+      tower: () => makeTower(level, age),
+      wall: () => makeWallSegment(7, L),
+      gate: () => makeGate(L),
+      rubble: () => makeRubble(7, L),
+      fence: () => makeFence(7),
+      spikes: () => makeSpikes(),
+      gatepost: () => makeGatePost(),
+      bridge: () => makeBridge(10, 4),
+      camp: () => makeCamp(9),
+      bank: () => makeBank(),
+      lumber: () => makeLumberTree(),
+      ore: () => makeOreRock(),
+      iron: () => makeIronSeam(),
+      gem: () => makeGemNode(),
+      hay: () => makeHayBale(),
+      wheat: () => makeWheatField(10, 10),
+    }[id];
+    if (!build) return false;
+    let mesh = null;
+    try { mesh = build(); } catch (e) { return false; }
+    if (!mesh) return false;
+
+    for (const o of this.scene.children) o.visible = !!o.isLight;
+    if (this.scene.fog) {
+      this.scene.fog.near = 400;
+      this.scene.fog.far = 900;
+      this.dry.fogNear = 400;
+      this.dry.fogFar = 900;
+    }
+    for (const el of ['hud', 'toast', 'alarm-lane', 'pad-tip']) {
+      const n = document.getElementById(el);
+      if (n) n.style.display = 'none';
+    }
+
+    const stage = new THREE.Group();
+    // Grass, not the character sheet's dark disc. A building is judged against the ground it stands
+    // on -- the whole palette question is whether these read against a meadow -- and a structure on
+    // black is a structure nobody has actually looked at.
+    const disc = new THREE.Mesh(
+      new THREE.CircleGeometry(14, 56),
+      new THREE.MeshStandardMaterial({ color: 0x6aa84f, roughness: 1 }),
+    );
+    disc.rotation.x = -Math.PI / 2;
+    disc.receiveShadow = true;
+    mesh.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    stage.add(disc, mesh);
+    this.scene.add(stage);
+
+    const box = new THREE.Box3().setFromObject(mesh);
+    const h = Math.max(0.6, box.max.y - box.min.y);
+    const w = Math.max(box.max.x - box.min.x, box.max.z - box.min.z);
+    const vt = Math.tan((this.camera.fov * Math.PI) / 360);
+    const ht = vt * Math.max(0.75, this.camera.aspect || 1);
+    const d = Math.max(h / 2 / vt, w / 2 / ht) * 1.2 + 1;
+    this.charView = { rig: null, stage, clip: null, frame: { d, mid: (box.max.y + box.min.y) / 2 } };
+    this.charBgGrass = true;
+    this.camLock = d;
+    this.camDist = d;
+    this.aimCharCamera();
+    return true;
+  },
+
   // Called every frame from the render loop while a character sheet is up. The game's own mixer pass
   // walks units, enemies and turrets, and this character is none of those.
   updateCharView(dt) {
     const v = this.charView;
     if (!v) return;
-    v.rig.mixer.update(dt);
+    if (v.rig) v.rig.mixer.update(dt);
     v.stage.rotation.y += dt * 0.55;
-    if (this.scene.background && this.scene.background.setHex) this.scene.background.setHex(CHAR_BG);
+    // A structure keeps a daylight sky behind it; a character gets the neutral dark. Same reason the
+    // structure stands on grass -- one is judged against the world, the other against nothing.
+    if (this.scene.background && this.scene.background.setHex && !this.charBgGrass) {
+      this.scene.background.setHex(CHAR_BG);
+    }
     this.aimCharCamera();
   },
 

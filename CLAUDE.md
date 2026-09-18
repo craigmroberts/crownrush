@@ -103,12 +103,20 @@ The board has two kinds of content and they live in different places on purpose.
 | What the build weighs | `public/board/stats.json` | `npm run board` |
 | Colour census, tokens, type, icons | `public/board/brand.json` | `npm run board` |
 | Which rigs exist, who they play | `public/board/cast.json` | `npm run board` |
+| Every structure, its ages and footprints | `public/board/world.json` | `npm run board` |
 | Test results | `public/board/checks.json` | `npm run check` |
 | Brand direction and decisions | `docs/brand.md` | a person |
 | How each model reads against the story | `docs/cast-review.md` | a person |
 
 The prose files are the ONLY copy of what they say — the board renders them, it does not hold its
 own version. Editing the doc is editing the board.
+
+**And no screenshots, ever.** A separate page of 37 building plates was migrated in the same pass.
+It had been shot by `tools/shots/buildings.mjs`, which is not in the repo any more — so the pictures
+could not have been retaken even if anyone had wanted to, and a diamond-age gate existed only as an
+image nothing could regenerate. `?view=build&id=…` frames the real builder from `src/models.js`
+instead. `?view=char&id=…` does the same for a character, animated, wearing the tints `spawnEnemy`
+would have given it.
 
 **The figures are recounted every run because the last guide's were not.** A separate page once
 reported "361 colours, 85 near-identical pairs, 13 dead tokens, and `font-weight: 900` asked of a
