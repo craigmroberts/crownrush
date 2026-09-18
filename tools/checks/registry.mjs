@@ -1,0 +1,120 @@
+// #179: what the game is supposed to be true about itself.
+//
+// This file is the COVERAGE, not the runner. It lists everything worth asserting, whether or not
+// anybody has written the assertion yet -- because "how thoroughly has this been tested" is a
+// question about the gaps as much as the passes, and a suite that only lists what it already checks
+// answers the wrong half of it.
+//
+// Every entry carries `cost`, and that is the field this file exists for:
+//
+//   free   -- pure reading. Parses config and source, runs in milliseconds, no browser, no tokens.
+//   cheap  -- drives the real game in headless Chromium. Seconds to a minute. Still no tokens.
+//   judged -- cannot be automated at all: it is a question about feel, taste or fiction. Needs a
+//             person playing, or a model reading. These have no runner ON PURPOSE. They are listed
+//             so the board can say "this is not covered" rather than quietly implying it is.
+//
+// A `judged` row is not a failure and never fails a run. It is an honest gap.
+export const CHECKS = [
+  // ---- free: config and source, no browser ----
+  {
+    id: 'pads-requires-exist', area: 'Build', cost: 'free',
+    asserts: 'Every pad `requires` names a pad that exists.',
+    why: 'A typo here silently makes a pad unreachable for a whole run.',
+  },
+  {
+    id: 'pads-buildat-in-bounds', area: 'Build', cost: 'free',
+    asserts: 'Every structure pad\'s `buildAt` sits inside its tier, with its whole footprint.',
+    why: 'A building half outside the wall is a building raiders walk past.',
+  },
+  {
+    id: 'pads-no-overlap', area: 'Build', cost: 'free',
+    asserts: 'No two build mats overlap each other.',
+    why: 'Two mats on one spot means one of them can never be paid.',
+  },
+  {
+    id: 'opening-homes-legal', area: 'Opening', cost: 'free',
+    asserts: 'The hand-placed opening homes are inside the tier-0 plot and clear of each other.',
+    why: 'They are coordinates typed by hand (#152), which is exactly what drifts.',
+  },
+  {
+    id: 'tokens-resolve', area: 'Brand', cost: 'free',
+    asserts: 'No `:root` token is defined as itself; any nothing reads is named.',
+    why: '`--figure: var(--figure)` shipped -- a cycle, so six rules fell back to inherit and no number was gold.',
+  },
+  {
+    id: 'icons-exist', area: 'UI', cost: 'free',
+    asserts: 'Every `icon:` named in config exists in the icon set.',
+    why: 'A missing icon draws nothing and says nothing.',
+  },
+  {
+    id: 'upgrade-mods-exist', area: 'Upgrades', cost: 'free',
+    asserts: 'Every upgrade writes a mod that exists in MODS.',
+    why: 'An upgrade onto a misspelled key is a reward that does nothing, and nothing says so.',
+  },
+  {
+    id: 'footprints-cover-kinds', area: 'Build', cost: 'free',
+    asserts: 'Every structure kind a pad can build has a footprint.',
+    why: '`placeOk` falls back to 3x3 for anything missing, which silently mis-sizes collisions.',
+  },
+
+  // ---- cheap: the real game, headless, no tokens ----
+  {
+    id: 'views-open', area: 'Tooling', cost: 'cheap',
+    asserts: 'All twelve `?view=` URLs reach a running game with their panel open and filled.',
+    why: 'The board is iframes of these. A frame that opens on the wrong thing looks exactly like one that opened on the right thing.',
+  },
+  {
+    id: 'walls-solid', area: 'Walls', cost: 'cheap',
+    asserts: 'The King cannot cross a wall section: pushed at it from every side, he stays out.',
+    why: 'Asked for by name. A wall that can be walked through is not a wall.',
+  },
+  {
+    id: 'gates-passable', area: 'Walls', cost: 'cheap',
+    asserts: 'Every gate can be walked through, in both directions.',
+    why: 'The other half of the same question -- a wall with no way in is a cage.',
+  },
+  {
+    id: 'wall-ring-unbroken', area: 'Walls', cost: 'cheap',
+    asserts: 'Sampling the whole wall ring, every point is either solid or a known gate.',
+    why: 'Asked for by name: "there is no gaps between gates".',
+  },
+  {
+    id: 'opening-resolves', area: 'Opening', cost: 'cheap',
+    asserts: 'The snatch lands even if the King runs flat out from the moment it starts.',
+    why: 'It did not, for one commit: knights are slower than he is and the run stalled for ever.',
+  },
+  {
+    id: 'queen-visible', area: 'Opening', cost: 'cheap',
+    asserts: 'Through the whole calm, Wren is on the ground, outside the Keep, and not inside the King.',
+    why: 'Both bugs this scene has had were invisible to every other assertion.',
+  },
+  {
+    id: 'rebuild-after-fall', area: 'Opening', cost: 'cheap',
+    asserts: 'After the fall the plot is empty, the ledger is clear, and the first mat can be bought.',
+    why: 'The fall clears a lot of state by hand; anything it misses is unreachable progress.',
+  },
+
+  // ---- judged: no runner, and that is the point ----
+  {
+    id: 'opening-feel', area: 'Opening', cost: 'judged',
+    asserts: 'The calm is long enough to look around and short enough to replay.',
+    why: 'Thirty seconds is reasoned, not played. Only somebody playing it knows.',
+  },
+  {
+    id: 'kingdom-layout', area: 'Opening', cost: 'judged',
+    asserts: 'The opening kingdom looks like a place somebody lives.',
+    why: 'Four homes in a row along the south is a first guess. `/board/` exists to judge it.',
+  },
+  {
+    id: 'reward-copy', area: 'Upgrades', cost: 'judged',
+    asserts: 'A reward card can be read and ranked in the seconds a paused raid gives you.',
+    why: '#107, #115 and #177 are all the same complaint arriving again.',
+  },
+  {
+    id: 'brand-consistency', area: 'UI', cost: 'judged',
+    asserts: 'The game looks like one thing: one palette, one button, one voice.',
+    why: '#135. A machine cannot tell you the game has drifted from its own guide.',
+  },
+];
+
+export const AREAS = [...new Set(CHECKS.map((c) => c.area))];

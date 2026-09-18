@@ -306,14 +306,19 @@ function variantScene(gltf, name, tints) {
 
 // Returns { mesh, mixer, actions, play(name, once), tint(part, hex) } or null if not loaded.
 // `tints` = [[partName, hex], ...] picks a shared recoloured variant of the character.
-export function makeRigged(name, tints = null) {
+// `solo` forces the real skinned character even when the crowd is up (#178). The character sheet
+// needs a mesh it can put on a stage and a mixer it can drive; an instance has neither -- its pose
+// comes from `updateCrowd` and its geometry lives in a shared InstancedMesh. Asking for one and
+// getting the other is silent: `makeRigged` returns a truthy object either way, so the sheet added
+// something with no skinned mesh in it and rendered an empty stage.
+export function makeRigged(name, tints = null, solo = false) {
   const entry = cache.get(name);
   const gltf = entry && entry.loaded;
   if (!gltf) return null;
   // One of the models there are hundreds of, and the instanced path is up: hand back an instance.
   // It returns null if the model ran out of palette rows, and then this falls through to a real
   // skinned character, so the ceiling is a slower character rather than a missing one.
-  if (crowd && crowd.has(name)) {
+  if (!solo && crowd && crowd.has(name)) {
     const instanced = crowd.make(name, tints);
     if (instanced) return instanced;
   }

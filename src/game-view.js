@@ -10,8 +10,11 @@ import {
   makeLumberTree, makeOreRock, makeIronSeam, makeGemNode, makeResourceCube, RES_MATS, CHIP_GEO, makeTool, disposeHealthBar, makePopup, makeTag, makeHeap, makeSpawnFx, makeBurst, makeHeart, COIN_TIER_COLORS,
 } from './models.js';
 import { tmp, tmp2, tmpM, cap, rand } from './game-shared.js';
+import { makeRigged } from './rig.js';
 
 const GROUND = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+// #178: the character sheet's ground. A number, not a Color -- see `showCharacter`.
+const CHAR_BG = 0x12171d;
 const RAY = new THREE.Raycaster();
 const NDC = new THREE.Vector2();
 
@@ -1524,5 +1527,115 @@ export const ViewMethods = {
     const vi = CFG.coins.valueAt.reduce((acc, lv, i) => (this.baseLevel >= lv ? i : acc), 0);
     const coins = { count: this.coinsCarried, value: this.coinValue(), nextValue: CFG.coins.value[vi + 1] || null, nextAt: CFG.coins.valueAt[vi + 1] || null };
     return { taken, level: L, max: CFG.base.maxLevel, hasKeep: !!this.keep, queenCaptive: !!this.queen.captive, need, unlocks, padsNow, later, ranks, army, coins, wave: this.wave, finaleOpen: this.finaleOpen, finaleLevel: CFG.finale.level };
+  },
+
+  // #178: ONE character, alone, animated -- the board's character sheet.
+  //
+  // Not a screenshot and not a portrait. `renderPortrait` already exists and draws a still, which is
+  // what the title screen wants; this is for judging a design, and a design that is only ever seen
+  // standing still is half judged. The walk cycle is where a silhouette either reads or does not.
+  //
+  // The world is HIDDEN rather than torn down. `scene.clear()` would take the lights, the fog rig and
+  // everything `dispose` is supposed to be called on with it, for a view that lasts as long as an
+  // iframe -- so every child is switched off except the lights, and the character stands in the dark
+  // with the same three-point rig the game lights everyone else with. Nothing is destroyed, so
+  // nothing has to be rebuilt.
+  showCharacter(name, clip = 'Walk', as = '') {
+    this.running = false;          // no sim, no spawns, no day cycle
+    this.charView = null;
+    // AS THE GAME SPAWNS IT. The raw GLB is untinted -- the boss came out cream and brown, which is
+    // not what anyone has ever seen in a raid, because `spawnEnemy` recolours every enemy through
+    // `rankTints` before it reaches the field. A sheet for judging a design has to show the design
+    // that ships, so `as` names the enemy type whose tints to wear. Rank 0: the colours a raider
+    // arrives in, before the rank ladder starts repainting them.
+    const tints = as && this.rankTints ? this.rankTints(as, CFG.ranks[0]) : null;
+    const rig = makeRigged(name, tints, true);
+    if (!rig) return false;
+
+    for (const o of this.scene.children) o.visible = !!o.isLight;
+    // The fog is PUSHED BACK, never removed. `scene.fog = null` looks like the obvious way to clear
+    // the air and it throws every frame: the day cycle reads `scene.fog.color` to tint the sky, so
+    // the whole update -- including the render at the end of it -- died on the first tick and the
+    // canvas never painted at all. `dry` is what the rain restores from, so it moves too.
+    if (this.scene.fog) {
+      this.scene.fog.near = 400;
+      this.scene.fog.far = 900;
+      this.dry.fogNear = 400;
+      this.dry.fogFar = 900;
+    }
+    // THE VALUE, NEVER THE OBJECT, and set every frame -- see `updateCharView`. `updateDaylight`
+    // does `scene.background.copy(scene.fog.color)`, which writes INTO whatever object is there. So
+    // handing it a Color of mine did not give the scene my colour; it gave the day cycle my colour to
+    // paint green, and both the background and the field I was holding it in came back #8abe56. The
+    // same shared-object trap as `BAKED_STD` and `CFG.enemy[type]`, wearing a different hat.
+    // Neutral dark, because a character sheet is for judging a model and a green sky casts on it.
+    // Nothing from the run belongs over one either: no hearts, no purse, no warhorn.
+    // `.hidden` is not enough -- `#hud` sets its own `display: flex` and wins on specificity.
+    // `#hud` alone was not enough: the toast, the alarm lane and the mat chip are siblings of it,
+    // not children, so a notice queued during startup carried on speaking over the character.
+    for (const id of ['hud', 'toast', 'alarm-lane', 'pad-tip']) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    }
+
+    const stage = new THREE.Group();
+    // A disc to stand on, so the feet have something to meet and the eye has a floor. Dark enough
+    // that it never competes with the character, light enough to catch the shadow.
+    const disc = new THREE.Mesh(
+      new THREE.CircleGeometry(3.2, 48),
+      new THREE.MeshStandardMaterial({ color: 0x1d242c, roughness: 1 }),
+    );
+    disc.rotation.x = -Math.PI / 2;
+    disc.receiveShadow = true;
+    stage.add(disc, rig.mesh);
+    this.scene.add(stage);
+
+    // Turning the CHARACTER rather than the camera: an orbit would swing the light across the model
+    // and half of what is being judged here is how the shapes catch it. A figure on a turntable is
+    // lit the same at every angle.
+    rig.play(clip);
+    this.charView = { rig, stage, clip };
+
+    // FRAME FROM THE MODEL, not from a number. A fixed distance was tuned against the King and cut
+    // the crown off Wren and lost the boss entirely -- the rigs are not one size, and the sheet is
+    // shown in a square frame where the game is always wide. So: measure the character, then pull
+    // back far enough that its height fits the vertical FOV with a margin, and look at its middle.
+    // `mesh.position.y` is 0 and the model stands on it, so the box is in world space already.
+    const box = new THREE.Box3().setFromObject(rig.mesh);
+    const h = Math.max(0.5, box.max.y - box.min.y);
+    const w = Math.max(box.max.x - box.min.x, box.max.z - box.min.z);
+    const mid = (box.max.y + box.min.y) / 2;
+    // Half-angles: the vertical one is the camera's own; the horizontal follows from the aspect, and
+    // a square frame is the narrow case. 1.25 is the margin -- the widest point of a turn is the
+    // diagonal, not the front, and a character that just fits face-on clips at 45 degrees.
+    const vt = Math.tan((this.camera.fov * Math.PI) / 360);
+    const ht = vt * Math.max(0.75, this.camera.aspect || 1);
+    const d = Math.max(h / 2 / vt, w / 2 / ht) * 1.12 + 0.35;
+    this.charView.frame = { d, mid };
+    this.camLock = d;
+    this.camDist = d;
+    this.aimCharCamera();
+    return true;
+  },
+
+  // Called every frame from the render loop while a character sheet is up. The game's own mixer pass
+  // walks units, enemies and turrets, and this character is none of those.
+  updateCharView(dt) {
+    const v = this.charView;
+    if (!v) return;
+    v.rig.mixer.update(dt);
+    v.stage.rotation.y += dt * 0.55;
+    if (this.scene.background && this.scene.background.setHex) this.scene.background.setHex(CHAR_BG);
+    this.aimCharCamera();
+  },
+
+  // Re-aimed every frame, and on resize. `updateCamera` runs first and points the camera at a King
+  // who is not on screen; an iframe also fires a resize on settle, which is what `camLock` exists
+  // for elsewhere. Cheaper to just set it than to defend it.
+  aimCharCamera() {
+    const f = this.charView && this.charView.frame;
+    if (!f) return;
+    this.camera.position.set(0, f.mid + f.d * 0.18, f.d);
+    this.camera.lookAt(0, f.mid, 0);
   },
 };

@@ -1,0 +1,76 @@
+{
+  "at": "2026-09-18T11:52:55.269Z",
+  "checks": {
+    "pads-requires-exist": {
+      "pass": true,
+      "at": "2026-09-18T11:32:50.276Z"
+    },
+    "pads-buildat-in-bounds": {
+      "pass": true,
+      "at": "2026-09-18T11:32:50.276Z"
+    },
+    "pads-no-overlap": {
+      "pass": true,
+      "at": "2026-09-18T11:32:50.287Z"
+    },
+    "opening-homes-legal": {
+      "pass": true,
+      "at": "2026-09-18T11:32:50.287Z"
+    },
+    "icons-exist": {
+      "pass": true,
+      "at": "2026-09-18T11:32:50.288Z"
+    },
+    "upgrade-mods-exist": {
+      "pass": true,
+      "note": "16 of 16 upgrades declare a mod key, all 16 resolve",
+      "at": "2026-09-18T11:32:50.289Z"
+    },
+    "footprints-cover-kinds": {
+      "pass": true,
+      "at": "2026-09-18T11:32:50.289Z"
+    },
+    "walls-solid": {
+      "pass": true,
+      "note": "24 directions, held every time",
+      "at": "2026-09-18T11:37:10.631Z"
+    },
+    "gates-passable": {
+      "pass": true,
+      "note": "4 gates",
+      "at": "2026-09-18T11:37:21.238Z"
+    },
+    "wall-ring-unbroken": {
+      "pass": true,
+      "note": "360 samples",
+      "at": "2026-09-18T11:37:42.769Z"
+    },
+    "views-open": {
+      "pass": false,
+      "detail": [
+        "?view=levelup: the game ran but #offer-screen never opened",
+        "?view=cast: the game ran but #cast-screen never opened"
+      ],
+      "at": "2026-09-18T11:36:59.921Z"
+    },
+    "opening-resolves": {
+      "pass": true,
+      "note": "taken after 787 frames of running",
+      "at": "2026-09-18T11:43:48.802Z"
+    },
+    "queen-visible": {
+      "pass": false,
+      "detail": [
+        "inside the King (0.64 apart) at frame 3"
+      ],
+      "at": "2026-09-18T11:44:02.992Z"
+    },
+    "rebuild-after-fall": {
+      "pass": false,
+      "detail": [
+        "buying a mat built nothing"
+      ],
+      "at": "2026-09-18T11:52:54.357Z"
+    }
+  }
+}

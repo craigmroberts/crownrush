@@ -78,8 +78,16 @@
   --surface-2: rgba(255, 255, 255, 0.10);
   --ink: #e6fff1;
   --ink-dim: #93c4ab;
-  /* a number worth looking at: the countdown, the raid, what a level just gave you */
-  --figure: var(--figure);
+  /* a number worth looking at: the countdown, the raid, what a level just gave you.
+     #135: this said `--figure: var(--figure)`. A custom property that references itself is a cycle,
+     which is invalid at computed-value time -- so the token resolved to nothing, and all six
+     `color: var(--figure)` declarations fell back to inherit. Measured in the browser rather than
+     argued from the spec: `getPropertyValue('--figure')` came back as the empty string and a
+     `.ks-row b` computed to rgb(230,255,241), which is `--ink`, exactly its parent's colour. Every
+     number the game meant to single out was the same colour as the sentence around it, and nothing
+     looked broken enough to report. Lighter than `--accent` on purpose: the accent is the button's,
+     and a figure that wore it would read as something to press. */
+  --figure: #ffe08a;
   --good: #7fe3a0;
   /* #135: the clause a player is scanning for, coloured inside the sentence so a notice can be read
      at a glance instead of read. The rule is: colour the thing to DO, never the flavour. */

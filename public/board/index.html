@@ -2,210 +2,687 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Crown Rush — the board</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crown Rush — admin</title>
 <!--
-  #178: the admin board, and it lives INSIDE the game's own deployment on purpose.
+  #178: the admin area. Deliberately NOT branded like the game -- white, grey, plain. It is a tool for
+  looking at the game, and a tool dressed as the thing it inspects makes it harder to tell whether you
+  are looking at a screenshot or a control.
 
-  The brief was "one area where i can easily browse through the admin things", and the complaint
-  underneath it was that the brand guide shows gameplay images that are out of sync. So the rule this
-  page is built on is: NOTHING HERE IS A COPY OF SOMETHING ELSE.
-
-  - The game views are `<iframe>`s of the real game at `?view=…`. Not screenshots. They cannot go
-    stale, because they are the thing itself. This is why the page has to be same-origin: an iframe
-    of the game from anywhere else is blocked, and a board that cannot show the game is a board that
-    goes out of date.
-  - The tickets are fetched live from the GitHub API at load. The repository is public, so this needs
-    no key; unauthenticated reads are rate-limited at 60/hour, which is far more than one person
-    opening a board.
-  - The budgets are read from the README, which is where they are already written down, rather than
-    copied here where they would drift.
-
-  It deploys with the game, so it is never a separate thing to remember to update.
+  One rule underneath it: NOTHING HERE IS A COPY OF SOMETHING ELSE.
+   - the UI section frames the real game at `?view=…`; there are no screenshots to go stale
+   - the tickets come from the GitHub API on open
+   - the sizes come from `stats.json`, measured off `dist/` by `npm run board`
+   - the test coverage comes from `checks.json`, written by `npm run check`
+  Same origin is what makes the frames possible, which is why this ships inside the game.
 -->
 <style>
   :root {
-    --ink: #eef4e4; --dim: #a9bb96; --gold: #ffd98a; --line: rgba(255,227,163,0.16);
-    --bg: #1b2415; --panel: rgba(12,20,10,0.55);
-    color-scheme: dark;
+    --bg: #f4f5f7; --panel: #fff; --line: #e3e6ea; --ink: #1f2430; --dim: #6b7280;
+    --accent: #2f6fd6; --ok: #177245; --bad: #b3261e; --warn: #8a6100;
+    color-scheme: light;
   }
   * { box-sizing: border-box; }
   body {
-    margin: 0; padding: 0 0 48px; background: var(--bg); color: var(--ink);
-    font: 15px/1.55 "Nunito", ui-sans-serif, system-ui, sans-serif;
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
-  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 20px; }
-  header { padding: 28px 0 8px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
-  h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: 0.2px; }
-  h1 span { color: var(--gold); }
-  .sub { color: var(--dim); font-size: 13px; margin: 0; }
-  h2 {
-    font-size: 13px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--dim);
-    margin: 34px 0 12px; font-weight: 800;
+  a { color: var(--accent); }
+
+  /* top bar */
+  .top { background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10; }
+  .top .in { max-width: 1400px; margin: 0 auto; padding: 0 20px; display: flex; align-items: center; gap: 26px; height: 56px; }
+  .brand { font-weight: 700; font-size: 15px; white-space: nowrap; }
+  .brand span { color: var(--dim); font-weight: 400; }
+  nav.main { display: flex; gap: 2px; margin-left: 8px; }
+  nav.main a {
+    padding: 7px 14px; border-radius: 7px; text-decoration: none; color: var(--ink);
+    font-weight: 500; font-size: 14px;
   }
-  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
-  .card {
-    background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px;
+  nav.main a:hover { background: #eef1f5; }
+  nav.main a.on { background: var(--accent); color: #fff; }
+  .top .right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+  .top .right a { font-size: 13px; text-decoration: none; color: var(--dim); }
+  .top .right a:hover { color: var(--accent); }
+
+  /* layout */
+  .shell { max-width: 1400px; margin: 0 auto; padding: 22px 20px 60px; display: grid; grid-template-columns: 208px 1fr; gap: 24px; align-items: start; }
+  aside { position: sticky; top: 78px; }
+  aside h4 { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin: 0 0 8px 10px; }
+  aside a {
+    display: block; padding: 7px 10px; border-radius: 6px; text-decoration: none; color: var(--ink);
+    font-size: 13.5px; margin-bottom: 1px;
   }
-  .card .n { font-size: 30px; font-weight: 800; color: var(--gold); line-height: 1.1; }
-  .card .k { font-size: 12px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; }
-  .views { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
-  .view { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
-  .view h3 { margin: 0; padding: 10px 14px; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold); border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-  .view h3 button { font: inherit; font-size: 11px; background: rgba(255,255,255,0.08); color: var(--ink); border: 0; border-radius: 999px; padding: 3px 10px; cursor: pointer; }
-  .view h3 button:hover { background: rgba(255,255,255,0.16); }
-  .frame { position: relative; aspect-ratio: 4 / 3; background: #0d140a; }
-  .frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-  .frame .hint { position: absolute; inset: 0; display: grid; place-items: center; color: var(--dim); font-size: 13px; text-align: center; padding: 20px; }
-  .view p { margin: 0; padding: 9px 14px 12px; font-size: 12.5px; color: var(--dim); border-top: 1px solid var(--line); }
-  ul.tickets { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
-  ul.tickets li { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 9px 13px; display: flex; gap: 10px; align-items: baseline; }
-  ul.tickets a { color: var(--ink); text-decoration: none; flex: 1 1 auto; }
-  ul.tickets a:hover { text-decoration: underline; }
-  ul.tickets .num { color: var(--gold); font-weight: 800; font-size: 13px; flex: 0 0 auto; min-width: 2.6em; }
-  .tag { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 7px; border-radius: 999px; background: rgba(255,255,255,0.09); color: var(--dim); flex: 0 0 auto; }
-  .tag.p-high, .tag.p-critical { background: rgba(216,38,44,0.26); color: #ffb3b3; }
-  .tag.bug { background: rgba(216,38,44,0.18); color: #ffc0c0; }
-  .links { display: flex; flex-wrap: wrap; gap: 9px; }
-  .links a { color: var(--gold); text-decoration: none; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 13px; }
-  .links a:hover { background: rgba(255,255,255,0.08); }
-  .muted { color: var(--dim); font-size: 12.5px; }
-  code { background: rgba(0,0,0,0.35); padding: 1px 6px; border-radius: 5px; font-size: 12.5px; }
+  aside a:hover { background: #eaeef3; }
+  aside a.on { background: #e4ecfa; color: var(--accent); font-weight: 600; }
+  aside a.sub { padding-left: 22px; font-size: 13px; color: var(--dim); }
+  aside a.sub.on { color: var(--accent); }
+  aside .count { float: right; color: var(--dim); font-weight: 400; font-size: 12px; }
+
+  main > h1 { font-size: 20px; margin: 2px 0 4px; }
+  main > p.lede { color: var(--dim); margin: 0 0 20px; font-size: 13.5px; }
+  section { margin-bottom: 30px; scroll-margin-top: 80px; }
+  section > h2 { font-size: 15px; margin: 0 0 12px; }
+
+  .cards { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .card .n { font-size: 26px; font-weight: 650; letter-spacing: -0.5px; }
+  .card .k { font-size: 12px; color: var(--dim); margin-top: 2px; }
+  .card .sub { font-size: 12px; color: var(--dim); margin-top: 6px; }
+
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line); font-size: 13.5px; vertical-align: top; }
+  th { background: #fafbfc; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  td.right, th.right { text-align: right; white-space: nowrap; }
+  td .why { color: var(--dim); font-size: 12.5px; display: block; margin-top: 2px; }
+
+  .pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #eef1f5; color: var(--dim); white-space: nowrap; }
+  .pill.ok { background: #e6f4ea; color: var(--ok); }
+  .pill.bad { background: #fce9e7; color: var(--bad); }
+  .pill.warn { background: #fdf3e0; color: var(--warn); }
+  .pill.blue { background: #e4ecfa; color: var(--accent); }
+
+  .views { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
+  .view { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .view header { padding: 9px 14px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .view header b { font-size: 13.5px; }
+  .view header button { font: inherit; font-size: 12px; border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 3px 9px; cursor: pointer; color: var(--dim); }
+  .view header button:hover { background: #f2f4f7; color: var(--ink); }
+  .view .frame { aspect-ratio: 4/3; background: #eceff3; position: relative; }
+  .view iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  .view p { margin: 0; padding: 9px 14px; font-size: 12.5px; color: var(--dim); border-top: 1px solid var(--line); }
+
+  .bar { height: 7px; background: #eceff3; border-radius: 4px; overflow: hidden; margin-top: 7px; }
+  .bar i { display: block; height: 100%; background: var(--accent); }
+  .muted { color: var(--dim); font-size: 13px; }
+  code { background: #eef1f5; padding: 1px 5px; border-radius: 4px; font-size: 12.5px; font-family: ui-monospace, Menlo, monospace; }
+
+  /* --- brand --- */
+  .prose { max-width: 62em; }
+  .prose h2 { font-size: 17px; margin: 30px 0 10px; }
+  .prose h3 { font-size: 14.5px; margin: 22px 0 8px; }
+  .prose p { margin: 0 0 11px; }
+  .prose ul { margin: 0 0 12px; padding-left: 20px; }
+  .prose li { margin-bottom: 7px; }
+  .prose table { margin: 6px 0 16px; }
+  .prose blockquote { margin: 0 0 14px; padding: 10px 16px; border-left: 3px solid var(--line);
+    background: var(--panel); border-radius: 0 8px 8px 0; color: var(--dim); }
+  .prose blockquote p { margin: 0 0 4px; }
+  .prose hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
+  .prose strong { font-weight: 650; }
+
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 5px; }
+  .swatches i { display: block; aspect-ratio: 1; border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.14); }
+  .pairs { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 10px; }
+  .pair { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
+  .pair-s { display: flex; height: 44px; }
+  .pair-s i { flex: 1; }
+  .pair-t { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 5px 8px;
+    font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; color: var(--dim); }
+  .pair-t b { color: var(--ink); }
+  .tsw { display: inline-block; width: 15px; height: 15px; border-radius: 3px; vertical-align: -3px;
+    margin-right: 6px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.18); }
+  .ramp { display: flex; flex-wrap: wrap; gap: 0 12px; align-items: baseline; }
+  .ramp i { font-style: normal; font-family: ui-monospace, Menlo, monospace; line-height: 1.1; color: var(--dim); }
+  .radii { display: flex; flex-wrap: wrap; gap: 9px; }
+  .radii span { width: 62px; height: 62px; display: grid; place-items: center; background: var(--panel);
+    border: 1px solid var(--line); font-size: 11px; color: var(--dim); font-family: ui-monospace, Menlo, monospace; }
+  .icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 1px;
+    background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .icons figure { margin: 0; background: var(--panel); padding: 14px 6px 9px; display: flex;
+    flex-direction: column; align-items: center; gap: 8px; }
+  .icons figcaption { font-size: 10px; color: var(--dim); font-family: ui-monospace, Menlo, monospace;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* --- cast --- */
+  /* Capped, not `1fr`. The frame is square, so a card given a whole 1000px column renders a
+     1000px-tall character sheet -- one figure, a screen and a half of it. */
+  .cast { display: grid; gap: 20px; justify-content: start;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 430px)); }
+  .ch { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .ch > header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+    padding: 11px 14px; border-bottom: 1px solid var(--line); }
+  .ch > header b { font-size: 14px; }
+  .ch > header .muted { font-size: 11.5px; margin-top: 2px; }
+  .ch .frame { aspect-ratio: 1/1; background: #12171d; position: relative; }
+  .ch iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  .ch .clips { display: flex; gap: 1px; background: var(--line); border-bottom: 1px solid var(--line); }
+  .ch .clips button { flex: 1; font: inherit; font-size: 12px; border: 0; background: var(--panel);
+    padding: 7px 0; cursor: pointer; color: var(--dim); }
+  .ch .clips button:hover { background: #f2f4f7; color: var(--ink); }
+  .ch .clips button.on { background: var(--accent); color: #fff; font-weight: 600; }
+  .ch dl { margin: 0; padding: 12px 14px 14px; }
+  .ch dt { font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--dim);
+    margin-top: 11px; }
+  .ch dt:first-child { margin-top: 0; }
+  .ch dd { margin: 3px 0 0; font-size: 13px; line-height: 1.5; }
+  .ch dd.gap { color: var(--bad); }
+  @media (max-width: 860px) { .shell { grid-template-columns: 1fr; } aside { position: static; } }
 </style>
 </head>
 <body>
-<div class="wrap">
 
-<header>
-  <h1>Crown Rush — <span>the board</span></h1>
-  <p class="sub">Live. The views below are the real game in frames, not screenshots; the tickets are fetched when you open this.</p>
-</header>
+<div class="top"><div class="in">
+  <div class="brand">Crown Rush <span>admin</span></div>
+  <nav class="main" id="mainnav"></nav>
+  <div class="right">
+    <a href="../" target="_blank">Play ↗</a>
+    <a href="https://github.com/craigmroberts/crownrush" target="_blank">Repo ↗</a>
+  </div>
+</div></div>
 
-<h2>Where the game is</h2>
-<div class="grid" id="stats">
-  <div class="card"><div class="n" id="s-open">–</div><div class="k">open tickets</div></div>
-  <div class="card"><div class="n" id="s-closed">–</div><div class="k">shipped</div></div>
-  <div class="card"><div class="n" id="s-bugs">–</div><div class="k">open bugs</div></div>
-  <div class="card"><div class="n" id="s-commit">–</div><div class="k">last change</div></div>
-</div>
-
-<h2>The game, live</h2>
-<div class="views" id="views"></div>
-
-<h2>Open, most urgent first</h2>
-<ul class="tickets" id="open"><li><span class="muted">Loading from GitHub…</span></li></ul>
-
-<h2>Just shipped</h2>
-<ul class="tickets" id="done"><li><span class="muted">Loading…</span></li></ul>
-
-<h2>Elsewhere</h2>
-<div class="links">
-  <a href="../">Play the game</a>
-  <a href="../?tour">Walk the opening kingdom</a>
-  <a href="https://github.com/craigmroberts/crownrush/issues">All tickets</a>
-  <a href="https://github.com/craigmroberts/crownrush/blob/main/docs/story.md">Story bible</a>
-  <a href="https://github.com/craigmroberts/crownrush/blob/main/README.md">README &amp; budgets</a>
-  <a href="https://github.com/craigmroberts/crownrush/commits/main">Every change</a>
-</div>
-
-<h2>What costs what</h2>
-<p class="muted">
-  Tickets carry a <strong>model and effort</strong> line, so the price of doing one is on the ticket rather than guessed.
-  Rough shape: <code>Haiku</code> for mechanical passes, <code>Sonnet 5</code> for ordinary build-and-verify,
-  <code>Opus 5</code> for anything where being wrong is expensive, <code>Fable 5.1</code> only for decisions with long
-  tails — the story, an opening, a name you will live with. Judge cost per finished job, not per request.
-</p>
-
+<div class="shell">
+  <aside><h4 id="sidetitle">Sections</h4><div id="sidenav"></div></aside>
+  <main id="main"></main>
 </div>
 
 <script>
 const REPO = 'craigmroberts/crownrush';
-
-// The views. Each one is the real game at a `?view=` flag -- see main.js § runView.
-const VIEWS = [
-  ['The kingdom, standing', '../?tour', 'The opening village, held open. Walls, Keep, towers, four homes, Wren beside the King.'],
-  ['The whole map', '../?view=map', 'Camera up and the fog off. The only place the whole board is visible at once.'],
-  ['The cast', '../?view=cast', 'Every character the game ships, at the size it draws them.'],
-  ['Level up', '../?view=levelup', 'The reward panel: what the level gave, and the three cards.'],
-  ['The Keep sheet', '../?view=keep', 'What the next level costs and what it gives.'],
-  ['Best runs', '../?view=scores', 'The scoreboard as a finished run leaves it.'],
+const PAGES = [
+  { id: 'home', label: 'Dashboard' },
+  { id: 'ui', label: 'UI' },
+  { id: 'brand', label: 'Brand' },
+  { id: 'cast', label: 'Cast' },
+  { id: 'tests', label: 'Tests' },
+  { id: 'tickets', label: 'Tickets' },
 ];
-
-const viewsEl = document.getElementById('views');
-viewsEl.innerHTML = VIEWS.map(([title, src, note], i) => `
-  <div class="view">
-    <h3>${title}<button data-i="${i}">Reload</button></h3>
-    <div class="frame"><iframe data-src="${src}" loading="lazy" title="${title}"></iframe></div>
-    <p>${note}</p>
-  </div>`).join('');
-
-// Load the frames one at a time. Six copies of a WebGL game racing each other for the GPU is how a
-// board becomes the slowest page you own -- and a browser will drop the oldest context when it runs
-// out, which blanks the frames above.
-const frames = [...viewsEl.querySelectorAll('iframe')];
-let next = 0;
-function loadNext() {
-  if (next >= frames.length) return;
-  const f = frames[next++];
-  f.src = f.dataset.src;
-  f.addEventListener('load', () => setTimeout(loadNext, 900), { once: true });
-  setTimeout(loadNext, 6000);   // and never wait for one that fails
-}
-loadNext();
-viewsEl.addEventListener('click', (e) => {
-  const b = e.target.closest('button[data-i]');
-  if (!b) return;
-  const f = frames[+b.dataset.i];
-  f.src = f.dataset.src + (f.dataset.src.includes('?') ? '&' : '?') + 'r=' + Date.now();
-});
-
-// Tickets, live. No key: the repository is public and unauthenticated reads allow 60 an hour.
-const prio = (labels) => {
-  const l = labels.map((x) => x.name);
-  if (l.includes('priority: critical')) return 0;
-  if (l.includes('priority: high')) return 1;
-  if (l.includes('priority: medium')) return 2;
-  return 3;
+// Grouped, and the groups are a budget as much as a taxonomy. Every frame is a live WebGL context and
+// a browser keeps roughly sixteen before it starts dropping the oldest one it has; four at a time
+// leaves room and keeps each frame big enough to actually read.
+const GROUPS = [
+  ['world', 'The world', [
+    ['kingdom', 'The kingdom', '../?tour', 'The opening village, held open at morning. Walls, Keep, towers, four homes, Wren beside the King.'],
+    ['map', 'Whole map', '../?view=map', 'Camera up, fog off, smoke off. The only place the whole board is visible at once.'],
+  ]],
+  ['progress', 'Progress', [
+    ['keep', 'Keep sheet', '../?view=keep', 'What the next Keep level costs and what it gives.'],
+    ['levelup', 'Level up', '../?view=levelup', 'The reward panel: what the level gave, and the three cards it offers.'],
+    ['scores', 'Best runs', '../?view=scores', 'The scoreboard, both run lengths.'],
+  ]],
+  ['people', 'People and settings', [
+    ['cast', 'The cast', '../?view=cast', 'Every character the game ships, and which are still locked.'],
+    ['diary', 'The diary', '../?view=diary', 'What the run has recorded so far — the thing that unlocks the cast.'],
+    ['settings', 'Settings', '../?view=settings', 'Four tabs, two sliders, three toggles, no Apply button.'],
+    ['credits', 'Credits', '../?view=credits', 'Reached from under Play on the title screen.'],
+  ]],
+  ['ends', 'Pause and endings', [
+    ['pause', 'Paused', '../?view=pause', 'Night and score under the badge, and four buttons.'],
+    ['defeat', 'Defeat', '../?view=defeat', 'The King has fallen: headline, one line of why, the stat box.'],
+    ['victory', 'Victory', '../?view=victory', 'The other ending, off the same live state.'],
+  ]],
+];
+const VIEWS = GROUPS.flatMap(([, , v]) => v);
+const kb = (b) => b > 1e6 ? (b / 1e6).toFixed(2) + ' MB' : Math.round(b / 1024) + ' kB';
+// Minutes matter on this page: "just now" for anything inside an hour made a fifty-minute-old test
+// result look like one that had only just run, on a page whose job is to say when things were looked at.
+const rel = (iso) => {
+  const m = (Date.now() - new Date(iso)) / 6e4;
+  if (m < 1) return 'just now';
+  if (m < 60) return Math.round(m) + 'm ago';
+  if (m < 48 * 60) return Math.round(m / 60) + 'h ago';
+  return Math.round(m / 1440) + 'd ago';
 };
-const tagsFor = (labels) => labels
-  .filter((x) => /^(bug|priority: )/.test(x.name))
-  .map((x) => {
-    const cls = x.name.startsWith('priority: ') ? 'p-' + x.name.slice(10) : x.name;
-    return `<span class="tag ${cls}">${x.name.replace('priority: ', '')}</span>`;
-  }).join('');
-const row = (i) => `<li><span class="num">#${i.number}</span>`
-  + `<a href="${i.html_url}" target="_blank" rel="noopener">${i.title.replace(/</g, '&lt;')}</a>${tagsFor(i.labels)}</li>`;
+const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+// the README is markdown and the board is not rendering markdown — just take the emphasis off
+const plain = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, '$1').replace(/`(.+?)`/g, '$1');
+
+const D = { tickets: null, checks: null, stats: null, brand: null, cast: null, commit: null };
 
 async function load() {
-  const api = (q) => fetch(`https://api.github.com/repos/${REPO}/issues?${q}`).then((r) => r.json());
+  const j = (u) => fetch(u).then((r) => r.ok ? r.json() : Promise.reject(r.status));
+  const [checks, stats, brand, cast] = await Promise.all([
+    j('./checks.json').catch(() => null),
+    j('./stats.json').catch(() => null),
+    j('./brand.json').catch(() => null),
+    j('./cast.json').catch(() => null),
+  ]);
+  D.checks = checks; D.stats = stats; D.brand = brand; D.cast = cast;
+  render();
+  // GitHub second: it is the only part that can be rate-limited, and the page is useful without it
   try {
-    const [open, closed] = await Promise.all([
-      api('state=open&per_page=100'),
-      api('state=closed&per_page=12&sort=updated&direction=desc'),
+    const [open, closed, commits] = await Promise.all([
+      j(`https://api.github.com/repos/${REPO}/issues?state=open&per_page=100`),
+      j(`https://api.github.com/search/issues?q=repo:${REPO}+is:issue+is:closed&per_page=1`),
+      j(`https://api.github.com/repos/${REPO}/commits?per_page=1`),
     ]);
-    // the Issues API returns pull requests too; they are not tickets
-    const issues = open.filter((i) => !i.pull_request);
-    issues.sort((a, b) => prio(a.labels) - prio(b.labels) || a.number - b.number);
-    document.getElementById('s-open').textContent = issues.length;
-    document.getElementById('s-bugs').textContent = issues.filter((i) => i.labels.some((l) => l.name === 'bug')).length;
-    document.getElementById('open').innerHTML = issues.map(row).join('') || '<li><span class="muted">Nothing open.</span></li>';
-    const done = closed.filter((i) => !i.pull_request);
-    document.getElementById('done').innerHTML = done.map(row).join('');
-  } catch (e) {
-    document.getElementById('open').innerHTML = '<li><span class="muted">GitHub would not answer — rate limit, or offline. The frames above still work.</span></li>';
-  }
-  try {
-    const r = await fetch(`https://api.github.com/repos/${REPO}/commits?per_page=1`).then((x) => x.json());
-    const c = r[0];
-    document.getElementById('s-commit').textContent = new Date(c.commit.author.date)
-      .toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-    document.getElementById('s-commit').title = c.commit.message.split('\n')[0];
-  } catch (e) { /* the number stays a dash, which is honest */ }
-  try {
-    const r = await fetch(`https://api.github.com/search/issues?q=repo:${REPO}+is:issue+is:closed&per_page=1`).then((x) => x.json());
-    if (typeof r.total_count === 'number') document.getElementById('s-closed').textContent = r.total_count;
-  } catch (e) { /* same */ }
+    D.tickets = { open: open.filter((i) => !i.pull_request), closedCount: closed.total_count };
+    D.commit = commits[0];
+  } catch (e) { D.tickets = 'error'; }
+  // NOT an unconditional re-render. The UI page's frames are live games, and re-rendering rebuilds
+  // every <iframe> -- so a GitHub reply arriving twenty seconds in used to restart whatever was
+  // half-loaded on screen. The UI page does not read any of this, so it does not need the news.
+  if (page() !== 'ui') render();
 }
+
+const prio = (i) => {
+  const l = i.labels.map((x) => x.name);
+  return l.includes('priority: critical') ? 0 : l.includes('priority: high') ? 1 : l.includes('priority: medium') ? 2 : 3;
+};
+const PRIO_NAME = ['Critical', 'High', 'Medium', 'Unranked'];
+// The `**Model and effort:**` line CLAUDE.md asks every ticket to end with. Shown here rather than
+// left in the body, and shown as missing where it is missing: the convention is newer than most of
+// these tickets, and a column of blanks is the honest way to say which ones have not caught up.
+const cost = (i) => (/\*\*Model and effort:\*\*\s*(.+)/.exec(i.body || '') || [])[1] || null;
+
+function page() { return (location.hash.replace('#/', '') || 'home').split('/')[0]; }
+function sub() { return (location.hash.replace('#/', '').split('/')[1]) || ''; }
+
+function render() {
+  const p = page();
+  document.getElementById('mainnav').innerHTML = PAGES
+    .map((x) => `<a href="#/${x.id}" class="${x.id === p ? 'on' : ''}">${x.label}</a>`).join('');
+  ({ home: renderHome, ui: renderUI, brand: renderBrand, cast: renderCast, tests: renderTests, tickets: renderTickets }[p] || renderHome)();
+}
+function side(title, items) {
+  document.getElementById('sidetitle').textContent = title;
+  document.getElementById('sidenav').innerHTML = items
+    .map((i) => `<a href="${i.href}" class="${i.on ? 'on' : ''}${i.under ? ' sub' : ''}">${i.label}${i.count != null ? `<span class="count">${i.count}</span>` : ''}</a>`).join('');
+}
+
+function renderHome() {
+  const s = D.stats, c = D.checks, t = D.tickets;
+  side('Dashboard', [
+    { label: 'Everything', href: '#/home', on: true },
+    { label: 'UI views', href: '#/ui' },
+    { label: 'Tests', href: '#/tests' },
+    { label: 'Tickets', href: '#/tickets' },
+  ]);
+  const auto = c ? c.registry.filter((x) => x.cost !== 'judged') : [];
+  // `ran` means REACHED A VERDICT. A check whose harness fell over has a result object and no
+  // opinion, so counting it here would read "18/18 run · 6 could not run", which is two numbers
+  // disagreeing in one card.
+  const broke = c ? auto.filter((x) => c.checks[x.id] && c.checks[x.id].error) : [];
+  const ran = c ? auto.filter((x) => c.checks[x.id] && !c.checks[x.id].error) : [];
+  const failing = c ? ran.filter((x) => !c.checks[x.id].pass) : [];
+  document.getElementById('main').innerHTML = `
+    <h1>Dashboard</h1>
+    <p class="lede">Everything here is read from the thing it describes — the build, the repository, the last test run.</p>
+
+    <section><h2>Size</h2>
+      <div class="cards">
+        <div class="card"><div class="n">${s ? kb(s.total) : '—'}</div><div class="k">built, total on disk</div>
+          <div class="sub">${s ? s.files + ' files · measured ' + rel(s.at) : 'run <code>npm run board</code>'}</div>
+          <div class="sub">Everything in <code>dist/</code>, models included. Not the load budget below — that one is what reaches the Play button, on the wire.</div></div>
+        ${s ? s.groups.slice(0, 3).map((g) => `<div class="card"><div class="n">${kb(g.bytes)}</div><div class="k">${g.name.toLowerCase()}</div><div class="sub">${g.files} file${g.files > 1 ? 's' : ''}</div></div>`).join('') : ''}
+      </div>
+    </section>
+
+    <section><h2>Work</h2>
+      <div class="cards">
+        <div class="card"><div class="n">${t && t !== 'error' ? t.open.length : '—'}</div><div class="k">open tickets</div>
+          <div class="sub">${t && t !== 'error' ? t.open.filter((i) => i.labels.some((l) => l.name === 'bug')).length + ' bugs' : t === 'error' ? 'GitHub unavailable' : 'loading…'}</div></div>
+        <div class="card"><div class="n">${t && t !== 'error' ? t.closedCount : '—'}</div><div class="k">shipped</div></div>
+        <div class="card"><div class="n">${D.commit ? rel(D.commit.commit.author.date) : '—'}</div><div class="k">last change</div>
+          <div class="sub">${D.commit ? esc(D.commit.commit.message.split('\n')[0]).slice(0, 60) : ''}</div></div>
+        <div class="card"><div class="n">${c ? ran.length + '/' + auto.length : '—'}</div><div class="k">checks run</div>
+          <div class="sub">${c ? (failing.length ? failing.length + ' failing' : 'none failing') + (broke.length ? ' · ' + broke.length + ' could not run' : '') + ' · ' + (c.registry.length - auto.length) + ' judged' : 'run <code>npm run check</code>'}</div>
+          ${c ? `<div class="bar"><i style="width:${Math.round((ran.length / auto.length) * 100)}%"></i></div>` : ''}</div>
+      </div>
+    </section>
+
+    <section><h2>Budgets</h2>
+      ${s && s.budgets && s.budgets.length ? `<table><tr><th>Metric</th><th>Aim for</th><th>Why</th></tr>
+        ${s.budgets.map((b) => `<tr><td>${plain(b.metric)}</td><td>${plain(b.aim)}</td><td class="muted">${plain(b.why)}</td></tr>`).join('')}</table>
+        <p class="muted" style="margin-top:8px">The README's own table, read out of it — this is not a second copy to keep in step.</p>
+        ${s.enforced ? `<h2 style="font-size:15px;margin:22px 0 12px">What CI actually holds you to</h2>
+        <table><tr><th>Budget</th><th>Status</th></tr>
+        ${s.enforced.map((b) => `<tr><td>${esc(b.label)}</td><td>${b.waived
+          ? `<span class="pill warn">waived</span> <span class="muted">${plain(b.waived)}</span>`
+          : '<span class="pill ok">enforced</span>'}</td></tr>`).join('')}</table>
+        <p class="muted" style="margin-top:8px">Read out of <code>tools/probe/probe.mjs</code>. A waived budget is measured and printed and does not fail a build — the aim above still stands, CI just is not the thing holding it.</p>` : ''}`
+      : '<p class="muted">Run <code>npm run build &amp;&amp; npm run board</code>.</p>'}
+    </section>`;
+}
+
+function renderUI() {
+  const want = sub() || 'world';
+  const group = GROUPS.find((g) => g[0] === want);
+  const one = !group && VIEWS.find((v) => v[0] === want);
+  side('Views', GROUPS.flatMap(([gid, glabel, vs]) => [
+    { label: glabel, href: `#/ui/${gid}`, on: gid === want, count: vs.length },
+    ...vs.map(([id, label]) => ({ label, href: `#/ui/${id}`, on: id === want, under: true })),
+  ]));
+  const list = group ? group[2] : one ? [one] : GROUPS[0][2];
+  document.getElementById('main').innerHTML = `
+    <h1>UI${group ? ' — ' + group[1] : one ? ' — ' + one[1] : ''}</h1>
+    <p class="lede">The real game in frames, each at a URL that jumps straight to that state. Not screenshots — there is nothing here that can go out of sync, and nothing to refresh.</p>
+    <div class="views">${list.map(([id, label, src, note], i) => `
+      <div class="view">
+        <header><b>${label}</b><button data-i="${i}">Reload</button></header>
+        <div class="frame"><iframe data-src="${src}" title="${label}" loading="lazy"></iframe></div>
+        <p>${note} <code>${src.replace('../', '')}</code></p>
+      </div>`).join('')}</div>`;
+  // One at a time. Several WebGL contexts booting together is how a browser starts dropping the
+  // oldest, and under load a cold frame takes a while -- so the next one starts on this one's `load`,
+  // with a timer as the floor in case a frame never fires it.
+  const frames = [...document.querySelectorAll('.view iframe')];
+  let n = 0;
+  (function next() {
+    if (n >= frames.length) return;
+    const f = frames[n++];
+    f.src = f.dataset.src;
+    f.addEventListener('load', () => setTimeout(next, 700), { once: true });
+    setTimeout(next, 8000);
+  })();
+}
+
+// A markdown subset, enough for docs/brand.md: headings, tables, lists, quotes, rules, paragraphs.
+// Deliberately small. The alternative was a CDN library for a page that renders one document, and
+// the document is written in this repo so its shape is known rather than arbitrary.
+function md(src) {
+  const inline = (t) => esc(t)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[\s(])\*([^*\n]+)\*/g, '$1<em>$2</em>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+  const out = [];
+  const lines = src.split('\n');
+  let i = 0;
+  const para = [];
+  const flush = () => { if (para.length) { out.push(`<p>${inline(para.join(' '))}</p>`); para.length = 0; } };
+  while (i < lines.length) {
+    const l = lines[i];
+    if (/^\s*$/.test(l)) { flush(); i++; continue; }
+    if (/^---+$/.test(l.trim())) { flush(); out.push('<hr>'); i++; continue; }
+    const h = /^(#{1,4})\s+(.*)$/.exec(l);
+    if (h) { flush(); const n = h[1].length + 1; out.push(`<h${n}>${inline(h[2])}</h${n}>`); i++; continue; }
+    if (l.startsWith('|')) {
+      flush();
+      const rows = [];
+      while (i < lines.length && lines[i].startsWith('|')) { rows.push(lines[i]); i++; }
+      const cells = (r) => r.split('|').slice(1, -1).map((c) => c.trim());
+      const head = cells(rows[0]);
+      const body = rows.slice(/^[\s|:-]+$/.test(rows[1] || '') ? 2 : 1);
+      out.push(`<table>${head.some(Boolean) ? `<tr>${head.map((c) => `<th>${inline(c)}</th>`).join('')}</tr>` : ''}`
+        + body.map((r) => `<tr>${cells(r).map((c) => `<td>${inline(c)}</td>`).join('')}</tr>`).join('') + '</table>');
+      continue;
+    }
+    if (/^[-*]\s/.test(l)) {
+      flush();
+      const items = [];
+      while (i < lines.length && (/^[-*]\s/.test(lines[i]) || /^\s{2,}\S/.test(lines[i]))) {
+        if (/^[-*]\s/.test(lines[i])) items.push(lines[i].replace(/^[-*]\s/, ''));
+        else items[items.length - 1] += ' ' + lines[i].trim();
+        i++;
+      }
+      out.push(`<ul>${items.map((t) => `<li>${inline(t)}</li>`).join('')}</ul>`);
+      continue;
+    }
+    if (l.startsWith('>')) {
+      flush();
+      const q = [];
+      while (i < lines.length && lines[i].startsWith('>')) { q.push(lines[i].replace(/^>\s?/, '')); i++; }
+      out.push(`<blockquote>${q.filter(Boolean).map((t) => `<p>${inline(t)}</p>`).join('')}</blockquote>`);
+      continue;
+    }
+    para.push(l.trim());
+    i++;
+  }
+  flush();
+  return out.join('\n');
+}
+
+const BRAND_PAGES = [
+  ['direction', 'Direction and decisions'],
+  ['tokens', 'Tokens'],
+  ['colour', 'Colour census'],
+  ['type', 'Type and shape'],
+  ['icons', 'Icons'],
+];
+
+function renderBrand() {
+  const b = D.brand;
+  const want = sub() || 'direction';
+  side('Brand', BRAND_PAGES.map(([id, label]) => ({ label, href: `#/brand/${id}`, on: id === want })));
+  if (!b) {
+    document.getElementById('main').innerHTML = '<h1>Brand</h1><p class="lede">Not measured yet — <code>npm run board</code>.</p>';
+    return;
+  }
+  const lede = `<p class="lede">Measured out of <code>src/</code> ${rel(b.at)}, across ${b.files} files. Nothing on this page was typed twice — which is the whole reason it is here rather than in a document of its own.</p>`;
+  const m = document.getElementById('main');
+
+  if (want === 'direction') {
+    m.innerHTML = `<h1>Brand</h1>
+      <p class="lede">The written half — what was decided and why. Rendered from <code>docs/brand.md</code>, which is the only copy.</p>
+      <div class="prose">${b.prose ? md(b.prose) : '<p class="muted">docs/brand.md has not been written.</p>'}</div>`;
+    return;
+  }
+
+  if (want === 'tokens') {
+    const bad = b.tokens.filter((t) => t.cycle || !t.reads);
+    m.innerHTML = `<h1>Tokens</h1>${lede}
+      ${bad.length ? `<section><h2>${bad.length} worth looking at</h2><table>
+        <tr><th>Token</th><th>Value</th><th class="right">Problem</th></tr>
+        ${bad.map((t) => `<tr><td><code>${esc(t.name)}</code></td><td>${swatch(t.value)}</td>
+          <td class="right">${t.cycle ? '<span class="pill bad">defined as itself</span>' : '<span class="pill warn">nothing reads it</span>'}</td></tr>`).join('')}
+      </table></section>` : ''}
+      <section><h2>All ${b.tokens.length}</h2><table>
+        <tr><th>Token</th><th>Value</th><th>Why it exists</th><th class="right">Reads</th></tr>
+        ${b.tokens.map((t) => `<tr><td><code>${esc(t.name)}</code></td><td>${swatch(t.value)}</td>
+          <td class="muted" style="max-width:34em">${t.why ? esc(t.why) : '—'}</td>
+          <td class="right">${t.reads ? t.reads : '<span class="pill warn">0</span>'}</td></tr>`).join('')}
+      </table></section>`;
+    return;
+  }
+
+  if (want === 'colour') {
+    const c = b.colour;
+    m.innerHTML = `<h1>Colour census</h1>${lede}
+      <div class="cards">
+        <div class="card"><div class="n">${c.total}</div><div class="k">distinct colours</div>
+          <div class="sub">${c.literals} literals written across the source</div></div>
+        <div class="card"><div class="n">${c.nearTotal}</div><div class="k">near-identical pairs</div>
+          <div class="sub">6/255 apart or less — nobody can see the edge</div></div>
+        <div class="card"><div class="n">${c.families[0].list.length}</div><div class="k">in ${esc(c.families[0].name.toLowerCase())}</div>
+          <div class="sub">the biggest family</div></div>
+      </div>
+      <section style="margin-top:30px"><h2>Pairs you could not tell apart</h2>
+        <p class="muted" style="margin-bottom:12px">Shown touching. Hover any swatch for where it is written.</p>
+        <div class="pairs">${c.near.map((n) => `<div class="pair">
+          <div class="pair-s"><i style="background:${esc(n.a)}" title="${esc(n.a)} — ${(c.where[n.a] || []).join(', ')}"></i><i style="background:${esc(n.b)}" title="${esc(n.b)} — ${(c.where[n.b] || []).join(', ')}"></i></div>
+          <div class="pair-t"><span>${esc(n.a)}</span><b>&Delta;${n.d}</b><span>${esc(n.b)}</span></div></div>`).join('')}</div>
+        ${c.nearTotal > c.near.length ? `<p class="muted" style="margin-top:10px">${c.nearTotal - c.near.length} more not shown.</p>` : ''}
+      </section>
+      ${c.families.map((f) => `<section><h2>${esc(f.name)} <span class="muted" style="font-weight:400">${f.list.length}</span></h2>
+        <div class="swatches">${f.list.map((h) => `<i style="background:${esc(h)}" title="${esc(h)} — ${(c.where[h] || []).join(', ')}"></i>`).join('')}</div></section>`).join('')}`;
+    return;
+  }
+
+  if (want === 'type') {
+    const t = b.type;
+    m.innerHTML = `<h1>Type and shape</h1>${lede}
+      <section><h2>${t.sizes.length} distinct font sizes</h2>
+        <p class="muted" style="margin-bottom:12px">A ramp, not a scale — half-pixels included.</p>
+        <div class="ramp">${t.sizes.map((n) => `<i style="font-size:${Math.min(n, 40)}px" title="${n}px">${n}</i>`).join('')}</div>
+      </section>
+      <section><h2>${t.radii.length} distinct corner radii</h2>
+        <div class="radii">${t.radii.map((r) => `<span style="border-radius:${esc(r)}">${esc(r)}</span>`).join('')}</div>
+      </section>
+      <section><h2>Weights</h2>
+        <table><tr><th>Faces declare</th><th>The stylesheet asks for</th><th class="right">Beyond the face</th></tr>
+        <tr><td><code>${t.declaredWeights.join('</code>, <code>') || '—'}</code></td>
+            <td>${t.askedWeights.join(', ')}</td>
+            <td class="right">${t.overweight.length
+              ? `<span class="pill bad">${t.overweight.join(', ')}</span>`
+              : '<span class="pill ok">none</span>'}</td></tr></table>
+        <p class="muted" style="margin-top:8px">A variable font clamps rather than failing, so a weight past the top of the range renders identically to the top and nothing reports it.</p>
+      </section>`;
+    return;
+  }
+
+  m.innerHTML = `<h1>Icons</h1>${lede}
+    <p class="lede">${b.icons.length} hand-drawn SVGs on one 24px grid, one outline colour, one stroke weight. Rendered here from <code>src/icons.js</code> itself.</p>
+    <div class="icons">${b.icons.map((i) => `<figure><svg viewBox="0 0 24 24" width="34" height="34">${i.svg}</svg><figcaption>${esc(i.name)}</figcaption></figure>`).join('')}</div>`;
+}
+const swatch = (v) => /^(#|rgb|hsl)/.test(v)
+  ? `<span class="tsw" style="background:${esc(v)}"></span><code>${esc(v)}</code>`
+  : `<code>${esc(v)}</code>`;
+
+// The cast sheet. One character per frame, each an `?view=char` of the real rig -- animated, turning,
+// wearing the tints the game actually spawns it in. Everything written beside it comes from
+// docs/cast-review.md, which is the only place the judgements live.
+function renderCast() {
+  const c = D.cast;
+  const want = sub();
+  if (!c) {
+    side('Cast', [{ label: 'Everyone', href: '#/cast', on: true }]);
+    document.getElementById('main').innerHTML = '<h1>Cast</h1><p class="lede">Not measured yet — <code>npm run board</code>.</p>';
+    return;
+  }
+  const judged = c.characters.filter((x) => x.fit != null);
+  side('Cast', [{ label: 'Everyone', href: '#/cast', on: !want, count: c.characters.length }]
+    .concat(c.characters.map((x) => ({ label: x.name || x.id, href: `#/cast/${x.id}`, on: x.id === want })))
+    .concat([{ label: 'No model yet', href: '#/cast/unbuilt', on: want === 'unbuilt', count: c.unbuilt.length }]));
+
+  if (want === 'unbuilt') {
+    document.getElementById('main').innerHTML = `<h1>Named in the story, with no model</h1>
+      <p class="lede">${c.unbuilt.length} of the story's cast have no rig at all. <code>src/story.js</code> knows it — they get a coloured medallion where a face would go — so this list is read from there rather than kept separately.</p>
+      <table><tr><th>Character</th><th>Role</th><th>What the story says</th></tr>
+        ${c.unbuilt.map((u) => `<tr>
+          <td><span class="tsw" style="background:${esc(u.colour)}"></span><strong>${esc(u.name)}</strong></td>
+          <td class="muted">${esc(u.role)}</td>
+          <td class="muted" style="max-width:40em">${esc((u.text || '').replace(/\*/g, ''))}</td></tr>`).join('')}
+      </table>`;
+    return;
+  }
+
+  const list = want ? c.characters.filter((x) => x.id === want) : c.characters;
+  const fitPill = (x) => x.fit == null
+    ? '<span class="pill warn">not judged</span>'
+    : `<span class="pill ${x.fit <= 2 ? 'bad' : x.fit >= 4 ? 'ok' : ''}">${x.fit}/5 fit</span>`;
+  const src = (x, clip) => `../?view=char&id=${x.id}&clip=${clip}${x.as ? '&as=' + x.as : ''}`;
+
+  document.getElementById('main').innerHTML = `
+    <h1>Cast</h1>
+    <p class="lede">Every rig the game ships, turning on a stand and playing its own clips — the real model, not a render of one.
+      ${judged.length} of ${c.characters.length} have been judged against the story; the rest say so.
+      The scores and the notes live in <code>docs/cast-review.md</code>.</p>
+    ${want ? '' : `<div class="cards" style="margin-bottom:26px">
+      <div class="card"><div class="n">${c.characters.length}</div><div class="k">character rigs</div></div>
+      <div class="card"><div class="n">${c.unbuilt.length}</div><div class="k">in the story, not built</div>
+        <div class="sub"><a href="#/cast/unbuilt">who they are</a></div></div>
+      <div class="card"><div class="n">${judged.length ? (judged.reduce((a, x) => a + x.fit, 0) / judged.length).toFixed(1) : '—'}</div>
+        <div class="k">average fit, of ${judged.length} judged</div>
+        <div class="sub">how well the model reads as the character — not whether it is good</div></div>
+    </div>`}
+    <div class="cast">${list.map((x, i) => `
+      <article class="ch">
+        <header>
+          <div><b>${esc(x.name || x.id)}</b><div class="muted"><code>${esc(x.file || 'no file')}</code>${x.bytes ? ' · ' + kb(x.bytes) : ''}${x.plays && x.plays.length ? ' · plays ' + x.plays.map(esc).join(', ') : ''}</div></div>
+          ${fitPill(x)}
+        </header>
+        <div class="frame"><iframe data-src="${src(x, 'Walk')}" title="${esc(x.name || x.id)}" loading="lazy"></iframe></div>
+        <nav class="clips">${c.clips.map((cl) => `<button data-i="${i}" data-clip="${cl}"${cl === 'Walk' ? ' class="on"' : ''}>${cl}</button>`).join('')}</nav>
+        <dl>
+          ${x.story ? `<dt>The story says</dt><dd>${esc(x.story)}</dd>` : ''}
+          ${x.model ? `<dt>The model is</dt><dd>${esc(x.model)}</dd>` : ''}
+          ${x.gap ? `<dt>The gap</dt><dd class="gap">${esc(x.gap)}</dd>` : ''}
+          ${x.close ? `<dt>Would close it</dt><dd>${esc(x.close)}</dd>` : ''}
+          ${x.wears ? `<dt>Wears</dt><dd class="muted">${esc(x.wears)}</dd>` : ''}
+        </dl>
+      </article>`).join('')}</div>`;
+
+  const frames = [...document.querySelectorAll('.ch iframe')];
+  let n = 0;
+  (function next() {
+    if (n >= frames.length) return;
+    const f = frames[n++];
+    f.src = f.dataset.src;
+    f.addEventListener('load', () => setTimeout(next, 700), { once: true });
+    setTimeout(next, 9000);
+  })();
+}
+
+function renderTests() {
+  const c = D.checks;
+  if (!c) {
+    side('Tests', [{ label: 'All areas', href: '#/tests', on: true }]);
+    document.getElementById('main').innerHTML = '<h1>Tests</h1><p class="lede">No run yet — <code>npm run check</code>.</p>';
+    return;
+  }
+  const areas = [...new Set(c.registry.map((x) => x.area))];
+  const want = sub();
+  side('Areas', [{ label: 'All areas', href: '#/tests', on: !want, count: c.registry.length }]
+    .concat(areas.map((a) => ({ label: a, href: `#/tests/${a}`, on: a === want, count: c.registry.filter((x) => x.area === a).length }))));
+  const rows = c.registry.filter((x) => !want || x.area === want);
+  const cell = (x) => {
+    const r = c.checks[x.id];
+    if (x.cost === 'judged') return '<span class="pill">needs a person</span>';
+    if (!r) return '<span class="pill warn">never run</span>';
+    if (r.blocked) return '<span class="pill warn">blocked</span>';
+    // `error` is the harness falling over, not the game failing — amber, and never counted as a red
+    if (r.error) return `<span class="pill warn">could not run</span> <span class="muted">${rel(r.at)}</span>`;
+    return r.pass ? `<span class="pill ok">passed</span> <span class="muted">${rel(r.at)}</span>`
+                  : `<span class="pill bad">failed</span> <span class="muted">${rel(r.at)}</span>`;
+  };
+  document.getElementById('main').innerHTML = `
+    <h1>Tests</h1>
+    <p class="lede">What the game is supposed to be true about itself — including the parts nobody has automated, so the gaps are visible rather than implied.</p>
+    <table>
+      <tr><th>Check</th><th>Cost</th><th class="right">Last run</th></tr>
+      ${rows.map((x) => {
+        const r = c.checks[x.id];
+        return `<tr><td><strong>${esc(x.asserts)}</strong><span class="why">${esc(x.why)}${r && r.blocked ? ' — ' + esc(r.blocked) : ''}${r && r.note ? ' — ' + esc(r.note) : ''}${r && r.error ? ' — the harness stopped: ' + esc(r.error) : ''}</span>
+          ${r && !r.pass && r.detail ? `<span class="why" style="color:var(--bad)">${r.detail.slice(0, 3).map(esc).join('<br>')}</span>` : ''}</td>
+          <td><span class="pill ${x.cost === 'free' ? 'blue' : ''}">${x.cost}</span></td>
+          <td class="right">${cell(x)}</td></tr>`;
+      }).join('')}
+    </table>
+    <p class="muted" style="margin-top:12px">
+      <code>npm run check</code> runs everything · <code>-- --free</code> is source-only and takes milliseconds ·
+      <code>-- --area Walls</code> or <code>-- --id walls-solid</code> for one · <code>-- --list</code> to see this in a terminal.
+      A partial run only updates what it ran, so the dates are per check.
+    </p>`;
+}
+
+function renderTickets() {
+  const t = D.tickets;
+  if (!t || t === 'error') {
+    side('Tickets', [{ label: 'Open', href: '#/tickets', on: true }]);
+    document.getElementById('main').innerHTML = `<h1>Tickets</h1><p class="lede">${t === 'error' ? 'GitHub would not answer — rate limit, or offline.' : 'Loading…'}</p>`;
+    return;
+  }
+  const want = sub();
+  const groups = [0, 1, 2, 3].map((p) => ({ p, items: t.open.filter((i) => prio(i) === p) })).filter((g) => g.items.length);
+  side('Priority', [{ label: 'Everything open', href: '#/tickets', on: !want, count: t.open.length }]
+    .concat(groups.map((g) => ({ label: PRIO_NAME[g.p], href: `#/tickets/${g.p}`, on: String(g.p) === want, count: g.items.length }))));
+  const list = want ? t.open.filter((i) => String(prio(i)) === want) : [...t.open].sort((a, b) => prio(a) - prio(b) || a.number - b.number);
+  document.getElementById('main').innerHTML = `
+    <h1>Tickets</h1>
+    <p class="lede">${t.open.length} open, ${t.closedCount} shipped. Live from GitHub.</p>
+    <table><tr><th>#</th><th>Title</th><th>Model and effort</th><th class="right">Labels</th></tr>
+      ${list.map((i) => `<tr><td>${i.number}</td>
+        <td><a href="${i.html_url}" target="_blank">${esc(i.title)}</a></td>
+        <td>${cost(i) ? `<span class="muted">${plain(cost(i))}</span>` : '<span class="pill">not stated</span>'}</td>
+        <td class="right">${i.labels.filter((l) => /^(bug|priority: )/.test(l.name))
+          .map((l) => `<span class="pill ${l.name === 'bug' ? 'bad' : l.name.includes('high') || l.name.includes('critical') ? 'warn' : ''}">${l.name.replace('priority: ', '')}</span>`).join(' ')}</td></tr>`).join('')}
+    </table>
+    <p class="muted" style="margin-top:12px">${t.open.filter((i) => !cost(i)).length} of ${t.open.length} open tickets do not say what they cost to do. CLAUDE.md asks every ticket to end with a <code>Model and effort</code> line; these predate it.</p>`;
+}
+
+// Delegated once, on the container that survives every render. Binding this inside renderUI added a
+// listener per visit to the UI page and never removed one, so after three visits a single Reload
+// click fired three times -- and the frame it reloads is found in the DOM here rather than closed
+// over, which is what made the stacked copies point at iframes that no longer existed.
+document.getElementById('main').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-i]');
+  if (!b) return;
+  // A clip button swaps which animation the character sheet is playing; a Reload button just
+  // re-runs the frame it sits on. Both are `data-i` into the frames of whichever page is up.
+  if (b.dataset.clip) {
+    const f = document.querySelectorAll('.ch iframe')[+b.dataset.i];
+    if (!f) return;
+    f.src = f.dataset.src.replace(/clip=\w+/, 'clip=' + b.dataset.clip) + '&r=' + Date.now();
+    for (const sib of b.parentElement.children) sib.classList.toggle('on', sib === b);
+    return;
+  }
+  const f = document.querySelectorAll('.view iframe')[+b.dataset.i];
+  if (f) f.src = f.dataset.src + (f.dataset.src.includes('?') ? '&' : '?') + 'r=' + Date.now();
+});
+
+addEventListener('hashchange', render);
+render();
 load();
 </script>
 </body>

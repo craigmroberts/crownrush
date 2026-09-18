@@ -25,6 +25,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      # #178: measure what was just built, into the copy that is about to be published. The board
+      # says what the game weighs, and the only honest source for that is the dist/ being deployed.
+      - run: npm run board
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

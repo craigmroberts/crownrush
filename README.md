@@ -1465,6 +1465,11 @@ src/models.js     buildings, walls, scenery, pads, effects (and the baking helpe
 src/characters.js smooth toy-figure characters with painted faces (army, raiders, mounted king)
 src/rig.js        loads rigged GLB characters and plays their animations
 src/crowd.js      draws the crowd as one instanced mesh per model, skinned on the GPU
+public/board/     the admin page, served at /board/ (dashboard, live game views, tests, tickets)
+tools/board/      measures dist/, the palette and the cast into public/board/*.json (npm run board)
+docs/brand.md     the brand decisions and what is still open (the board renders it)
+docs/cast-review.md  every character model against what the story now says it is
+tools/checks/     the check registry and its two runners, free and headless (npm run check)
 tools/blender/    Blender script that builds and exports rigged characters (public/models/*.glb)
 tools/fit/        fits a character to a reference image, locally, with no AI in the loop
 tools/icons/      draws the home-screen icons from the game's own crown (npm run icons)
