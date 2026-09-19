@@ -462,6 +462,18 @@ export const CFG = {
   // hour cleanly inside a band, which is what a step is for.
   bands: { edge: [0.20, 0.48], val: [0.0, 0.58, 1.20], fill: 0.62, soft: 0.035 },
 
+  // #189: the one post pass. `vignette` is how far the corners fall and `grade` is how much of the
+  // warm-highlight / cool-shadow split is applied, both 0 to 1.
+  //
+  // Both are deliberately UNDER what looks right in a still. A vignette is a thing you stop noticing
+  // and then cannot unsee, and this frame already has a HUD in three of its corners -- at 0.45 the
+  // purse and the wave counter sit in a shadow. 0.30 is the most that leaves them alone.
+  //
+  // The grade runs BEFORE the tone map, on linear light, which is why its numbers look small: a 7%
+  // push on a linear highlight is a visible warmth after ACES, and the same figure applied to the
+  // finished pixel would barely register.
+  post: { vignette: 0.30, grade: 0.65 },
+
   // #191: THE GRASS FOLLOWS THE KING. 13,000 tufts used to be scattered once over the whole 190 x 190
   // map -- about one every 1.6 units -- and the camera shows roughly 35 units of ground, so the player
   // saw under 2% of them at a time and the other 98% were submitted every frame and never looked at.
@@ -1015,10 +1027,14 @@ export const CFG = {
   // (normal above ~55, fewer effects below ~45, fewer shadows below ~35), read against this game's
   // own floor of 30fps on a phone.
   quality: {
+    // #189: `post` is the vignette and grade pass. It is a full-screen quad at the device's pixel
+    // ratio, which is the largest per-pixel cost in the game on a phone, so the reduced tier drops
+    // it with everything else. The composer itself stays in the path at every tier -- see post.js
+    // for why turning it off would cost a recompile of the whole scene.
     tiers: [
-      { fps: 45, grass: 0.6, flowers: 0.6, wind: true, shadows: true, dpr: 1 },
-      { fps: 35, grass: 0.4, flowers: 0.4, wind: false, shadows: true, dpr: 0.85 },
-      { fps: 28, grass: 0.25, flowers: 0.25, wind: false, shadows: false, dpr: 0.7 },
+      { fps: 45, grass: 0.6, flowers: 0.6, wind: true, shadows: true, dpr: 1, post: true },
+      { fps: 35, grass: 0.4, flowers: 0.4, wind: false, shadows: true, dpr: 0.85, post: true },
+      { fps: 28, grass: 0.25, flowers: 0.25, wind: false, shadows: false, dpr: 0.7, post: false },
     ],
     dropAfter: 3, restoreAfter: 20, restoreMargin: 10, stall: 0.25,
   },

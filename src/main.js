@@ -1004,6 +1004,8 @@ function perfGrowth() {
     // line beside the profile that caused it -- which is the whole of what a measurement on a phone
     // needs. `?shadows=off|cheap|full` picks it.
     + `\nshadows: ${game.shadowProfile}${shadowNote(game)}`
+    // #189: whether the frame went through the post pass, and if not, which of the two reasons.
+    + `\npost: ${game.post ? (game.post.grade.enabled ? 'vignette + grade' : 'off at this quality tier') : 'no composer (safe mode)'}`
     + `\n${game.perfLog.length} samples${perfNote ? ' · ' + perfNote : ''}`;
 }
 // #193: the map's size and extent, and how much of the frame's draw work is the shadow pass.

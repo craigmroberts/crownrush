@@ -253,6 +253,29 @@ the raids keep coming for a high score.
   It stays opaque, so it sorts against nothing, and the crossing stays legible — checked with the
   bridge built and with only its ghost, from the King's own camera on the east trail. Draw calls
   unchanged: 522 in the map frame either way.
+- **One post pass: a vignette and a light grade** (#189, `src/post.js`). It is what makes a frame
+  look shot rather than rendered, and its shape is decided by the **toggle**, not by the effect.
+
+  The pass has to go off at the reduced quality tier and come back when the controller restores.
+  The obvious structure — composer when on, `renderer.render` when off — cannot do that cheaply:
+  three picks a material's tone-mapping function by whether the render target is the canvas
+  (`currentRenderTarget === null ? toneMapping : NoToneMapping`), so switching paths changes the
+  program every material compiles with, and the toggle costs a full recompile of the scene at the
+  moment the device is already behind. That is the stall #193 refused for shadows. So **the composer
+  is always the path when there is one, and only `grade.enabled` moves**. Safe mode gets no composer,
+  decided once at load.
+
+  **Tone mapping happens exactly once**, in `OutputPass`. The scene renders into a target, so three
+  gives every material `NoToneMapping` by itself and the grade runs on linear light, which is where a
+  grade belongs. `post-once` proves it with a ratio rather than an equality, because an equality does
+  not work here: this frame is 13,000 grass blades, so almost every pixel is an edge and an HDR
+  target differs from an 8-bit canvas at every one. The composer is compared against a direct ACES
+  render *and* against one with tone mapping off — **0.38 away from the first, 27.18 from the
+  second**. It also asserts the target kept its 4× MSAA and that toggling the grade moves the program
+  count by zero.
+
+  Both constants sit under what looks right in a still: a vignette is a thing you stop noticing and
+  then cannot unsee, and this frame already has a HUD in three of its corners.
 - **Grass, and where it is not.** 13,000 instanced tufts in one draw call. What is kept bare is the
   **citadel** -- the tight first ring the Keep and its three service buildings stand in, which is
   paved and walked over all game. Everything beyond it is countryside, including the ground inside the

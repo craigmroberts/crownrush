@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-19T00:32:46.856Z",
+  "at": "2026-09-19T01:08:46.557Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -79,6 +79,13 @@
       "why": "Every way this fails is silent. If three renames the line the hook patches, the replace is a no-op and the game renders un-banded with no error; if the cache key were overwritten instead of appended, two materials with matching defines get handed each other's program (#155). The sweep is so that a surface added later cannot be the one thing left on a smooth ramp."
     },
     {
+      "id": "post-once",
+      "area": "Render",
+      "cost": "cheap",
+      "asserts": "The post pass tone-maps exactly once, keeps the canvas multisampling, and toggles without changing the program set.",
+      "why": "All three failures are silent: a doubled or missing tone map is just a different picture, lost MSAA is a jaggier one, and a toggle that swaps the render path recompiles the whole scene at the moment the device is already behind."
+    },
+    {
       "id": "walls-solid",
       "area": "Walls",
       "cost": "cheap",
@@ -152,84 +159,89 @@
   "checks": {
     "pads-requires-exist": {
       "pass": true,
-      "at": "2026-09-19T00:13:13.442Z"
+      "at": "2026-09-19T00:43:27.238Z"
     },
     "pads-buildat-in-bounds": {
       "pass": true,
-      "at": "2026-09-19T00:13:13.442Z"
+      "at": "2026-09-19T00:43:27.238Z"
     },
     "pads-no-overlap": {
       "pass": true,
-      "at": "2026-09-19T00:13:13.449Z"
+      "at": "2026-09-19T00:43:27.245Z"
     },
     "opening-homes-legal": {
       "pass": true,
-      "at": "2026-09-19T00:13:13.449Z"
+      "at": "2026-09-19T00:43:27.245Z"
     },
     "icons-exist": {
       "pass": true,
-      "at": "2026-09-19T00:13:13.453Z"
+      "at": "2026-09-19T00:43:27.249Z"
     },
     "upgrade-mods-exist": {
       "pass": true,
       "note": "17 of 17 upgrades declare a mod key, all 17 resolve",
-      "at": "2026-09-19T00:13:13.453Z"
+      "at": "2026-09-19T00:43:27.249Z"
     },
     "footprints-cover-kinds": {
       "pass": true,
-      "at": "2026-09-19T00:13:13.453Z"
+      "at": "2026-09-19T00:43:27.249Z"
     },
     "walls-solid": {
       "pass": true,
       "note": "24 directions, held every time",
-      "at": "2026-09-19T00:16:41.532Z"
+      "at": "2026-09-19T00:47:52.542Z"
     },
     "gates-passable": {
       "pass": true,
       "note": "4 gates",
-      "at": "2026-09-19T00:16:50.311Z"
+      "at": "2026-09-19T00:48:01.910Z"
     },
     "wall-ring-unbroken": {
       "pass": true,
       "note": "360 samples",
-      "at": "2026-09-19T00:16:58.312Z"
+      "at": "2026-09-19T00:48:11.521Z"
     },
     "views-open": {
       "pass": true,
       "note": "18 views, each with its panel up",
-      "at": "2026-09-19T00:16:25.027Z"
+      "at": "2026-09-19T00:47:09.076Z"
     },
     "opening-resolves": {
       "pass": true,
-      "note": "taken after 787 frames of running",
-      "at": "2026-09-19T00:24:39.877Z"
+      "note": "taken after 786 frames of running",
+      "at": "2026-09-19T00:58:14.685Z"
     },
     "queen-visible": {
       "pass": false,
       "detail": [
         "inside the King (0.76 apart) at frame 2"
       ],
-      "at": "2026-09-19T00:24:51.219Z"
+      "at": "2026-09-19T00:58:25.455Z"
     },
     "rebuild-after-fall": {
       "pass": true,
       "note": "empty plot, clear ledger, every mat on it buys",
-      "at": "2026-09-19T00:32:43.729Z"
+      "at": "2026-09-19T01:08:43.792Z"
     },
     "tokens-resolve": {
       "pass": true,
       "note": "no cycles; 3 tokens nothing reads -- --frame-hi, --frame-lo, --danger-edge (#135)",
-      "at": "2026-09-19T00:13:13.452Z"
+      "at": "2026-09-19T00:43:27.249Z"
     },
     "icons-unique": {
       "pass": true,
       "note": "54 icons, no key declared twice",
-      "at": "2026-09-19T00:13:13.453Z"
+      "at": "2026-09-19T00:43:27.249Z"
     },
     "bands-hooked": {
       "pass": true,
       "note": "ground, tufts and canopies banded; every lit world surface over 200 triangles with them",
-      "at": "2026-09-19T00:16:33.549Z"
+      "at": "2026-09-19T00:47:20.936Z"
+    },
+    "post-once": {
+      "pass": true,
+      "note": "one tone map (0.38 from ACES, 27.18 from none), 4x MSAA kept, toggle costs no programs",
+      "at": "2026-09-19T00:47:42.563Z"
     }
   }
 }

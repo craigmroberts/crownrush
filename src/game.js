@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CFG, TIERS, NODES } from './config.js';
+import { makePost } from './post.js';
 import { audio } from './audio.js';
 import { setRigShadows, enableCrowd, updateCrowd, clearCrowd, crowdStats } from './rig.js';
 import { MODS } from './upgrades.js';
@@ -85,6 +86,12 @@ export class Game {
     // #193: the profile, onto the renderer and the light. Before the first frame, so nothing has been
     // compiled against the other setting and there is no recompile to pay for.
     this.applyShadowProfile(this.shadowProfile);
+    // #189: the post pass. Not in safe mode, which is the plainest renderer there is and stays that
+    // way -- and that is decided here, once, rather than switched later: the composer changes the
+    // tone-mapping define on every material, so choosing it is a load-time decision and only the
+    // GRADE moves with the quality tier. `aa` matches the canvas's own antialias exactly, so the
+    // multisampling the target takes over is the multisampling the canvas would have had.
+    this.post = this.safe ? null : makePost(this.renderer, this.scene, this.camera, { aa: !this.mobile && !this.safe });
     // The world needs to know whether anything else casts, because then its contact discs are the
     // only shadow there is and they go heavier. `world.setSoleShadows` moves it afterwards.
     this.world = buildWorld(this.scene, this.shadowProfile === 'off');
@@ -298,6 +305,7 @@ export class Game {
     const { w, h } = this.viewSize();
     this.setPixelRatio();
     this.renderer.setSize(w, h, false);
+    if (this.post) this.post.setSize();   // #189: after setSize, because it reads the drawing buffer
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     // portrait phones need a higher camera to see the same play area
@@ -1182,7 +1190,8 @@ export class Game {
     this.updateCharView(dt);
     this.bars.update(this.camera, this.camDist * 1.7, this.camDist * 2.8);
     if (!this.contextLost) {
-      this.renderer.render(this.scene, this.camera);
+      if (this.post) this.post.composer.render();
+      else this.renderer.render(this.scene, this.camera);
       this.frames = (this.frames || 0) + 1;
     }
   }

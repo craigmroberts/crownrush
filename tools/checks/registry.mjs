@@ -74,6 +74,11 @@ export const CHECKS = [
     why: 'Every way this fails is silent. If three renames the line the hook patches, the replace is a no-op and the game renders un-banded with no error; if the cache key were overwritten instead of appended, two materials with matching defines get handed each other\'s program (#155). The sweep is so that a surface added later cannot be the one thing left on a smooth ramp.',
   },
   {
+    id: 'post-once', area: 'Render', cost: 'cheap',
+    asserts: 'The post pass tone-maps exactly once, keeps the canvas multisampling, and toggles without changing the program set.',
+    why: 'All three failures are silent: a doubled or missing tone map is just a different picture, lost MSAA is a jaggier one, and a toggle that swaps the render path recompiles the whole scene at the moment the device is already behind.',
+  },
+  {
     id: 'walls-solid', area: 'Walls', cost: 'cheap',
     asserts: 'The King cannot cross a wall section: pushed at it from every side, he stays out.',
     why: 'Asked for by name. A wall that can be walked through is not a wall.',

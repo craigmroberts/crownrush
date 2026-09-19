@@ -62,9 +62,13 @@ export const QualityMethods = {
     if (tier === q.tier && q.applied) return;
     q.tier = tier;
     q.applied = true;
-    const s = tier ? Q.tiers[tier - 1] : { grass: 1, flowers: 1, wind: true, shadows: true, dpr: 1 };
+    const s = tier ? Q.tiers[tier - 1] : { grass: 1, flowers: 1, wind: true, shadows: true, dpr: 1, post: true };
     this.world.setQuality(s);
     q.dpr = s.dpr;
+    // #189: the grade pass goes with the tier. Only the PASS is switched, never the path -- the
+    // composer stays in place at every tier, because swapping between it and a direct render changes
+    // the tone-mapping define on every material and recompiles the scene. See post.js.
+    if (this.post) this.post.grade.enabled = s.post !== false;
     this.resize();   // re-derives the pixel ratio with `q.dpr` in it
   },
 
@@ -74,6 +78,6 @@ export const QualityMethods = {
     if (!q.tier) return `quality full${q.forced != null ? ' (pinned)' : ''}`;
     const s = CFG.quality.tiers[q.tier - 1];
     return `quality tier ${q.tier} of ${CFG.quality.tiers.length}${q.forced != null ? ' (pinned)' : ''}: grass ${Math.round(s.grass * 100)}% · flowers ${Math.round(s.flowers * 100)}%`
-      + `${s.wind ? '' : ' · wind off'}${s.shadows ? '' : ' · contact shadows off'}${s.dpr < 1 ? ` · resolution ×${s.dpr}` : ''}`;
+      + `${s.wind ? '' : ' · wind off'}${s.shadows ? '' : ' · contact shadows off'}${s.post === false ? ' · post off' : ''}${s.dpr < 1 ? ` · resolution ×${s.dpr}` : ''}`;
   },
 };

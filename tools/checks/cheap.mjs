@@ -156,6 +156,72 @@ export const CHEAP = {
     return bad.length ? no(bad) : ok('ground, tufts and canopies banded; every lit world surface over 200 triangles with them');
   },
 
+  // #189: the post pass, and the three ways it fails without anything saying so.
+  //
+  // DOUBLED OR MISSING TONE MAPPING is the first. With a composer the scene renders into a target,
+  // so three gives every material `NoToneMapping` by itself and `OutputPass` applies ACES at the
+  // end. Get that wrong in either direction and the game still runs, still looks like a game, and
+  // is simply a different picture from the one that was tuned.
+  //
+  // It cannot be checked by "does the composer match a direct render", which was the first attempt:
+  // this frame is 13,000 grass blades, so almost every pixel is an edge, and an HDR target resolved
+  // once differs from an 8-bit canvas at every one of them. The answer is a RATIO. The composer is
+  // compared against a direct render with ACES and against a direct render with tone mapping off,
+  // and it has to be far nearer the first. That is true whatever the edges do.
+  async 'post-once'(page, url) {
+    await boot(page, url);
+    const r = await page.evaluate(() => {
+      const g = window.game;
+      if (!g.post) return { skip: 'no composer on this path' };
+      const real = g.renderer.render.bind(g.renderer);
+      g.running = false;
+      const gl = g.renderer.getContext();
+      const W = g.renderer.domElement.width, H = g.renderer.domElement.height;
+      const grab = () => { const b = new Uint8Array(W * H * 4); gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, b); return b; };
+      const dist = (a, b) => { let s = 0; for (let i = 0; i < a.length; i += 4) for (let c = 0; c < 3; c++) s += Math.abs(a[i + c] - b[i + c]); return s / (a.length / 4 * 3); };
+      const recompile = () => g.scene.traverse((o) => { if (o.material) for (const m of (Array.isArray(o.material) ? o.material : [o.material])) m.needsUpdate = true; });
+      g.post.grade.enabled = false;
+      g.post.composer.render();
+      const composer = grab();
+      real(g.scene, g.camera);
+      const withAces = grab();
+      const wasTM = g.renderer.toneMapping;
+      g.renderer.toneMapping = 0;        // THREE.NoToneMapping
+      recompile();
+      real(g.scene, g.camera);
+      const withNone = grab();
+      g.renderer.toneMapping = wasTM;
+      recompile();
+      // and the toggle must not change the program set -- that is the whole shape of post.js
+      g.post.grade.enabled = true;
+      g.post.composer.render();
+      const programs0 = g.renderer.info.programs.length;
+      for (let i = 0; i < 4; i++) { g.post.grade.enabled = !g.post.grade.enabled; g.post.composer.render(); }
+      g.post.grade.enabled = true;
+      g.post.composer.render();
+      const programs1 = g.renderer.info.programs.length;
+      g.applyQuality(CFG_TIERS());
+      const offAtBottom = g.post.grade.enabled === false;
+      g.applyQuality(0);
+      const backAtTop = g.post.grade.enabled === true;
+      function CFG_TIERS() { return 3; }
+      return {
+        toAces: +dist(composer, withAces).toFixed(2),
+        toNone: +dist(composer, withNone).toFixed(2),
+        samples: g.post.composer.renderTarget1.samples,
+        programs0, programs1, offAtBottom, backAtTop,
+      };
+    });
+    if (r.skip) return ok(r.skip);
+    const bad = [];
+    if (!(r.toAces * 3 < r.toNone)) bad.push(`tone mapping: the composer is ${r.toAces} from a direct ACES render and ${r.toNone} from one with tone mapping off -- it should be far nearer the first`);
+    if (r.samples < 1) bad.push(`the composer target has ${r.samples} samples: the canvas multisampling was not carried over`);
+    if (r.programs0 !== r.programs1) bad.push(`toggling the grade moved the program count ${r.programs0} -> ${r.programs1}: the path is switching, not the pass`);
+    if (!r.offAtBottom) bad.push('the reduced quality tier did not turn the grade off');
+    if (!r.backAtTop) bad.push('the top quality tier did not turn the grade back on');
+    return bad.length ? no(bad) : ok(`one tone map (${r.toAces} from ACES, ${r.toNone} from none), ${r.samples}x MSAA kept, toggle costs no programs`);
+  },
+
   async 'walls-solid'(page, url) {
     await boot(page, url);
     const r = await page.evaluate(async () => {
