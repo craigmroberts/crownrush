@@ -422,7 +422,27 @@ export const CFG = {
     // `order` is the fill order, and it is why three archers no longer huddle. Slots were handed out
     // 0, 1, 2: a 102 degree arc on one side of a deck with five sixths of its ring empty. Stride
     // three spreads every prefix -- three land 120 degrees apart, six land 60 apart, nine fill it.
-    deck: { slots: 9, radius: 0.62, order: [0, 3, 6, 1, 4, 7, 2, 5, 8] },
+    // #204: HOW BIG A MAN ON THE DECK IS, and it is a multiplier on his ordinary size rather than a
+    // number about archers -- it exists because of the roof over him, so it lives with the deck.
+    //
+    // #203 put his feet on the planking and that is when this became visible: the old placement sank
+    // him 0.27 THROUGH the floor, which bought just enough to keep his head under the eaves. It was
+    // hiding a head clip by making a foot clip, and it held until nine men stood on one deck.
+    //
+    // Measured on the standing tower, at the nine places the ring actually uses (r = 0.62):
+    //
+    //   headroom   1.115  1.19  1.47-1.49 at five of them, and two open to the sky
+    //   the archer 1.348 tall at scale 1 (1.55 to the crown at 1.15, from #204's own measuring)
+    //
+    // The tightest spot is what decides it: 1.348 x s <= 1.115 gives s <= 0.827. 0.76 puts the rig
+    // at 0.798 absolute -- a crown at 1.076, so 0.04 of clearance at the worst place on the deck and
+    // a quarter of a metre at the best. It is also, and not by coincidence, what makes nine bodies
+    // fit a ring whose places are 0.424 apart: both constraints fall out of the same 2m square.
+    //
+    // The alternatives were capping the crew, which is a tower damage nerf because every turret
+    // fires on its own, and regenerating the tower bigger, which is the root cause and needs the
+    // model rather than a number. This is the one that costs no balance.
+    deck: { slots: 9, radius: 0.62, order: [0, 3, 6, 1, 4, 7, 2, 5, 8], crewScale: 0.76 },
   },
   gatePost: { height: 1.55 },
 

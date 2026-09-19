@@ -1716,12 +1716,23 @@ export const BuildMethods = {
     const rig = makeRigged('archer', [['hair', HAIR[Math.floor(Math.random() * HAIR.length)]]]);
     const mesh = rig ? rig.mesh : makeArcher();
     mesh.position.set(x, y, z);
-    this.popIn(mesh, 0, rig ? 1.05 : 1.2);
+    // #204: a man on a deck is smaller than the same man on the ground, because the roof over him is
+    // 1.12 above the planking at the tightest of the nine places and he is 1.35 tall. See
+    // `CFG.tower.deck.crewScale` for the measurements -- the number is there and not here because it
+    // is a fact about the deck.
+    const natural = rig ? 1.05 : 1.2;
+    const base = natural * CFG.tower.deck.crewScale;
+    this.popIn(mesh, 0, base);
     this.root.add(mesh);
     this.spawnFx(x, z, 0xff9a2e, y);
     const bar = makeHealthBar(1.0);
-    bar.position.y = 1.8 / (rig ? 1.05 : 1.2);
-    bar.scale.multiplyScalar(1 / (rig ? 1.05 : 1.2));
+    // The bar follows his head rather than staying at a fixed height above the boards. Dividing by
+    // `base` would pin it at 1.8 world units, which was a hand's breadth over a full-size archer and
+    // is most of a body over this one -- a bar floating unattached to anybody. Dividing by `natural`
+    // keeps it where it has always been ON HIM, and it is only ever visible when he is hurt (#44).
+    // Its own size still divides by `base`, so a smaller man does not get a smaller bar to read.
+    bar.position.y = 1.8 / natural;
+    bar.scale.multiplyScalar(1 / base);
     mesh.add(bar);
     this.turrets.push({ isTurret: true, mesh, bar, hp: CFG.turret.hp, maxHp: CFG.turret.hp, cooldown: rand(0, 0.7), pos: new V3(x, y + 0.9, z), tower: towerId, radius: 0.5 });
   },
