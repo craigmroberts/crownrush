@@ -2026,7 +2026,11 @@ export const ViewMethods = {
       if (!r) break;                       // the rig has not landed; an empty deck beats a crash
       const a = i * ((Math.PI * 2) / D.slots) + 0.5;
       r.mesh.position.set(Math.cos(a) * D.radius, mesh.userData.top || 0, Math.sin(a) * D.radius);
-      r.mesh.scale.setScalar(1.05);        // the scale `addTurret` pops a crew archer in at
+      // #213: ASKED, not copied. This was a hardcoded 1.05 with a comment claiming it matched
+      // `addTurret`, and #204 made that claim false without touching this line -- so the sheet went
+      // on standing a crew a quarter too big with their heads through the roof, which is the exact
+      // fault #203 and #204 existed to remove, shown on the page you go to to check it.
+      r.mesh.scale.setScalar(this.crewArcherScale(true).scale);
       r.mesh.rotation.y = Math.PI / 2 - a; // facing out over the rail, the way a watch does
       mesh.add(r.mesh);
       // A mixer nobody updates leaves the bind pose, which is a T-pose on a battlement. One update

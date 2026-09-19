@@ -1712,6 +1712,24 @@ export const BuildMethods = {
     if (this.tier < TIERS.length - 1) this.tier++;
   },
 
+  // #213: THE ONE PLACE THAT KNOWS HOW BIG A MAN ON A DECK IS.
+  //
+  // It was two. `addTurret` worked it out, and the board's tower sheet carried a hardcoded `1.05`
+  // with a comment saying it was "the scale `addTurret` pops a crew archer in at" -- true when it
+  // was written and false the moment #204 changed the number. The board went on drawing the old
+  // one, so the sheet whose whole job is to show what a building looks like was showing a crew a
+  // quarter too big, with its heads through the roof, while the game underneath it was correct.
+  //
+  // That is the board's own rule broken from the inside: nothing on it is a copy of something else.
+  // A comment asserting two numbers are equal is not a mechanism for keeping them equal.
+  //
+  // `natural` comes back too because the health bar needs the size he WOULD have been to sit on his
+  // head rather than where the boards are.
+  crewArcherScale(rig = true) {
+    const natural = rig ? 1.05 : 1.2;
+    return { natural, scale: natural * CFG.tower.deck.crewScale };
+  },
+
   addTurret(x, z, y, towerId = null) {
     const rig = makeRigged('archer', [['hair', HAIR[Math.floor(Math.random() * HAIR.length)]]]);
     const mesh = rig ? rig.mesh : makeArcher();
@@ -1720,8 +1738,7 @@ export const BuildMethods = {
     // 1.12 above the planking at the tightest of the nine places and he is 1.35 tall. See
     // `CFG.tower.deck.crewScale` for the measurements -- the number is there and not here because it
     // is a fact about the deck.
-    const natural = rig ? 1.05 : 1.2;
-    const base = natural * CFG.tower.deck.crewScale;
+    const { natural, scale: base } = this.crewArcherScale(!!rig);
     this.popIn(mesh, 0, base);
     this.root.add(mesh);
     this.spawnFx(x, z, 0xff9a2e, y);
