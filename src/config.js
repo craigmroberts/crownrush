@@ -1197,6 +1197,16 @@ export const TIERS = [
   box(-38, 38, -32, 32, 5.2),
 ];
 
+// #202: A MAT SITS AT THE DOOR. Every building in `models.js` puts its door on the +z face -- the
+// Keep's at z 1.72, the Barracks' at 1.53, the hut's at D/2, and `makeBarracks`'s comment says so
+// outright -- because the camera looks north over the King's shoulder, so +z is the face you see.
+// So a structural mat belongs square on +z from its `buildAt`, clear of the footprint by half a pad.
+//
+// Three of the five already did. The Keep's sat at (-5, 5) against a building at (0, 0), which is
+// diagonally off a corner touching no face at all, and the Barracks' was 4 units off its centre line.
+// Both now sit on the door's axis. The footprint is NOT what moved: `CFG.footprint` is what `placeOk`
+// tests and what `pads-no-overlap` and `pads-buildat-in-bounds` assert, so moving a building is a
+// balance change and a save question, where moving a mat is free.
 // Build pads. `requires` are ids that must have been built at least once; `minLevel` is the Keep level
 // a pad needs before it appears. cost = coins; crew = archers taken from your army instead of coins.
 // Everything costs coin. Materials are mined, piled, carried and sold at the trade post; what comes
@@ -1230,7 +1240,7 @@ export const PADS = [
   // enough to say out loud. The pad already counts itself ("2 of 5"), so "all five levels" is a state
   // the player can see he is walking towards.
   { id: 'train', tier: 0, pos: [-13.8, -5.4], cost: 12, growth: 8, maxBuys: 5, icon: 'arrows', label: 'Train Archers', requires: ['recruit'], repeatable: true, effect: 'archerPower', desc: 'Every archer, now and later, hits harder and stands longer. All five levels: twice the health, better than twice the damage.', toast: 'Archers trained: they all hit harder and stand longer.' },
-  { id: 'keep', tier: 0, pos: [-5, 5], cost: 25, icon: 'keep', label: 'Royal Keep', requires: ['range'], structure: 'keep', buildAt: [0, 0], desc: 'A door for Wren, and the heart of the village. Pay coin into it to level up your whole kingdom.', toast: 'Wren has a door at last. Pay coin into it to level up!' },
+  { id: 'keep', tier: 0, pos: [0, 4.8], cost: 25, icon: 'keep', label: 'Royal Keep', requires: ['range'], structure: 'keep', buildAt: [0, 0], desc: 'A door for Wren, and the heart of the village. Pay coin into it to level up your whole kingdom.', toast: 'Wren has a door at last. Pay coin into it to level up!' },
   // The citadel's towers stand on the ring itself, on its four diagonals -- a round wall has no
   // corners, and its gateways are taken by the roads. Their pads sit in the half of each quarter the
   // Keep's own pads leave free, which is what keeps both clear of the crossroads.
@@ -1256,7 +1266,7 @@ export const PADS = [
   { ...T('tower-1-ne', 1, [25.2, -24], 25, [30, -26]), requires: ['expand1'] },
   { ...T('tower-1-sw', 1, [-26.2, 22.2], 25, [-30, 26]), requires: ['expand1'] },
   { ...T('tower-1-se', 1, [25.2, 24], 25, [30, 26]), requires: ['expand1'] },
-  { id: 'barracks', tier: 1, pos: [5.2, 15.4], cost: 40, minLevel: 3, icon: 'swords', label: 'Barracks', requires: ['expand1'], structure: 'barracks', buildAt: [9.2, 9.2], desc: 'Lets you recruit swordsmen.', toast: 'Barracks built! Recruit swordsmen.' },
+  { id: 'barracks', tier: 1, pos: [9.2, 15.4], cost: 40, minLevel: 3, icon: 'swords', label: 'Barracks', requires: ['expand1'], structure: 'barracks', buildAt: [9.2, 9.2], desc: 'Lets you recruit swordsmen.', toast: 'Barracks built! Recruit swordsmen.' },
   { id: 'recruit-sword', tier: 1, pos: [5.2, 15.4], cost: 8, growth: 2, icon: 'swordsman', label: '+2 Swordsmen', requires: ['barracks'], repeatable: true, units: { type: 'swordsman', count: 2 }, desc: 'Two swordsmen: tough melee fighters who charge whatever comes near the King.' },
   // #116 renamed this from "Royal Guard". It grants the King eighty max HP and a full heal and has
   // never had anything to do with a guard -- and this ticket adds a pad that really is one, two mats
