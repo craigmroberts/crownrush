@@ -12,12 +12,54 @@ const no = (...why) => ({ pass: false, detail: why.flat() });
 // usually up. At 60s the whole sweep came back red once for exactly that reason. Wall clock is free
 // here (no tokens, no service), and a false red is not.
 //
-// Start a run and wait until the world exists.
+// #179: WAIT FOR THE GAME, NOT FOR A CLOCK -- and "the world exists" is not "the world is ready".
+//
+// This used to wait for `game.king` and then sleep 1200ms, and that sleep is the single line behind
+// three wrong checks. Measured in a real browser: `?tour` satisfies the wait at **frame 7** with the
+// King still on his opening mark at [0, 2]; he is moved to [0, 8] at **frame 11**, and Wren walks in
+// and settles at **frame 15** -- 22 seconds of wall clock after load, because a SwiftShader frame is
+// about a second. 1200ms is a fraction of ONE frame. Every check that started there was reading the
+// opening mid-placement and reporting what it saw as a bug.
+//
+// So the wait is on the game's own clock. Settled means the King has not moved for three consecutive
+// animation frames -- `polling: 'raf'` samples exactly once per frame, which is the only sampling
+// rate that means anything here. The frame floor is there because he is already still before the
+// opening moves him, so three quiet frames on their own would hand over too early.
+//
+// AND THERE IS A CEILING, which matters more than it looks. Some views walk him, and a King who
+// never stops moving would never satisfy a settle test -- so after `BOOT_MAX` frames it gives up
+// waiting and proceeds. A check that is slightly early is a check with a chance of being wrong; a
+// 150-second timeout is a red beside "the walls are solid" saying the walls leak, and this file
+// already exists because of what that costs.
+const BOOT_MIN = 14, BOOT_MAX = 30;
 async function boot(page, url, query = '?tour') {
   await page.goto(url + query, { waitUntil: 'load', timeout: 150000 });
   await page.waitForFunction(() => window.game && window.game.king && window.game.walls, null, { timeout: 150000 });
-  await page.waitForTimeout(1200);
+  await page.waitForFunction(([min, max]) => {
+    const g = window.game;
+    if (!g || !g.king) return false;
+    const p = g.king.mesh.position;
+    const s = window.__settle || (window.__settle = { n: 0, x: NaN, z: NaN });
+    if (Math.abs(p.x - s.x) < 0.01 && Math.abs(p.z - s.z) < 0.01) s.n++; else s.n = 0;
+    s.x = p.x; s.z = p.z;
+    const f = g.frames || 0;
+    return f >= max || (f >= min && s.n >= 3);
+  }, [BOOT_MIN, BOOT_MAX], { timeout: 150000, polling: 'raf' });
+  if (SABOTAGE) await page.evaluate(SABOTAGE);
 }
+
+// #179: MAKE A CHECK PROVE IT CAN FAIL.
+//
+// Every one of the four checks that were wrong about the game passed review because the reasoning
+// looked right. None had ever been run against a deliberately broken game to confirm it went red for
+// the reason claimed -- and a check that has never failed on purpose has not been tested.
+//
+// `npm run check -- --prove` breaks the game in the way each check exists to catch, runs the check,
+// and expects it to go RED. A check that stays green under its own sabotage is not covering what the
+// registry says it covers. A check with no sabotage written is reported as such rather than counted:
+// an honest gap, the same way `judged` rows are.
+let SABOTAGE = null;
+export function setSabotage(fn) { SABOTAGE = fn; }
 
 export const CHEAP = {
   async 'views-open'(page, url) {
@@ -367,6 +409,7 @@ export const CHEAP = {
   async 'opening-resolves'(page, url) {
     await page.goto(url, { waitUntil: 'load', timeout: 150000 });
     await page.waitForFunction(() => { const b = document.getElementById('start-btn'); return b && !b.disabled; }, null, { timeout: 150000 });
+    if (SABOTAGE) await page.evaluate(SABOTAGE);   // #179: these two never call boot(), so the hook goes here
     const r = await page.evaluate(async () => {
       document.getElementById('start-btn').click();
       const sk = document.getElementById('intro-skip'); if (sk) sk.click();
@@ -414,6 +457,7 @@ export const CHEAP = {
   async 'rebuild-after-fall'(page, url) {
     await page.goto(url, { waitUntil: 'load', timeout: 150000 });
     await page.waitForFunction(() => { const b = document.getElementById('start-btn'); return b && !b.disabled; }, null, { timeout: 150000 });
+    if (SABOTAGE) await page.evaluate(SABOTAGE);   // #179: these two never call boot(), so the hook goes here
     const r = await page.evaluate(async () => {
       document.getElementById('start-btn').click();
       const sk = document.getElementById('intro-skip'); if (sk) sk.click();
@@ -453,4 +497,60 @@ export const CHEAP = {
     });
     return r.bad.length ? no(r.bad) : ok('empty plot, clear ledger, every mat on it buys');
   },
+};
+
+// #179: the sabotage each check has to survive going red under. One per check, aimed at exactly the
+// thing the registry says that check covers -- not at "make the page throw", which any check would
+// notice and which proves nothing. Each runs in the page after `boot`, once the world exists.
+//
+// A check missing from here is reported as unproved rather than counted as proved. That is the same
+// honesty the `judged` rows get: a gap you can see beats a number that flatters.
+export const PROVE = {
+  // one view is held shut, which is the failure the check was written after: a board frame showing
+  // the wrong thing looks exactly like a board frame showing the right thing
+  'views-open': () => {
+    setInterval(() => { const e = document.getElementById('keep-screen'); if (e) e.classList.add('hidden'); }, 40);
+  },
+  // the ground keeps its hook and loses its flag, which is what a silent un-banding looks like
+  'bands-hooked': () => {
+    window.game.scene.traverse((o) => {
+      if (!o.material) return;
+      for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
+        const key = (m.customProgramCacheKey ? String(m.customProgramCacheKey()) : '');
+        if (key.startsWith('ground-untiled')) { m.userData.banded = false; m.userData.bandedShader = false; }
+      }
+    });
+  },
+  // a HUD write on every frame, which is the house rule this check exists to enforce
+  'hud-quiet': () => {
+    const hud = window.game.hud;
+    const real = hud.set.bind(hud);
+    hud.set = (...a) => { document.getElementById('army-count').textContent = String(Math.random()); return real(...a); };
+  },
+  // the tone map taken off the end of the chain, so the frame is graded linear light straight to
+  // the canvas -- the "different picture, no error" failure
+  'post-once': () => { const c = window.game.post && window.game.post.composer; if (c) c.passes.pop(); },
+  'walls-solid': () => { window.game.collideWalls = () => {}; },
+  // the gates stay gates and the wall stops honouring them
+  'gates-passable': () => {
+    const g = window.game, real = g.collideWalls.bind(g);
+    g.collideWalls = (p, r, k) => { p.x += 0.5; return real(p, r, k); };
+  },
+  'wall-ring-unbroken': () => { window.game.collideWalls = () => {}; },
+  // she is never taken, so the opening never resolves -- the run that softlocks
+  'opening-resolves': () => {
+    // Re-applied on a timer because this check presses Play, and `reset()` builds a new Queen -- a
+    // one-shot defineProperty would be thrown away by the very run it is meant to break.
+    const pin = () => {
+      const q = window.game && window.game.queen;
+      if (q && !Object.getOwnPropertyDescriptor(q, 'captive').get) {
+        Object.defineProperty(q, 'captive', { get: () => false, set: () => {}, configurable: true });
+      }
+    };
+    pin();
+    setInterval(pin, 40);
+  },
+  // #181 put back exactly as it was: the anchor teleports and nothing holds her off him
+  'queen-visible': () => { window.CFG.queen.followTurn = 1e6; window.CFG.queen.kingGap = 0; },
+  'rebuild-after-fall': () => { window.game.buildStructure = () => {}; },
 };

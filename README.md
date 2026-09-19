@@ -1719,15 +1719,30 @@ walks 5.6, so a step at angle *t* gains `7.2·cos(t) − 5.6` a second and goes 
 The first version leaned about 76° — almost a pure sidestep, which looked right and measured 0.39,
 because a sidestep does not open a gap at all while he is closing it.
 
+**And the hold on its own was a trap, which measuring the opening is what caught.** The opening
+leaves her in *front* of a standing King. The anchor is behind him, so the straight line to it goes
+through him: the follow pulled her in, the hold pushed her out, and she sat **dead in front of him
+at exactly the gap, bearing 0°, for twenty seconds of game time** and never got round. A check
+asserting 0.8 passes that happily. It had turned "walks through him" into "stands in front of him for
+ever" — the shape of fix this repo has been bitten by before, where the thing being protected is
+what gets deleted.
+
+So `steerRoundKing` aims at the **tangent** of his exclusion circle whenever he is inside the
+corridor she is walking down — nearer than her target, and within the angle that circle subtends at
+that range. She walks past him at arm's length and the anchor takes her round the back from there;
+the opening now resolves in about a second. It is one `asin` and one `atan2`, and it is what "make
+her go round" means in the general case. It does most of the work everywhere else too: the hold went
+from firing on 7% of frames in ordinary play to **4%**, and random jinking from 0.83 to 0.94.
+
 Measured at a fixed 0.05 dt with the renderer stubbed, closest approach in four scenes:
 
 | | he spins 180 | spins and walks | ordinary play | random jinking |
 | --- | --- | --- | --- | --- |
 | **before** | 0.59 | 0.04 | 0.15 | 0.06 |
 | **the anchor alone** | **1.90** | 0.21 | 0.43 | 0.27 |
-| **both** | **1.90** | **1.00** | **0.99** | **0.83** |
+| **all three** | **1.90** | **1.00** | **0.99** | **0.94** |
 
-The yield fires on **7%** of frames in ordinary play and 28% under random jinking, which is a stress
+The hold fires on **4%** of frames in ordinary play and 8% under random jinking, which is a stress
 scene rather than a description of anybody's thumb. `queen-visible` asserts they never come within
 0.8 and is green again; it was right, and it was wrongly called a false positive twice before anybody
 reproduced it.
@@ -2028,6 +2043,45 @@ All balance lives in [`src/config.js`](src/config.js):
   where a road crosses the river.
 - `TIERS` is the village layout: the rectangle for each expansion stage, its gates, and wall section length.
 - `CFG.wallLevels` sets HP and repair cost per wall material.
+
+## What the checks are worth (#179)
+
+`npm run check` drives the real game in headless Chromium and writes `public/board/checks.json`,
+which is what the board's Tests page reads. Four of those checks have been **wrong about the game**
+rather than the other way round, and the cost of that is not the noise — it is that a suite which has
+cried wolf teaches you to explain away the one real failure it finds. `queen-visible` was called a
+false positive twice and was right both times (#181).
+
+**The sleep is gone.** `boot()` waited for `game.king` and then slept 1200ms, and that one line is
+behind three of the four. Measured in a real browser: `?tour` satisfies the wait at **frame 7** with
+the King still on his opening mark at `[0, 2]`; he is moved to `[0, 8]` at **frame 11**, and Wren
+walks in and settles at **frame 15** — 22 seconds of wall clock, because a SwiftShader frame is about
+a second. **1200ms is a fraction of one frame.** Every check that started there was reading the
+opening mid-placement and reporting what it saw as a bug.
+
+It waits on the game's own clock now: the King not having moved for three consecutive animation
+frames (`polling: 'raf'`, the only sampling rate that means anything here), with a frame floor
+because he is already still *before* the opening moves him. And with a **ceiling**, which matters
+more than it looks — some views walk him, and a King who never stops would never satisfy a settle
+test. A check that is slightly early might be wrong; a 150-second timeout is a red beside "the walls
+are solid" saying the walls leak.
+
+**And a check can now prove it can fail.** Every one of the four passed review because the reasoning
+looked right, and none had ever been run against a deliberately broken game to confirm it went red
+for the reason claimed — a check that has never failed on purpose has not been tested.
+
+```
+npm run check -- --prove
+```
+
+breaks the game the way each check exists to catch and expects **red**. The sabotage is aimed at the
+specific thing the registry claims that check covers, never at "make the page throw", which any check
+would notice and which proves nothing: `walls-solid` loses `collideWalls`, `bands-hooked` keeps its
+hook and loses its flag, `queen-visible` gets #181 put back exactly as it was, `hud-quiet` gets a HUD
+write on every frame. A check that stays green under its own sabotage is not covering what it says it
+covers. A check with **no sabotage written** is reported as a gap rather than counted — the same
+honesty the `judged` rows get, because a gap you can see beats a number that flatters. The prove run
+writes nothing to the board: it is a question about the checks, not about the game.
 
 ## Project layout
 

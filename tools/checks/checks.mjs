@@ -18,7 +18,7 @@ import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CHECKS } from './registry.mjs';
 import { FREE } from './free.mjs';
-import { CHEAP } from './cheap.mjs';
+import { CHEAP, PROVE, setSabotage } from './cheap.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
@@ -31,6 +31,17 @@ const argv = process.argv.slice(2);
 const flag = (n, d = null) => { const i = argv.indexOf(`--${n}`); return i < 0 ? d : (argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : true); };
 
 const prior = existsSync(STATE) ? JSON.parse(readFileSync(STATE, 'utf8')) : { checks: {} };
+
+// #179: --prove breaks the game the way each check exists to catch and expects RED. Written as its
+// own verdict rather than by inverting `pass` at the end, so the three outcomes stay distinct: the
+// check noticed, the check slept through it, or nobody has written a sabotage for it yet.
+const proving = !!flag('prove');
+function proved(id, res) {
+  const at = new Date().toISOString();
+  if (!PROVE[id]) return { pass: true, unproved: true, note: 'no sabotage written -- not proved', at };
+  if (res.pass) return { pass: false, detail: ['stayed green under its own sabotage'], at };
+  return { pass: true, note: `went red: ${(res.detail || [res.error || '']).join('; ').slice(0, 90)}`, at };
+}
 
 function selected() {
   let list = CHECKS.filter((c) => c.cost !== 'judged');
@@ -132,7 +143,13 @@ async function main() {
       // never do. A context costs a second; a false red costs trust in the whole page.
       const ctx = await browser.newContext({ viewport: { width: 1000, height: 720 } });
       const page = await ctx.newPage();
-      try { results[c.id] = { ...await CHEAP[c.id](page, url), at: new Date().toISOString() }; }
+      // #179: in --prove mode the game is broken first and the check is expected to go RED. A check
+      // that stays green under its own sabotage is not covering what the registry says it covers.
+      if (proving) setSabotage(PROVE[c.id] || null);
+      try {
+        const res = await CHEAP[c.id](page, url);
+        results[c.id] = proving ? proved(c.id, res) : { ...res, at: new Date().toISOString() };
+      }
       catch (e) {
         // A CHECK THAT COULD NOT RUN IS NOT A CHECK THE GAME FAILED, and the board has to be able to
         // tell those apart. A Playwright timeout means the browser never got far enough to have an
@@ -140,13 +157,21 @@ async function main() {
         // walls leak, which is a lie about the game told by a slow laptop. `error` renders amber and
         // says what broke; only an assertion the check actually made comes back false.
         const m = String(e.message).split('\n')[0];
-        results[c.id] = { pass: false, error: m, at: new Date().toISOString() };
+        // Sabotage is allowed to make a check throw -- a browser that could not finish is still not
+        // the check noticing, so it counts as unproved rather than as a pass.
+        results[c.id] = proving
+          ? { pass: false, error: `sabotage broke the run rather than the assertion: ${m}`, at: new Date().toISOString() }
+          : { pass: false, error: m, at: new Date().toISOString() };
       }
       await ctx.close();
     }
     await browser.close();
     server.stop();
   }
+
+  // #179: --prove answers a question about the CHECKS, not about the game, so it prints and writes
+  // nothing. Letting it merge would put "went red under sabotage" on the board beside real results.
+  if (proving) return report(results, list, true);
 
   // merge, never blank: a partial run must not erase what the last full one learned
   const merged = { at: new Date().toISOString(), checks: { ...prior.checks, ...results } };
@@ -156,16 +181,26 @@ async function main() {
   mkdirSync(dirname(STATE), { recursive: true });
   writeFileSync(STATE, JSON.stringify({ at: merged.at, registry: CHECKS, checks: merged.checks }, null, 2));
 
+  report(results, list, false);
+}
+
+function report(results, list, proveMode) {
   console.log('');
-  let failed = 0;
+  let failed = 0, unproved = 0;
   for (const c of list) {
     const r = results[c.id];
-    const tag = r.blocked ? 'BLOCK' : r.pass ? 'pass ' : 'FAIL ';
+    if (!r) continue;
+    const tag = r.blocked ? 'BLOCK' : r.unproved ? 'GAP  ' : r.pass ? 'pass ' : 'FAIL ';
     if (!r.pass) failed++;
+    if (r.unproved) unproved++;
     console.log(`  ${tag}  ${c.id}${r.note ? `  (${r.note})` : ''}${r.blocked ? `  — ${r.blocked}` : ''}`);
     if (!r.pass) for (const d of r.detail || []) console.log(`           ${d}`);
+    if (!r.pass && r.error) console.log(`           ${r.error}`);
   }
-  console.log(`\n  ${list.length - failed} of ${list.length} passed.  Written to public/board/checks.json\n`);
+  const n = list.filter((c) => results[c.id]).length;
+  console.log(proveMode
+    ? `\n  ${n - failed - unproved} of ${n} proved they can fail; ${unproved} have no sabotage written.  Nothing written to the board.\n`
+    : `\n  ${n - failed} of ${n} passed.  Written to public/board/checks.json\n`);
   process.exit(failed ? 1 : 0);
 }
 
