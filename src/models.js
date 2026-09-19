@@ -282,9 +282,22 @@ export const C = {
   // keys was ALREADY hue 90-93. The light bouncing off the ground has been chartreuse all along and
   // the ground itself was not, so these bring the surfaces to the lighting rather than the other way.
   //
-  // Stone stops at 18-25% saturation, deliberately below the roads' 47-62%: warm enough to belong to
-  // the same world, muted enough that a cliff never reads as a sand dune.
-  leaf: 0x498f2f, leafDark: 0x3c7a25, rock: 0xac997f, cliff: 0x70614e, grass: 0x74a34a,
+  // #209, SECOND PASS: the cliffs are warmer than that rule allowed, and the rule has moved rather
+  // than been broken quietly. It used to read "stone stops at 18-25% saturation, deliberately below
+  // the roads' 47-62% ... muted enough that a cliff never reads as a sand dune", and the mesas built
+  // to it came out a cold grey-brown that the owner rejected against reference images: what was
+  // wanted is terracotta, the warm eroded rock of a dry country.
+  //
+  // So `cliff` is hue 26 at 44% saturation now -- inside the roads' band rather than below it, which
+  // is the part of the old note that no longer holds. What survives of it is the reasoning: these sit
+  // in the same warm family as the roads on purpose, because a cold slate in a chartreuse world was
+  // the original complaint. `cliffDark` and `cliffPale` are the same hue up and down in value, so a
+  // ledge reads by lightness rather than by turning a different colour.
+  //
+  // `rock` stays where it was: the loose stones are scattered through the whole map, not just at a
+  // mesa's foot, and they answer to the ground rather than to the cliffs.
+  leaf: 0x498f2f, leafDark: 0x3c7a25, rock: 0xac997f, grass: 0x74a34a,
+  cliff: 0xb8794c, cliffDark: 0x8f5a36, cliffPale: 0xd6a072,
   boss: 0xf4e9ec, bossDark: 0xe6cfd6, bow: 0x3b7bff, leather: 0x8a5a3a,
 };
 
@@ -1764,58 +1777,110 @@ export function makeWheatField(w, d) {
   return bake(g);
 }
 
-// #209: reported as "very minecraft", and the boxiness was only half of it.
+// #209: the mesas, on a second pass against reference images the owner supplied.
 //
-// This was a `BoxGeometry` body with four axis-aligned `box()` strata stacked up the same vertical,
-// and NOTHING in the group was ever turned -- seven cliffs and five peaks, every edge parallel to
-// every other edge in the scene. `makePeak` has always given itself a random yaw; this never did, so
-// the two halves of the same range did not even agree with each other.
+// The first pass turned them six-sided, tapered and rotated, which killed the Minecraft read. What
+// it left was a WEDDING CAKE: four strata rings of even thickness at even heights, so the thing read
+// as stacked plates. The reference is not layered, it is ERODED -- irregular faceted planes, warm
+// terracotta, rubble at the foot, and a top that is a living meadow rather than a green lid.
 //
-// Three changes, in the order they matter:
+// Three things, and the first is the one that does the work:
 //
-//   SIX SIDES, NOT FOUR. A hexagonal prism has no face square to the camera, which is most of what
-//   reads as a crate. It is also what the rest of the world is built from -- `makePeak` is a 7-sided
-//   cone, the trees and rocks are 6 and 7 -- so this stops being the one thing in the scene made of
-//   right angles.
-//   A TAPER. A mesa narrows as it rises because that is what weathering does to one; a box does not
-//   narrow, and no amount of banding hides that.
-//   ITS OWN ANGLE, like the peaks it stands with.
+//   THE FACES ARE IRREGULAR, not the silhouette. The body is a cylinder whose vertices are pushed
+//   in and out per column and per ring by a stable hash, so every face is its own plane and no two
+//   are parallel -- and the ring heights are nudged too, so the layers are not level. `matFlat` is
+//   flat-shaded, so each of those becomes a facet that catches the light on its own. This is what
+//   the reference actually is; the old version was trying to get there with bands glued on outside.
+//   WARM ROCK. See the note on `C.cliff` -- this is a deliberate departure from the old rule and the
+//   rule has been rewritten rather than quietly broken.
+//   A MEADOW ON TOP. Tufts and flower specks scattered on the cap in the ground's own colours, so it
+//   is the same field that is down below rather than a flat green hexagon.
 //
-// Built at radius 1 and scaled per-mesh to `w` and `d`, so the footprint the placement table asks
-// for still means what it meant and the rubble below stays in world units.
-//
-// Everything keeps `banded: true`: `bands-hooked` asserts every lit surface over 200 triangles is
-// banded (#185/#186), and these are merged by `mergeGroup` into a handful of draws, so the extra
-// sides cost triangles in the hundreds across the whole range and no draw calls at all.
+// Everything is baked and merged, so a mesa is triangles rather than draw calls.
+
+// A stable pseudo-random in [0,1) from two integers: the same column and ring always displace the
+// same way, which is what keeps a face flat instead of turning it into noise.
+function crag(a, b) {
+  const n = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+}
+
 export function makeCliff(w, h, d) {
   const g = new THREE.Group();
-  const SEG = 6;
-  const TAPER = 0.74;
-  const shape = (rt, rb, height, colour, y) => {
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, height, SEG), matFlat(colour, { banded: true }));
-    m.scale.set(w / 2, 1, d / 2);
-    m.position.y = y;
-    m.castShadow = true;
-    m.receiveShadow = true;
-    return m;
-  };
-  g.add(shape(TAPER, 1, h, 0x88765e, h / 2 - 0.05));
-  // strata bands, light and dark, so the layers read from a distance. They used to alternate warm and
-  // cool greys; the cool ones are what made a mesa look like slate, so the contrast is carried by
-  // value alone now and every band is the same warm family. Each one sits proud of the body at its
-  // own height, which means following the taper rather than being the same width all the way up.
-  for (const [f, col, t] of [[0.22, 0xa08562, 0.32], [0.48, 0x70614e, 0.22], [0.7, 0xa89882, 0.28], [0.88, 0x6c5d4a, 0.18]]) {
-    const r = (1 - (1 - TAPER) * f) * 1.04;      // the body's width at this height, a little proud
-    g.add(shape(r, r, h * t * 0.35, col, h * f));
+  const SEG = 7;
+  const RINGS = 4;
+  const TAPER = 0.66;
+
+  // the rock mass
+  const geo = new THREE.CylinderGeometry(TAPER, 1, h, SEG, RINGS);
+  const pos = geo.attributes.position;
+  const seed = Math.floor(Math.random() * 1000);
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    const r = Math.hypot(x, z);
+    if (r > 1e-4) {
+      // which column and which ring this vertex belongs to, rounded so neighbours agree
+      const col = Math.round((Math.atan2(z, x) / (Math.PI * 2)) * SEG);
+      const ring = Math.round(((y + h / 2) / h) * RINGS);
+      const push = 1 + (crag(col + seed, ring) - 0.5) * 0.34;
+      pos.setX(i, x * push);
+      pos.setZ(i, z * push);
+      // and the shelves are not level, which is the other half of not being a cake
+      pos.setY(i, y + (crag(col + seed, ring + 41) - 0.5) * (h / RINGS) * 0.75);
+    }
   }
-  const cap = shape(TAPER * 0.99, TAPER * 1.02, 0.6, C.grass, h - 0.15);
-  cap.material = matFlat(C.grass);
+  geo.computeVertexNormals();
+  const body = new THREE.Mesh(geo, matFlat(C.cliff, { banded: true }));
+  body.scale.set(w / 2, 1, d / 2);
+  body.position.y = h / 2 - 0.05;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  g.add(body);
+
+  // NO LEDGES. The first version of this pass had two, set proud of the body at their own angles,
+  // and driven they read as pale slabs jutting out of the rock -- the wedding cake again, wearing a
+  // different hat. The body's own displacement already gives the shelves the reference has, because
+  // the ring heights are nudged as well as the radii, so a "layer" is a band of facets that steps
+  // round the mesa rather than a ring glued to it. Adding geometry on top of that was fighting it.
+
+  // the meadow on top: the cap, then the field on it
+  const capR = TAPER * 1.04;
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(capR, capR * 1.03, 0.5, SEG, 1), matFlat(C.grass));
+  cap.scale.set(w / 2, 1, d / 2);
+  cap.position.y = h - 0.1;
+  cap.castShadow = true;
+  cap.receiveShadow = true;
   g.add(cap);
-  // rubble at the foot
-  for (let i = 0; i < 5; i++) {
-    const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.4 + Math.random() * 0.4, 0), matFlat(C.rock));
+  // Tufts and flowers, in the ground's own colours. Kept inside 0.8 of the cap so nothing hangs over
+  // an edge, and small enough that from the valley floor they read as texture rather than objects.
+  const FLOWER = [0xffffff, 0xf7d354, 0xef7fa8];
+  for (let i = 0; i < 38; i++) {
     const a = Math.random() * Math.PI * 2;
-    r.position.set(Math.cos(a) * (w / 2 + 0.6), 0.25, Math.sin(a) * (d / 2 + 0.6));
+    const rr = Math.sqrt(Math.random()) * 0.78;
+    const x = Math.cos(a) * rr * (w / 2);
+    const z = Math.sin(a) * rr * (d / 2);
+    if (Math.random() < 0.72) {
+      const blade = new THREE.Mesh(new THREE.ConeGeometry(0.1 + Math.random() * 0.1, 0.28 + Math.random() * 0.3, 4), matFlat(Math.random() < 0.5 ? C.grass : C.leaf));
+      blade.position.set(x, h + 0.26, z);
+      blade.rotation.y = Math.random() * Math.PI;
+      blade.castShadow = true;
+      g.add(blade);
+    } else {
+      const f = new THREE.Mesh(new THREE.SphereGeometry(0.085, 4, 3), matFlat(FLOWER[(Math.random() * FLOWER.length) | 0]));
+      f.position.set(x, h + 0.2, z);
+      g.add(f);
+    }
+  }
+
+  // rubble at the foot, which the reference has a lot of
+  for (let i = 0; i < 9; i++) {
+    const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.3 + Math.random() * 0.5, 0), matFlat(i % 3 ? C.rock : C.cliffDark));
+    const a = Math.random() * Math.PI * 2;
+    const spread = 0.55 + Math.random() * 0.4;
+    r.position.set(Math.cos(a) * (w / 2 + spread), 0.22, Math.sin(a) * (d / 2 + spread));
+    r.rotation.set(Math.random(), Math.random(), Math.random());
     r.scale.y = 0.6;
     r.castShadow = true;
     g.add(r);

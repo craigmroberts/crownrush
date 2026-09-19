@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-19T19:30:11.608Z",
+  "at": "2026-09-19T21:04:46.173Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -276,7 +276,7 @@
     "bands-hooked": {
       "pass": true,
       "note": "ground, tufts and canopies banded; every lit world surface over 200 triangles with them",
-      "at": "2026-09-19T19:30:10.549Z"
+      "at": "2026-09-19T21:04:45.106Z"
     },
     "post-once": {
       "pass": true,
