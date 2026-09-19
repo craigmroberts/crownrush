@@ -32,6 +32,7 @@ export const RELEASES = [
     title: 'What changed, and where to read it',
     added: [
       'Release notes, under Settings \u203a About \u2014 what each update added and what it fixed. After an update installs, the game says what came with it.',
+      'The mountains in the north-west are rock now rather than stacked crates \u2014 six-sided, tapered, and each one turned to its own angle.',
     ],
     fixed: [
       'An archer sent to man a tower or a gate could walk into a wall and stay there for the rest of the run. He takes the gate now.',

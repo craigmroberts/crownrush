@@ -1764,23 +1764,52 @@ export function makeWheatField(w, d) {
   return bake(g);
 }
 
+// #209: reported as "very minecraft", and the boxiness was only half of it.
+//
+// This was a `BoxGeometry` body with four axis-aligned `box()` strata stacked up the same vertical,
+// and NOTHING in the group was ever turned -- seven cliffs and five peaks, every edge parallel to
+// every other edge in the scene. `makePeak` has always given itself a random yaw; this never did, so
+// the two halves of the same range did not even agree with each other.
+//
+// Three changes, in the order they matter:
+//
+//   SIX SIDES, NOT FOUR. A hexagonal prism has no face square to the camera, which is most of what
+//   reads as a crate. It is also what the rest of the world is built from -- `makePeak` is a 7-sided
+//   cone, the trees and rocks are 6 and 7 -- so this stops being the one thing in the scene made of
+//   right angles.
+//   A TAPER. A mesa narrows as it rises because that is what weathering does to one; a box does not
+//   narrow, and no amount of banding hides that.
+//   ITS OWN ANGLE, like the peaks it stands with.
+//
+// Built at radius 1 and scaled per-mesh to `w` and `d`, so the footprint the placement table asks
+// for still means what it meant and the rubble below stays in world units.
+//
+// Everything keeps `banded: true`: `bands-hooked` asserts every lit surface over 200 triangles is
+// banded (#185/#186), and these are merged by `mergeGroup` into a handful of draws, so the extra
+// sides cost triangles in the hundreds across the whole range and no draw calls at all.
 export function makeCliff(w, h, d) {
   const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), matFlat(0x88765e, { banded: true }));
-  body.position.y = h / 2 - 0.05;
-  body.castShadow = true;
-  body.receiveShadow = true;
-  g.add(body);
+  const SEG = 6;
+  const TAPER = 0.74;
+  const shape = (rt, rb, height, colour, y) => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, height, SEG), matFlat(colour, { banded: true }));
+    m.scale.set(w / 2, 1, d / 2);
+    m.position.y = y;
+    m.castShadow = true;
+    m.receiveShadow = true;
+    return m;
+  };
+  g.add(shape(TAPER, 1, h, 0x88765e, h / 2 - 0.05));
   // strata bands, light and dark, so the layers read from a distance. They used to alternate warm and
   // cool greys; the cool ones are what made a mesa look like slate, so the contrast is carried by
-  // value alone now and every band is the same warm family.
+  // value alone now and every band is the same warm family. Each one sits proud of the body at its
+  // own height, which means following the taper rather than being the same width all the way up.
   for (const [f, col, t] of [[0.22, 0xa08562, 0.32], [0.48, 0x70614e, 0.22], [0.7, 0xa89882, 0.28], [0.88, 0x6c5d4a, 0.18]]) {
-    g.add(box(w + 0.08, h * t * 0.35, d + 0.08, col, 0, h * f, 0, matFlat(col, { banded: true })));
+    const r = (1 - (1 - TAPER) * f) * 1.04;      // the body's width at this height, a little proud
+    g.add(shape(r, r, h * t * 0.35, col, h * f));
   }
-  const cap = new THREE.Mesh(new RoundedBoxGeometry(w + 0.2, 0.6, d + 0.2, 2, 0.25), matFlat(C.grass));
-  cap.position.y = h - 0.15;
-  cap.castShadow = true;
-  cap.receiveShadow = true;
+  const cap = shape(TAPER * 0.99, TAPER * 1.02, 0.6, C.grass, h - 0.15);
+  cap.material = matFlat(C.grass);
   g.add(cap);
   // rubble at the foot
   for (let i = 0; i < 5; i++) {
@@ -1791,6 +1820,9 @@ export function makeCliff(w, h, d) {
     r.castShadow = true;
     g.add(r);
   }
+  // Its own angle, the way `makePeak` has always taken one. Set before `bake` so it is folded into
+  // the merged geometry and costs nothing at run time.
+  g.rotation.y = Math.random() * Math.PI * 2;
   return bake(g);
 }
 
