@@ -65,6 +65,9 @@ const GradeShader = {
 };
 
 export function makePost(renderer, scene, camera, { aa }) {
+  // The game loop resets `info` once a frame from here on -- see the note at the render call. Left
+  // on, three resets at the top of every pass and the frame reports one full-screen quad.
+  renderer.info.autoReset = false;
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());
   // HalfFloat, because the grade runs on linear light before the tone map and an 8-bit target would
   // clip every highlight the tone map exists to roll off.

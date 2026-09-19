@@ -1190,6 +1190,13 @@ export class Game {
     this.updateCharView(dt);
     this.bars.update(this.camera, this.camDist * 1.7, this.camDist * 2.8);
     if (!this.contextLost) {
+      // #189: `renderer.info` resets itself at the top of every `render()`, and a composer calls
+      // render once per pass -- so after a composed frame it reports the LAST PASS, which is one
+      // full-screen quad. That silently turns the perf overlay's draw-call number into 1 and, worse,
+      // disarms `watchRender`: its test for a dead renderer is `calls === 0`, and the OutputPass
+      // quad on its own satisfies it while the scene draws nothing. So the reset is taken over here
+      // and done once a frame, and the number means the whole frame again.
+      this.renderer.info.reset();
       if (this.post) this.post.composer.render();
       else this.renderer.render(this.scene, this.camera);
       this.frames = (this.frames || 0) + 1;
