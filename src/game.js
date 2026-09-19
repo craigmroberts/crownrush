@@ -114,6 +114,8 @@ export class Game {
     // #174: two more preferences, each a flag the thing it governs reads
     this.shakeOn = readFlag('crownrush-shake', true);
     this.numbersOn = readFlag('crownrush-numbers', true);
+    // #216: the circle under the King. A DISPLAY flag and nothing else -- see `setRing`.
+    this.ringOn = readFlag('crownrush-ring', true);
     if (this.quality.forced != null) this.applyQuality(this.quality.forced);
     this.buildFog();
     // every health bar in the game is drawn by this one instanced mesh
@@ -617,6 +619,7 @@ export class Game {
     if (this.world.smokers) this.world.smokers.length = 0;
     // #103: built at the reach, which is what it draws. updateKing rebuilds it if an upgrade moves it.
     this.ring = makeRing(CFG.king.pickupRadius);
+    this.ring.visible = this.ringOn;          // #216: the setting survives a restart, so apply it here too
     this.ringRadius = CFG.king.pickupRadius;
     this.root.add(this.ring);
 
@@ -958,6 +961,20 @@ export class Game {
   setNumbers(on) {
     this.numbersOn = !!on;
     try { localStorage.setItem('crownrush-numbers', on ? '1' : '0'); } catch (e) { /* private mode */ }
+  }
+  // #216: OFF MEANS INVISIBLE, NOT SMALLER. #103's whole point was that the drawn circle and the
+  // collection reach became ONE number -- `ringRadius` is what a coin is tested against in
+  // `game-view.js` as well as what the ring is drawn at -- so a setting that touched the radius
+  // would quietly change how far the King picks up from, which is a balance change wearing a
+  // display setting's clothes. This sets `visible` and nothing else, and `updateKing` still moves
+  // and rebuilds the ring while it is hidden so turning it back on needs no catch-up.
+  //
+  // Worth knowing while playing with it off: the ring grows with the Lodestone upgrades and is the
+  // only thing on screen that shows that happening, so a reach upgrade arrives silently.
+  setRing(on) {
+    this.ringOn = !!on;
+    if (this.ring) this.ring.visible = this.ringOn;
+    try { localStorage.setItem('crownrush-ring', on ? '1' : '0'); } catch (e) { /* private mode */ }
   }
 
   // #171: Quit to Menu. The run is written down if it can be -- `quietEnoughToSave` is the rule the

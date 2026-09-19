@@ -224,6 +224,9 @@ export const UnitsMethods = {
     this.regen(k, dt);
     this.flashHurt(k);
     this.updateMining(dt);
+    // #216: moved and rebuilt even while hidden. Cheaper than it looks -- a position write and a
+    // radius compare -- and it means turning the ring back on shows it already in the right place at
+    // the right size rather than a frame behind.
     this.ring.position.set(p.x, 0.04, p.z);
     // #103: one number for the circle and for the reach. `ringRadius` is what coins are tested
     // against (game-view.js) and what the ring is drawn at, so they cannot drift apart again.

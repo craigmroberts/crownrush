@@ -35,6 +35,7 @@ export const RELEASES = [
       'The mountains in the north-west are warm eroded rock now rather than stacked crates, with meadows and wildflowers on top of them.',
       'The kingdom ends in thick forest rather than in an invisible wall \u2014 walk far enough and you reach country you cannot get through, not the edge of the map.',
       'Night has fire in it. Lanterns come up around the village as the light goes, and some raiders come at you carrying torches.',
+      'The ring under the King can be turned off, in Settings \u203a Video. It only hides it \u2014 you still pick coins up from just as far.',
     ],
     fixed: [
       'An archer sent to man a tower or a gate could walk into a wall and stay there for the rest of the run. He takes the gate now.',

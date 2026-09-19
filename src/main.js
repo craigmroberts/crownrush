@@ -569,6 +569,7 @@ musicSlider.addEventListener('input', () => { audio.setMusicVolume(musicSlider.v
 sfxSlider.addEventListener('input', () => { audio.setSfxVolume(sfxSlider.value / 100); syncSettings(); });
 document.getElementById('set-shake').addEventListener('click', () => { game.setShake(!game.shakeOn); syncSettings(); });
 document.getElementById('set-numbers').addEventListener('click', () => { game.setNumbers(!game.numbersOn); syncSettings(); });
+document.getElementById('set-ring').addEventListener('click', () => { game.setRing(!game.ringOn); syncSettings(); });
 document.getElementById('set-quality').addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
@@ -585,6 +586,7 @@ function syncSettings() {
   pill('set-sound-state', !audio.muted);
   pill('set-shake-state', game.shakeOn);
   pill('set-numbers-state', game.numbersOn);
+  pill('set-ring-state', game.ringOn);
   const q = game.quality.forced == null ? 'auto' : String(game.quality.forced);
   for (const b of document.querySelectorAll('#set-quality button')) b.classList.toggle('on', b.dataset.q === q);
   let tab = 'game';
