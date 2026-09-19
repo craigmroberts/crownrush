@@ -1981,6 +1981,29 @@ export const BuildMethods = {
     return hit;
   },
 
+  // #208: the way through a wall, for somebody walking to a fixed point on the other side of one.
+  //
+  // The twin of `bridgeWaypoint` below and for the same reason: a straight line at a destination is
+  // right until a solid thing is across it, and then it is a man held against stone for ever. A gate
+  // is what a wall has instead of a way round, and `collideWalls` already lets anyone friendly
+  // through one -- so the whole of the detour is "head for the gateway first".
+  //
+  // The NEAREST built gate, which is not always the one that opens onto his post: a ring can have
+  // four, and picking by distance is what somebody standing outside a wall would do. Getting that
+  // wrong costs a longer walk and nothing else, because arrival is still judged on the post itself.
+  gateWaypoint(p) {
+    let best = null;
+    let bestD = Infinity;
+    for (const w of this.walls) {
+      if (w.state !== 'built' || !w.gate) continue;
+      const mx = (w.x0 + w.x1) / 2;
+      const mz = (w.z0 + w.z1) / 2;
+      const d = (p.x - mx) * (p.x - mx) + (p.z - mz) * (p.z - mz);
+      if (d < bestD) { bestD = d; best = [mx, mz]; }
+    }
+    return best;
+  },
+
   // Keep a position out of the river unless it is on a bridge. Returns true when it was pushed.
   collideRiver(p, r) {
     const info = this.world.riverInfo(p.x, p.z);

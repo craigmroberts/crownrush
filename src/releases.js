@@ -33,6 +33,9 @@ export const RELEASES = [
     added: [
       'Release notes, under Settings \u203a About \u2014 what each update added and what it fixed. After an update installs, the game says what came with it.',
     ],
+    fixed: [
+      'An archer sent to man a tower or a gate could walk into a wall and stay there for the rest of the run. He takes the gate now.',
+    ],
   },
   {
     id: 3,

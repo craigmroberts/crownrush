@@ -193,6 +193,72 @@ export const CHEAP = {
     return bad.length ? no(bad) : ok('quiet for a new player, shown once to one behind, quiet after');
   },
 
+  // #208: a man sent to a post gets to it, even when there is a wall between him and it.
+  //
+  // He is picked for being nearest the KING, and the King is as happily outside the ring as in, so
+  // "the post is on the other side of a wall" is an ordinary Tuesday rather than a corner case. The
+  // walk was a straight line and `collideWalls` held him against the stone: reported from a phone as
+  // "an archer just walking into the wall he seems stuck", and he stayed there for the rest of the
+  // run with his walk animation playing.
+  //
+  // Set up deliberately rather than waited for: stand a fresh archer outside a solid section and
+  // assign him to a point inside it, which is the exact geometry of the report and takes one frame
+  // to arrange instead of a night of play to stumble into.
+  //
+  // THE BUDGET IS IN FRAMES, NOT SECONDS, and that is the whole reason this check can fail honestly.
+  // A Playwright timeout comes back amber as "could not run"; a frame budget that runs out is the
+  // check saying no. The walk measured 41 frames with the detour in it, so 90 is more than twice the
+  // room it needs.
+  //
+  // AND THE TWO CLOCKS HAVE TO BE TOLD APART, which cost a run to learn: a SwiftShader frame is about
+  // a second, so a 150-frame budget under a 150s timeout is the timeout every time, and the sabotage
+  // came back amber as "could not run" instead of red. The budget has to finish well inside the wall
+  // clock or it is not the thing deciding.
+  async 'post-walk-unblocked'(page, url) {
+    await boot(page, url);
+    const setup = await page.evaluate(() => {
+      const g = window.game;
+      const solid = g.wallSections(0, 'all').filter((s) => !s.gate);
+      if (!solid.length) return { err: 'the opening village stood no solid wall to be stuck on' };
+      const sec = solid[0];
+      // straight in and straight out from the middle of that section, so the line he has to walk
+      // crosses it square on
+      const ix = -sec.mx, iz = -sec.mz;
+      const il = Math.hypot(ix, iz) || 1;
+      const post = [sec.mx + (ix / il) * 3, sec.mz + (iz / il) * 3];
+      const out = [sec.mx - (ix / il) * 3, sec.mz - (iz / il) * 3];
+      const a = g.spawnUnit('archer', out[0], out[1]);
+      a.popT = 0;
+      a.mesh.scale.setScalar(a.scale);
+      a.assign = [post[0], post[1], 0];
+      a.assignTower = null;
+      g.__postWalk = a;
+      g.__postWalkFrom = g.frames;
+      return { post: post.map((v) => +v.toFixed(2)), from: out.map((v) => +v.toFixed(2)) };
+    });
+    if (setup.err) return no(setup.err);
+    await page.waitForFunction((budget) => {
+      const g = window.game;
+      return !g.units.includes(g.__postWalk) || g.frames - g.__postWalkFrom > budget;
+    }, 90, { timeout: 200000, polling: 'raf' });
+    const r = await page.evaluate(() => {
+      const g = window.game;
+      const a = g.__postWalk;
+      const p = a.mesh.position;
+      return {
+        arrived: !g.units.includes(a),
+        frames: g.frames - g.__postWalkFrom,
+        at: [+p.x.toFixed(2), +p.z.toFixed(2)],
+        toPost: a.assign ? +Math.hypot(a.assign[0] - p.x, a.assign[1] - p.z).toFixed(2) : null,
+        onDeck: g.turrets.length,
+      };
+    });
+    if (!r.arrived) {
+      return no(`sent to a post across a wall, he is still ${r.toPost} from it after ${r.frames} frames, stopped at (${r.at[0]}, ${r.at[1]})`);
+    }
+    return ok(`across a wall and onto his post in ${r.frames} frames`);
+  },
+
   // #185/#186: the band hook, and it is here because EVERY WAY IT FAILS IS QUIET.
   //
   // The patch works by rewriting one line inside three's `lights_physical_pars_fragment`. If three
@@ -835,6 +901,17 @@ export const PROVE = {
       }
       return out;
     };
+  },
+  // #208 exactly as it was: the walk keeps its straight line and loses BOTH recoveries. Pinning
+  // `stuckT` is the whole sabotage -- no detour is ever asked for and the watchdog never trips --
+  // and it touches nothing else, so what is left is the code that shipped the bug.
+  'post-walk-unblocked': () => {
+    const pin = () => {
+      const g = window.game;
+      if (g && g.units) for (const u of g.units) if (u.assign) { u.stuckT = 0; u.detour = null; }
+      requestAnimationFrame(pin);
+    };
+    requestAnimationFrame(pin);
   },
   'rebuild-after-fall': () => { window.game.buildStructure = () => {}; },
 };

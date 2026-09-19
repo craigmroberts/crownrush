@@ -129,6 +129,11 @@ export const CHECKS = [
     why: 'Two of its three failures are invisible to whoever they happen to: a greeting that never opens looks like a build with nothing to say, and the one that greets a first-time player is something no installed phone will ever show anyone (#206).',
   },
   {
+    id: 'post-walk-unblocked', area: 'Build', cost: 'cheap',
+    asserts: 'An archer sent to man a tower or a gate reaches his post even when a wall is between him and it.',
+    why: 'Reported from a phone as "an archer just walking into the wall he seems stuck" (#208). He is picked for being nearest the King, so a post across a wall is ordinary; the walk was a straight line with no way round and no recovery, and he played his walk animation into the stone for the rest of the run.',
+  },
+  {
     id: 'rebuild-after-fall', area: 'Opening', cost: 'cheap',
     asserts: 'After the fall the plot is empty, the ledger is clear, and the first mat can be bought.',
     why: 'The fall clears a lot of state by hand; anything it misses is unreachable progress.',

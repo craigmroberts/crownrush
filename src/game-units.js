@@ -141,6 +141,8 @@ export const UnitsMethods = {
     const u = {
       type, mesh, bar, hp, maxHp: hp, stats, cooldown: rand(0, 0.5), lastHit: -99,
       melee: type === 'swordsman', vel: new V3(), popT: royal ? 0 : 0.5, assign: null, veteran,
+      // #208: the walk to a post, and the two things that keep it from becoming permanent
+      detour: null, stuckT: 0,
       scale: royal ? 1.15 : mesh.userData.rig ? 1.05 : 1.2,
     };
     mesh.scale.setScalar(u.popT ? 0.01 : u.scale);
@@ -450,11 +452,28 @@ export const UnitsMethods = {
     const assigned = this._assigned || (this._assigned = []);
     assigned.length = 0;
     for (const u of this.units) if (u.assign) assigned.push(u);
+    // #208: "There's an archer just walking into the wall he seems stuck", from a phone on night 6.
+    //
+    // This walk was a straight line at a fixed point, and the point is very often on the other side
+    // of a wall from wherever the man was standing when he was picked -- he is chosen for being
+    // nearest the KING, and the King is as happily outside the ring as in. `collideWalls` then holds
+    // him against the stone, the line never changes because neither end of it moves, and he walks
+    // into the wall until the run ends. Reproduced in a browser: he closes to 3.55 of his post,
+    // stops dead, and is still on the same two coordinates thirty frames later with `moving` true,
+    // so he plays the walk animation the whole time.
+    //
+    // It also quietly costs the deck a place: `freeSpots` holds a spot for anyone ON THE WAY to it,
+    // so the tower he will never reach cannot be filled by anybody else either.
+    //
+    // The army's own follow has had an escape for this since it was written ("the wrong side of a
+    // wall or a river") and this loop had none. Two things, in the order a person would try them:
+    // head for the gateway, which is what a gate is for and what `bridgeWaypoint` already does for
+    // the river -- and behind that a watchdog, so that nothing about this walk can be permanent
+    // even if the detour is blocked too.
     for (const u of assigned) {
       const [x, z, y] = u.assign;
       const p = u.mesh.position;
-      tmp2.set(x - p.x, 0, z - p.z);
-      const d = tmp2.length();
+      const d = Math.hypot(x - p.x, z - p.z);
       if (d < 0.5) {
         this.units.splice(this.units.indexOf(u), 1);
         this.root.remove(u.mesh);
@@ -462,9 +481,25 @@ export const UnitsMethods = {
         this.addTurret(x, z, y, u.assignTower);
         continue;
       }
-      tmp2.normalize().multiplyScalar(Math.min(u.stats.speed * dt, d));
+      // Arrival is always judged on the POST, never on the detour, so a gate that happens to sit
+      // near his destination cannot finish the walk early.
+      if (u.detour && Math.hypot(u.detour[0] - p.x, u.detour[1] - p.z) < 1.2) u.detour = null;
+      const goal = u.detour || u.assign;
+      tmp2.set(goal[0] - p.x, 0, goal[1] - p.z);
+      const want = Math.min(u.stats.speed * dt, tmp2.length());
+      tmp2.normalize().multiplyScalar(want);
+      const wasX = p.x;
+      const wasZ = p.z;
       p.add(tmp2);
       this.collideWalls(p, 0.3, true);
+      // What he actually made of the step he asked for. A man sliding along a wall still makes
+      // ground and is not stuck; a man held square against one makes almost none.
+      const made = Math.hypot(p.x - wasX, p.z - wasZ);
+      u.stuckT = made < want * 0.35 ? (u.stuckT || 0) + dt : 0;
+      if (u.stuckT > 0.5 && !u.detour) u.detour = this.gateWaypoint(p);
+      // The backstop, and it is deliberately long: it is for the case the gate could not solve, and
+      // a man who blinks to his post reads far worse than one who takes the long way round to it.
+      if (u.stuckT > 6) { p.set(x, 0, z); u.stuckT = 0; u.detour = null; }
       u.mesh.rotation.y = this.lerpAngle(u.mesh.rotation.y, Math.atan2(tmp2.x, tmp2.z), 1 - Math.exp(-dt * 10));
       u.moving = true;
       this.animateWalk(u, 1, dt);
