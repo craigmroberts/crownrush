@@ -150,6 +150,26 @@ export const FREE = {
     return bad.length ? no(bad) : ok();
   },
 
+  // #203: the ring of places on a tower's deck has to seat the biggest crew the game can ever send
+  // to it. For a long time it did not -- seven places against a roster of nine -- and a ring asked to
+  // seat more than it has wraps silently: replaying the arithmetic, archer #8 landed on #1 and #9 on
+  // #2, both 0.000 apart. Nothing in the game counts that as anything; the crew tallies were right.
+  //
+  // The roster is derived rather than written down, because writing it down is how the two drifted.
+  'deck-seats-the-crew'() {
+    const lv = CFG.tower.levels;
+    const top = lv[lv.length - 1].slots;
+    const adders = UPGRADES.filter((u) => u.apply && u.apply.key === 'towerSlots');
+    const odd = adders.filter((u) => u.apply.op !== 'add');
+    if (odd.length) return no(`${odd.map((u) => u.id).join(', ')} changes towerSlots by something other than adding, and this check only knows how to add`);
+    const extra = adders.reduce((n, u) => n + (u.max || 1) * (u.apply.by || 0), 0);
+    const want = top + extra;
+    const have = CFG.tower.deck.slots;
+    return have >= want
+      ? ok()
+      : no(`a deck can be asked to hold ${want} archers (${top} at tower level ${lv.length}, ${extra} from ${adders.map((u) => u.name).join(' and ')}) and the ring has ${have} places`);
+  },
+
   'upgrade-mods-exist'() {
     // This was blocked, and is not any more. `mul`/`add` used to return a bare closure over `key`,
     // so `apply.toString()` showed the helper's body -- `g.mods[key] *= by` -- with the key nowhere

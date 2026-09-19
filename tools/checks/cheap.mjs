@@ -343,6 +343,88 @@ export const CHEAP = {
     return r.bad.length ? no(r.bad) : ok(`${r.checked.structures} structure mats on their door's axis, ${r.checked.bridges} bridge mats on the road at the crossing`);
   },
 
+  // #203: reported off a phone -- "the archers in the tower are standing on the roof". THREE ways to
+  // get it wrong were live at once, and every one of them passed every count the game keeps, so this
+  // asserts the thing itself rather than any of the three: an archer on a deck has the deck under
+  // his feet, and no two of them are in the same place.
+  //
+  // The floor is read off the TOWER'S OWN TRIANGLES rather than from `t.top`, which is the whole
+  // point. `t.top` is what the code believes and it was wrong by 0.27 -- the imported model's
+  // planking is at 2.99 and the number said 2.72, inherited from the built tower whose deck really
+  // is there. A check that compared feet to `t.top` would have agreed with the bug.
+  async 'tower-crew-placed'(page, url) {
+    await boot(page, url);
+    const r = await page.evaluate(() => {
+      const g = window.game;
+      const D = window.CFG.tower.deck;
+      const id = Object.keys(g.towers)[0];
+      if (!id) return { bad: ['the opening village stood no towers'] };
+      const t = g.towers[id];
+      const V3 = g.king.mesh.position.constructor;
+      const tris = [];
+      const a = new V3(), b = new V3(), c = new V3();
+      t.mesh.updateWorldMatrix(true, true);
+      t.mesh.traverse((o) => {
+        if (!o.isMesh || !o.geometry || !o.geometry.attributes || !o.geometry.attributes.position) return;
+        const pos = o.geometry.attributes.position, idx = o.geometry.index;
+        const n = idx ? idx.count : pos.count;
+        for (let i = 0; i + 2 < n; i += 3) {
+          const i0 = idx ? idx.getX(i) : i, i1 = idx ? idx.getX(i + 1) : i + 1, i2 = idx ? idx.getX(i + 2) : i + 2;
+          a.fromBufferAttribute(pos, i0).applyMatrix4(o.matrixWorld);
+          b.fromBufferAttribute(pos, i1).applyMatrix4(o.matrixWorld);
+          c.fromBufferAttribute(pos, i2).applyMatrix4(o.matrixWorld);
+          tris.push([a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z]);
+        }
+      });
+      // the highest surface of the tower at or below a man's feet: what he is standing on
+      const floorUnder = (x, z, y) => {
+        let best = -Infinity;
+        for (const q of tris) {
+          const d = (q[5] - q[8]) * (q[0] - q[6]) + (q[6] - q[3]) * (q[2] - q[8]);
+          if (Math.abs(d) < 1e-9) continue;
+          const l1 = ((q[5] - q[8]) * (x - q[6]) + (q[6] - q[3]) * (z - q[8])) / d;
+          const l2 = ((q[8] - q[2]) * (x - q[6]) + (q[0] - q[6]) * (z - q[8])) / d;
+          if (l1 < -1e-6 || l2 < -1e-6 || 1 - l1 - l2 < -1e-6) continue;
+          const h = l1 * q[1] + l2 * q[4] + (1 - l1 - l2) * q[7];
+          if (h <= y + 0.12 && h > best) best = h;
+        }
+        return best;
+      };
+      const mine = () => g.turrets.filter((q) => q.tower === id);
+      const fill = (n) => { for (const [x, z, y] of g.crewSpots({ tower: id, crew: n })) { g.addTurret(x, z, y, id); t.crew++; } };
+      const bad = [];
+      const audit = (when) => {
+        const on = mine();
+        for (let i = 0; i < on.length; i++) {
+          const p = on[i].mesh.position;
+          for (let j = i + 1; j < on.length; j++) {
+            const q = on[j].mesh.position;
+            const dd = Math.hypot(p.x - q.x, p.z - q.z);
+            if (dd < 0.2) bad.push(`${when}: two archers ${dd.toFixed(2)} apart at (${p.x.toFixed(2)}, ${p.z.toFixed(2)})`);
+          }
+          const f = floorUnder(p.x, p.z, p.y);
+          if (f === -Infinity) bad.push(`${when}: an archer at (${p.x.toFixed(2)}, ${p.z.toFixed(2)}) has no tower under his feet at all`);
+          else if (p.y - f > 0.12) bad.push(`${when}: an archer stands at ${p.y.toFixed(2)} with the deck ${(p.y - f).toFixed(2)} below him`);
+          else if (f - p.y > 0.06) bad.push(`${when}: an archer's feet are at ${p.y.toFixed(2)} and the deck he is on is at ${f.toFixed(2)} -- ${(f - p.y).toFixed(2)} of him is under the floor`);
+        }
+        return on.length;
+      };
+      fill(D.slots - t.crew);                  // the most the game can ever put on one deck
+      const n = audit(`a full deck of ${mine().length}`);
+      if (n < D.slots) bad.push(`only ${n} archers went up for ${D.slots} places`);
+      // and the case that needs no upgrades at all: shoot one out of the middle, send a replacement.
+      // The slot he left has to be the one that gets reused.
+      const on = mine();
+      if (on.length > 2) {
+        g.damageTurret(on[Math.floor(on.length / 2)], 9999);
+        fill(1);
+        audit('after a casualty was replaced');
+      }
+      return { bad, n };
+    });
+    return r.bad.length ? no(r.bad) : ok(`${r.n} on one deck, each on the planking, and a replacement took the dead man's place`);
+  },
+
   async 'post-once'(page, url) {
     await boot(page, url);
     const r = await page.evaluate(() => {
@@ -636,5 +718,19 @@ export const PROVE = {
   },
   // #181 put back exactly as it was: the anchor teleports and nothing holds her off him
   'queen-visible': () => { window.CFG.queen.followTurn = 1e6; window.CFG.queen.kingGap = 0; },
+  // #203 put back exactly as it was found: a ring of seven, a slot chosen by COUNTING the crew, and
+  // the deck height the import claimed rather than the one it has.
+  'tower-crew-placed': () => {
+    window.game.crewSpots = function (def) {
+      const t = this.towers[def.tower];
+      if (!t) return [];
+      const out = [];
+      for (let i = 0; i < def.crew; i++) {
+        const a = (t.crew + i) * ((Math.PI * 2) / 7) + 0.5;
+        out.push([t.x + Math.cos(a) * 0.75, t.z + Math.sin(a) * 0.75, 2.72]);
+      }
+      return out;
+    };
+  },
   'rebuild-after-fall': () => { window.game.buildStructure = () => {}; },
 };

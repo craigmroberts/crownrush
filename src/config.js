@@ -405,6 +405,24 @@ export const CFG = {
     range: 14, fireRate: 0.7, damage: 12,
     levels: [{ slots: 3, damage: 1, range: 1 }, { slots: 5, damage: 1.35, range: 1.15 }, { slots: 7, damage: 1.8, range: 1.3 }],
     upgrade: [{ cost: 30 }, { cost: 60 }],
+    // #203: WHERE A CREW STANDS, measured off the tower they stand on instead of inherited from the
+    // one they used to. Reported off a phone as "the archers in the tower are standing on the roof".
+    //
+    // `slots` is nine because nine is the most the game can ever ask for -- level three is seven and
+    // Wider Decks (upgrades.js) adds two -- and the ring was seven. Asked to seat nine it wrapped:
+    // replaying the old arithmetic, archer #8 landed on #1 and #9 on #2, both 0.000 apart. A free
+    // check holds the two numbers in step so the ring cannot fall behind the roster again.
+    //
+    // `radius` is 0.62 because the imported deck runs out past 0.65. Sampling eight directions on
+    // tower_ai.glb: the floor is 2.99 the whole way round at r <= 0.65; at 0.75 one direction drops
+    // to 2.54, which is a corner post rather than the deck; past 0.85 between two and four of the
+    // eight have no floor under them at all. 0.75 was the BUILT tower's number and fits it fine --
+    // its platform is 2.5 across against the import's 2.0.
+    //
+    // `order` is the fill order, and it is why three archers no longer huddle. Slots were handed out
+    // 0, 1, 2: a 102 degree arc on one side of a deck with five sixths of its ring empty. Stride
+    // three spreads every prefix -- three land 120 degrees apart, six land 60 apart, nine fill it.
+    deck: { slots: 9, radius: 0.62, order: [0, 3, 6, 1, 4, 7, 2, 5, 8] },
   },
   gatePost: { height: 1.55 },
 

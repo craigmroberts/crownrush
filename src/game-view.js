@@ -1973,6 +1973,31 @@ export const ViewMethods = {
     disc.receiveShadow = true;
     mesh.traverse((o) => { if (o.isMesh) o.castShadow = true; });
     stage.add(disc, mesh);
+    // #203: A TOWER IS A TOWER WITH ITS CREW ON IT. This sheet framed an empty deck, and an empty
+    // deck is how three separate placement bugs stood on the page whose whole job is to show what a
+    // building looks like: feet under the floor, a ring of seven asked to seat nine, and a slot
+    // picked by counting the crew rather than by asking which were free. All three are visible the
+    // moment anybody is standing there, and none of them is visible before that.
+    //
+    // It stands the level's own crew, and the TOP level's is nine rather than seven -- seven is what
+    // `levels` gives and Wider Decks adds the other two, so nine is the case that was wrong and
+    // therefore the case the sheet has to show.
+    const crew = id === 'tower' ? (level >= CFG.tower.levels.length ? CFG.tower.deck.slots : CFG.tower.levels[level - 1].slots) : 0;
+    const D = CFG.tower.deck;
+    const rigs = [];
+    for (const i of D.order.slice(0, crew)) {
+      const r = makeRigged('archer', null, true);
+      if (!r) break;                       // the rig has not landed; an empty deck beats a crash
+      const a = i * ((Math.PI * 2) / D.slots) + 0.5;
+      r.mesh.position.set(Math.cos(a) * D.radius, mesh.userData.top || 0, Math.sin(a) * D.radius);
+      r.mesh.scale.setScalar(1.05);        // the scale `addTurret` pops a crew archer in at
+      r.mesh.rotation.y = Math.PI / 2 - a; // facing out over the rail, the way a watch does
+      mesh.add(r.mesh);
+      // A mixer nobody updates leaves the bind pose, which is a T-pose on a battlement. One update
+      // now puts it in its first frame even if the sheet is never animated after this.
+      r.mixer.update(0.01);
+      rigs.push(r);
+    }
     this.scene.add(stage);
 
     const box = new THREE.Box3().setFromObject(mesh);
@@ -1981,7 +2006,7 @@ export const ViewMethods = {
     const vt = Math.tan((this.camera.fov * Math.PI) / 360);
     const ht = vt * Math.max(0.75, this.camera.aspect || 1);
     const d = Math.max(h / 2 / vt, w / 2 / ht) * 1.2 + 1;
-    this.charView = { rig: null, stage, clip: null, frame: { d, mid: (box.max.y + box.min.y) / 2 } };
+    this.charView = { rig: null, stage, crew: rigs, clip: null, frame: { d, mid: (box.max.y + box.min.y) / 2 } };
     this.charBgGrass = true;
     this.camLock = d;
     this.camDist = d;
@@ -1995,6 +2020,7 @@ export const ViewMethods = {
     const v = this.charView;
     if (!v) return;
     if (v.rig) v.rig.mixer.update(dt);
+    if (v.crew) for (const r of v.crew) r.mixer.update(dt);   // #203: the tower's crew, breathing
     v.stage.rotation.y += dt * 0.55;
     // A structure keeps a daylight sky behind it; a character gets the neutral dark. Same reason the
     // structure stands on grass -- one is judged against the world, the other against nothing.

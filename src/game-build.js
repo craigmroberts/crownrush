@@ -273,11 +273,20 @@ export const BuildMethods = {
       return makeHut(m);
     }
     if (kind === 'tower') {
-      // The deck is where crewSpots stands the archers, so the import is sized to put it exactly
-      // where the built tower's is (2.72) and the crew code needs no idea which one it got.
+      // #203: THE IMPORT'S DECK IS NOT WHERE THE BUILT TOWER'S IS, and this line used to say it was:
+      // "the import is sized to put it exactly where the built tower's is (2.72) and the crew code
+      // needs no idea which one it got". It was not, and the crew code did need to know.
+      //
+      // The built tower's platform is a 0.22 slab centred on 2.60, so its floor is 2.71 and its own
+      // `userData.top` of 2.72 is right. The import's planking runs 2.74 to 2.99 -- measured as
+      // 4.09 m2 of flat, upward-facing surface at y=2.99, six times the area of the next band on the
+      // model. Standing a crew at 2.72 put their feet under the floor: a ring of markers at that
+      // height hangs in the open air beneath the deck, which is the picture on #203.
+      //
+      // Each model states its own, which is the arrangement that was claimed and never true.
       const p = makeProp('tower', CFG.structureTint[m]);
       if (p) {
-        p.userData.top = 2.72;
+        p.userData.top = 2.99;
         p.add(makeTowerLevelBits(level));
         return p;
       }
@@ -497,12 +506,39 @@ export const BuildMethods = {
     if (def.spots) return def.spots.map((s) => [s[0], s[1], s[2] || 0]);
     const t = this.towers[def.tower];
     if (!t) return [];
-    const spots = [];
-    for (let i = 0; i < def.crew; i++) {
-      const a = (t.crew + i) * ((Math.PI * 2) / 7) + 0.5;
-      spots.push([t.x + Math.cos(a) * 0.75, t.z + Math.sin(a) * 0.75, t.top]);
-    }
-    return spots;
+    // #203: the places on the deck that nobody has yet, in fill order -- not "the next `crew`
+    // angles", which is what `(t.crew + i)` was.
+    //
+    // Counting the crew to pick a slot is wrong the moment the crew is not the numbers 0..n-1, and
+    // it stops being that the first time an archer is shot off a deck: `damageTurret` drops `crew`
+    // by one, the hole the casualty left is never reused, and the replacement is handed the place a
+    // survivor is already standing in. Replayed on the old arithmetic that is 0.000 apart -- two
+    // archers on one coordinate, which is the bug class #179 was written about.
+    //
+    // Asking the deck who is on it cannot get that wrong, and it needs nothing kept in step: a
+    // restored save puts its turrets back by coordinate (`restoreRun`) and a dragged tower moves
+    // them bodily (`moveStructure`), so both come out right for free and no save format changes.
+    const D = CFG.tower.deck;
+    const ring = D.order.map((i) => {
+      const a = i * ((Math.PI * 2) / D.slots) + 0.5;
+      return [t.x + Math.cos(a) * D.radius, t.z + Math.sin(a) * D.radius, t.top];
+    });
+    return this.freeSpots(ring).slice(0, def.crew);
+  },
+
+  // #203: drop the spots somebody is standing on, or is on their way to. The threshold is half the
+  // gap between neighbouring places on the ring, so a spot is only ever claimed by the man actually
+  // on it and never by his neighbour.
+  freeSpots(spots) {
+    const D = CFG.tower.deck;
+    const near = D.radius * Math.sin(Math.PI / D.slots);
+    const held = [];
+    for (const t of this.turrets) held.push(t.mesh.position.x, t.mesh.position.z);
+    for (const u of this.units) if (u.assign) held.push(u.assign[0], u.assign[1]);
+    return spots.filter(([x, z]) => {
+      for (let i = 0; i < held.length; i += 2) if (Math.hypot(held[i] - x, held[i + 1] - z) < near) return false;
+      return true;
+    });
   },
 
   // A tower's pad cycles: build -> man it -> upgrade -> man the new slots -> upgrade ... (3 levels)
@@ -1427,11 +1463,18 @@ export const BuildMethods = {
         // crew pads take archers from the army instead of coins
         if (paying && !locked && pad.paid < pad.cost && this.spendTimer <= 0) {
           const free = this.units.filter((u) => u.type === 'archer' && !u.assign);
-          if (free.length) {
+          const spots = this.crewSpots(pad.def);
+          // #203: a TOWER hands back the places that are free, so the next archer takes the first of
+          // them and the list shrinks behind him. The GATE POSTS hand back all of theirs in a fixed
+          // order and the next archer takes the next along -- that list must not shrink as archers
+          // are dispatched, because `completePad` stands the posts themselves at exactly these
+          // coordinates once the last archer is on his way, and a list emptied by the walk would
+          // leave a gate with guards and no posts to guard from.
+          const spot = pad.def.tower ? spots[0] : spots[pad.paid];
+          if (free.length && spot) {
             this.spendTimer = CFG.spend.crewTick;
             free.sort((a, b) => a.mesh.position.distanceToSquared(kp) - b.mesh.position.distanceToSquared(kp));
-            const spots = this.crewSpots(pad.def);
-            free[0].assign = spots[pad.paid];
+            free[0].assign = spot;
             free[0].assignTower = pad.def.tower || null;
             const g = pad.ghosts[pad.paid];
             if (g) g.visible = false;

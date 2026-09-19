@@ -52,6 +52,11 @@ export const CHECKS = [
     why: 'A missing icon draws nothing and says nothing.',
   },
   {
+    id: 'deck-seats-the-crew', area: 'Build', cost: 'free',
+    asserts: 'A tower deck has at least as many places on it as the biggest crew the game can send.',
+    why: 'It had seven for a roster of nine, so #8 and #9 wrapped onto #1 and #2 -- two archers on one coordinate, and every tally in the game still added up (#203).',
+  },
+  {
     id: 'upgrade-mods-exist', area: 'Upgrades', cost: 'free',
     asserts: 'Every upgrade writes a mod that exists in MODS.',
     why: 'An upgrade onto a misspelled key is a reward that does nothing, and nothing says so.',
@@ -82,6 +87,11 @@ export const CHECKS = [
     id: 'mats-at-doors', area: 'Build', cost: 'cheap',
     asserts: 'Every structural mat sits square on its building\'s door axis, and every bridge mat sits on the road at the crossing.',
     why: 'A mat is the game\'s one "you can build here" affordance and it is read at a glance. The Keep\'s sat diagonally off a corner touching no face, and the bridge mats were typed constants eight units from where the bridge actually goes -- positioned by a different mechanism from the thing they build, so they agreed only by luck.',
+  },
+  {
+    id: 'tower-crew-placed', area: 'Build', cost: 'cheap',
+    asserts: 'Every archer on a tower deck has the deck under his feet, and no two stand in the same place -- on a full deck, and after a casualty has been replaced.',
+    why: 'Reported from a phone as "standing on the roof" (#203). Three ways to get it wrong were live at once and none of them moved a number the game keeps: feet 0.27 under the planking, a ring too small for the roster, and a replacement handed the place a survivor was standing in.',
   },
   {
     id: 'post-once', area: 'Render', cost: 'cheap',

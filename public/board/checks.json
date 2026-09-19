@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-19T13:03:22.073Z",
+  "at": "2026-09-19T13:40:49.499Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -51,6 +51,13 @@
       "why": "A missing icon draws nothing and says nothing."
     },
     {
+      "id": "deck-seats-the-crew",
+      "area": "Build",
+      "cost": "free",
+      "asserts": "A tower deck has at least as many places on it as the biggest crew the game can send.",
+      "why": "It had seven for a roster of nine, so #8 and #9 wrapped onto #1 and #2 -- two archers on one coordinate, and every tally in the game still added up (#203)."
+    },
+    {
       "id": "upgrade-mods-exist",
       "area": "Upgrades",
       "cost": "free",
@@ -91,6 +98,13 @@
       "cost": "cheap",
       "asserts": "Every structural mat sits square on its building's door axis, and every bridge mat sits on the road at the crossing.",
       "why": "A mat is the game's one \"you can build here\" affordance and it is read at a glance. The Keep's sat diagonally off a corner touching no face, and the bridge mats were typed constants eight units from where the bridge actually goes -- positioned by a different mechanism from the thing they build, so they agreed only by luck."
+    },
+    {
+      "id": "tower-crew-placed",
+      "area": "Build",
+      "cost": "cheap",
+      "asserts": "Every archer on a tower deck has the deck under his feet, and no two stand in the same place -- on a full deck, and after a casualty has been replaced.",
+      "why": "Reported from a phone as \"standing on the roof\" (#203). Three ways to get it wrong were live at once and none of them moved a number the game keeps: feet 0.27 under the planking, a ring too small for the roster, and a replacement handed the place a survivor was standing in."
     },
     {
       "id": "post-once",
@@ -173,32 +187,32 @@
   "checks": {
     "pads-requires-exist": {
       "pass": true,
-      "at": "2026-09-19T11:53:50.226Z"
+      "at": "2026-09-19T13:40:49.488Z"
     },
     "pads-buildat-in-bounds": {
       "pass": true,
-      "at": "2026-09-19T11:53:50.226Z"
+      "at": "2026-09-19T13:40:49.488Z"
     },
     "pads-no-overlap": {
       "pass": true,
-      "at": "2026-09-19T11:53:50.234Z"
+      "at": "2026-09-19T13:40:49.494Z"
     },
     "opening-homes-legal": {
       "pass": true,
-      "at": "2026-09-19T11:53:50.234Z"
+      "at": "2026-09-19T13:40:49.494Z"
     },
     "icons-exist": {
       "pass": true,
-      "at": "2026-09-19T11:53:50.239Z"
+      "at": "2026-09-19T13:40:49.499Z"
     },
     "upgrade-mods-exist": {
       "pass": true,
       "note": "17 of 17 upgrades declare a mod key, all 17 resolve",
-      "at": "2026-09-19T11:53:50.239Z"
+      "at": "2026-09-19T13:40:49.499Z"
     },
     "footprints-cover-kinds": {
       "pass": true,
-      "at": "2026-09-19T11:53:50.239Z"
+      "at": "2026-09-19T13:40:49.499Z"
     },
     "walls-solid": {
       "pass": true,
@@ -238,12 +252,12 @@
     "tokens-resolve": {
       "pass": true,
       "note": "no cycles; 3 tokens nothing reads -- --frame-hi, --frame-lo, --danger-edge (#135)",
-      "at": "2026-09-19T11:53:50.238Z"
+      "at": "2026-09-19T13:40:49.498Z"
     },
     "icons-unique": {
       "pass": true,
       "note": "54 icons, no key declared twice",
-      "at": "2026-09-19T11:53:50.239Z"
+      "at": "2026-09-19T13:40:49.499Z"
     },
     "bands-hooked": {
       "pass": true,
@@ -264,6 +278,10 @@
       "pass": true,
       "note": "5 structure mats on their door's axis, 2 bridge mats on the road at the crossing",
       "at": "2026-09-19T11:59:56.012Z"
+    },
+    "deck-seats-the-crew": {
+      "pass": true,
+      "at": "2026-09-19T13:40:49.499Z"
     }
   }
 }
