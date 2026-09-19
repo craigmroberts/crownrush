@@ -202,6 +202,36 @@ the raids keep coming for a high score.
   the source of its hook. Read that *after* the band wrapper is installed and every banded material
   reports the same string -- one function literal, and `toString` cannot see what it closes over.
   `band()` takes the base key before it replaces anything, which is #155 again wearing a third hat.
+- **A rim light** (#187). One more `DirectionalLight`, dim and cool against the sun, with no shadow
+  map. It catches the far edge of a tree, a rock or a man and lifts them off the ground they stand
+  on, which is a large part of why a stylised scene reads as having depth.
+
+  **It is on the far side, and the ticket suggested the near one.** "Low behind the camera",
+  (−14, 12, 30). Both were built and looked at: a light behind the camera brightens the faces
+  *turned toward the lens*, so at 0.9 it lifts the whole frame slightly and separates nothing — the
+  surfaces it helps are the ones already facing you. An edge needs the light behind the **subject**,
+  grazing the faces turned away, so what the camera catches is the lip where they turn. Same light,
+  same cost, opposite side: (−14, 9, −30).
+
+  **Its colour comes from the sky**, which is what it physically is, so it needs one keyframe column
+  (`rimI`) rather than two. At noon the sun is white and there is no warm/cool contrast to have; at
+  dusk the sun is amber and the sky is blue, so the split the rim exists to make arrives exactly when
+  it is wanted and composes with #194 for nothing. Under the blood moon the sky is red, so the rim is
+  a **red** edge and the night keeps its one colour instead of growing a blue lip it should not have.
+
+  **It stays outside the bands**, which is the trap #185 left. A rim that is itself quantised is just
+  a second lit band on the far edge of everything. `RE_Direct_Physical` runs once per directional
+  light and cannot tell them apart, so the light loop sets a flag on its way past and
+  `UNROLLED_LOOP_INDEX == 0` is the sun — three sorts lights so shadow casters come first
+  (`shadowCastingAndTexturingLightsFirst`), the sun is the only caster, and that holds in every mode
+  including a phone, where the shadow *map* is off but `sun.castShadow` is still true. Measured by
+  pointing the same elevation sweep at each light: the sun's response has **6** steps across 42
+  samples and the rim's has **29** — a staircase and a ramp, out of one shader.
+
+  **Draw calls unchanged**: 522 in the map frame, 275 on the phone, 61 on the phone road frame,
+  before and after. A light is per-fragment and costs no calls. What it does cost is one more light
+  per fragment over the whole frame, and ms/frame for that needs a real phone — the same measurement
+  #193 is still open for.
 - **Grass, and where it is not.** 13,000 instanced tufts in one draw call. What is kept bare is the
   **citadel** -- the tight first ring the Keep and its three service buildings stand in, which is
   paved and walked over all game. Everything beyond it is countryside, including the ground inside the

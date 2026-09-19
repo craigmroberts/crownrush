@@ -1867,5 +1867,30 @@ export function setupLights(scene) {
   sun.shadow.intensity = 0.55; // soft, light shadows like the reference
   scene.add(sun);
   scene.add(sun.target);
-  return { sun, hemi };
+  // #187: THE RIM. A second directional light, low and behind the camera on the far side, dim and
+  // cool against the sun -- it catches the far edge of a tree, a rock or a man and lifts them off the
+  // ground they are standing on. One light, no shadow map, and a large part of why a stylised scene
+  // reads as having depth rather than as shapes pasted on a field.
+  //
+  // FIXED IN WORLD SPACE, with its target left at the origin, which is all a directional light needs:
+  // the camera is pinned behind the King looking north (`updateCamera`), so a world direction is a
+  // camera-relative one and this does not have to follow him the way the sun does.
+  //
+  // IT IS ON THE FAR SIDE, and #187 suggested the near one -- "low behind the camera", (-14, 12, 30).
+  // Built both and looked: a light behind the camera lights the faces TURNED TOWARD THE LENS, which
+  // is a cool fill. At 0.9 it lifts the whole frame a little and separates nothing, because the
+  // surfaces it brightens are the ones already facing you. An edge needs the light behind the SUBJECT,
+  // grazing the faces turned away, so that what the camera catches is the lip where they turn. Same
+  // light, same cost, opposite side: (-14, 9, -30). The ticket's goal is the one that was followed.
+  //
+  // `castShadow` STAYS FALSE, and not only to save the second map. Three sorts lights so that shadow
+  // casters come first (`shadowCastingAndTexturingLightsFirst`), so the sun is directional light 0
+  // and this is 1, in every mode and whatever order they were added -- which is what lets the band
+  // hook in models.js quantise the SUN and leave this one a continuous lip. See the note there.
+  const rim = new THREE.DirectionalLight(0x9fc4ff, 0.42);
+  rim.position.set(-14, 9, -30);
+  rim.castShadow = false;
+  scene.add(rim);
+  scene.add(rim.target);
+  return { sun, hemi, rim };
 }

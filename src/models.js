@@ -39,6 +39,7 @@ uniform vec3 uBandVal;
 uniform float uBandSoft;
 uniform float uBandFill;
 float crBandLit = 1.0;
+float crBandOn = 1.0;
 float crBand( float t ) {
   float a = smoothstep( uBandEdge.x - uBandSoft, uBandEdge.x + uBandSoft, t );
   float b = smoothstep( uBandEdge.y - uBandSoft, uBandEdge.y + uBandSoft, t );
@@ -49,8 +50,26 @@ float crBand( float t ) {
 const DOTNL = 'float dotNL = saturate( dot( geometryNormal, directLight.direction ) );';
 const BANDED_PHYSICAL = THREE.ShaderChunk.lights_physical_pars_fragment.replace(
   DOTNL,
-  `float dotNL = crBand( saturate( dot( geometryNormal, directLight.direction ) ) );
-	crBandLit = clamp( dotNL / max( uBandVal.z, 0.001 ), 0.0, 1.0 );`,
+  `float rawNL = saturate( dot( geometryNormal, directLight.direction ) );
+	float dotNL = mix( rawNL, crBand( rawNL ), crBandOn );
+	if ( crBandOn > 0.5 ) crBandLit = clamp( dotNL / max( uBandVal.z, 0.001 ), 0.0, 1.0 );`,
+);
+// #187: WHICH LIGHT GETS BANDED. The rim light has to stay a thin CONTINUOUS lip -- a rim that is
+// itself quantised is just a second lit band on the far edge of everything, which is not what a rim
+// is for. `RE_Direct_Physical` runs once per directional light and cannot tell them apart, so the
+// loop sets the flag on its way past, and `UNROLLED_LOOP_INDEX == 0` is the sun: three sorts lights
+// so that shadow casters come first (`shadowCastingAndTexturingLightsFirst`, three.module.js), the
+// sun is the only caster, and that holds in every mode and whatever order they were added --
+// including on a phone, where the shadow MAP is off but `sun.castShadow` is still true.
+//
+// `getDirectionalLightInfo` is the anchor because it appears only in the directional loop; the
+// `RE_Direct(...)` line below it is shared with the point and spot loops, which would set the flag
+// for lights this knows nothing about.
+const DIR_INFO = 'getDirectionalLightInfo( directionalLight, directLight );';
+const BANDED_BEGIN = THREE.ShaderChunk.lights_fragment_begin.replace(
+  DIR_INFO,
+  `${DIR_INFO}
+		crBandOn = ( UNROLLED_LOOP_INDEX == 0 ) ? 1.0 : 0.0;`,
 );
 // ONE SHARED UNIFORM OBJECT, the way `swayUniform` is shared: both banded materials are handed the
 // same objects, so there is one place to change a band and nothing to keep in step.
@@ -63,7 +82,8 @@ export const bandUniforms = {
 // Whether three's chunk still contains the line this patches. If it ever does not, the replace above
 // is a silent no-op and the game renders un-banded with no error anywhere -- so it is a value a check
 // can assert rather than something anyone has to notice.
-export const BAND_AVAILABLE = THREE.ShaderChunk.lights_physical_pars_fragment.includes(DOTNL);
+export const BAND_AVAILABLE = THREE.ShaderChunk.lights_physical_pars_fragment.includes(DOTNL)
+  && THREE.ShaderChunk.lights_fragment_begin.includes(DIR_INFO);
 
 // Band a material IN PLACE, keeping whatever hook it already had.
 //
@@ -91,6 +111,7 @@ export function band(m, tag = 'band') {
     shader.fragmentShader = before
       .replace('#include <common>', `#include <common>${BAND_GLSL}`)
       .replace('#include <lights_physical_pars_fragment>', BANDED_PHYSICAL)
+      .replace('#include <lights_fragment_begin>', BANDED_BEGIN)
       // after, not before: `lights_fragment_end` is where `RE_IndirectDiffuse` runs, so this is the
       // first point at which there is an indirect term to pull down.
       .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>

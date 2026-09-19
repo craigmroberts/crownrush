@@ -230,18 +230,21 @@ export const ViewMethods = {
     // A colour that has only ever meant one thing cannot do that.
     const blood = this.bloodSky ?? (this.night && (this.wave === 1 || (this.wave > 0 && this.wave % CFG.waves.bossEvery === 0)));
     const keys = blood ? [
-      // THE BLOOD SET IS UNCHANGED BY #194, deliberately -- it is the twin of the one below and the
+      // #187 gave every row a `rimI` and this set keeps its own, steady at 0.46 through the night
+      // rather than climbing to the 0.70 an ordinary dusk gets. The rim takes its colour from the
+      // sky, so under a red sky it is a RED edge -- which is the point, and a strong one would start
+      // to look like a second sun. THE BLOOD SET IS UNCHANGED BY #194, deliberately -- it is the twin of the one below and the
       // whole point of it is to be told apart from an ordinary night at a glance. `hemiI` is new on
       // every row and every row carries 1.45, which is the fixed value the hemisphere had before
       // there was a column for it. Driven at every phase in 0.02 steps against a build from before
       // the change, all ten light values match at all fifty: this renders what it rendered.
-      { p: 0.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x89bd55, exp: 1.22, h: 34, tint: 0xffffff, hemiI: 1.45 },
-      { p: 0.3, sun: 0xffffff, sunI: 1.42, sky: 0xffffff, ground: 0x9ec97a, fog: 0x90c45c, exp: 1.26, h: 42, tint: 0xffffff, hemiI: 1.45 },
-      { p: 0.52, sun: 0xffb36a, sunI: 1.25, sky: 0xffd9b0, ground: 0x7a9a5a, fog: 0x7fae4f, exp: 1.15, h: 20, tint: 0xffe4c8, hemiI: 1.45 },
-      { p: 0.62, sun: 0xff7a5a, sunI: 1.0, sky: 0xffb0a0, ground: 0x7a4a42, fog: 0x8a4038, exp: 1.06, h: 14, tint: 0xffc8be, hemiI: 1.45 },
-      { p: 0.74, sun: 0xff8a76, sunI: 1.0, sky: 0xe09a90, ground: 0x7a4040, fog: 0x8f3a34, exp: 1.06, h: 11, tint: 0xf5bdb2, hemiI: 1.45 },
-      { p: 0.94, sun: 0xff8a76, sunI: 1.0, sky: 0xe09a90, ground: 0x7a4040, fog: 0x8f3a34, exp: 1.06, h: 11, tint: 0xf5bdb2, hemiI: 1.45 },
-      { p: 1.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x89bd55, exp: 1.22, h: 34, tint: 0xffffff, hemiI: 1.45 },
+      { p: 0.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x89bd55, exp: 1.22, h: 34, tint: 0xffffff, hemiI: 1.45, rimI: 0.42 },
+      { p: 0.3, sun: 0xffffff, sunI: 1.42, sky: 0xffffff, ground: 0x9ec97a, fog: 0x90c45c, exp: 1.26, h: 42, tint: 0xffffff, hemiI: 1.45, rimI: 0.38 },
+      { p: 0.52, sun: 0xffb36a, sunI: 1.25, sky: 0xffd9b0, ground: 0x7a9a5a, fog: 0x7fae4f, exp: 1.15, h: 20, tint: 0xffe4c8, hemiI: 1.45, rimI: 0.46 },
+      { p: 0.62, sun: 0xff7a5a, sunI: 1.0, sky: 0xffb0a0, ground: 0x7a4a42, fog: 0x8a4038, exp: 1.06, h: 14, tint: 0xffc8be, hemiI: 1.45, rimI: 0.46 },
+      { p: 0.74, sun: 0xff8a76, sunI: 1.0, sky: 0xe09a90, ground: 0x7a4040, fog: 0x8f3a34, exp: 1.06, h: 11, tint: 0xf5bdb2, hemiI: 1.45, rimI: 0.46 },
+      { p: 0.94, sun: 0xff8a76, sunI: 1.0, sky: 0xe09a90, ground: 0x7a4040, fog: 0x8f3a34, exp: 1.06, h: 11, tint: 0xf5bdb2, hemiI: 1.45, rimI: 0.46 },
+      { p: 1.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x89bd55, exp: 1.22, h: 34, tint: 0xffffff, hemiI: 1.45, rimI: 0.42 },
     ] : [
       // #194: DUSK SHIFTS COLOUR RATHER THAN DRAINING IT, and the three rows from 0.52 are the whole
       // of that. What was there read as somebody turning the lights down: every term went cool and
@@ -300,14 +303,14 @@ export const ViewMethods = {
       // The sun passes through a salmon at about 0.70, on the way from amber to the night's pale
       // blue. Allowed, and looked at: the fill and the fog are deep violet by then, so it reads as the
       // last warm light on a cold field. Not mistakable for the blood moon, whose fog is red.
-      { p: 0.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x89bd55, exp: 1.22, h: 34, tint: 0xffffff, hemiI: 1.45 },
-      { p: 0.3, sun: 0xffffff, sunI: 1.42, sky: 0xffffff, ground: 0x9ec97a, fog: 0x90c45c, exp: 1.26, h: 42, tint: 0xffffff, hemiI: 1.45 },
-      { p: 0.52, sun: 0xffa84e, sunI: 1.45, sky: 0xf2dccb, ground: 0x7a9a5a, fog: 0x7fae4f, exp: 1.12, h: 20, tint: 0xffe8d4, hemiI: 1.55 },
-      { p: 0.62, sun: 0xff9440, sunI: 1.95, sky: 0xaebdf4, ground: 0x52719a, fog: 0x6f6aa8, exp: 0.98, h: 14, tint: 0xf4eae4, hemiI: 1.80 },
-      { p: 0.68, sun: 0xfd9c4f, sunI: 1.35, sky: 0x8b9fe9, ground: 0x435f8a, fog: 0x4d519a, exp: 1.00, h: 12.5, tint: 0xe6e3ee, hemiI: 2.05 },
-      { p: 0.74, sun: 0xa8bcff, sunI: 0.92, sky: 0x9fb0e8, ground: 0x44607e, fog: 0x3c6389, exp: 1.02, h: 11, tint: 0xc0ccec, hemiI: 1.45 },
-      { p: 0.94, sun: 0xa8bcff, sunI: 0.92, sky: 0x9fb0e8, ground: 0x44607e, fog: 0x3c6389, exp: 1.02, h: 11, tint: 0xc0ccec, hemiI: 1.45 },
-      { p: 1.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x89bd55, exp: 1.22, h: 34, tint: 0xffffff, hemiI: 1.45 },
+      { p: 0.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x89bd55, exp: 1.22, h: 34, tint: 0xffffff, hemiI: 1.45, rimI: 0.42 },
+      { p: 0.3, sun: 0xffffff, sunI: 1.42, sky: 0xffffff, ground: 0x9ec97a, fog: 0x90c45c, exp: 1.26, h: 42, tint: 0xffffff, hemiI: 1.45, rimI: 0.38 },
+      { p: 0.52, sun: 0xffa84e, sunI: 1.45, sky: 0xf2dccb, ground: 0x7a9a5a, fog: 0x7fae4f, exp: 1.12, h: 20, tint: 0xffe8d4, hemiI: 1.55, rimI: 0.55 },
+      { p: 0.62, sun: 0xff9440, sunI: 1.95, sky: 0xaebdf4, ground: 0x52719a, fog: 0x6f6aa8, exp: 0.98, h: 14, tint: 0xf4eae4, hemiI: 1.80, rimI: 0.70 },
+      { p: 0.68, sun: 0xfd9c4f, sunI: 1.35, sky: 0x8b9fe9, ground: 0x435f8a, fog: 0x4d519a, exp: 1.00, h: 12.5, tint: 0xe6e3ee, hemiI: 2.05, rimI: 0.70 },
+      { p: 0.74, sun: 0xa8bcff, sunI: 0.92, sky: 0x9fb0e8, ground: 0x44607e, fog: 0x3c6389, exp: 1.02, h: 11, tint: 0xc0ccec, hemiI: 1.45, rimI: 0.42 },
+      { p: 0.94, sun: 0xa8bcff, sunI: 0.92, sky: 0x9fb0e8, ground: 0x44607e, fog: 0x3c6389, exp: 1.02, h: 11, tint: 0xc0ccec, hemiI: 1.45, rimI: 0.42 },
+      { p: 1.0, sun: 0xfff1d6, sunI: 1.3, sky: 0xfff8ea, ground: 0x8fb86a, fog: 0x89bd55, exp: 1.22, h: 34, tint: 0xffffff, hemiI: 1.45, rimI: 0.42 },
     ];
     // dayPhase is advanced by updateWaves, which owns the clock; this only paints it
     const ph = this.dayPhase;
@@ -326,6 +329,16 @@ export const ViewMethods = {
     this.hemi.color.copy(lerpC(a.sky, b.sky));
     this.hemi.groundColor.copy(lerpC(a.ground, b.ground));
     this.hemi.intensity = a.hemiI + (b.hemiI - a.hemiI) * t;
+    // #187: THE RIM TAKES ITS COLOUR FROM THE SKY, which is what it physically is -- light off the
+    // sky behind the camera. One column (`rimI`) rather than two, and the derivation is the reason:
+    // at noon the sun is white and there is no warm/cool contrast to have, while at dusk the sun is
+    // amber and the sky is blue, so the split the rim exists to make arrives exactly when it is
+    // wanted and composes with #194 for nothing. Under the blood moon the sky is red, so the rim goes
+    // red with it and the night keeps its one colour instead of growing a blue edge it should not
+    // have. Pushed a little past the sky's own saturation, because a rim that is the same colour as
+    // the fill is not a rim.
+    this.rim.color.copy(this.hemi.color).lerp(this._rimCool || (this._rimCool = new THREE.Color(0x9fc4ff)), 0.34);
+    this.rim.intensity = a.rimI + (b.rimI - a.rimI) * t;
     this.scene.fog.color.copy(lerpC(a.fog, b.fog));
     this.scene.background.copy(this.scene.fog.color);
     this.renderer.toneMappingExposure = a.exp + (b.exp - a.exp) * t;
@@ -368,6 +381,10 @@ export const ViewMethods = {
       this.sun.intensity *= 1 - 0.6 * w;
       this.sun.color.lerp(c.setHex(0xcdd6e0), w * 0.8);
       this.hemi.intensity *= 1 + 0.25 * w;
+      // #187: the rim is sky light, so a shower lifts it for the same reason it lifts the hemisphere
+      // -- an overcast sky is flatter, not darker -- and its colour goes grey with everything else.
+      this.rim.intensity *= 1 + 0.2 * w;
+      this.rim.color.lerp(c.setHex(0xb2bfcb), w * 0.8);
       this.hemi.color.lerp(c.setHex(0xb2bfcb), w * 0.8);
       this.hemi.groundColor.lerp(c.setHex(0x5b6d64), w * 0.6);
       this.scene.fog.color.lerp(c.setHex(0x9aa8ad), w * 0.85);

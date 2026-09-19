@@ -63,9 +63,10 @@ export class Game {
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(48, 1, 0.5, 200);
     this.input = new Input(canvas);
-    const { sun, hemi } = setupLights(this.scene);
+    const { sun, hemi, rim } = setupLights(this.scene);
     this.sun = sun;
     this.hemi = hemi;
+    this.rim = rim;   // #187: the cool edge light, keyed with the day in `updateDaylight`
     // #81: what the sky is worth when it is dry. updateDaylight writes the sun, the hemisphere and
     // the exposure every frame, so rain can just scale those on its way past -- but these three it
     // never touches, so something has to remember them to put them back. Read off the lights rather
