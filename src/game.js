@@ -362,6 +362,47 @@ export class Game {
     return freed;
   }
 
+  // #200: which feet the grass is told about. Four slots, and the choice of which four is the only
+  // decision here -- the shader cost is the same whether they are useful or not.
+  //
+  // The King always takes the first, because he is the one the player is watching and the grass
+  // window is centred on him anyway (#191). Wren takes the second when she is out, because she is
+  // always beside him and always looked at. The last two go to whoever else is NEAREST HIM rather
+  // than nearest the camera: a raider closing on the King is the thing in frame, and at the distance
+  // the rest of the field sits at, a parted clump is a pixel.
+  //
+  // Written into the existing vectors rather than replacing them, because the shader holds these
+  // objects. Unused slots are parked far away instead of counted -- see the note in models.js on why
+  // the loop has no count.
+  updateGrassFeet() {
+    const f = this.world && this.world.feet && this.world.feet.value;
+    if (!f) return;
+    const k = this.king.mesh.position;
+    f[0].set(k.x, 0, k.z);
+    let n = 1;
+    if (n < f.length && this.queen && !this.queen.captive && !this.queen.inKeep) {
+      const q = this.queen.mesh.position;
+      f[n++].set(q.x, 0, q.z);
+    }
+    // One pass for the nearest, rather than sorting every character on the field every frame.
+    let bestA = null, bestB = null, dA = Infinity, dB = Infinity;
+    for (const list of [this.units, this.enemies]) {
+      for (const u of list) {
+        if (u === this.king || !u.mesh) continue;
+        const p = u.mesh.position;
+        const d = (p.x - k.x) * (p.x - k.x) + (p.z - k.z) * (p.z - k.z);
+        if (d > 400) continue;                      // 20 units out: nothing the eye can see part
+        if (d < dA) { dB = dA; bestB = bestA; dA = d; bestA = p; }
+        else if (d < dB) { dB = d; bestB = p; }
+      }
+    }
+    for (const p of [bestA, bestB]) {
+      if (n >= f.length) break;
+      if (p) f[n++].set(p.x, 0, p.z);
+    }
+    for (; n < f.length; n++) f[n].set(9999, 0, 9999);
+  }
+
   // ---------- lifecycle ----------
   reset() {
     this.camLock = this.camLock || 0;   // #178: a `?view=` camera survives a restart and a resize
@@ -1186,6 +1227,7 @@ export class Game {
       }
     }
     this.world.focus.copy(this.king.mesh.position);
+    this.updateGrassFeet();   // #200
     // #81: the weather clock stops when the game does, the way the day clock already does, and it
     // does not start until the Queen is home. updateDaylight reads the level it leaves behind, so
     // this has to run before it.

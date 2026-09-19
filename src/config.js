@@ -558,6 +558,11 @@ export const CFG = {
   ground: {
     cell: 8, radius: 6, full: 0.55, edge: 0.1, fillPerFrame: 3, fill: 1,
     spread: 3.8, clumped: 0.55, patches: 3,
+    // #200: the grass noticing feet. PLACEHOLDER until it has been looked at -- see the README.
+    // `radius` is how far from a foot a clump leans; `push` is how far its TIP moves, against the
+    // 0.14 the wind already moves it, so a number near 0.5 is several times the wind and should be
+    // obvious. The root never moves: this material is `rooted` and that is the whole point of it.
+    feet: { radius: 1.1, push: 0.5 },
     // A clover patch is a metre and a half across and half the cells have one, which is what makes it
     // read as a plant that spreads rather than as confetti. Stones come in groups of six to eight in
     // two cells out of five. `flowerChance` is per tuft: 900 flowers against 13,000 tufts is 6.9%,

@@ -146,21 +146,51 @@ export function mat(color, opts = {}) {
   return matCache.get(key);
 }
 // vertex-shader sway for grass and crops: bends with height, phase from the instance position
+// #200: THE FEET THE GRASS NOTICES. Four world positions, and the count is the whole cost decision:
+// this loop runs per VERTEX on 13,000 instanced clumps, so every slot is paid for on every blade
+// whether anything is standing in it or not. Four is the King, Wren and two of whoever is nearest;
+// the grass window already follows the King (#191), so the feet that matter are the ones in it.
+//
+// Unused slots are parked far away rather than counted, because a length test is cheaper than a
+// branch and a uniform int would make the loop dynamic. `CFG.ground.feet` holds the tuning.
+const FEET = 4;
+let feetUniform = { value: new Array(FEET).fill(0).map(() => new THREE.Vector3(9999, 0, 9999)) };
+// Read once at module load, not per frame: these are a look, not a thing the game tunes at runtime.
+const feetRadius = { value: CFG.ground.feet.radius };
+const feetPush = { value: CFG.ground.feet.push };
+export const FEET_SLOTS = FEET;
+export function setFeetUniform(u) {
+  feetUniform = u;
+}
 let swayUniform = { value: 0 };
 export function setSwayUniform(u) {
   swayUniform = u;
 }
-export function swayMaterial(color) {
+// `feet` is opt-in because it is not free: the wheat sways too and nobody walks through a field the
+// way they walk through the lawn the King is standing on. An opt-in also has to move the cache key,
+// or a wheat material and a grass one compile to matching defines with different hooks, which is
+// #155 for the fourth time.
+export function swayMaterial(color, opts = {}) {
+  const feet = !!opts.feet;
   const m = new THREE.MeshStandardMaterial({ color, roughness: 0.9, flatShading: true });
   // Same guard, and this one has been exposed the whole time: `matFlat` also makes a flat-shaded
   // MeshStandardMaterial with no vertex colours, so the defines match and the grass could be handed a
   // program compiled for a rock. Roughness and colour are uniforms rather than defines, so they do
   // not separate them. It has evidently been winning the race; it should not have to.
-  m.customProgramCacheKey = () => 'sway';
+  m.customProgramCacheKey = () => (feet ? 'sway-feet' : 'sway');
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uSway = swayUniform;
+    if (feet) {
+      shader.uniforms.uFeet = feetUniform;
+      shader.uniforms.uFeetR = feetRadius;
+      shader.uniforms.uFeetPush = feetPush;
+      // Left where a check can reach it, the way `band` leaves `bandedShader` as proof the patch
+      // landed. Toggling this is how the effect is measured without recompiling anything: a program
+      // that changes between the two reads would make the comparison meaningless.
+      m.userData.feetPush = feetPush;
+    }
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nuniform float uSway;')
+      .replace('#include <common>', `#include <common>\nuniform float uSway;${feet ? `\nuniform vec3 uFeet[${FEET}];\nuniform float uFeetR;\nuniform float uFeetPush;` : ''}`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         #ifdef USE_INSTANCING
           float ph = instanceMatrix[3].x * 0.7 + instanceMatrix[3].z * 0.9;
@@ -169,7 +199,34 @@ export function swayMaterial(color) {
         #endif
         float bend = max(transformed.y, 0.0);
         transformed.x += sin(uSway * 1.7 + ph) * 0.14 * bend;
-        transformed.z += cos(uSway * 1.3 + ph * 1.3) * 0.06 * bend;`);
+        transformed.z += cos(uSway * 1.3 + ph * 1.3) * 0.06 * bend;${feet ? `
+        // #200: parted, not flattened. The tip is pushed AWAY from a foot and the root stays where
+        // it is -- bend is already the height up the blade, which is the whole reason this material
+        // is called rooted. No backticks in here: this is a template literal and one closes it, which
+        // is the third time that has bitten in this file's neighbourhood.
+        // Pushing outward reads as grass being shouldered aside; bending it down
+        // reads as trampling, and trampling wants to spring back, which needs state a vertex shader
+        // does not have. So it recovers on distance alone: walk away and the blade is upright again.
+        //
+        // The clump's own base in world space, not the vertex: every blade in a clump leans together,
+        // which is what a tuft does, and it costs one matrix multiply instead of one per blade.
+        #ifdef USE_INSTANCING
+          vec2 root = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xz;
+        #else
+          vec2 root = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xz;
+        #endif
+        vec2 shove = vec2(0.0);
+        for (int i = 0; i < ${FEET}; i++) {
+          vec2 d = root - uFeet[i].xz;
+          float r2 = dot(d, d);
+          // A hand-rolled divide rather than normalize, and the epsilon is not decoration: a blade
+          // standing exactly under a foot normalises a zero vector and every vertex of it goes NaN.
+          if (r2 < uFeetR * uFeetR && r2 > 1e-6) {
+            float r = sqrt(r2);
+            shove += (d / r) * (1.0 - smoothstep(0.0, uFeetR, r));
+          }
+        }
+        transformed.xz += shove * uFeetPush * bend;` : ''}`);
   };
   return m;
 }

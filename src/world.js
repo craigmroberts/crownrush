@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CFG, MAP, TIERS, NODES, PADS } from './config.js';
 import {
-  mat, matFlat, swayMaterial, setSwayUniform, makeTree, makeBush, makeRock, makeSpikes, makeCliff, makePeak, makeBridge, makeHayBale, makeWheatField, mergeGroup,
+  mat, matFlat, swayMaterial, setSwayUniform, setFeetUniform, FEET_SLOTS, makeTree, makeBush, makeRock, makeSpikes, makeCliff, makePeak, makeBridge, makeHayBale, makeWheatField, mergeGroup,
   band,
 } from './models.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -480,6 +480,11 @@ export function buildWorld(scene, soleShadows = false) {
   const rand = rng(1337);
   const world = { river: null, bridges: [], crossings: [], roads: [], paths: [], fields: [], foam: [], time: 0, sway: { value: 0 }, flowerSpots: [], focus: new THREE.Vector3() };
   setSwayUniform(world.sway);
+  // #200: the feet the grass parts around, shared the way the sway uniform is. Parked far away so a
+  // world with nothing walking in it displaces nothing; the game writes into these vectors in place
+  // rather than replacing the array, because the shader holds the same objects.
+  world.feet = { value: new Array(FEET_SLOTS).fill(0).map(() => new THREE.Vector3(9999, 0, 9999)) };
+  setFeetUniform(world.feet);
 
   // ---- ground ----
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshStandardMaterial({ map: groundTexture(), color: 0xffffff, roughness: 1 }));
@@ -1059,9 +1064,13 @@ export function buildWorld(scene, soleShadows = false) {
   // Its own cache key, for the reason the note on `swayMaterial` gives: this material now compiles
   // with `USE_INSTANCING_COLOR` and the wheat's does not, and the difference between two shaders
   // being handed the same program is silent.
-  const tufts = new THREE.InstancedMesh(tuftGeo, swayMaterial(0xffffff), TUFTS);
+  // #200: the tufts are the set that notices feet, and the wheat is not. A field is walked past; the
+  // lawn the King is standing on is walked THROUGH, and the loop is paid for per vertex on whichever
+  // set opts in. The key moves with it -- `bands-hooked` matches on the prefix, so it still finds
+  // this material, and the wheat's plain 'sway' can no longer collide with it.
+  const tufts = new THREE.InstancedMesh(tuftGeo, swayMaterial(0xffffff, { feet: true }), TUFTS);
   tufts.material.vertexColors = true;   // #162: the root darkening above
-  tufts.material.customProgramCacheKey = () => 'sway-tinted-rooted';
+  tufts.material.customProgramCacheKey = () => 'sway-tinted-rooted-feet';
   // #185: the same bands as the ground, from the same uniforms, so the two surfaces step together.
   // `band` chains the sway hook rather than replacing it, and the key becomes
   // 'sway-tinted-rooted+band'. The wheat's `swayMaterial` is a different instance and is untouched:
