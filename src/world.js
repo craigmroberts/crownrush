@@ -1507,9 +1507,24 @@ export function buildWorld(scene, soleShadows = false) {
     g.computeVertexNormals();
     return g;
   })();
+  // #190: ONE BODY FOR EVERY BIRD THERE WILL EVER BE, the way the wings next to it have always
+  // shared theirs. This was `new THREE.SphereGeometry(0.11, 5, 4)` per bird, and a flock is removed
+  // by unparenting it -- `life.remove(b)` -- which frees nothing. A geometry that has been uploaded
+  // and never disposed is held by the renderer's own map for the life of the page, so every bird
+  // that had crossed the sky was still resident on the GPU.
+  //
+  // Named by counting creation stacks up on construction and down on dispose: it is the one site
+  // that grew block on block under a churn harness, 4 -> 8 -> 8 -> 12 across sixteen hundred
+  // raiders. It had looked like a raider leak for exactly the wrong reason -- raiders were only what
+  // was driving the clock, and `birdTimer` is what spawns on it. At a flock every 14 to 26 seconds
+  // and three to five birds in each, a half-hour run on a phone leaves a few hundred behind.
+  //
+  // Sharing rather than disposing, because the body is the same 40-triangle sphere every time and
+  // `body.scale` is set on the MESH, so nothing about a bird is in its geometry.
+  const BIRD_BODY_GEO = new THREE.SphereGeometry(0.11, 5, 4);
   function makeBird() {
     const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.SphereGeometry(0.11, 5, 4), birdBody);
+    const body = new THREE.Mesh(BIRD_BODY_GEO, birdBody);
     body.scale.set(0.8, 0.6, 1.9);
     g.add(body);
     const wings = [];
