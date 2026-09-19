@@ -72,6 +72,7 @@ class Audio {
     this.lastHit = 0;
     this.lastChing = 0;
     this.lastHurt = 0;
+    this.lastTap = 0;
     this.events = [];
     this.nightOn = false;
     this.active = true;   // does the game want sound right now (see setActive)
@@ -778,6 +779,38 @@ class Audio {
     if (!this.ready()) return;
     const t = this.now;
     ['E4', 'C4', 'A3', 'F3'].forEach((n, i) => this.tone({ f: freq(n), t: t + i * 0.3, dur: 0.45, type: 'triangle', gain: 0.18, attack: 0.01, release: 0.3, lp: 2000 }));
+  }
+  // #197: the interface, which had no voice at all. There are 58 click handlers in `src/` and `hud.js`
+  // never called this file once -- so every button in the game was silent against a world that is
+  // not, which reads as unfinished in a way that is hard to point at.
+  //
+  // TWO SOUNDS, NOT FIFTY-EIGHT, and the line between them is whether the press COMMITS to something:
+  // `tap` is a press, `confirm` is a choice taken. A distinct noise per button is how an interface
+  // becomes noisy -- and worse, it teaches nothing, because a sound only means something while it is
+  // rare. Both sit well under the world's gains (0.05 and 0.07 against `hit`'s 0.22) because the UI
+  // is tapped far more often than the world is hit, and neither may ever compete with the alarm.
+  //
+  // They route through `tone`'s default bus like everything else, which is what makes them obey
+  // `setSfxVolume`, `setMuted` and the settings sheet without a line of their own.
+  tap() {
+    // Rate-limited for the same reason `hit` is: a fast double tap, or a drag that the browser
+    // reports as two pointerdowns, should be one click and not a flam.
+    if (!this.ready() || this.now - this.lastTap < 0.04) return;
+    this.lastTap = this.now;
+    const t = this.now;
+    // A falling blip and a breath of high noise -- a click rather than a note. A FIXED PITCH was
+    // tried first and is wrong here: at this rate the ear starts predicting the next one, and a
+    // sound you can predict stops being heard. Sliding it down keeps it a physical knock.
+    this.tone({ f: 620, slideTo: 380, t, dur: 0.045, type: 'triangle', gain: 0.05, attack: 0.001, release: 0.035, lp: 3000 });
+    this.noise({ t, dur: 0.025, gain: 0.03, type: 'highpass', f: 2600 });
+  }
+  confirm() {
+    if (!this.ready()) return;
+    const t = this.now;
+    // Up a fourth. Smaller than that and it reads as a second tap rather than an answer; bigger and
+    // it starts to be a fanfare, and `unlock` is already the fanfare.
+    this.tone({ f: freq('C5'), t, dur: 0.07, type: 'triangle', gain: 0.07, attack: 0.002, release: 0.05, lp: 4000 });
+    this.tone({ f: freq('F5'), t: t + 0.055, dur: 0.16, type: 'triangle', gain: 0.07, attack: 0.002, release: 0.12, lp: 4000 });
   }
 }
 

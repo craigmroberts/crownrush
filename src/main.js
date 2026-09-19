@@ -748,6 +748,31 @@ syncSound();
 // browsers only allow sound after a user gesture; catch the first one anywhere
 window.addEventListener('pointerdown', () => audio.init(), { once: true });
 
+// #197: the interface's voice, in ONE listener rather than in fifty-eight handlers.
+//
+// Delegated at the document in the CAPTURE phase, for two reasons. The horn and banner buttons call
+// `stopPropagation` on pointerdown so the canvas under them does not start walking the King, and a
+// bubbling listener would never hear either of them. And capture means a button added anywhere later
+// is audible without anybody remembering to wire it -- which is the failure mode that left 58
+// handlers silent in the first place.
+//
+// `pointerdown` rather than `click`, because the sound belongs with the finger going down; a click
+// sound that waits for the release feels like lag. It is also the gesture iOS unlocks audio inside,
+// which is what the line above is for -- that one bubbles at the window, so on the very FIRST press
+// of a session the context does not exist yet and `ready()` is false. The first tap of a page load is
+// silent and cannot not be: it is the gesture that creates the context.
+//
+// Two sounds, and the split is whether the press commits to something. A reward card is a choice and
+// a `.primary` button is the panel's one real action (Play, New run, Next); everything else -- tabs,
+// closes, settings rows, the pause corner -- is a press. `data-sfx="off"` opts an element out, and
+// the horn and banner use it because they answer with a horn and a banner.
+document.addEventListener('pointerdown', (e) => {
+  const b = e.target.closest && e.target.closest('button, [role="button"]');
+  if (!b || b.disabled || b.dataset.sfx === 'off') return;
+  if (b.classList.contains('offer-card') || b.classList.contains('primary')) audio.confirm();
+  else audio.tap();
+}, true);
+
 // #74: every size the page can be asked for, on one line. The green bands at the top and bottom of
 // the iOS home-screen app are a drawing buffer that does not cover the screen, and which of these
 // comes back short is the whole question -- one that a headless browser cannot answer, because it has

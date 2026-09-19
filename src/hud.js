@@ -31,6 +31,60 @@ export const SPEAKERS = {
 // array is set to. Change one and change the other.
 const RING_C = 106.81;
 
+// #197: a counter that RUNS to its value instead of snapping to it. It is the one place the game
+// changed a number the player earned and did not acknowledge it -- and the coin already flies to the
+// counter (`flyCoins`), so the arc was ending in nothing, which is worse than not having the arc.
+//
+// The rule it has to obey is `Hud.set`'s: that method runs every frame and dirty-checks everything it
+// writes, so a tally cannot be a per-frame DOM write bolted into that path. This holds its own state,
+// writes ONLY on the frame the displayed integer actually changes, and goes quiet the moment it
+// arrives. Idle, it costs nothing at all -- see `pump`, which stops rather than idling.
+//
+// It runs on WALL TIME, not the game's `dt`. A counter is interface, not simulation: it should take
+// the same third of a second at 12fps as at 60, `dt` is capped at 0.05, and the end-of-run box has to
+// tally on a screen where the game loop has stopped entirely.
+class Tally {
+  // `min` is the smallest jump worth animating, and it is why a coin at a time still feels instant:
+  // a one-step tally is a snap with machinery around it. `dur` is the whole run, eased out so it
+  // settles onto the number rather than stopping dead on it.
+  constructor(el, { dur = 0.34, min = 2, fmt = String, pump = null } = {}) {
+    this.el = el;
+    this.dur = dur;
+    this.min = min;
+    this.fmt = fmt;
+    this.pumpFn = pump;
+    this.target = null;   // null means nothing has been asked for yet, so the first value snaps
+    this.shown = null;    // what is actually on the element, which is where the dirty check lives
+    this.from = 0;
+    this.t0 = -1;         // -1 is "not moving", and is what `pump` watches
+  }
+  to(n, snap = false) {
+    if (!this.el || n === this.target) return;
+    const first = this.target === null;
+    this.target = n;
+    if (snap || first || Math.abs(n - (this.shown === null ? n : this.shown)) < this.min) {
+      this.t0 = -1;
+      this.write(n);
+      return;
+    }
+    this.from = this.shown;
+    this.t0 = performance.now();
+    if (this.pumpFn) this.pumpFn();
+  }
+  tick(now) {
+    if (this.t0 < 0) return;
+    const k = Math.min(1, (now - this.t0) / (this.dur * 1000));
+    const e = 1 - (1 - k) ** 3;
+    this.write(k >= 1 ? this.target : Math.round(this.from + (this.target - this.from) * e));
+    if (k >= 1) this.t0 = -1;
+  }
+  write(n) {
+    if (n === this.shown) return;
+    this.shown = n;
+    this.el.textContent = this.fmt(n);
+  }
+}
+
 // #113: one gain row, composed in one place. The level-up summary, the Keep plaque and the info
 // screen all render the rows `levelGains` returns, so the delta is assembled here or two of the three
 // drift apart the first time anyone touches it.
@@ -97,7 +151,6 @@ function TRAFFIC(f) {
 
 export class Hud {
   constructor() {
-    this.coinEl = document.getElementById('coin-count');
     this.coinIcon = document.getElementById('coin-icon');
     this.coinTier = null;
     this.levelCell = document.getElementById('level-cell');
@@ -167,6 +220,50 @@ export class Hud {
     this.lastWave = -1;
     this.lastArmy = -1;
     this.lastNext = -1;
+    // #197: the counters that run rather than jump. The order is the ticket's: what is earned
+    // constantly first, then the one screen with time to spare, then the raid bar.
+    this.tallies = [];
+    const tally = (id, opts) => {
+      const el = document.getElementById(id);
+      const t = new Tally(el, { ...opts, pump: () => this.pumpTallies() });
+      this.tallies.push(t);
+      return t;
+    };
+    this.coinTally = tally('coin-count');
+    // The bag moves by one to three at a time, so `min` leaves most of those instant and catches the
+    // armful a gleaner brings in, which is the one worth watching land.
+    this.bagTally = tally('load-now', { min: 3, dur: 0.28 });
+    // Shorter, because the raid count is TACTICAL: it is what you read to decide whether to keep
+    // fighting, and a number that is wrong for a third of a second there is a number that lied. A
+    // single kill is one step and snaps; what tallies is a wave arriving or an AoE going off.
+    this.raidTally = tally('rb-count', { min: 3, dur: 0.2 });
+    // The end-of-run box is read once and nothing is waiting on it, so it gets the long one and the
+    // thousands separators it already had.
+    const money = { dur: 0.9, min: 1, fmt: (n) => n.toLocaleString() };
+    this.finalTallies = {
+      coins: tally('final-coins', money),
+      kills: tally('final-kills', money),
+      score: tally('final-score', money),
+      best: tally('final-best', money),
+    };
+    this.pumping = false;
+  }
+  // #197: one rAF while anything is moving, and none at all when nothing is. Deliberately NOT hung
+  // off the game's frame loop: the game-over screen tallies four numbers with the loop stopped, and
+  // a tally that only runs while the world does would sit there half-finished.
+  pumpTallies() {
+    if (this.pumping) return;
+    this.pumping = true;
+    const step = (now) => {
+      let moving = false;
+      for (const t of this.tallies) {
+        t.tick(now);
+        if (t.t0 >= 0) moving = true;
+      }
+      if (moving) requestAnimationFrame(step);
+      else this.pumping = false;
+    };
+    requestAnimationFrame(step);
   }
   set(coins, wave, army, nextIn, goal, res, score, cap) {
     this.score = score;
@@ -191,8 +288,8 @@ export class Hud {
       this.levelEl.textContent = goal === 'camp' ? 'March!' : `Lv. ${lv}`;
     }
     if (coins !== this.lastCoins) {
-      this.coinEl.textContent = coins;
       this.lastCoins = coins;
+      this.coinTally.to(coins);   // #197: still dirty-checked here, and the write is inside the tally
     }
     // #119: the night is no longer printed anywhere on the field, but it is still counted -- the pause
     // panel reports it, and it is still what the raid grows on. So the argument stays and only the
@@ -227,7 +324,7 @@ export class Hud {
     const key = `${total}/${cap}`;
     if (key === this.lastLoad) return;
     this.lastLoad = key;
-    this.loadNow.textContent = total;
+    this.bagTally.to(total);
     this.setBagRing(cap > 0 ? total / cap : 0);
     // #123: a `full` class used to be toggled here and there has never been a rule for it -- the bag
     // being full is already said by the ring, which runs the traffic lights to red at the cap. Gone
@@ -657,11 +754,14 @@ export class Hud {
     // #119: a run that ended before the Keep was built has no level to report, and `Lv. 0` is not the
     // sentence to end it on -- the rescue is where it ended, so say that.
     document.getElementById('final-level').textContent = level > 0 ? `Lv. ${level}` : 'the rescue';
-    document.getElementById('final-coins').textContent = coins.toLocaleString();
-    document.getElementById('final-kills').textContent = kills.toLocaleString();
-    document.getElementById('final-score').textContent = score.toLocaleString();
-    document.getElementById('final-best').textContent = best.toLocaleString();
+    // #197: the four figures count up. FROM ZERO EACH TIME, which is what the snap is for -- these
+    // elements are static markup and still hold the last run's numbers, so tallying without the reset
+    // would run from a previous run's score to this one's and report a delta nobody asked about.
+    // The screen is shown first so the tally is not racing a panel that is still easing in.
+    const finals = [['coins', coins], ['kills', kills], ['score', score], ['best', best]];
+    for (const [k] of finals) this.finalTallies[k].to(0, true);   // zeroed before the panel is shown
     this.overScreen.classList.remove('hidden');
+    for (const [k, v] of finals) this.finalTallies[k].to(v);
   }
   hideGameOver() {
     this.overScreen.classList.add('hidden');
@@ -762,7 +862,7 @@ export class Hud {
       }
       if (count !== this.raidCount) {
         this.raidCount = count;
-        (this.rbCount || (this.rbCount = document.getElementById('rb-count'))).textContent = count;
+        this.raidTally.to(count);
         el.classList.toggle('last', count <= 3);
       }
       if (night !== this.raidNight) {

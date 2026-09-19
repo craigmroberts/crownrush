@@ -168,6 +168,73 @@ export const CHEAP = {
   // once differs from an 8-bit canvas at every one of them. The answer is a RATIO. The composer is
   // compared against a direct render with ACES and against a direct render with tone mapping off,
   // and it has to be far nearer the first. That is true whatever the edges do.
+  // #197: the HUD stays quiet when nothing has changed, and the tally lands on its number.
+  //
+  // `Hud.set` runs EVERY FRAME and dirty-checks everything it writes, which is a house rule with no
+  // enforcement behind it -- and #197 put an animation inside that path, which is the one kind of
+  // thing that can break the rule without breaking anything visible. A tally that forgot to stop, or
+  // a counter that wrote its own value back every frame, would look completely normal on screen and
+  // cost a DOM write sixty times a second on the device that can least afford it.
+  //
+  // Two halves, and the first is the one that matters: the HUD's own setters are REPLAYED with the
+  // arguments the game last gave them, and a MutationObserver over the whole HUD must see zero
+  // writes. Replaying rather than watching idle frames is deliberate -- watching would pass trivially
+  // on a frozen game and flake on a running one, because the wave clock legitimately ticks. This asks
+  // the exact question the house rule answers: given the same values again, does it write again?
+  //
+  // The second half drives a tally directly with synthetic timestamps rather than waiting for it:
+  // under SwiftShader a frame is about a second and a 0.34s animation gets exactly one of them, so
+  // waiting would sample the end and prove nothing. See CLAUDE.md on wall clock not being game time.
+  async 'hud-quiet'(page, url) {
+    await boot(page, url);
+    const r = await page.evaluate(async () => {
+      const g = window.game;
+      const hud = document.getElementById('hud');
+      if (!hud || !g.hud || !g.hud.coinTally) return { skip: 'no hud tallies on this build' };
+      const spies = ['set', 'setLoad', 'setRaid'].map((name) => {
+        const real = g.hud[name].bind(g.hud);
+        const rec = { name, real, args: null };
+        g.hud[name] = (...a) => { rec.args = a; return real(...a); };
+        return rec;
+      });
+      // Two real frames, so every spied setter has been called with live values at least once.
+      for (let i = 0; i < 2; i++) await new Promise((res) => requestAnimationFrame(res));
+      await new Promise((res) => setTimeout(res, 900));   // and anything in flight arrives
+      const missed = spies.filter((sp) => !sp.args).map((sp) => sp.name);
+      const writes = [];
+      const ob = new MutationObserver((ms) => { for (const m of ms) writes.push((m.target.parentElement || m.target).id || m.target.nodeName); });
+      ob.observe(hud, { childList: true, characterData: true, subtree: true });
+      for (let i = 0; i < 10; i++) for (const sp of spies) if (sp.args) sp.real(...sp.args);
+      ob.disconnect();
+      for (const sp of spies) g.hud[sp.name] = sp.real;
+      const pumping = g.hud.pumping;
+      // The curve, driven. Monotonic, starts where it was, ends exactly on the target.
+      const t = g.hud.coinTally;
+      t.to(0, true);
+      t.to(200);
+      const t0 = t.t0, seq = [];
+      for (const ms of [0, 85, 170, 255, 340, 420]) { t.tick(t0 + ms); seq.push(t.shown); }
+      const stopped = t.t0 < 0;
+      // And a step under `min` must not animate at all -- a coin at a time has to feel instant.
+      t.to(0, true);
+      t.to(1);
+      const snapped = t.t0 < 0 && t.shown === 1;
+      return { writes, missed, pumping, seq, stopped, snapped, dur: t.dur };
+    });
+    if (r.skip) return ok(r.skip);
+    const bad = [];
+    if (r.missed.length) bad.push(`never called with live values, so nothing was replayed: ${r.missed.join(', ')}`);
+    if (r.writes.length) bad.push(`the HUD wrote ${r.writes.length} times when replayed with unchanged values (${[...new Set(r.writes)].slice(0, 6).join(', ')})`);
+    if (r.pumping) bad.push('the tally rAF is still running with nothing to animate');
+    if (r.seq[0] !== 0) bad.push(`the tally jumped to ${r.seq[0]} instead of starting where it was`);
+    if (r.seq[r.seq.length - 1] !== 200) bad.push(`the tally ended on ${r.seq[r.seq.length - 1]}, not 200`);
+    if (!r.seq.every((v, i, a) => i === 0 || v >= a[i - 1])) bad.push(`the tally is not monotonic: ${r.seq.join(' ')}`);
+    if (new Set(r.seq).size < 4) bad.push(`the tally has ${new Set(r.seq).size} distinct steps, which is a snap: ${r.seq.join(' ')}`);
+    if (!r.stopped) bad.push('the tally never stopped after reaching its target');
+    if (!r.snapped) bad.push('a one-step change started an animation instead of landing');
+    return bad.length ? no(bad) : ok(`3 setters replayed 10x with no DOM write; 0 -> 200 runs ${r.seq.join(' ')} in ${r.dur}s`);
+  },
+
   async 'post-once'(page, url) {
     await boot(page, url);
     const r = await page.evaluate(() => {

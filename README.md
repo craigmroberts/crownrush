@@ -1044,6 +1044,62 @@ Bandit is 1.29 against the grass and the Warlord 3.27. That is not new and #194 
 **Dusk shifts colour rather than draining it** for the dusk table and what moving the light costs
 each rank.
 
+## Counters run, and the interface answers (#197)
+
+Two things were missing from a catalogue that was otherwise built. The coin already flew to the
+counter, and then the counter snapped — **the arc was ending in nothing**, which is worse than not
+having the arc, because the eye has been told where to look. And there are 58 click handlers in
+`src/`; `hud.js` never called `audio.js` once, so every button in the game was silent against a world
+that is not.
+
+**The tally is its own thing, not a line in `Hud.set`.** That method runs every frame and
+dirty-checks everything it writes, and an animation is a value that changes every frame by design —
+so `Tally` holds its own state, writes **only** on the frame the displayed integer actually changes,
+and stops. It runs on **wall time**, not the game's `dt`: a counter is interface, it should take the
+same third of a second at 12fps as at 60, `dt` is capped at 0.05, and the end-of-run box has to count
+up on a screen where the frame loop has stopped entirely. One `requestAnimationFrame` runs while
+anything is moving and **none at all when nothing is**.
+
+`min` is why it still feels instant. A coin at a time is +1, and a one-step tally is a snap with
+machinery around it, so anything under the threshold lands immediately. What tallies is an armful
+from a gleaner, a purchase coming off the stack, a wave arriving. Where they are: coins and the bag
+(0.34s and 0.28s), the raid count (**0.2s**, because that number is tactical — it is what you read to
+decide whether to keep fighting, and one that is wrong for a third of a second there is one that
+lied), and the end-of-run box at 0.9s, which is read once with nothing waiting on it. Those four are
+zeroed before the panel is shown: the elements are static markup still holding the last run's
+figures, and tallying without the reset would run from a previous score to this one and report a
+delta nobody asked about.
+
+**Two sounds, not fifty-eight**, and the line between them is whether the press *commits* to
+something: `tap` is a press, `confirm` is a choice taken — a reward card, or a panel's one gold
+action. A distinct noise per button is how an interface becomes noisy, and worse, it teaches
+nothing, because a sound only means something while it is rare. Both sit well under the world's
+gains (0.05 and 0.07 against `hit`'s 0.22), because the UI is tapped far more often than the world is
+hit and neither may ever compete with the alarm. The tap slides 620 → 380 rather than holding a
+pitch: at this rate the ear starts predicting the next one, and a sound you can predict stops being
+heard.
+
+**One listener, not fifty-eight.** It is delegated at the document in the **capture** phase, for two
+reasons. The horn and banner buttons call `stopPropagation` on pointerdown so the canvas under them
+does not start walking the King, and a bubbling listener would never hear either of them; and capture
+means a button added anywhere later is audible without anybody remembering to wire it — which is the
+failure mode that left 58 handlers silent in the first place. `data-sfx="off"` opts an element out,
+and those two use it, because they answer with a horn and a banner. It is `pointerdown` rather than
+`click`, because the sound belongs with the finger going down — and because that is the gesture iOS
+unlocks audio inside. The first press of a page load is silent and cannot not be: it is the gesture
+that creates the context. Everything routes through `tone`'s default bus, which is what makes both
+obey `setSfxVolume`, `setMuted` and the settings sheet without a line of their own.
+
+**`hud-quiet` is the guard** (`npm run check`). The house rule had nothing enforcing it, and #197 put
+an animation inside the one path where breaking it is invisible: a tally that forgot to stop would
+look completely normal and cost a DOM write sixty times a second on the device that can least afford
+one. The check **replays** `set`, `setLoad` and `setRaid` with the arguments the game last gave them
+and asserts the HUD writes nothing — replaying rather than watching idle frames, which would pass
+trivially on a frozen game and flake on a running one when the wave clock legitimately ticks. Then it
+drives the curve with synthetic timestamps and asserts it starts where it was, is monotonic, has
+real steps rather than one, lands exactly on the target, stops, and that a +1 does not animate at all. Driven rather than waited for, because a SwiftShader
+frame is about a second and a 0.34s animation gets exactly one of them.
+
 ## Notices colour the half you act on
 
 A notice is usually two halves: what happened, and what to do about it. The second half is wrapped in
