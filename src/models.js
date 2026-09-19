@@ -1211,20 +1211,40 @@ export function makeRubble(length, level = 0) {
   return bake(g);
 }
 
-export function makeGate(level = 0) {
+// #201: THE GATE FILLS ITS SECTION. It used to be a fixed 4.8-wide structure dropped into a section
+// that is `gateWidth` long -- 6.2 at every tier -- which left 1.4 units of nothing, 0.7 at each end,
+// between the gate and the wall beside it. Measured on all four citadel gates: section 6.2, mesh
+// -2.4..2.4. That is the gap in the ring somebody noticed, and it was worse than cosmetic.
+//
+// `collideWalls` skips a gate entirely for anyone friendly (`friendly && w.gate`), so the passable
+// opening was the whole 6.2 while the visible one was the 3.2 between the posts. Things walked
+// through what read as wall -- and `roadWidth` is 4.2, so the road ran visibly THROUGH the posts.
+//
+// Moving the posts out to the section's own ends fixes all three at once: no gap, the road passes
+// cleanly between them, and the opening is as wide as it looks. The alternative -- keeping the posts
+// and filling the ends with wall stubs -- was rejected because it makes the mismatch worse rather
+// than better: a friendly would then walk through a piece of wall you can see.
+export function makeGate(level = 0, len = 6.2) {
   const st = WALL_STYLE[Math.min(level, WALL_STYLE.length - 1)];
   const postCol = st.pickets ? C.darkWood : st.trim;
   const beamCol = st.pickets ? C.wood : st.color;
   const g = new THREE.Group();
-  const postL = box(0.5, 3.2, 0.5, postCol, -1.85, 1.6, 0);
-  const postR = box(0.5, 3.2, 0.5, postCol, 1.85, 1.6, 0);
-  for (const x of [-1.85, 1.85]) for (const y of [0.6, 1.7, 2.8]) g.add(box(0.58, 0.14, 0.58, C.steelDark, x, y, 0));
-  const top = box(4.4, 0.45, 0.6, beamCol, 0, 3.4, 0);
-  const cap = box(4.8, 0.2, 0.8, postCol, 0, 3.7, 0);
+  // Half the span, less half a post, so a post's OUTER face lands exactly on the section's end and
+  // meets the neighbouring wall. Floored so a short gate never turns itself inside out.
+  const px = Math.max(1.1, len / 2 - 0.25);
+  const postL = box(0.5, 3.2, 0.5, postCol, -px, 1.6, 0);
+  const postR = box(0.5, 3.2, 0.5, postCol, px, 1.6, 0);
+  for (const x of [-px, px]) for (const y of [0.6, 1.7, 2.8]) g.add(box(0.58, 0.14, 0.58, C.steelDark, x, y, 0));
+  // The lintel runs post-centre to post-centre and the cap spans the section EXACTLY -- `px * 2 +
+  // 0.5` is `len`. Neither may overhang: the posts are flush with the section ends now, so anything
+  // wider reaches into the wall next door. The first version kept the old proportions and the cap
+  // came out 6.8 in a 6.2 section, which is the same fault as the gap, mirrored.
+  const top = box(px * 2, 0.45, 0.6, beamCol, 0, 3.4, 0);
+  const cap = box(px * 2 + 0.5, 0.2, 0.8, postCol, 0, 3.7, 0);
   const banner = box(0.9, 1.2, 0.08, C.blue, 0, 2.55, 0.3);
   banner.add(box(0.95, 0.1, 0.1, C.gold, 0, 0.6, 0), box(0.4, 0.2, 0.1, C.gold, 0, 0.05, 0.02), cone(0.06, 0.2, C.gold, -0.12, 0.25, 0.02, 4), cone(0.06, 0.2, C.gold, 0, 0.28, 0.02, 4), cone(0.06, 0.2, C.gold, 0.12, 0.25, 0.02, 4));
   const crest = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.26, 0.22), new THREE.MeshBasicMaterial({ color: 0xffd166 }));
-  crest.position.set(-1.85, 2.2, 0.45);
+  crest.position.set(-px, 2.2, 0.45);
   // doors standing open, swung inward
   const brace = (panel, w) => {
     const b1 = box(0.1, w * 1.3, 0.06, C.steelDark, 0, 1.2, 0.14);
@@ -1239,14 +1259,14 @@ export function makeGate(level = 0) {
   panelL.position.x = 0.75;
   brace(panelL, 1.5);
   doorL.add(panelL);
-  doorL.position.set(-1.6, 0, 0.1);
+  doorL.position.set(-(px - 0.25), 0, 0.1);
   doorL.rotation.y = -1.15;
   const doorR = new THREE.Group();
   const panelR = st.pickets ? makeFence(1.5) : box(1.5, 2.4, 0.2, beamCol, 0, 1.2, 0);
   panelR.position.x = -0.75;
   brace(panelR, 1.5);
   doorR.add(panelR);
-  doorR.position.set(1.6, 0, 0.1);
+  doorR.position.set(px - 0.25, 0, 0.1);
   doorR.rotation.y = 1.15;
   g.add(postL, postR, top, cap, banner, crest, doorL, doorR);
   return bake(g);

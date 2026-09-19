@@ -1752,7 +1752,7 @@ export const BuildMethods = {
   },
 
   makeWallMesh(sec, level = this.wallLevel) {
-    const m = sec.gate ? makeGate(level) : makeWallSegment(sec.len, level);
+    const m = sec.gate ? makeGate(level, sec.len) : makeWallSegment(sec.len, level);   // #201: a gate fills its section, like every other piece
     m.position.set(sec.mx, 0, sec.mz);
     // the pieces are modelled along +X; rotating by -ang about Y aims them down the segment
     m.rotation.y = -sec.ang;

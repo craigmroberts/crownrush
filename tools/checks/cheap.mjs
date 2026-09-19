@@ -403,7 +403,13 @@ export const CHEAP = {
         g.collideWalls(v, 0.5, true);
         const solid = Math.hypot(v.x - was.x, v.z - was.z) > 0.01;
         if (solid) continue;
-        const nearGate = gates.some((w) => Math.hypot(w.mx - x, w.mz - z) < 6);
+        // #201: THE GATEWAY ITSELF, not "anywhere near a gate". This was a flat 6-unit radius, and a
+        // gateway is only `len` long -- 6.2, so 3.1 from its centre. That left roughly three units of
+        // ring either side of every gate where a hole could not be reported, and there WAS one: the
+        // gate mesh spanned 4.8 in a 6.2 section, leaving 0.7 of nothing at each end, on all four
+        // gates, green the whole time. Half the section plus a hair is what "this is the doorway"
+        // actually means.
+        const nearGate = gates.some((w) => Math.hypot(w.mx - x, w.mz - z) < w.len / 2 + 0.6);
         if (!nearGate) holes.push(`[${x.toFixed(1)}, ${z.toFixed(1)}]`);
       }
       return { holes, gates: gates.length };
