@@ -1016,10 +1016,17 @@ export function makeTower(level = 1, material = 'wood') {
   }
   const platform = box(2.5, 0.22, 2.5, P.plank, 0, 2.6, 0);
   g.add(platform);
-  for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * Math.PI * 2;
-    const r = box(i % 2 ? 0.1 : 2.5, 0.4, i % 2 ? 2.5 : 0.1, P.post, Math.cos(a) * 1.2 * (i % 2), 2.9, Math.sin(a) * 1.2 * ((i + 1) % 2));
-    g.add(r);
+  // #205: a parapet round the edge of the deck, which is what this was always meant to be. It used
+  // to be four rails ALL AT THE CENTRE, stacked through each other and through the shins of anyone
+  // standing there -- `Math.cos(a) * 1.2 * (i % 2)` is zero for every i, because each one multiplies
+  // the axis it meant to offset by the parity that zeroes it, or by a cosine already zero at that
+  // angle. The parity was doing honest work picking which axis a rail is LONG on; reusing it for the
+  // offset is where it cancelled.
+  //
+  // Written out rather than derived from an angle, because an angle is what hid it: four edges is
+  // four pairs of numbers and they can be read.
+  for (const [x, z] of [[0, 1.2], [0, -1.2], [1.2, 0], [-1.2, 0]]) {
+    g.add(box(z ? 2.5 : 0.1, 0.4, z ? 0.1 : 2.5, P.post, x, 2.9, z));
   }
   // peaked shingle roof on four posts with a pennant
   for (const [x, z] of [[-1.1, -1.1], [1.1, -1.1], [-1.1, 1.1], [1.1, 1.1]]) g.add(box(0.12, 1.6, 0.12, P.post, x, 3.5, z));
