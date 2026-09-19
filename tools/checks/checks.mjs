@@ -18,7 +18,7 @@ import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CHECKS } from './registry.mjs';
 import { FREE } from './free.mjs';
-import { CHEAP, PROVE, setSabotage } from './cheap.mjs';
+import { CHEAP, PROVE } from './cheap.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
@@ -145,7 +145,16 @@ async function main() {
       const page = await ctx.newPage();
       // #179: in --prove mode the game is broken first and the check is expected to go RED. A check
       // that stays green under its own sabotage is not covering what the registry says it covers.
-      if (proving) setSabotage(PROVE[c.id] || null);
+      if (proving && PROVE[c.id]) {
+        await page.addInitScript((src) => {
+          const fn = new Function(`return (${src})`)();
+          const arm = () => {
+            if (window.game && window.game.king) { try { fn(); } catch (e) { console.error('sabotage threw', e); } }
+            else requestAnimationFrame(arm);
+          };
+          requestAnimationFrame(arm);
+        }, PROVE[c.id].toString());
+      }
       try {
         const res = await CHEAP[c.id](page, url);
         results[c.id] = proving ? proved(c.id, res) : { ...res, at: new Date().toISOString() };

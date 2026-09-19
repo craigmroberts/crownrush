@@ -7,6 +7,7 @@ import { preloadIcons, mountIcons, iconSvg } from './icons.js';
 import { readScores, readDiary } from './scores.js';
 import { SAVE_VERSION, readLength, writeLength } from './game-save.js';
 import { CFG } from './config.js';
+import { sampleFrame, bugReport, reportWithLog } from './report.js';
 
 const canvas = document.getElementById('game');
 const hud = new Hud();
@@ -243,6 +244,76 @@ document.getElementById('pause-quit').addEventListener('click', () => {
   game.quitToMenu();
   refreshStart();
 });
+// #182: REPORT A BUG. It lives in the pause sheet rather than in Settings, and that is the whole of
+// the placement decision: the report wants to be taken while it is happening, and a player who has
+// gone looking through Settings has usually already cleared the state. Pause is what a stuck game
+// makes you press.
+//
+// The snapshot is taken HERE, on the tap, off a ring that has been recording frames of play -- see
+// report.js. By the time this window is open `paused` is true and the stick has been let go, so a
+// report built from live state at that moment would describe the reporting and not the bug.
+const reportScreen = document.getElementById('report-screen');
+const reportBody = document.getElementById('report-body');
+const reportNote = document.getElementById('report-note');
+let reportText = '';
+function takeReport() {
+  const extra = {
+    build: swState.version || null,
+    save: swState.waitingSave != null ? swState.waitingSave : SAVE_VERSION,
+    caught, lastError,
+    size: sizeReport().replace(/\n+/g, ' · '),
+    gl: game.glReport ? game.glReport().replace(/^The world is not drawing[.,]?\s*/, '') : '',
+  };
+  const text = bugReport(game, game.input, extra);
+  reportText = reportWithLog(text, perfCsv());
+  reportBody.textContent = text;          // the log is long and goes on the clipboard, not on screen
+  reportNote.textContent = `${reportText.length.toLocaleString()} characters with the sample log`;
+  reportScreen.classList.remove('hidden');
+}
+// It REPLACES the pause sheet rather than opening over it, which is how Settings goes from here
+// (`showSettingsFromPause`). The first version only added the report window and both overlays were up
+// at once -- the pause sheet painted over the top of it, so the button appeared to do nothing. The
+// phone frame is what showed that; it is not visible from the code.
+let reportFromPause = false;
+document.getElementById('pause-report').addEventListener('click', () => {
+  disarmPauseRestart();
+  reportFromPause = game.paused;
+  if (reportFromPause) game.hud.hidePause();
+  takeReport();
+});
+function closeReport() {
+  reportScreen.classList.add('hidden');
+  // Back to the window it came from, not to a stopped game with nothing on the screen -- the pause
+  // was the player's and closing a report is not a decision to resume.
+  if (reportFromPause && game.paused) game.hud.showPause();
+  reportFromPause = false;
+}
+document.getElementById('report-x').addEventListener('click', closeReport);
+// The clipboard write is inside the tap handler because iOS grants it only to a gesture -- the same
+// reason #74's size line works. It is allowed to fail: the text is already on the screen, and a
+// screenshot of it is a perfectly good report.
+document.getElementById('report-copy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(reportText);
+    reportNote.textContent = 'Copied, sample log and all. Paste it wherever suits.';
+  } catch (e) {
+    reportNote.textContent = 'No clipboard on this browser — screenshot the box above instead.';
+  }
+});
+// A GitHub issue with the summary already in it. NOT the sample log: a URL has a practical ceiling
+// around 8 000 characters and the log is longer than that within a minute of play, so the link
+// carries what a person reads and the clipboard carries what a person greps.
+//
+// There is deliberately no `mailto:` here. The ticket offered one, and it means putting a personal
+// address in a public repository for anyone to scrape. One constant would add it if that is wanted;
+// it is not a decision to make on somebody's behalf.
+document.getElementById('report-issue').addEventListener('click', () => {
+  const body = `${reportBody.textContent}\n\n**What were you doing?**\n\n`;
+  const url = 'https://github.com/craigmroberts/crownrush/issues/new'
+    + `?title=${encodeURIComponent('Bug report from the game')}&labels=bug&body=${encodeURIComponent(body)}`;
+  window.open(url.slice(0, 7800), '_blank', 'noopener');
+});
+
 document.getElementById('offer-cards').addEventListener('click', (e) => {
   const card = e.target.closest('.offer-card');
   if (card) game.takeUpgrade(card.dataset.id);
@@ -894,6 +965,7 @@ function runView() {
     settings: () => game.showSettings(),
     credits: () => game.showCredits(),
     pause: () => game.hud.showPause(),
+    report: () => takeReport(),   // #182
     levelup: () => { game.offerQueue = 1; game.offerLevel = game.baseLevel; game.showOffer(); },
     // #82: the Stable block, stood and filled, with the King beside it so the camera is on it.
     stable: () => game.showStableView(),
@@ -1088,6 +1160,10 @@ function frame(now) {
     console.error(err);
   }
   game.updateQuality(raw);   // #168: the uncapped delta, because the capped one cannot see below 20fps
+  // #182: one frame into the ring, always -- not behind `?perf=1`. The bug this exists to answer
+  // happens on somebody else's phone with no flag on it, and a recorder that has to be switched on
+  // beforehand records nothing the first time. Two typed-array writes; see report.js on the cost.
+  sampleFrame(raw * 1000, game, game.input);
   if (perf) {
     perfMs += performance.now() - t0;
     perfFrames++;

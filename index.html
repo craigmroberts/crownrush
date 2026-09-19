@@ -503,7 +503,26 @@
         <button class="primary" id="resume-btn"><i data-icon="play" data-size="20"></i><span>Resume</span></button>
         <button id="pause-restart"><i data-icon="restart" data-size="20"></i><span>Restart</span></button>
         <button id="pause-settings"><i data-icon="gear" data-size="20"></i><span>Settings</span></button>
+        <button id="pause-report"><i data-icon="alert" data-size="20"></i><span>Report a bug</span></button>
         <button id="pause-quit"><i data-icon="door" data-size="20"></i><span>Quit to Menu</span></button>
+      </div>
+    </div>
+
+    <!-- #182: the report, shown before it is sent. It carries a device profile and the run's numbers,
+         and the player is entitled to read that first; it is also the only way anyone can tell it has
+         captured the right moment. The snapshot is taken when Report a bug is tapped, off a ring that
+         has been recording frames of PLAY -- by the time this window is open the interesting state is
+         already gone. Framed on the board at ?view=report. -->
+    <div id="report-screen" class="overlay hidden">
+      <div class="panel badged">
+        <div class="panel-badge"><span class="hex"><i data-icon="alert" data-size="32"></i></span></div>
+        <button class="panel-x" id="report-x" aria-label="Close" title="Close">&times;</button>
+        <h1>Report a bug</h1>
+        <p class="hint">This is everything the report carries. Copy it and send it wherever suits.</p>
+        <pre id="report-body" class="report-body">…</pre>
+        <p class="hint" id="report-note"></p>
+        <button class="primary" id="report-copy"><i data-icon="download" data-size="20"></i><span>Copy the report</span></button>
+        <button id="report-issue"><i data-icon="expand" data-size="20"></i><span>Open an issue</span></button>
       </div>
     </div>
 

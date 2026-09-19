@@ -373,6 +373,39 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #699a3f; f
 .panel p { color: var(--ink); margin-bottom: 14px; line-height: 1.4; }
 .panel .hint { font-size: 13px; color: var(--ink-dim); }
 .panel .best { font-size: 14px; color: var(--ink-dim); margin-top: 14px; margin-bottom: 0; }
+/* #182: the report, shown before it is sent. Monospace because it is columns of numbers and a
+   proportional font turns them into prose. 11px is the smallest that still screenshots legibly on a
+   3x phone.
+
+   BOTH OF THE INTERESTING RULES HERE ARE THINGS THE PHONE FRAME CAUGHT AND THE CODE COULD NOT.
+
+   `text-align: left`, because the panel centres its text and a centred `pre` centres every line
+   independently -- so the label column came out ragged and the whole point of padding it was lost.
+
+   `pre-wrap` rather than `pre`, which reverses the first decision made here. The argument for a
+   horizontal scroll was that wrapping `running=true paused=false suspended=true` mid-flag loses
+   which value went with which name. True, and beside the point: at phone width the scroll cut the
+   right-hand half of every line off the screenshot, and a screenshot is the fallback path for
+   exactly the player whose clipboard did not work. Visible beats aligned. */
+.panel .report-body {
+  font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--ink);
+  text-align: left;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 0 0 12px;
+  max-height: 38vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  -webkit-overflow-scrolling: touch;
+  text-shadow: none;
+  user-select: text;
+  -webkit-user-select: text;
+}
 /* #112: the framed CTA. One rule paints every button in the game -- Play, Continue, Play Again, Next,
    Back to the game -- so this moves all of them at once, which is why it is worth getting right here
    rather than per panel.

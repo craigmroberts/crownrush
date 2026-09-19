@@ -2044,6 +2044,65 @@ All balance lives in [`src/config.js`](src/config.js):
 - `TIERS` is the village layout: the rectangle for each expansion stage, its gates, and wall section length.
 - `CFG.wallLevels` sets HP and repair cost per wall material.
 
+## Report a bug (#182)
+
+The report that prompted this said: *"the gameplay has crashed but I am still able to use the menu,
+just the game doesn't move when I move my finger."* The menus working is the useful half — if the
+frame loop had stopped, the pause button would not have opened anything — so the page was alive and
+something between the finger and the King was not. **At least four things do that and they want
+completely different fixes:** the frame rate collapsed, `input.suspended` stuck on, a pointer capture
+lost, or `game.running` false. One field tells you which. Guessing costs a day and lands on the wrong
+one.
+
+Almost all of it was already being measured — `perfSample` (#166), `perfCsv`, `qualityLabel` (#168),
+the swallowed-error counter (#54), `sizeReport` (#74), `glReport`. What was missing was somewhere for
+it to go.
+
+**The ring is the point.** By the time anybody opens the pause sheet to report a bug, `game.paused` is
+true and the stick has been let go — the state worth having is gone, and a report built at that moment
+describes the reporting rather than the bug. So every frame writes into a ring of the last 600, and
+what the report carries is the last stretch of **play**. Driven with the exact reported symptom — the
+stick suspended while the game runs, then the pause sheet opened, which clears it:
+
+```
+now           running=true paused=true suspended=false stick=none stuckFor=0.00
+while playing 17 frames · 883.3ms median (1fps) · 2550.0ms p95 · 2550.0ms worst
+              suspended on 14 of them, stick held on 14
+```
+
+The live line says the flag is clear. The play window says it was set on 14 of the 17 frames before
+the pause. **That contrast is the whole ticket**, and neither half means anything without the other.
+It is two typed-array writes a frame — no allocation, no GC — and it is **not** behind `?perf=1`,
+because the bug happens on somebody else's phone with no flag on it and a recorder you have to switch
+on beforehand records nothing the first time.
+
+**Where the button is** is the other decision. Settings is the safe answer and the wrong one: a player
+who has gone looking through Settings has usually already cleared the state. It is a row in the pause
+sheet, because pause is what a stuck game makes you press — and it **replaces** that sheet rather than
+opening over it, the way Settings does from there.
+
+**There is no backend**, so the report goes to the clipboard first (the path that cannot fail, and
+already proven on iOS by #74's size line) with a GitHub issue link beside it carrying the summary but
+not the sample log — a URL has a practical ceiling around 8 000 characters and the log passes that
+within a minute of play. **There is deliberately no `mailto:`.** It would mean putting a personal
+address in a public repository for anyone to scrape; one constant would add it if that is wanted.
+
+The report is **shown before it is sent**. It carries a device profile and the run's numbers and the
+player is entitled to read that first — and it is also the only way anyone can tell it captured the
+right moment.
+
+Two things the phone frame caught that the code could not, both in that box: the panel centres its
+text, and a centred `pre` centres every line independently, so the label column came out ragged and
+the padding was wasted. And the first version scrolled horizontally rather than wrapping, on the
+argument that breaking `running=true paused=false suspended=true` mid-flag loses which value went
+with which name — true, and beside the point, because at phone width it cut the right-hand half of
+every line off the screenshot, and a screenshot is the fallback for exactly the player whose
+clipboard did not work. **Visible beats aligned.**
+
+It also answers the open question in #183: the `build` line is the hash the service worker is
+*answering* with, so "am I even running the build I think I am" stops being unanswerable from a
+screenshot.
+
 ## What the checks are worth (#179)
 
 `npm run check` drives the real game in headless Chromium and writes `public/board/checks.json`,

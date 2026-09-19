@@ -45,7 +45,6 @@ async function boot(page, url, query = '?tour') {
     const f = g.frames || 0;
     return f >= max || (f >= min && s.n >= 3);
   }, [BOOT_MIN, BOOT_MAX], { timeout: 150000, polling: 'raf' });
-  if (SABOTAGE) await page.evaluate(SABOTAGE);
 }
 
 // #179: MAKE A CHECK PROVE IT CAN FAIL.
@@ -58,8 +57,6 @@ async function boot(page, url, query = '?tour') {
 // and expects it to go RED. A check that stays green under its own sabotage is not covering what the
 // registry says it covers. A check with no sabotage written is reported as such rather than counted:
 // an honest gap, the same way `judged` rows are.
-let SABOTAGE = null;
-export function setSabotage(fn) { SABOTAGE = fn; }
 
 export const CHEAP = {
   async 'views-open'(page, url) {
@@ -81,6 +78,7 @@ export const CHEAP = {
       ['?view=cast', 'cast-screen'], ['?view=diary', 'diary-screen'], ['?view=settings', 'settings-screen'],
       ['?view=credits', 'credits-screen'], ['?view=pause', 'pause-screen'],
       ['?view=defeat', 'gameover-screen'], ['?view=victory', 'victory-screen'],
+      ['?view=report', 'report-screen'],   // #182
     ];
     const bad = [];
     for (const [q, panel, phase] of VIEWS) {
@@ -409,7 +407,6 @@ export const CHEAP = {
   async 'opening-resolves'(page, url) {
     await page.goto(url, { waitUntil: 'load', timeout: 150000 });
     await page.waitForFunction(() => { const b = document.getElementById('start-btn'); return b && !b.disabled; }, null, { timeout: 150000 });
-    if (SABOTAGE) await page.evaluate(SABOTAGE);   // #179: these two never call boot(), so the hook goes here
     const r = await page.evaluate(async () => {
       document.getElementById('start-btn').click();
       const sk = document.getElementById('intro-skip'); if (sk) sk.click();
@@ -457,7 +454,6 @@ export const CHEAP = {
   async 'rebuild-after-fall'(page, url) {
     await page.goto(url, { waitUntil: 'load', timeout: 150000 });
     await page.waitForFunction(() => { const b = document.getElementById('start-btn'); return b && !b.disabled; }, null, { timeout: 150000 });
-    if (SABOTAGE) await page.evaluate(SABOTAGE);   // #179: these two never call boot(), so the hook goes here
     const r = await page.evaluate(async () => {
       document.getElementById('start-btn').click();
       const sk = document.getElementById('intro-skip'); if (sk) sk.click();
@@ -527,9 +523,18 @@ export const PROVE = {
     const real = hud.set.bind(hud);
     hud.set = (...a) => { document.getElementById('army-count').textContent = String(Math.random()); return real(...a); };
   },
-  // the tone map taken off the end of the chain, so the frame is graded linear light straight to
-  // the canvas -- the "different picture, no error" failure
-  'post-once': () => { const c = window.game.post && window.game.post.composer; if (c) c.passes.pop(); },
+  // The canvas multisampling not carried onto the composer's target -- a jaggier picture and no
+  // error, which is one of the three things this check exists to notice.
+  //
+  // POPPING THE OUTPUT PASS WAS THE FIRST ATTEMPT AND IT PROVED NOTHING, which is worth keeping:
+  // with the grade already disabled for the comparison, removing OutputPass leaves RenderPass as the
+  // last enabled pass, so the composer renders straight to the canvas -- and three tone-maps a
+  // material bound for the canvas. The sabotage produced a correctly tone-mapped frame and the check
+  // was right to stay green.
+  'post-once': () => {
+    const c = window.game.post && window.game.post.composer;
+    if (c) { c.renderTarget1.samples = 0; c.renderTarget2.samples = 0; }
+  },
   'walls-solid': () => { window.game.collideWalls = () => {}; },
   // the gates stay gates and the wall stops honouring them
   'gates-passable': () => {
