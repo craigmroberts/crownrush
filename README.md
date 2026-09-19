@@ -1689,6 +1689,53 @@ follows the King closely enough that a scrum around him happens within arm's rea
 rule is that they came for her, not that they happen to be standing there: he faces the fight, and
 they come round the back for her.
 
+### She walks round him now, not through him (#181)
+
+She follows a point `CFG.queen.follow` behind him, and that point used to be read straight off his
+facing every frame. Fine until he turns round — and turning round is what the joystick is for. **The
+point leapt to the other side of him, she took the straight line to it, and the straight line went
+through the middle of him.** Closest approach **0.04 units** on a plain 180, many times a minute, for
+about a fifth of a second each time. Over quickly, and exactly the kind of thing that reads as cheap
+without anyone being able to say why.
+
+**The anchor orbits him now.** It swings toward his facing at a capped rate (`followTurn`) instead of
+teleporting to it, so the point it travels is a circle of radius `follow` around him — and what she
+follows, she walks. Traced frame by frame through a 180: her radius holds at **1.90 the whole way**,
+minimum and maximum, while her bearing sweeps 351° → 265° → 188° → 180°. She never approaches him at
+all. A dead 180 has no short way round and the modulo would pick one arbitrarily, which is a coin
+flip on a frame boundary and would visibly chatter, so it is broken toward the side she has already
+drifted to.
+
+**A separation pass was the obvious fix and is the wrong one.** One more line beside `collideWalls`
+corrects *after* the fact, so what you see is her sliding out of his edge on a frame she was never
+meant to be on — a bug that looks cheap turned into one that looks broken. Fixing the target means
+there is nothing to correct.
+
+There is still a `collideKing`, and it is for the **other** half, which no choice of target can help
+with: he reverses *and walks*, so the place he is walking to is the place she is standing. Being
+walked at is answered by getting out of the way, and that is what a person does. It leans 22° off
+straight-out rather than sidestepping, and the ceiling there is arithmetic: she walks 7.2 and he
+walks 5.6, so a step at angle *t* gains `7.2·cos(t) − 5.6` a second and goes **negative past 39°**.
+The first version leaned about 76° — almost a pure sidestep, which looked right and measured 0.39,
+because a sidestep does not open a gap at all while he is closing it.
+
+Measured at a fixed 0.05 dt with the renderer stubbed, closest approach in four scenes:
+
+| | he spins 180 | spins and walks | ordinary play | random jinking |
+| --- | --- | --- | --- | --- |
+| **before** | 0.59 | 0.04 | 0.15 | 0.06 |
+| **the anchor alone** | **1.90** | 0.21 | 0.43 | 0.27 |
+| **both** | **1.90** | **1.00** | **0.99** | **0.83** |
+
+The yield fires on **7%** of frames in ordinary play and 28% under random jinking, which is a stress
+scene rather than a description of anybody's thumb. `queen-visible` asserts they never come within
+0.8 and is green again; it was right, and it was wrongly called a false positive twice before anybody
+reproduced it.
+
+**Every other follower still has the gap.** `updateArmy` moves soldiers to their own follow points
+and nothing separates them from the King either — Wren is just the one who is always there, always
+alone, and always looked at. `collideKing` is written to be reusable when that becomes a ticket.
+
 One raider takes her in 3.4 seconds, two in 2.2, three in 1.6 (`CFG.queen.seize`). That is time
 enough for four of the King's arrows, or the horn, or simply running -- she moves at almost his
 speed. Getting her through the Keep door clears the grip outright, which is the best save in the

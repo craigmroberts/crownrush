@@ -28,6 +28,33 @@ export const CFG = {
   // than "they are coming to kill her", which is closer to what that number was always for.
   queen: {
     speed: 7.2, follow: 1.9, targetWeight: 0.55,
+    // #181: how fast the point she follows may swing round him (radians a second), how close he may
+    // get before she steps aside, and how far off straight-out that step leans.
+    //
+    // Driven at a fixed 0.05 dt with the renderer stubbed, four scenes, closest approach in each:
+    //
+    //                       he spins 180   spins and walks   ordinary play   random jinking
+    //   before #181              0.59            0.04            0.15             0.06
+    //   the anchor alone         1.90            0.21            0.43             0.27
+    //   both                     1.90            1.00            0.99             0.83
+    //
+    // THE ANCHOR IS THE FIX and the two columns say so: a spin on the spot goes from walking through
+    // the middle of him to never coming closer than the follow distance at all. What it cannot fix is
+    // the second column -- he turns round AND WALKS, so the place he is walking to is the place she is
+    // standing, and no choice of target helps with being walked at. That is what `kingGap` is for, and
+    // in ordinary play it fires on 7% of frames against 28% under random jinking.
+    //
+    // `followTurn` 3.0 swings her round a 180 in about a second and settles in 0.25s. Faster is
+    // worse, not better: at 3.8 she cannot keep up with her own anchor and starts cutting the chord
+    // again (jitter 0.69), which is the original bug at a smaller size. Slower reads as a lag and
+    // 2.4 drops random jinking to 0.79, under what `queen-visible` asserts.
+    //
+    // `kingSide` 0.4 is about 22 degrees off straight-out, and the ceiling here is arithmetic rather
+    // than taste: she walks 7.2 and he walks 5.6, so a step at angle t from straight-out gains
+    // 7.2*cos(t) - 5.6 a second and goes NEGATIVE past 39 degrees. The first version leaned about 76
+    // degrees -- almost pure sidestep, which looked right and measured 0.39, because a sidestep does
+    // not open a gap at all while he is closing it.
+    followTurn: 3.0, kingGap: 1.0, kingSide: 0.4,
     // #106: how near the Keep's WALL she has to be brought before she steps inside.
     //
     // It used to be 3.6 from the Keep's CENTRE, which is `CFG.keep.radius` -- the distance a unit that

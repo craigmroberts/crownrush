@@ -1113,6 +1113,53 @@ export const EnemiesMethods = {
     return false;
   },
 
+  // #181: she yields rather than being walked through.
+  //
+  // This is NOT the fix for the ticket's bug -- the orbiting anchor in `updateQueen` is, and with it
+  // a 180 on the spot never brings them closer than the follow distance at all. What is left is the
+  // other half: the King REVERSES AND WALKS, and the place he walks to is the place she is standing,
+  // because "behind him" became "in front of him" the moment he turned. Nothing about the target she
+  // follows can fix being walked at; she has to get out of the way.
+  //
+  // Which is why it reads differently from the push this ticket rejected. Correcting a teleport looks
+  // like a character sliding through a frame she was never meant to be in; stepping aside from
+  // someone walking into you is what a person does, and it is the only thing she CAN do.
+  //
+  // Radial plus a tangential bias, and the bias is the part that matters. A purely radial push on a
+  // head-on approach points straight down his line of travel, so he bulldozes her ahead of him for as
+  // long as he holds the stick -- measured, and it looks exactly as bad as it sounds. The tangential
+  // term grows with how head-on the approach is, so a glancing pass pushes her out and a dead-on one
+  // pushes her sideways, off his line, which is where she wants to be anyway.
+  //
+  // Capped at her own speed: she cannot be displaced faster than she could walk, so there is no frame
+  // where she jumps. If he out-runs the cap she is briefly inside him, which is better than teleporting
+  // -- and he cannot, at 5.6 on foot against her 7.2.
+  collideKing(p, dt) {
+    const k = this.king.mesh.position;
+    let dx = p.x - k.x, dz = p.z - k.z;
+    let d = Math.hypot(dx, dz);
+    const gap = CFG.queen.kingGap;
+    if (d >= gap) return false;
+    if (d < 1e-4) { dx = Math.sin(this.king.mesh.rotation.y + Math.PI / 2); dz = Math.cos(this.king.mesh.rotation.y + Math.PI / 2); d = 1; }
+    const ux = dx / d, uz = dz / d;
+    // how head-on he is: 1 when he is walking straight at her, 0 when she is off to one side
+    const fx = Math.sin(this.king.mesh.rotation.y), fz = Math.cos(this.king.mesh.rotation.y);
+    const head = Math.max(0, -(ux * fx + uz * fz));
+    // the side she is already on, so she keeps going that way instead of picking one each frame
+    const side = (ux * fz - uz * fx) < 0 ? -1 : 1;
+    const tx = -fz * side, tz = fx * side;
+    const w = head * CFG.queen.kingSide;
+    const mx = ux + tx * w, mz = uz + tz * w;
+    const ml = Math.hypot(mx, mz) || 1;
+    // Sideways does not open the gap as fast as straight out does, so this converges over a few
+    // frames rather than restoring `gap` in one. That is the point: a hard snap to the exact figure
+    // is the teleport this is trying not to be.
+    const step = Math.min(gap - d, this.queen.stats.speed * dt);
+    p.x += (mx / ml) * step;
+    p.z += (mz / ml) * step;
+    return true;
+  },
+
   updateQueen(dt) {
     const q = this.queen;
     if (!q) return;
@@ -1141,10 +1188,42 @@ export const EnemiesMethods = {
     if (q.captive) return this.updateCaptive(dt);
     if (this.updateSeize(dt)) return;
     const k = this.king.mesh;
-    const fx = Math.sin(k.rotation.y);
-    const fz = Math.cos(k.rotation.y);
-    tmp.set(k.position.x - fx * CFG.queen.follow, 0, k.position.z - fz * CFG.queen.follow);
     const p = q.mesh.position;
+    // #181: THE POINT SHE FOLLOWS ORBITS HIM, it does not jump across him.
+    //
+    // It used to be read straight off his facing -- `follow` units behind whichever way he happened
+    // to be pointing this frame. That is fine until he turns round, and turning round is what the
+    // joystick is for: the point leaps to the other side of him, she takes the straight line to it,
+    // and the straight line goes through the middle of him. Measured at closest approach 0.04 units
+    // on a plain 180, many times a minute, for about a fifth of a second each time. Over quickly and
+    // exactly the kind of thing that reads as cheap without anyone being able to say why.
+    //
+    // A SEPARATION PASS WAS THE OBVIOUS FIX AND IS THE WRONG ONE. One more line beside collideWalls
+    // -- push her out if she is inside him -- corrects after the fact, so what you see is her
+    // sliding round his edge on a frame she was never meant to be there. It would turn a bug that
+    // looks cheap into a bug that looks broken. Fixing the TARGET instead means there is nothing to
+    // correct: the anchor walks the circle, so she walks the circle.
+    //
+    // `followTurn` caps how fast that anchor may swing, which is the whole tuning surface. Too fast
+    // and she cannot keep up with it and cuts the chord again -- the bug back at a smaller size; too
+    // slow and she trails a second behind every turn. See config.js for what was measured.
+    const want = k.rotation.y;
+    if (q.followAng === undefined) q.followAng = want;
+    let turn = ((want - q.followAng + Math.PI) % (Math.PI * 2)) - Math.PI;
+    if (turn < -Math.PI) turn += Math.PI * 2;
+    // A dead 180 has no short way round and `%` would pick one arbitrarily, which is a coin flip on
+    // a frame boundary and would visibly chatter. Broken toward the side she has already drifted to,
+    // so she carries on the way she was leaning rather than being swept across his front.
+    if (Math.abs(Math.abs(turn) - Math.PI) < 0.06) {
+      let side = ((Math.atan2(p.x - k.position.x, p.z - k.position.z) - q.followAng + Math.PI) % (Math.PI * 2)) - Math.PI;
+      if (side < -Math.PI) side += Math.PI * 2;
+      turn = (side < 0 ? -1 : 1) * Math.abs(turn);
+    }
+    const cap = CFG.queen.followTurn * dt;
+    q.followAng += Math.max(-cap, Math.min(cap, turn));
+    const fx = Math.sin(q.followAng);
+    const fz = Math.cos(q.followAng);
+    tmp.set(k.position.x - fx * CFG.queen.follow, 0, k.position.z - fz * CFG.queen.follow);
     tmp2.subVectors(tmp, p);
     tmp2.y = 0;
     const d = tmp2.length();
@@ -1160,7 +1239,8 @@ export const EnemiesMethods = {
     this.collideWalls(p, 0.3, true);
     this.collideRiver(p, 0.3);
     this.collideKeep(p, 0.3);
-    if (d > 16) p.set(k.position.x + rand(-1, 1), 0, k.position.z + rand(-1, 1));
+    this.collideKing(p, dt);
+    if (d > 16) { p.set(k.position.x + rand(-1, 1), 0, k.position.z + rand(-1, 1)); q.followAng = k.rotation.y; }   // #181: the anchor goes with her
     // a heart now and then while she is close and safe, rarely enough to stay charming
     this.heartTimer -= dt;
     if (this.heartTimer <= 0) {
