@@ -596,6 +596,30 @@ export const ViewMethods = {
     if (s) this.hud.flyToBag(s.x, s.y, type);
   },
 
+  // #216: the same thing aimed at the coin counter. #197 already gave that counter a `Tally` that
+  // runs to its value rather than snapping, written because "the coin already flies to the counter,
+  // so the arc was ending in nothing" -- this is the arc that note was waiting for.
+  flyToCoins(worldPos) {
+    const s = this.screenPoint(worldPos);
+    if (s) this.hud.flyToCoins(s.x, s.y);
+  },
+
+  // #216: what a coin is worth on arrival, wherever it arrived. Factored out because there are two
+  // ways in now -- the stack and the counter -- and a scoring rule that lives in one of them is a
+  // scoring rule that will differ between them.
+  claimCoin(c) {
+    if (c.resType) {
+      this.res[c.resType]++;
+      this.addScore(CFG.score.material);
+      return;
+    }
+    this.coinsCarried++;
+    this.coinsEarned++;
+    this.comboTimer = 0.6;
+    this.addScore(this.coinValue());
+    audio.coin(this.coinCombo++);
+  },
+
   // The count only shows when he is close enough to care, which is the whole reason the numbers came
   // off the status bar: the information is at the heap, where you are looking.
   // #129: what is said when the bag will not take any more, and how often. The throttle is the old
@@ -803,6 +827,10 @@ export const ViewMethods = {
   },
 
   stackCount() {
+    // #216: zero while the stack is switched off. `updateStack` then draws nothing and the coin a
+    // mat is paid with leaves from `stackBase()` instead of from the top of a stack that is not
+    // there -- see `setStack`. One gate, and the three readers need no knowledge of the setting.
+    if (!this.stackOn) return 0;
     return Math.min(this.coinsCarried, this.stack.length);
   },
 
@@ -852,6 +880,19 @@ export const ViewMethods = {
       } else {
         // #169: to whoever claimed it -- the gleaner, if `to` is set, else the King's stack
         c.alpha = 1;
+        // #216: with the stack off a coin goes to the COUNTER, the same DOM flight wood takes to
+        // the bag. It is credited here rather than on arrival for the same reason wood is: from
+        // this point the arc is an element over the HUD and the 3D coin has nothing left to do, so
+        // holding the score back until a CSS transition ends would put the game's numbers behind
+        // its animation. A gleaner still carries one in the world -- `to` is somebody else's claim
+        // and has nothing to do with how the King's own pickups are drawn.
+        if (!this.stackOn && !c.to) {
+          this.claimCoin(c);
+          this.flyToCoins(p);
+          this.root.remove(c.mesh);
+          this.coins.splice(i, 1);
+          continue;
+        }
         if (c.to) {
           tmp.copy(c.to.mesh.position);
           tmp.y = 1.7;
@@ -861,16 +902,7 @@ export const ViewMethods = {
         }
         p.lerp(tmp, 1 - Math.exp(-dt * 14));
         if (p.distanceTo(tmp) < 0.5) {
-          if (c.resType) {
-            this.res[c.resType]++;
-            this.addScore(CFG.score.material);
-          } else {
-            this.coinsCarried++;
-            this.coinsEarned++;
-            this.comboTimer = 0.6;
-            this.addScore(this.coinValue());
-            audio.coin(this.coinCombo++);
-          }
+          this.claimCoin(c);
           this.root.remove(c.mesh);
           this.coins.splice(i, 1);
         }

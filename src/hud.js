@@ -179,6 +179,7 @@ export class Hud {
     this.heartsEl = document.getElementById('king-hearts');
     this.ringEl = document.getElementById('load-ring');
     this.bagCell = document.getElementById('bag-cell');
+    this.coinCell = document.getElementById('coin-cell');   // #216: where a coin lands with the stack off
     this.flying = [];          // #88: armfuls in the air between the world and the bag
     // #90: how tall whatever is on the notice line is, so the alarm above it knows what to clear.
     // A constant was tried first and measured wrong: 64px cleared a one-line notice, and a two-line
@@ -556,9 +557,21 @@ export class Hud {
   // costs them the pickup, and no animation is worth that. The arrival still pays off -- the bag
   // bumps when it gets there.
   flyToBag(x, y, icon) {
-    if (this.mute || !this.bagCell || document.hidden) return;
+    this.flyToCell(this.bagCell, x, y, icon);
+  }
+
+  // #216: coins go to the COUNTER when the stack is turned off, which is the same flight wood
+  // already takes to the bag with a different cell on the end of it. Generalised rather than copied:
+  // the cap, the reduced-motion timer and the landing bump are the parts that were hard to get right
+  // (#88) and there is no version of this that wants two of them.
+  flyToCoins(x, y) {
+    this.flyToCell(this.coinCell, x, y, 'gold');
+  }
+
+  flyToCell(cell, x, y, icon) {
+    if (this.mute || !cell || document.hidden) return;
     if (this.flying.length >= 8) return;      // an armful, never a storm
-    const r = this.bagCell.getBoundingClientRect();
+    const r = cell.getBoundingClientRect();
     if (!r.width) return;                     // the HUD is not laid out yet
     const el = document.createElement('i');
     el.className = 'fly';
@@ -571,7 +584,7 @@ export class Hud {
       el.remove();
       const i = this.flying.indexOf(el);
       if (i >= 0) this.flying.splice(i, 1);
-      this.bumpBag();
+      this.bump(cell);
     };
     el.addEventListener('transitionend', land, { once: true });
     // A transition that never starts never ends -- a hidden tab, or reduced motion taking it away
@@ -584,9 +597,13 @@ export class Hud {
   }
 
   bumpBag() {
-    if (!this.bagCell || this.bagCell.classList.contains('bump')) return;   // one bump at a time
-    this.bagCell.classList.add('bump');
-    this.bagCell.addEventListener('animationend', () => this.bagCell.classList.remove('bump'), { once: true });
+    this.bump(this.bagCell);
+  }
+
+  bump(cell) {
+    if (!cell || cell.classList.contains('bump')) return;   // one bump at a time
+    cell.classList.add('bump');
+    cell.addEventListener('animationend', () => cell.classList.remove('bump'), { once: true });
   }
 
   // A run that ends mid-flight must not leave anything behind.

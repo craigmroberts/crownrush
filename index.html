@@ -142,7 +142,7 @@
            Still a readout and not a control -- `pointer-events: none`, because a live target parked
            over the canvas in the corner a right thumb rests in is how #128 happened. -->
       <div id="purse">
-        <span class="hud-cell"><i id="coin-icon" data-icon="gold" data-size="30"></i><b id="coin-count">0</b></span>
+        <span class="hud-cell" id="coin-cell"><i id="coin-icon" data-icon="gold" data-size="30"></i><b id="coin-count">0</b></span>
         <span class="hud-cell bagcell" id="bag-cell">
           <span class="bagring">
             <svg class="ring" viewBox="0 0 40 40" aria-hidden="true"><circle class="ring-bg" cx="20" cy="20" r="17"/><circle id="load-ring" class="ring-fill" cx="20" cy="20" r="17"/></svg>
@@ -420,6 +420,8 @@
           <button class="sheet-row" id="set-numbers"><i data-icon="swords" data-size="24"></i><span class="sheet-label">Damage numbers</span><em class="pill" id="set-numbers-state">On</em></button>
           <!-- #216: a display setting only. The reach it is drawn at is unchanged when it is off. -->
           <button class="sheet-row" id="set-ring"><i data-icon="coin" data-size="24"></i><span class="sheet-label">Pickup ring</span><em class="pill" id="set-ring-state">On</em></button>
+          <!-- #216: off sends a picked-up coin to the counter instead of onto the King's head -->
+          <button class="sheet-row" id="set-stack"><i data-icon="gold" data-size="24"></i><span class="sheet-label">Coin stack</span><em class="pill" id="set-stack-state">On</em></button>
         </div>
         <div class="tab-pane" data-pane="about">
           <!-- #84: a phone that keeps the game on its homescreen is RESUMED rather than navigated, so

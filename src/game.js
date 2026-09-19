@@ -116,6 +116,8 @@ export class Game {
     this.numbersOn = readFlag('crownrush-numbers', true);
     // #216: the circle under the King. A DISPLAY flag and nothing else -- see `setRing`.
     this.ringOn = readFlag('crownrush-ring', true);
+    // #216 part 2: the coins carried on his head. Off sends them to the counter instead.
+    this.stackOn = readFlag('crownrush-stack', true);
     if (this.quality.forced != null) this.applyQuality(this.quality.forced);
     this.buildFog();
     // every health bar in the game is drawn by this one instanced mesh
@@ -975,6 +977,22 @@ export class Game {
     this.ringOn = !!on;
     if (this.ring) this.ring.visible = this.ringOn;
     try { localStorage.setItem('crownrush-ring', on ? '1' : '0'); } catch (e) { /* private mode */ }
+  }
+  // #216 part 2: THE STACK IS LOAD-BEARING, so this turns it off in one place rather than three.
+  // `stackCount()` returns 0 while it is off, and the three things that read it all do the right
+  // thing for free: `updateStack` draws nothing, and the coin a mat is paid with launches from
+  // `stackBase()` -- just clear of his crown -- instead of from the top of a stack that is not
+  // there. That was the part the ticket expected to need a second animation designed for it, and it
+  // does not: the coins still pour into the mat, they just leave from his head rather than from a
+  // tower above it. Standing on a mat watching them go is one of the better moments in the game and
+  // it survives intact.
+  //
+  // What IS lost is `COIN_TIER_COLORS`: the stack is the only place the coin tier is drawn as
+  // colour. That costs nothing today because `coinTier()` returns 'gold' and only 'gold', but it is
+  // the thing to remember if tiers ever become real.
+  setStack(on) {
+    this.stackOn = !!on;
+    try { localStorage.setItem('crownrush-stack', on ? '1' : '0'); } catch (e) { /* private mode */ }
   }
 
   // #171: Quit to Menu. The run is written down if it can be -- `quietEnoughToSave` is the rule the

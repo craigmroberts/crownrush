@@ -1278,6 +1278,23 @@ the player standing still on a mat by his own choice.
 
 ## Coins, ranks and towers
 
+- **Two things in the Display tab that can be turned off** (#216). The **pickup ring** is a hiding
+  and only a hiding: #103 made the drawn circle and the collection reach one number, `ringRadius`, so
+  a setting that touched the radius would be a balance change in a display setting's clothes. Proved
+  with it hidden -- radius still 3.7, a coin at 3.4 still lifts, one at 5.2 does not. Worth knowing
+  while it is off: the ring grows with the Lodestone upgrades and is the only thing that shows a
+  reach upgrade arriving.
+  The **coin stack** is the bigger one, and it gates on `stackCount()` returning 0 rather than on
+  three separate branches. All three readers then do the right thing for nothing: `updateStack` draws
+  an empty instanced mesh, and the coin a mat is paid with launches from `stackBase()` -- just clear
+  of the crown -- instead of from the top of a stack that is not there. **The second animation the
+  ticket expected to need was not needed**; the coins still pour into the mat, they just leave from
+  his head. A picked-up coin instead takes the DOM flight wood already takes, with the coin counter
+  on the end of it rather than the bag, which is the arc #197's `Tally` was written for: "the coin
+  already flies to the counter, so the arc was ending in nothing." Measured both ways -- six coins in,
+  six credited either way; stack on draws 6 and flies 0, stack off draws 0 and flies 6, all landing
+  on `coin-cell`. What is lost while it is off is `COIN_TIER_COLORS`, the only place the coin tier is
+  drawn as colour; that costs nothing while `coinTier()` returns only `'gold'`.
 - **One currency that grows with the Keep.** Coins are gold, always; what changes with the Keep is
   what one is worth -- 1, then 3 from level 4, 8 from 8, 20 from 12 (`CFG.coins`). The count is one
   number. Enemies of higher ranks drop more coins.
