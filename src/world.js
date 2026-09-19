@@ -998,14 +998,61 @@ export function buildWorld(scene, soleShadows = false) {
   // `updateDaylight` sets its `emissiveIntensity` once a frame, so the whole village comes up
   // through dusk in a single assignment and costs the phone nothing per lantern.
   //
-  // `free` is asked, as everywhere else here, so a lantern never lands on a build mat, a road or the
-  // river -- a post standing in the middle of a pad is a pad somebody cannot read.
+  // A LANTERN GETS ITS OWN RULE, for the same reason grass does just below -- and this was written
+  // asking `free`, which placed exactly ZERO of the fourteen. `free` opens with `!inVillage`, and
+  // `inVillage` is the outer tier's footprint: an 82 by 70 rectangle that contains this whole ring.
+  // Every post was rejected on the first clause, silently, and nightfall got its lanterns from the
+  // torches alone. Measured, not reasoned about: a traverse of the built scene for meshes sharing
+  // `LANTERN_FLAME` found one, and it was the torch field.
+  //
+  // `inCitadel` is no good either, and for a more interesting reason than a bad radius. The citadel
+  // is excluded from GRASS because it is "packed, paved and walked over all game" -- which is the
+  // argument FOR putting a lamp there. A street light stands on the paved part. So what a post has
+  // to dodge is not a kind of ground, it is the things that occupy ground: a build mat, a road, the
+  // river, a resource node, and a building's own footprint. That last one `free` never checked,
+  // because nothing else placed here stands where a building will.
+  //
+  // Margins are tight on purpose. 1.0 off a road is a lamp AT the roadside rather than in a field
+  // near one, and 0.6 of air around a footprint is close enough to read as the building's own light.
+  const onBuild = (x, z) => PADS.some((p) => {
+    const f = p.structure && CFG.footprint[p.structure];
+    if (!f || !p.buildAt) return false;
+    return Math.abs(p.buildAt[0] - x) < f[0] / 2 + 0.6 && Math.abs(p.buildAt[1] - z) < f[1] / 2 + 0.6;
+  });
+  //
+  // And a lamp keeps clear of the lamps already standing. Without that, the sideways search below
+  // makes things WORSE than the gaps it is there to close: two neighbours blocked by the same road
+  // both step toward the same free ground and end up 0.05 radians apart -- under a unit, at this
+  // radius -- while the arc they were meant to cover stays dark. Even spacing is about 7.4 apart, so
+  // 4 leaves room to nudge and still forbids a pair.
+  const lamps = [];
+  const lampClear = (x, z) => !nearRiver(x, z, 1.2) && !nearRoad(x, z, 1.0)
+    && !nearNode(x, z) && !nearPad(x, z) && !onBuild(x, z)
+    && !lamps.some((l) => Math.hypot(l[0] - x, l[1] - z) < 4);
+  // A post that cannot stand at its own angle steps ALONG the ring before it gives up, because the
+  // ring is the point: two gaps in a row read as lanterns somebody forgot rather than as a village.
+  // Retrying on radius alone was tried first and rescued none of the five gaps, which makes sense
+  // once you see what blocks a post -- mostly the road, and the road runs radially, so walking out
+  // from a blocked spot walks further down the same road. Stepping sideways leaves it. Radius is
+  // still jittered with it so the ring is a ring of lamps rather than a surveyed circle.
   for (let i = 0; i < 14; i++) {
-    const a2 = (i / 14) * Math.PI * 2 + 0.22;
-    const rr = 15.5 + rand() * 1.6;
-    const x = Math.cos(a2) * rr;
-    const z = Math.sin(a2) * rr;
-    if (!free(x, z, 1.2)) continue;
+    const a0 = (i / 14) * Math.PI * 2 + 0.22;
+    let x = 0, z = 0, ok = false;
+    for (let k = 0; k < 9 && !ok; k++) {
+      // 0, +0.10, -0.10, +0.20, -0.20 ... radians: a sixth of the gap to the next post at the widest,
+      // so a nudged lamp is still plainly at its own station and never crowds its neighbour.
+      const a2 = a0 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.10;
+      const rr = 15.5 + rand() * 1.6 + (k > 4 ? 1.8 : 0);
+      x = Math.cos(a2) * rr;
+      z = Math.sin(a2) * rr;
+      ok = lampClear(x, z);
+    }
+    // Nine of the fourteen stations take a lamp, and the five that do not were checked rather than
+    // shrugged at: one is a building's footprint, three are build mats, and one is the road leaving
+    // the village due north. That is real ground, not a bad margin -- so the ring is broken where the
+    // mats and the main road are, which is where a village's lamps would be missing anyway.
+    if (!ok) continue;
+    lamps.push([x, z]);
     const l = makeLantern();
     l.position.set(x, 0, z);
     l.rotation.y = rand() * Math.PI * 2;

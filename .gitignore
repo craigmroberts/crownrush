@@ -13,3 +13,4 @@ design/crown-rush-art-pass.html
 
 # scratch drivers a session leaves behind; never part of the game
 .*.mjs
+.*.png

@@ -1972,6 +1972,41 @@ while the Queen is captive, so half the cycle had no frame anybody could look at
 same camera at five times of day under **Times of day**, and `views-open` asserts the phase actually
 took -- a `?phase=` that quietly did nothing would show five copies of one sky under five labels.
 
+### Fire at night: lanterns and torches (#212)
+
+Nightfall used to be the same field with the light turned down. Now the village has lamps and some
+raiders carry torches, so the dark has something burning in it.
+
+**Neither is a light.** No `PointLight`, no shadow-casting source, nothing added to the light budget.
+Every flame in the game shares ONE material, `LANTERN_FLAME`, and `updateDaylight` sets its
+`emissiveIntensity` once a frame from the day phase:
+
+| phase | 0.30 day | 0.62 dusk | 0.82 night | 0.99 dawn edge |
+| --- | --- | --- | --- | --- |
+| `emissiveIntensity` | 0.000 | 0.800 | 1.600 | 0.037 |
+| torches drawn | 0 | 9 | 9 | 9 |
+
+One assignment lights the whole world. The raiders' torches are a single `InstancedMesh` re-placed
+each frame from whoever is carrying one, so a hundred torches cost what one does, and the field
+collapses to `count = 0` by day rather than drawing invisible flames.
+
+**Cost, measured on the phone frame**: 210 draw calls by day and 237 at night with twenty raiders on
+the field, against a budget of 400. Nine lamps are nine draws — an emissive material skips both
+`bake()` and `mergeGroup`, so a flame cannot merge with its neighbour — plus one for the torch field.
+72 triangles in total.
+
+**Nine of fourteen lamp stations take a post, and that was measured rather than assumed.** The first
+version placed ZERO, silently: it asked `free()`, whose first clause is `!inVillage`, and `inVillage`
+is the outer tier's 82-by-70 footprint, which contains the whole ring. Nothing errored; night simply
+had no lanterns, and a traverse of the built scene for meshes sharing `LANTERN_FLAME` found exactly
+one — the torch field. A lamp has its own rule now: off the mats, the roads, the river, the nodes and
+the building footprints, but NOT excluded by a kind of ground. The citadel is bare of grass because
+it is paved and walked over, which is the argument *for* standing a lamp there.
+
+The five empty stations were each checked: one building footprint, three build mats, and the road
+leaving the village due north. Real ground, not a bad margin — so the ring is broken where a
+village's lamps would be missing anyway.
+
 ## Rain
 
 It rains every two to four days, for between half a night and a whole one, and the timings are ranges
