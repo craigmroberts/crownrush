@@ -184,7 +184,13 @@ export const CHEAP = {
       return { named, rogues: [...rogues.values()] };
     });
     const bad = [];
-    for (const [what, want] of [['ground', 'ground-untiled-patched+band'], ['tufts', 'sway-tinted-rooted+band'], ['canopies', 'baked-sway+band']]) {
+    // EXACT, not a prefix, and that is the point of it: a cache key changing is the #155 class, so a
+    // key that moves has to be acknowledged here rather than quietly accepted. #200 moved the tufts'
+    // from `sway-tinted-rooted` to `sway-tinted-rooted-feet` because that material now compiles with
+    // the foot-parting loop and the wheat's does not -- two shaders with matching defines and
+    // different hooks is exactly what this key exists to keep apart. This check caught that change on
+    // the run it landed, which is the system working.
+    for (const [what, want] of [['ground', 'ground-untiled-patched+band'], ['tufts', 'sway-tinted-rooted-feet+band'], ['canopies', 'baked-sway+band']]) {
       const got = r.named[what];
       if (!got) bad.push(`${what}: no material with that key is in the scene at all`);
       else if (got.key !== want) bad.push(`${what}: cache key is "${got.key}", wanted "${want}"`);
