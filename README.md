@@ -2314,6 +2314,7 @@ src/hud.js        DOM overlay
 src/icons.js      hand-drawn SVG icon set used by the HUD and rasterised for the build pads
 src/audio.js      Web Audio synth: music loop and sound effects
 src/report.js     #182: the bug report, and the ring of recent frames it is built from
+src/releases.js   #206: the release notes -- written, not measured, and the only copy of what they say
 src/config.js     balance and build tree
 ```
 
@@ -2677,6 +2678,61 @@ its `SAVE_VERSION` is baked in at build time out of `game-save.js`, so it ships 
 the bundle it is waiting to serve. If it answers with a different one, the row says the run will not
 survive; if it does not answer at all — a build from before this existed — nothing is claimed either
 way. A reassurance that turns out to be false once is worse than no reassurance at all.
+
+### And then it says what the update was for (#206)
+
+An update row that can be believed still only answers *whether* you are current. Under it is
+**What's new**, and the two are one story: a build is ready, here is what came with it, and the build
+hash between them is the only honest way to tell which one you are on.
+
+`src/releases.js` is the list, and it is a **written** file rather than a measured one — which makes
+it the odd one out in a repository where the board's rule is that nothing on it is a copy of anything.
+Everything else the game reports about itself is counted out of the thing itself, because a written
+number goes stale and nothing tells you. A release note is the other kind: it is a judgement about
+what a change means to somebody holding a phone, and there is nothing to count it from. *"The tufts'
+cache key moved"* is written for whoever reads the diff next. So it lives beside `docs/brand.md` and
+`src/story.js` as a person's file, under one rule that keeps it honest: **a release is added in the
+same commit as the work it describes, or it does not get written at all.** Nobody reconstructs a week
+of notes afterwards, and a list with a hole in it reads as *nothing changed* rather than as *nobody
+wrote it down*.
+
+Each release carries `added` and `fixed`, and that split is the whole of the ticket. **`added` is
+announced; `fixed` is only listed.** After an update installs, the page reloads — so the build with
+something to say is always the one booting — and the title screen gets a **What's new** window
+holding only what is new, with the fixes counted into one line that says where the rest of them are.
+A window that interrupts somebody to announce four bug fixes is a window that teaches them to dismiss
+windows, and nobody reads the third one. The fixes are still worth writing down and still worth
+reading: they are the answer to *"was that me?"*, and that is what the list under Settings is for.
+
+The identity is a plain counter, deliberately **not** a version number. The game has no version
+scheme anybody honours — `package.json` has said `0.1.0` since the first commit and the build a
+player is running is a content hash of the bundle — so a `1.4.0` here would be a second thing to keep
+in step with nothing. What the player sees is the date and the title; what the code compares is the
+counter, against one key in `localStorage`.
+
+Three cases come out of that key and only one of them opens anything. Nothing stored is a player who
+has **never opened the game**: marked silently, so their first real update is their first greeting
+rather than a window telling them what changed about a game they have not played. Unseen but fixes
+only: no window, and the row in Settings carries a **New** mark instead — the standing signal goes in
+the row, the way the diary's count does, because the dot on the settings cog belongs to #120 and one
+dot with two meanings tells you neither. Unseen with something new: the greeting.
+
+Which means **this build announces nothing to anybody**, and that is right rather than broken: the
+key does not exist yet, so every player alive comes through as a first visit and is marked quietly.
+Nothing in a browser can tell a new player from an existing one on the first build that looks, and of
+the two available mistakes, greeting somebody with a list of changes to a game they have never played
+is the worse one. It costs one release.
+
+Two of those three failures are invisible to whoever they happen to, which is why `release-greeting`
+is a check rather than a thing that was reasoned about. A greeting that never opens looks exactly like
+a build with nothing to say; the one that greets a first-time player is something nobody with the game
+already installed will ever see happen. It drives three cold loads with the marker moved between them,
+and it goes red under a sabotage that stops the marker sticking.
+
+Both shapes of the panel are on the board — `?view=releases` for the list, `?view=whatsnew` for the
+greeting — and neither of them **writes**. A view is the real game on the real origin, so a frame that
+marked the notes read would quietly eat the update greeting of whoever is playing in the other tab,
+the same side effect `?view=defeat` exists to avoid by not calling `gameOver`.
 
 Cache lookups pass `ignoreVary`. Without it the shell loads offline and the bundle does not: a server
 answering `Vary: Accept-Encoding` makes the browser compare request headers against the ones that

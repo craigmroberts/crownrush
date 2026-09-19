@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-19T14:38:21.395Z",
+  "at": "2026-09-19T15:19:47.761Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -149,6 +149,13 @@
       "why": "Both bugs this scene has had were invisible to every other assertion."
     },
     {
+      "id": "release-greeting",
+      "area": "UI",
+      "cost": "cheap",
+      "asserts": "The update greeting is quiet for a new player, opens once for a browser that is behind, and is quiet again after.",
+      "why": "Two of its three failures are invisible to whoever they happen to: a greeting that never opens looks like a build with nothing to say, and the one that greets a first-time player is something no installed phone will ever show anyone (#206)."
+    },
+    {
       "id": "rebuild-after-fall",
       "area": "Opening",
       "cost": "cheap",
@@ -287,6 +294,11 @@
       "pass": true,
       "note": "9 on one deck, each on the planking, and a replacement took the dead man's place",
       "at": "2026-09-19T13:54:21.555Z"
+    },
+    "release-greeting": {
+      "pass": true,
+      "note": "quiet for a new player, shown once to one behind, quiet after",
+      "at": "2026-09-19T15:19:47.448Z"
     }
   }
 }

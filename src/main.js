@@ -8,6 +8,7 @@ import { readScores, readDiary } from './scores.js';
 import { SAVE_VERSION, readLength, writeLength } from './game-save.js';
 import { CFG, PADS } from './config.js';
 import { sampleFrame, bugReport, reportWithLog } from './report.js';
+import { newestRelease, unseenReleases, hasNews, readSeen, markSeen } from './releases.js';
 
 const canvas = document.getElementById('game');
 const hud = new Hud();
@@ -99,6 +100,7 @@ Promise.all([
   startBtn.classList.remove('hidden');
   // #178: a `?view=` or `?tour` frame starts itself the moment Play would have been live.
   if (VIEW || CFG.opening.tourFlag) startForView();
+  else announceRelease();   // #206: and if it is a person rather than a frame, tell them what changed
   // Play is live; fetch the rest while the title screen and the intro are being read, and only then
   // let the worker precache the lot for the next visit.
   //
@@ -118,6 +120,29 @@ Promise.all([
       .then(registerServiceWorker);
   });
 });
+// #206: the half of the ticket that is not a list -- "when an app is updated it should show to the
+// user". This is the moment it can: installing an update reloads the page (`applyUpdate`), so the
+// build that has something to announce is always the one booting, and the title screen is where it
+// lands. Over the title screen and never mid-run: the greeting is worth a few seconds of somebody's
+// attention and is not worth a raid.
+//
+// THREE CASES, AND ONLY ONE OF THEM OPENS ANYTHING:
+//
+//   nothing stored          -> a player who has never opened the game. Marked silently, so their
+//                              first real update is their first greeting rather than a window
+//                              telling them what changed about a game they have not played.
+//   unseen, but only fixes  -> no window. The row in Settings carries the mark instead.
+//   unseen, with something new -> the greeting, holding only what is new.
+//
+// It runs where Play goes live rather than at import, and the marker is read there too rather than
+// captured when the module loaded. `prepSettings` paints the row out of the same storage, and the
+// two have to be reading it at the moment they speak: this writes the marker, and a row that had
+// read it earlier would still be saying "New" about something the player has just been shown.
+function announceRelease() {
+  if (readSeen() == null) return markSeen();
+  if (!hasNews()) return;
+  game.showReleases('title', true);
+}
 // #6: the first time through, Play opens a short stepped intro; after that it goes straight in
 const INTRO_KEY = 'crownrush-intro-seen';
 const INTRO = [
@@ -497,6 +522,10 @@ const prepSettings = () => {
   game.hud.setScoreCount(readScores().length);
   game.hud.setDiaryCount(readDiary().length);   // #154: the row's own count, read fresh on open
   game.hud.setCastCount(readDiary());          // #159: same list, counted as people met
+  // #206: "New" while anything is unread, otherwise the date of the newest. Deliberately `unseen`
+  // and not `hasNews`: a release of nothing but fixes does not earn a window in front of somebody,
+  // and it does earn a mark on a row they went looking at.
+  game.hud.setReleaseMark(unseenReleases().length > 0, newestRelease().date);
   syncSettings();                               // #174: sliders, pills and the tab, read fresh on open
 };
 // #176: the corner button is the pause. It opens the pause window, where Settings is one of the four
@@ -602,6 +631,18 @@ document.getElementById('cr-close').addEventListener('click', closeCredits);
 document.getElementById('cr-x').addEventListener('click', closeCredits);
 document.getElementById('credits-screen').addEventListener('click', (e) => {
   if (e.target.id === 'credits-screen') closeCredits();
+});
+// #206: the release notes, wired exactly as Credits is -- `hideSettings(true)` keeps the sheet's
+// pause so closing them puts the sheet back rather than resuming a game nobody asked to resume (#94).
+document.getElementById('set-releases').addEventListener('click', () => {
+  game.hideSettings(true);
+  game.showReleases('sheet');
+});
+const closeReleases = () => game.hideReleases();
+document.getElementById('rel-close').addEventListener('click', closeReleases);
+document.getElementById('rel-x').addEventListener('click', closeReleases);
+document.getElementById('release-screen').addEventListener('click', (e) => {
+  if (e.target.id === 'release-screen') closeReleases();
 });
 // #159: the cast, wired the same way for the same reason.
 document.getElementById('set-cast').addEventListener('click', () => {
@@ -962,8 +1003,19 @@ function runView() {
     diary: () => game.showDiary(),
     keep: () => game.showKeep(),
     scores: () => game.showScores(),
-    settings: () => game.showSettings(),
+    // #206: through `prepSettings`, the way every real route into the sheet goes. The rows that
+    // carry a count -- best runs, the diary, the cast, and now the release date -- are filled by it
+    // and by nothing else, so a frame that skipped it showed four rows with their `<em>` blank and
+    // the board was quietly reporting a sheet nobody ever sees.
+    settings: () => { prepSettings(); game.showSettings(); },
     credits: () => game.showCredits(),
+    // #206: both shapes of the one panel, because they are two different things to look at and the
+    // board is only worth having while it shows all of them. `whatsnew` is what an update greets
+    // somebody with; `releases` is the list they go looking for. Neither is a mock and neither
+    // WRITES -- see `showReleases`: a frame is same-origin with the game, so marking the notes read
+    // here would be the board eating a real player's greeting.
+    releases: () => game.showReleases('title', false, false),
+    whatsnew: () => game.showReleases('title', true, false),
     pause: () => game.hud.showPause(),
     report: () => takeReport(),   // #182
     levelup: () => { game.offerQueue = 1; game.offerLevel = game.baseLevel; game.showOffer(); },

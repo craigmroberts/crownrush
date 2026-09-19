@@ -124,6 +124,11 @@ export const CHECKS = [
     why: 'Both bugs this scene has had were invisible to every other assertion.',
   },
   {
+    id: 'release-greeting', area: 'UI', cost: 'cheap',
+    asserts: 'The update greeting is quiet for a new player, opens once for a browser that is behind, and is quiet again after.',
+    why: 'Two of its three failures are invisible to whoever they happen to: a greeting that never opens looks like a build with nothing to say, and the one that greets a first-time player is something no installed phone will ever show anyone (#206).',
+  },
+  {
     id: 'rebuild-after-fall', area: 'Opening', cost: 'cheap',
     asserts: 'After the fall the plot is empty, the ledger is clear, and the first mat can be bought.',
     why: 'The fall clears a lot of state by hand; anything it misses is unreachable progress.',

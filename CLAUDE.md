@@ -10,6 +10,21 @@ branch is invisible to the person who asked for it.
 Finished means: it builds, it has been checked in the real game rather than only reasoned about, and
 anything it made stale in the README has been fixed.
 
+### And a player-visible change gets a line in the release notes (#206)
+
+`src/releases.js` is what Settings › About shows, and what the game announces after an update
+installs. **A release is written in the same commit as the work it describes, or it does not get
+written at all** — nobody reconstructs a week of notes afterwards, and a list with a hole in it reads
+as *nothing changed* rather than as *nobody wrote it down*.
+
+One line, in the player's terms, saying what is different to play rather than what was done to the
+code. `added` is announced to them; `fixed` is only listed, because a window that interrupts somebody
+to report four bug fixes is a window that teaches them to dismiss windows. Add to the newest entry
+while it is still the same day's release; start a new one, with the next `id`, when it is not.
+
+Nothing internal belongs here. A refactor, a check, a tool, a comment: the player cannot see it, so
+there is nothing to tell them.
+
 ### One trap, worth knowing before the first merge
 
 A fresh session's clone can have a local `main` whose history is **unrelated** to `origin/main` —

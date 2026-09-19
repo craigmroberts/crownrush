@@ -428,6 +428,12 @@
           <!-- #120: what installing costs, under the row and before the tap. -->
           <p class="hint hidden" id="set-update-note"></p>
           <p class="hint hidden" id="set-version"></p>
+          <!-- #206: what the update the row above installs actually gave you. Directly under it
+               because they are one story -- "a new build is ready" and "here is what is in it" --
+               and the build hash between them is the only honest way to tell which you are on.
+               The `<em>` is the standing signal that there is something unread, the way the diary's
+               count is (#154); the cog's dot belongs to #120 and must keep meaning one thing. -->
+          <button class="sheet-row" id="set-releases"><i data-icon="star" data-size="24"></i><span class="sheet-label">What&#39;s new</span><em id="set-releases-n"></em></button>
           <!-- #74: the numbers a screen bug needs, reachable without a URL. Tap it to copy the full line. -->
           <button class="hint" id="set-size" aria-label="Copy screen details"></button>
           <button class="sheet-row" id="set-credits"><i data-icon="info" data-size="24"></i><span class="sheet-label">Credits</span></button>
@@ -476,6 +482,22 @@
         </div>
         <p class="hint">Baloo 2 by Ek Type and Nunito by Vernon Adams, under the SIL Open Font License. Everything else on the ground, in the sky and in the HUD is drawn in code.</p>
         <button class="primary" id="cr-close"><i data-icon="chev" data-size="20"></i><span>Back</span></button>
+      </div>
+    </div>
+    <!-- #206: the release notes. Two things out of one panel, and the difference is a class:
+         from Settings it is the whole list, fixes and all; after an update it opens itself with only
+         what is NEW in it, because a window that interrupts to announce four bug fixes is a window
+         that teaches people to dismiss windows. Declared after `gameover-screen` like every sheet,
+         so it is in `hidePanels`. -->
+    <div id="release-screen" class="overlay hidden">
+      <div class="panel sheet badged">
+        <div class="panel-badge"><span class="hex"><i data-icon="star" data-size="32"></i></span></div>
+        <button class="panel-x" id="rel-x" aria-label="Close" title="Close">&times;</button>
+        <h1 id="rel-title">What&#39;s new</h1>
+        <p class="hint" id="rel-sub"></p>
+        <div id="rel-body"></div>
+        <p class="hint hidden" id="rel-rest"></p>
+        <button class="primary" id="rel-close"><i data-icon="chev" data-size="20"></i><span>Back</span></button>
       </div>
     </div>
     <div id="scores-screen" class="overlay hidden">

@@ -1717,6 +1717,24 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
   box-shadow: 0 0 0 2px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.3); grid-row: span 4; }
 .dy-entry.cast.locked .cast-face { background: rgba(255,255,255,0.06); box-shadow: none; }
 
+/* #206: the release notes. The diary's reading surface, deliberately -- these are the same kind of
+   thing to look at (a dated entry, a paragraph under a heading) and a second card style would be a
+   copy of one that already works. What is added is the date beside the title and the one rule that
+   carries the whole ticket: a fix is set quieter than a feature, because a list where both shout
+   equally is a list where "we fixed the thing that was bothering you" reads as marketing. */
+#rel-body { max-height: 52vh; overflow-y: auto; text-align: left; margin: 10px 0 14px; }
+.dy-entry.rel h2 { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.dy-entry.rel h2 small { font-family: "Nunito", "Trebuchet MS", system-ui, sans-serif; font-size: 12px;
+  font-weight: 700; opacity: 0.55; white-space: nowrap; }
+.dy-entry.rel p + p { margin-top: 7px; }
+/* A fix is indented under a bullet rather than labelled "Fixed": one word repeated down a column is
+   noise, and the shape says it without a word. */
+.dy-entry.rel p.rel-fix { opacity: 0.66; font-size: 13px; padding-left: 14px; position: relative; }
+.dy-entry.rel p.rel-fix::before { content: ""; position: absolute; left: 3px; top: 8px;
+  width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.5; }
+#rel-sub { margin-bottom: 2px; }
+#rel-rest { margin-bottom: 12px; }
+
 /* #5: the title screen */
 .panel.title { max-width: 520px; padding: 22px 22px 24px; }
 .panel.title .heroes { display: flex; align-items: flex-end; justify-content: center; gap: 4px; margin-bottom: 6px; }

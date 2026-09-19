@@ -77,6 +77,9 @@ export const CHEAP = {
       ['?view=keep', 'keep-screen'], ['?view=levelup', 'offer-screen'], ['?view=scores', 'scores-screen'],
       ['?view=cast', 'cast-screen'], ['?view=diary', 'diary-screen'], ['?view=settings', 'settings-screen'],
       ['?view=credits', 'credits-screen'], ['?view=pause', 'pause-screen'],
+      // #206: both shapes of the release panel. Two rows rather than one because they are two
+      // different things to look at -- the list, and the greeting an update opens by itself.
+      ['?view=releases', 'release-screen'], ['?view=whatsnew', 'release-screen'],
       ['?view=defeat', 'gameover-screen'], ['?view=victory', 'victory-screen'],
       ['?view=report', 'report-screen'],   // #182
     ];
@@ -121,6 +124,73 @@ export const CHEAP = {
       else if (phase !== undefined && Math.abs(r.phase - phase) > 1e-3) bad.push(`${q}: asked for phase ${phase}, the run is at ${r.phase}`);
     }
     return bad.length ? no(bad) : ok(`${VIEWS.length} views, each with its panel up`);
+  },
+
+  // #206: the update greeting, and it is here for the same reason the band hook below is -- every
+  // way it fails is quiet, and two of the three ways are invisible to the person it fails.
+  //
+  //   it never opens        -> looks exactly like a build with nothing to announce
+  //   it opens every load   -> looks like a bug in something else, and gets dismissed faster each time
+  //   it opens for a NEW player -> a window telling somebody what changed about a game they have
+  //                                never seen. Nobody who has the game installed will ever see this
+  //                                one happen, which is precisely why it needs a check.
+  //
+  // Driven by moving the marker rather than by waiting for a deploy: `crownrush-release-seen` is the
+  // whole of the state, so a browser one release behind is one `setItem` away and a phone that has
+  // never opened the game is one `removeItem` away. Three cold loads, because the decision is taken
+  // once at boot and there is no other way to take it again.
+  async 'release-greeting'(page, url) {
+    const bad = [];
+    const KEY = 'crownrush-release-seen';
+    // Ready, not loaded: `announceRelease` runs where Play goes live, which is after the models are
+    // in -- about 20 seconds of SwiftShader past `load`. A check that looked at `load` would find
+    // the greeting not yet open and call that quiet. Then a beat, because "Play is live" is the
+    // frame the decision is taken on and the panel opens inside it.
+    const ready = async (q = '') => {
+      await page.goto(url + q, { waitUntil: 'load', timeout: 150000 });
+      await page.waitForFunction(() => {
+        const b = document.getElementById('start-btn');
+        return b && !b.disabled;
+      }, null, { timeout: 150000 });
+      await page.waitForTimeout(1200);
+    };
+    const look = () => page.evaluate((k) => {
+      const el = document.getElementById('release-screen');
+      return {
+        up: !!el && !el.classList.contains('hidden'),
+        title: (document.getElementById('rel-title') || {}).textContent || '',
+        entries: document.querySelectorAll('#rel-body .dy-entry').length,
+        fixes: document.querySelectorAll('#rel-body .rel-fix').length,
+        mark: localStorage.getItem(k),
+      };
+    }, KEY);
+
+    // A browser that has never opened the game. Nothing stored, so nothing to be behind.
+    await ready();
+    let r = await look();
+    if (r.up) bad.push('a first-ever visit was greeted with what changed since a release it never saw');
+    if (r.mark == null) bad.push('a first-ever visit left no marker, so the NEXT load would greet them');
+
+    // Now a browser that is behind. `0` is behind every release there is, and needs no knowledge of
+    // which one is newest -- which is what keeps this check from having to be edited every time a
+    // release is written.
+    await page.evaluate((k) => localStorage.setItem(k, '0'), KEY);
+    await ready();
+    r = await look();
+    if (!r.up) bad.push('a browser behind every release was not greeted at all');
+    else {
+      if (!/new/i.test(r.title)) bad.push(`greeted with "${r.title}" rather than what is new`);
+      if (!r.entries) bad.push('the greeting opened with no releases in it');
+      // The half of the ticket that is a judgement: fixes are listed, never announced.
+      if (r.fixes) bad.push(`the greeting announced ${r.fixes} bug fixes, which is what it exists not to do`);
+    }
+
+    // And it is over. The marker moved when it was shown, so the next load is quiet.
+    await ready();
+    r = await look();
+    if (r.up) bad.push('the greeting opened again on the next load: it is not being marked read');
+
+    return bad.length ? no(bad) : ok('quiet for a new player, shown once to one behind, quiet after');
   },
 
   // #185/#186: the band hook, and it is here because EVERY WAY IT FAILS IS QUIET.
@@ -690,6 +760,13 @@ export const PROVE = {
   'post-once': () => {
     const c = window.game.post && window.game.post.composer;
     if (c) { c.renderTarget1.samples = 0; c.renderTarget2.samples = 0; }
+  },
+  // #206: the marker never sticks, which is the greeting that opens on every single load -- the
+  // failure that is indistinguishable from a bug in something else and gets dismissed faster each
+  // time it happens. Everything else in storage is left alone, so nothing about the run changes.
+  'release-greeting': () => {
+    const real = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = (k, v) => { if (k !== 'crownrush-release-seen') real(k, v); };
   },
   'walls-solid': () => { window.game.collideWalls = () => {}; },
   // the Keep's mat shoved back off its door axis, which is the state this check was written after

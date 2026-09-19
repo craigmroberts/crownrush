@@ -1162,6 +1162,69 @@ export class Hud {
   hideCast() {
     document.getElementById('cast-screen').classList.add('hidden');
   }
+  // #206: the release notes, in the two shapes one panel has to hold.
+  //
+  // `announce` is the update greeting: only the releases this browser has not been shown, and within
+  // them only what is NEW. The fixes in those same releases are counted into one quiet line at the
+  // foot instead -- the ticket is explicit that a bug fix does not deserve a window in front of
+  // somebody, and it is right: the second time a modal opens to say nothing happened to you, nobody
+  // reads the third.
+  //
+  // Without it, it is the list: every release, newest at the top, with that release's fixes bulleted
+  // and set quieter under its features. That is the surface the fixes exist for -- somebody who
+  // wants to know whether the thing that happened to them last night was them or the game -- and
+  // they are not labelled "Fixed", because one word repeated down a column is noise and the shape
+  // says it already.
+  //
+  // `date` is rendered rather than stored formatted, so the file stays a date somebody can sort.
+  showReleases(list, announce, fixCount = 0) {
+    document.getElementById('rel-title').textContent = announce ? 'What’s new' : 'Release notes';
+    const sub = document.getElementById('rel-sub');
+    sub.textContent = announce
+      ? 'Crown Rush has updated. Here is what came with it.'
+      : list.length === 1 ? 'One release so far.' : `${list.length} releases, newest first.`;
+    document.getElementById('rel-body').innerHTML = list.map((r) => {
+      const rows = [];
+      for (const line of r.added || []) rows.push(`<p>${Hud.lean(line)}</p>`);
+      if (!announce) {
+        for (const line of r.fixed || []) rows.push(`<p class="rel-fix">${Hud.lean(line)}</p>`);
+      }
+      // A release with nothing to show in this mode is left out entirely rather than rendered as an
+      // empty card -- which happens whenever a fixes-only release rides along in an announcement.
+      if (!rows.length) return '';
+      return `<div class="dy-entry rel"><h2>${esc(r.title)}<small>${Hud.relDate(r.date)}</small></h2>${rows.join('')}</div>`;
+    }).join('');
+    // The one line the fixes get in announce mode, and it says where the rest of them are so that
+    // "we fixed things and will not tell you what" is never what this window means.
+    const rest = document.getElementById('rel-rest');
+    const show = announce && fixCount > 0;
+    rest.classList.toggle('hidden', !show);
+    if (show) rest.textContent = `${fixCount === 1 ? 'One fix' : `${fixCount} fixes`} came with it too — they are listed under Settings › About.`;
+    document.getElementById('rel-close').querySelector('span').textContent = announce ? 'Play on' : 'Back';
+    document.getElementById('release-screen').classList.remove('hidden');
+  }
+  hideReleases() {
+    document.getElementById('release-screen').classList.add('hidden');
+  }
+  // `2026-09-19` -> `19 Sep 2026`. Built from the parts rather than `new Date(...).toLocaleDateString`,
+  // because that reads the string as UTC midnight and then prints it in the phone's timezone, which
+  // west of Greenwich is the day before -- a release note dated the day before the release.
+  static relDate(iso) {
+    const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const [y, m, d] = String(iso).split('-').map(Number);
+    if (!y || !m || !d) return esc(iso);
+    return `${d} ${M[m - 1]} ${y}`;
+  }
+  // The standing signal on the row, same decision as the diary's count above: in the row itself, not
+  // on the cog. It says "New" while there is a release this browser has not been shown and the date
+  // of the newest once there is not, so the row is never blank and never shouts for no reason.
+  setReleaseMark(unread, date) {
+    const el = document.getElementById('set-releases-n');
+    if (!el) return;
+    const t = unread ? 'New' : Hud.relDate(date);
+    if (el.textContent !== t) el.textContent = t;
+    el.classList.toggle('pill', !!unread);
+  }
   // #175: the credits. Static content; the sheet only needs showing.
   showCredits() {
     document.getElementById('credits-screen').classList.remove('hidden');
@@ -1202,6 +1265,7 @@ export class Hud {
     this.hideDiary();
     this.hideCast();
     this.hideCredits();
+    this.hideReleases();
     this.hidePause();
   }
   setScoreCount(n) {

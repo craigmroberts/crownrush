@@ -6,6 +6,7 @@ import { CFG, PADS, TIERS } from './config.js';
 import { audio } from './audio.js';
 import { UPGRADES } from './upgrades.js';
 import { readScores, readDiary } from './scores.js';
+import { RELEASES, unseenReleases, markSeen, newestRelease } from './releases.js';
 import {
   makeLumberTree, makeOreRock, makeIronSeam, makeGemNode, makeResourceCube, RES_MATS, CHIP_GEO, makeTool, disposeHealthBar, makePopup, makeTag, makeHeap, makeSpawnFx, makeBurst, makeHeart, COIN_TIER_COLORS,
   makeWallSegment, makeGate, makeRubble, makeFence,
@@ -1412,6 +1413,41 @@ export const ViewMethods = {
     this.creditsOpen = false;
     this.hud.hideCredits();
     if (this.creditsFrom === 'sheet') {
+      this.showSettings();
+      this.settingsPaused = this.sheetPause;
+    }
+  },
+
+  // #206: the release notes, on the credits' shape -- `releasesFrom` remembers whether the sheet or
+  // the title screen opened it, because closing has to put the sheet back in one case and nothing in
+  // the other.
+  //
+  // `announce` is the update greeting rather than the list, and it is the only one of these panels
+  // that opens ITSELF (main.js, once, at the title screen). Which is why showing it is also the
+  // moment it is marked read: there is no other event to hang that on, and a greeting that survives
+  // being read is a greeting that opens every time the game does.
+  //
+  // `record` is what a board frame turns off, and it is not a nicety. Every `?view=` is the real
+  // game on the real origin, so a frame of this panel that marked the notes read would quietly eat
+  // the update greeting of whoever is playing in the other tab -- the same side effect `?view=defeat`
+  // exists to avoid by not calling `gameOver`. Unrecorded, the greeting is shown the newest release
+  // on its own, which is what somebody exactly one build behind sees.
+  showReleases(from = 'sheet', announce = false, record = true) {
+    if (this.releasesOpen) return;
+    this.releasesOpen = true;
+    this.releasesFrom = from;
+    const list = !announce ? RELEASES : record ? unseenReleases() : RELEASES.slice(0, 1);
+    const fixes = announce ? list.reduce((n, r) => n + ((r.fixed && r.fixed.length) || 0), 0) : 0;
+    this.hud.showReleases(list, announce, fixes);
+    if (!record) return;
+    markSeen();
+    this.hud.setReleaseMark(false, newestRelease().date);
+  },
+  hideReleases() {
+    if (!this.releasesOpen) return;
+    this.releasesOpen = false;
+    this.hud.hideReleases();
+    if (this.releasesFrom === 'sheet') {
       this.showSettings();
       this.settingsPaused = this.sheetPause;
     }
