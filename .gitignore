@@ -10,3 +10,6 @@ design/crown-rush-art-pass.html
 
 # Worktrees the Agent tool creates for parallel work: never part of the repo
 .claude/worktrees/
+
+# scratch drivers a session leaves behind; never part of the game
+.*.mjs
