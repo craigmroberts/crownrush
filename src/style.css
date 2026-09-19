@@ -1043,7 +1043,14 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 }
 .panel .tabs .tab.on { background: linear-gradient(180deg, #3aa383, #24785f); border-color: #5ccfa8; color: #f2fff8; box-shadow: 0 2px 0 #14503f; }
 .panel .tabs .tab:active { padding: 9px 4px; border-width: 1px; }
-#set-close .icon { transform: scaleX(-1); }   /* the set's chevron points on; Back points back */
+/* A BACK BUTTON IS A KIND OF BUTTON, not three ids that each have to be remembered (#214).
+   `chev` is drawn pointing right, which is correct for a row that opens something -- the
+   settings rows use it that way. A button whose word is "Back" wants it turned round, and
+   the rule used to say `#set-close`, so Credits shipped with the arrow pointing on and the
+   releases panel added a third one that missed it the same way. Being `.back` is what turns
+   the chevron now, so the next one is right by construction rather than by somebody
+   noticing. The guard has to be structural rather than remembered -- #155. */
+.back .icon { transform: scaleX(-1); }
 .panel .tab-pane { display: none; }
 .panel .tab-pane.on { display: block; }
 /* a row that holds a control rather than opening something: no press state, and the control on the
