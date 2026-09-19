@@ -424,6 +424,33 @@ export const CHEAP = {
   // is there. A check that compared feet to `t.top` would have agreed with the bug.
   async 'tower-crew-placed'(page, url) {
     await boot(page, url);
+    // WAIT FOR THE TOWER, NOT ONLY FOR THE KING -- the #179 lesson arriving a second time, in a
+    // place `boot()` cannot cover. A structure GROWS into place: `mesh.scale.y` runs 0.01 -> 1 over
+    // about a dozen frames, and the King is settled long before it finishes. Measured in a real
+    // browser at `?tour`: scale is 0.722 at frame 14, which is exactly `BOOT_MIN`, and reaches 1 at
+    // frame 19.
+    //
+    // So this audit was measuring a deck still on its way up. The crew spots are a constant 2.99
+    // the whole time, the deck under them passes through 0.72 and 0.33 of the gap on its way, and
+    // the check reported archers standing above the planking -- which is #203's bug, the one it was
+    // written to catch, reported against a game that did not have it. It went green run on its own
+    // and red inside a full sweep, and that split is the signature of a timing bug rather than a
+    // placement one: the sweep is slower, so `boot()` hands over further from the rise.
+    //
+    // A settle rather than `scale.y === 1`, and a ceiling of nothing -- a tower that never finishes
+    // rising times out, which the runner reports AMBER as "could not run" rather than red. A check
+    // that could not run is not a check the game failed.
+    await page.waitForFunction(() => {
+      const g = window.game;
+      if (!g || !g.towers) return false;
+      const ys = Object.values(g.towers).map((t) => t.mesh.scale.y);
+      if (!ys.length) return false;
+      const key = ys.map((y) => y.toFixed(4)).join(',');
+      const s = window.__towerSettle || (window.__towerSettle = { n: 0, key: '' });
+      if (key === s.key) s.n++; else s.n = 0;
+      s.key = key;
+      return s.n >= 3 && ys.every((y) => y > 0.99);
+    }, null, { timeout: 60000, polling: 'raf' });
     const r = await page.evaluate(() => {
       const g = window.game;
       const D = window.CFG.tower.deck;
