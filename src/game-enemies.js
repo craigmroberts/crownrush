@@ -5,8 +5,8 @@ import { CFG, TIERS } from './config.js';
 import { audio } from './audio.js';
 import { beatFor } from './story.js';
 import { makeRigged } from './rig.js';
-import { makeKnight, makeElite, makeBrute, makeBoss, makeCoin, makeHealthBar, setHealthBar } from './models.js';
-import { tmp, tmp2, rand, randInt } from './game-shared.js';
+import { makeKnight, makeElite, makeBrute, makeBoss, makeCoin, makeHealthBar, setHealthBar, LANTERN_FLAME } from './models.js';
+import { tmp, tmp2, tmpM, rand, randInt } from './game-shared.js';
 
 export const EnemiesMethods = {
   // which parts of each enemy rig wear the rank colours
@@ -27,6 +27,10 @@ export const EnemiesMethods = {
     rank = Math.min(rank, CFG.ranks.length - 1);
     const rk = CFG.ranks[rank];
     const rigName = { knight: 'raider', thief: 'raider', sapper: 'raider', archer: 'archer', shield: 'elite' }[type] || type;
+    // #212: one raider in `every` carries fire. A stride over a counter rather than a coin flip, so a
+    // wave always has the same proportion lit -- see the note on `CFG.torches`.
+    this._torchN = (this._torchN || 0) + 1;
+    const torch = this._torchN % CFG.torches.every === 0;
     const rig = makeRigged(rigName, this.rankTints(type, rk));
     const mesh = rig ? rig.mesh : type === 'boss' ? makeBoss() : type === 'brute' ? makeBrute() : type === 'elite' ? makeElite() : makeKnight();
     mesh.position.set(x, 0, z);
@@ -51,6 +55,7 @@ export const EnemiesMethods = {
     const e = {
       type, rank, mesh, bar, stats, hp: stats.hp * hpMul, maxHp: stats.hp * hpMul, damage: stats.damage * dmgMul,
       cooldown: rand(0.2, 0.8), target: null, retarget: 0, flash: 0, radius: stats.radius,
+      torch, torchPhase: rand(0, Math.PI * 2),   // #212
       scale: rig ? { knight: 1.0, elite: 1.1, brute: 1.35, boss: 2.4, thief: 0.92, sapper: 0.95, archer: 1.0, shield: 1.15 }[type] : type === 'boss' ? 1 : 1.15,
     };
     mesh.scale.setScalar(e.scale);
@@ -681,6 +686,37 @@ export const EnemiesMethods = {
     this.disposeEntity(e.mesh);
     this.hud.toast(`The thief escaped with ${e.carrying} coins.`, 2600, 'Raid');
     audio.wallHit();
+  },
+
+  // #212: put a flame in the hand of everyone carrying one, in one pass and one draw call.
+  //
+  // Driven off the SAME `LANTERN_FLAME` intensity the village lanterns use, so a torch is dark by day
+  // and burning by night without this needing to know anything about the clock. When it is out there
+  // is nothing to place, so the whole pass costs one float comparison in daylight -- which is most of
+  // a run.
+  //
+  // `count` is set rather than the mesh being rebuilt: an InstancedMesh draws its first `count`
+  // instances, so a wave that shrinks leaves stale matrices sitting unused beyond the mark rather
+  // than on screen.
+  updateTorches() {
+    const t = this.torches;
+    if (!t) return;
+    if (LANTERN_FLAME.emissiveIntensity < 0.02) {
+      t.count = 0;
+      return;
+    }
+    const lift = CFG.torches.lift;
+    let n = 0;
+    for (const e of this.enemies) {
+      if (!e.torch || n >= t.instanceMatrix.count) continue;
+      const p = e.mesh.position;
+      // a little sway, so a line of them is not a row of identical dots
+      const w = Math.sin(this.time * 3 + e.torchPhase) * 0.06;
+      tmpM.makeTranslation(p.x + w, p.y + lift, p.z);
+      t.setMatrixAt(n++, tmpM);
+    }
+    t.count = n;
+    if (n) t.instanceMatrix.needsUpdate = true;
   },
 
   updateEnemies(dt) {

@@ -7,7 +7,7 @@ import { MODS } from './upgrades.js';
 import { recordRun, readNumber, writeNumber, readLegacy, addLegacy, unlockDiary } from './scores.js';
 import { buildWorld, setupLights } from './world.js';
 import { Input } from './input.js';
-import { setHealthBar, HealthBars, CoinField, clearHealthBars, makeRing, makeCoinStack, makeCamp, cacheSizes } from './models.js';
+import { setHealthBar, HealthBars, CoinField, clearHealthBars, makeRing, makeCoinStack, makeCamp, makeTorchField, cacheSizes } from './models.js';
 import { V3, tmp, tmp2, rand } from './game-shared.js';
 import { BuildMethods } from './game-build.js';
 import { EnemiesMethods } from './game-enemies.js';
@@ -621,6 +621,11 @@ export class Game {
     this.root.add(this.stackMesh.outer, this.stackMesh.inner);
     for (let i = 0; i < 70; i++) this.stack.push({ position: new V3(0, 2.4 + i * 0.11, 0) });
 
+    // #212: the raiders' torches, one instanced mesh for all of them. Built here with the rest of the
+    // run's persistent meshes, and re-placed every frame by `updateTorches` from whoever carries one.
+    this.torches = makeTorchField(CFG.torches.capacity);
+    this.root.add(this.torches);
+
     this.nodeRing = makeRing(3.2);
     this.nodeRing.visible = false;
     this.root.add(this.nodeRing);
@@ -1151,6 +1156,7 @@ export class Game {
       this.updateArmy(dt);
       this.updateTurrets(dt);
       this.updateEnemies(dt);
+      this.updateTorches();   // #212: after they have moved, so a flame is in the hand and not behind it
       this.updateArrows(dt);
       this.updateCoins(dt);
       this.updatePileFlies(dt);

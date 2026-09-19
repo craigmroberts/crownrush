@@ -895,6 +895,20 @@ export const CFG = {
   // obvious move and short enough that giving up on a straggler is not a punishment.
   cycle: { length: 75, nightStart: 0.6, dawn: 0.98, warn: 8, holdDawn: 40 },
 
+  // #212: who carries fire, and how much of it there is.
+  //
+  // `every` is a stride over the spawn counter rather than a probability, so a wave always looks the
+  // same shape: one raider in three with a torch reads as a warband that brought light, where a coin
+  // flip gives you nights with none and nights where all of them have one.
+  //
+  // `capacity` is the instanced mesh's size and it only has to beat the most raiders that can be on
+  // the field at once. 120 is the crowd figure the probe asserts against, so a torch for every one of
+  // them still fits; over it, the extras simply go unlit rather than anything breaking.
+  //
+  // `lift` is how far above a raider's feet the flame sits -- roughly where a hand is on a 1.05-scale
+  // rig, measured off the crew archer's 1.35 height rather than guessed.
+  torches: { every: 3, capacity: 120, lift: 1.05 },
+
   // #81: weather. It rains now and then, and while it falls the living ground comes back faster --
   // wood and straw, not the rock. Rain refilling a quarry reads as a bug, and keeping the bonus to
   // the two things that actually grow is what makes it a rule a player can guess rather than a

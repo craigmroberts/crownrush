@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CFG, MAP, TIERS, NODES, PADS } from './config.js';
 import {
-  mat, matFlat, swayMaterial, setSwayUniform, setFeetUniform, FEET_SLOTS, makeTree, makeBush, makeRock, makeSpikes, makeCliff, makePeak, makeBridge, makeHayBale, makeWheatField, mergeGroup,
+  mat, matFlat, swayMaterial, setSwayUniform, setFeetUniform, FEET_SLOTS, makeTree, makeBush, makeRock, makeSpikes, makeCliff, makePeak, makeBridge, makeHayBale, makeWheatField, makeLantern, mergeGroup,
   band,
 } from './models.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -986,6 +986,31 @@ export function buildWorld(scene, soleShadows = false) {
     return s;
   }, 55, 1.5, 0, { patches: 26, spread: 5 });
   place(() => makeHayBale(), 16, 1);
+
+  // #212: LANTERNS, ROUND THE VILLAGE, LIT BY THE SKY.
+  //
+  // Nightfall used to be the same field with the lights turned down. These give it somewhere people
+  // live: a ring of posts just inside the tier-0 wall, at the radius the huts and the Keep sit
+  // within, so the light is around the part of the map that is a home rather than scattered over
+  // the country.
+  //
+  // They are NOT lights -- see `makeLantern`. Every flame in the game shares one material and
+  // `updateDaylight` sets its `emissiveIntensity` once a frame, so the whole village comes up
+  // through dusk in a single assignment and costs the phone nothing per lantern.
+  //
+  // `free` is asked, as everywhere else here, so a lantern never lands on a build mat, a road or the
+  // river -- a post standing in the middle of a pad is a pad somebody cannot read.
+  for (let i = 0; i < 14; i++) {
+    const a2 = (i / 14) * Math.PI * 2 + 0.22;
+    const rr = 15.5 + rand() * 1.6;
+    const x = Math.cos(a2) * rr;
+    const z = Math.sin(a2) * rr;
+    if (!free(x, z, 1.2)) continue;
+    const l = makeLantern();
+    l.position.set(x, 0, z);
+    l.rotation.y = rand() * Math.PI * 2;
+    scenery.add(l);
+  }
 
   // #210: THE EDGE OF THE KINGDOM, NOT THE EDGE OF THE MAP.
   //

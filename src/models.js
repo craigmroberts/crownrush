@@ -288,8 +288,16 @@ export const C = {
   // to it came out a cold grey-brown that the owner rejected against reference images: what was
   // wanted is terracotta, the warm eroded rock of a dry country.
   //
-  // So `cliff` is hue 26 at 44% saturation now -- inside the roads' band rather than below it, which
-  // is the part of the old note that no longer holds. What survives of it is the reasoning: these sit
+  // So `cliff` is hue 24 at 36% saturation now -- inside the roads' band rather than below it, which
+  // is the part of the old note that no longer holds.
+  //
+  // IT IS DUSK THAT SETS THE CEILING, not the reference and not the old rule. The first warm value
+  // tried here was hue 26 at 44%, which is what the reference actually is, and by day it was right.
+  // At dusk it was fluorescent: the sun key at phase 0.62 is 0xff7a5a, a strong red-orange, and a
+  // warm albedo MULTIPLIES it -- the mesas went hot while the rest of the world muted, and became the
+  // loudest thing in a frame they are meant to sit behind. The old cold stone never showed that
+  // because there was nothing red in it to amplify. So this is the warmest these can be and still
+  // belong to a red sky, which is a smaller number than a daylight reference alone would suggest. What survives of it is the reasoning: these sit
   // in the same warm family as the roads on purpose, because a cold slate in a chartreuse world was
   // the original complaint. `cliffDark` and `cliffPale` are the same hue up and down in value, so a
   // ledge reads by lightness rather than by turning a different colour.
@@ -297,7 +305,7 @@ export const C = {
   // `rock` stays where it was: the loose stones are scattered through the whole map, not just at a
   // mesa's foot, and they answer to the ground rather than to the cliffs.
   leaf: 0x498f2f, leafDark: 0x3c7a25, rock: 0xac997f, grass: 0x74a34a,
-  cliff: 0xb8794c, cliffDark: 0x8f5a36, cliffPale: 0xd6a072,
+  cliff: 0x9e6c4a, cliffDark: 0x7b5133, cliffPale: 0xbb8a61,
   boss: 0xf4e9ec, bossDark: 0xe6cfd6, bow: 0x3b7bff, leather: 0x8a5a3a,
 };
 
@@ -999,6 +1007,58 @@ export function makeBank() {
 }
 
 // A short wooden post beside a gate for a gate guard to stand on.
+// #212: THE LANTERN, AND WHY IT IS NOT A LIGHT.
+//
+// A dozen real point lights would each cost a shader permutation and a per-fragment pass, and this
+// game is played on a phone -- #189 is in the repository because a single post pass quietly pushed
+// the draw-call count over budget. So a lantern is emissive geometry: the flame is drawn bright and
+// the world around it is not actually lit. At the distance the camera sits, that reads.
+//
+// ONE MATERIAL FOR EVERY FLAME IN THE GAME, and that is the whole trick for the night cycle. A
+// lantern has to be dark at noon and burning at midnight, and doing that per-lantern would be a
+// per-object write to a shared material -- the thing `hurtMaterial` exists to avoid. Instead every
+// flame shares `LANTERN_FLAME`, and `updateDaylight` sets its `emissiveIntensity` ONCE a frame from
+// the day phase. One assignment lights every lantern in the world.
+//
+// `band()` skips any material with an emissive colour (see the hook), so a flame is never banded --
+// which is right: the bands are for surfaces catching light, and this one is making it.
+export const LANTERN_FLAME = new THREE.MeshStandardMaterial({
+  color: 0xffe2a0, roughness: 0.6, emissive: 0xffb347, emissiveIntensity: 0,
+});
+
+export function makeLantern() {
+  const g = new THREE.Group();
+  const H = 2.3;
+  g.add(cyl(0.07, 0.1, H, C.darkWood, 0, H / 2, 0, 6));          // the post
+  g.add(box(0.44, 0.07, 0.44, C.darkWood, 0, H + 0.02, 0));       // the cap it hangs under
+  // the housing: four corner posts and a lid, so the flame is seen through it rather than inside a box
+  for (const [x, z] of [[-0.16, -0.16], [0.16, -0.16], [-0.16, 0.16], [0.16, 0.16]]) {
+    g.add(cyl(0.022, 0.022, 0.42, C.darkWood, x, H - 0.24, z, 4));
+  }
+  const flame = new THREE.Mesh(new THREE.OctahedronGeometry(0.15, 0), LANTERN_FLAME);
+  flame.position.y = H - 0.24;
+  g.add(flame);
+  return bake(g);
+}
+
+// #212: the raiders' torches, as ONE instanced mesh for the whole field.
+//
+// A torch per raider as its own object would be a draw call per raider -- twenty on a late night,
+// against a budget of four hundred that the village already spends most of. This is one mesh,
+// re-placed each frame from whoever is carrying one, so a hundred torches cost what one does.
+//
+// The flame shares `LANTERN_FLAME` with the village lanterns, which is deliberate: it is the same
+// fire, it comes up with the same dusk, and it means the night has one warm colour rather than two
+// that nearly match. The stick is not drawn -- at this camera distance it is three pixels of dark
+// wood behind a bright flame, and leaving it out costs nothing anybody can see.
+export function makeTorchField(capacity) {
+  const m = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.17, 0), LANTERN_FLAME, capacity);
+  m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  m.frustumCulled = false;
+  m.count = 0;
+  return m;
+}
+
 export function makeGatePost() {
   const H = 1.55;
   const g = new THREE.Group();

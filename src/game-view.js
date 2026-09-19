@@ -10,7 +10,7 @@ import { RELEASES, unseenReleases, markSeen, newestRelease } from './releases.js
 import {
   makeLumberTree, makeOreRock, makeIronSeam, makeGemNode, makeResourceCube, RES_MATS, CHIP_GEO, makeTool, disposeHealthBar, makePopup, makeTag, makeHeap, makeSpawnFx, makeBurst, makeHeart, COIN_TIER_COLORS,
   makeWallSegment, makeGate, makeRubble, makeFence,
-  makeSpikes, makeGatePost, makeBridge, makeCamp, makeHayBale, makeWheatField,
+  makeSpikes, makeGatePost, makeBridge, makeCamp, makeHayBale, makeWheatField, LANTERN_FLAME,
 } from './models.js';
 import { tmp, tmp2, tmpM, cap, rand } from './game-shared.js';
 import { makeRigged } from './rig.js';
@@ -343,6 +343,18 @@ export const ViewMethods = {
     this.scene.fog.color.copy(lerpC(a.fog, b.fog));
     this.scene.background.copy(this.scene.fog.color);
     this.renderer.toneMappingExposure = a.exp + (b.exp - a.exp) * t;
+    // #212: every lantern in the world, lit and put out, in one assignment.
+    //
+    // They share `LANTERN_FLAME`, so this is a write to a material rather than to an object -- the
+    // opposite of what `hurtMaterial` guards against, and safe for exactly that reason: nothing else
+    // in the game wears it, and no lantern has its own copy to keep in step.
+    //
+    // It follows the sun rather than a night flag, so they come up through dusk and die back through
+    // dawn instead of snapping on at `nightStart`. 0.52 is golden hour and 0.72 is full dark, which
+    // are the same two keys the sky is interpolating between above -- so the lanterns catch light
+    // exactly as the world loses it.
+    LANTERN_FLAME.emissiveIntensity = 1.6 * THREE.MathUtils.smoothstep(this.dayPhase, 0.52, 0.72)
+      * (1 - THREE.MathUtils.smoothstep(this.dayPhase, 0.94, 0.995));
     this.sunHeight = a.h + (b.h - a.h) * t;
     if (this.world.groundMat) this.world.groundMat.color.copy(lerpC(a.tint, b.tint));
     // #81: rain sits ON TOP of the day rather than beside it. Both want the same lights every frame,
