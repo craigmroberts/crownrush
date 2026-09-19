@@ -2589,6 +2589,54 @@ What keeps it fast:
   `src/models.js`). A night's worth of uncollected coins used to be a mesh each, face and rim, and
   cast shadows besides.
 
+## How big the world can be (#211)
+
+**It can be four times the size for nothing, and that is not the interesting part.**
+
+Measured by setting `CFG.world.size` and reading `renderer.info` off a real run at `?tour`, once the
+world had settled:
+
+| `world.size` | draw calls | triangles | fog texel | King's clamp | meshes in the scene |
+| --- | --- | --- | --- | --- | --- |
+| 190 (today) | 274 | 1,106,481 | 0.74 u | ±92 | 451 |
+| 380 (2×) | 254 | 1,083,059 | 1.48 u | ±187 | 606 |
+| 760 (4×) | 252 | 1,083,221 | 2.97 u | ±377 | 755 |
+
+**Draw calls and triangles do not move.** They fall slightly, because a wider world puts less in the
+frustum at once. Three things already in the repo are why, and they are the answer to "will the game
+cope":
+
+- **The grass is a window, not a field** (#191). `setGrassWindow` follows the King, so the tuft count
+  is 10,093 at every size above — identical, to the tuft.
+- **Static scenery is merged.** `mergeGroup` collapses trees, rocks and cliffs into a handful of
+  draws, so extent and draw calls are not the same axis.
+- **Scenery is placed by fixed COUNTS, not by density.** `place(maker, count, …)` scatters a set
+  number over `half = size / 2 - 6`.
+
+That last one is why the honest answer is not "yes, go as big as you like". A bigger world is not
+heavier — **it is emptier.** At 4× the same furniture is spread over sixteen times the ground. The
+mesh count rises (451 → 755) only because the scatter's rejection tests fail less often when there is
+more free space, so it gets closer to the counts it was always asking for. It is bounded by those
+counts either way.
+
+So the limit is content, not performance. What breaks first, in order:
+
+1. **The fog of war and the minimap are 256 × 256 canvases stretched over the whole world**
+   (`buildFog`, `fog.scale = 256 / size`). A fog texel is 0.74 units today and **2.97 at 4×** —
+   coarser than a building is wide. This is the cheapest thing to break and the least obvious, and
+   the fix is one number: the canvas costs a redraw, not a frame.
+2. **Emptiness**, as above. Anything past 2× wants the scatter counts to scale with area, or the new
+   ground is a lawn.
+3. **`?view=map`** frames the board at a hard-coded `camDist 72`, chosen by projecting the tier-2
+   corners. It would need redoing.
+
+**And the thing worth knowing whatever happens to the size:** the King is clamped at
+`CFG.world.size / 2 - 3`, so today he can walk to **±92** — far outside the tier-3 ring at ±38, into
+open ground, until an invisible wall stops him. That clamp *is* the edge of the game a player can
+feel, and it is a long way outside anything the game has put there. Making the world bigger moves the
+wall further out; it does not stop it being a wall. That is #210's question, not this one's, and the
+two should be decided together.
+
 ## Fitting a character to a reference image
 
 `tools/fit/fit.py` runs inside Blender's own Python (numpy is bundled, nothing to install) and fits
