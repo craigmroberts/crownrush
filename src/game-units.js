@@ -171,7 +171,12 @@ export const UnitsMethods = {
     const p = k.mesh.position;
     p.x += k.vel.x * dt;
     p.z += k.vel.z * dt;
-    const half = CFG.world.size / 2 - 3;
+    // #210: `CFG.world.edge` rather than a number worked out from the plane. This used to be
+    // `size / 2 - 3`, which put the stop fifty units past the last ring across bare ground -- the
+    // invisible wall the ticket is about. The band just outside it is cliffs and forest now
+    // (`world.js`), so he is stopped by something he can see. The value is pinned by the finale
+    // camp and by where Wren may be carried out; see the comment on `world` in config.js.
+    const half = CFG.world.edge;
     p.x = THREE.MathUtils.clamp(p.x, -half, half);
     p.z = THREE.MathUtils.clamp(p.z, -half, half);
     // keep the king off the cliffs

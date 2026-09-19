@@ -987,6 +987,60 @@ export function buildWorld(scene, soleShadows = false) {
   }, 55, 1.5, 0, { patches: 26, spread: 5 });
   place(() => makeHayBale(), 16, 1);
 
+  // #210: THE EDGE OF THE KINGDOM, NOT THE EDGE OF THE MAP.
+  //
+  // Reported as "you shouldn't feel like you've come to the edge of the game", and measuring for
+  // #211 found what that is: the King is clamped at `world.size / 2 - 3`, so he could walk to +/-92
+  // -- fifty units past the tier-3 ring at +/-38, across bare ground, until an invisible wall stopped
+  // him. Nothing was out there. The wall was the only thing that said "stop".
+  //
+  // So the band just past where he stops is filled with rock and wood, thick enough to read as
+  // country he cannot go through. `CFG.world.edge` is where he stops now, and the band starts one
+  // unit past it, so what he runs into is a wall he can see rather than one he discovers.
+  //
+  // WHY IT IS A BAND OUTSIDE HIM AND NOT A COLLIDER ROUND HIM: two game rules already live on this
+  // line and both would break if the perimeter genuinely stopped everybody.
+  //
+  //   Wren carried off the map IS the defeat -- `updateTaken` fires `gameOver('taken')` at
+  //   `size / 2 - 4`, so the escorts have to be able to reach +/-90.5 and walk out. They are not
+  //   clamped, so they still can: they carry her into the trees and out of the world, which reads
+  //   better than the bare ground they used to vanish over.
+  //   The camp is at (-4, -74) with a radius of 9, so the march on it reaches z = -83. The edge has
+  //   to sit outside that or the finale is unreachable -- which is the expensive, quiet way to get
+  //   this wrong, since nothing would say so until somebody played to night 30.
+  //
+  // `free` is what keeps the roads and the river open through it: a road that ends in a cliff face
+  // is the same complaint in a different place, and the river is already a way out of the world.
+  const edge = CFG.world.edge;
+  const bandIn = edge + 1;
+  const bandOut = size / 2 - 1;
+  const onBand = (fn, count, margin) => {
+    for (let i = 0, tries = 0; i < count && tries < count * 30; tries++) {
+      // uniform along one of the four sides, then in across the band's depth
+      const side = (rand() * 4) | 0;
+      const along = (rand() * 2 - 1) * bandOut;
+      const into = bandIn + rand() * (bandOut - bandIn);
+      const x = side === 0 ? along : side === 1 ? along : side === 2 ? -into : into;
+      const z = side === 0 ? -into : side === 1 ? into : along;
+      if (!free(x, z, margin)) continue;
+      const o = fn();
+      o.position.set(x, 0, z);
+      scenery.add(o);
+      i++;
+    }
+  };
+  // WOOD, NOT ROCK, and that was measured rather than chosen. The band is about four units deep --
+  // it cannot start before the line Wren is carried over and cannot end past the ground -- and
+  // `makeCliff` is seven to sixteen units WIDE, so a cliff centred in it reaches back to 83 and the
+  // King ends up clamped inside a mesa. Driven, and he was: standing in rock at (90, 10).
+  //
+  // A tree is about a unit across and fits. So the edge is the thick forest the report asks for,
+  // packed at roughly six times the density of the open ground, with undergrowth under it so the
+  // line reads as one mass rather than a row of separate trunks. Cliffs close the north-west corner
+  // already and the river closes the east; this is the rest of it.
+  onBand(() => makeTree(1.0 + rand() * 0.9), 420, 1.0);
+  onBand(() => makeBush(), 260, 0.7);
+
   // wheat fields with fences (straw comes from these)
   for (const f of MAP.fields) {
     const field = makeWheatField(f.size[0], f.size[1]);

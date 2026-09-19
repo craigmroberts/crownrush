@@ -33,6 +33,7 @@ export const RELEASES = [
     added: [
       'Release notes, under Settings \u203a About \u2014 what each update added and what it fixed. After an update installs, the game says what came with it.',
       'The mountains in the north-west are rock now rather than stacked crates \u2014 six-sided, tapered, and each one turned to its own angle.',
+      'The kingdom ends in thick forest rather than in an invisible wall \u2014 walk far enough and you reach country you cannot get through, not the edge of the map.',
     ],
     fixed: [
       'An archer sent to man a tower or a gate could walk into a wall and stay there for the rest of the run. He takes the gate now.',

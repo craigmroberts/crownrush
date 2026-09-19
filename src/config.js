@@ -1,6 +1,17 @@
 // Balance + tuning. Everything gameplay-related that you might want to tweak lives here.
 export const CFG = {
-  world: { size: 190 },
+  // #210/#211: `size` is the ground plane; `edge` is how far out the King may actually walk.
+  //
+  // It was `size / 2 - 3` in code -- 92 -- which is fifty units past the tier-3 ring at +/-38, across
+  // bare ground, ending at an invisible wall. 90 instead, with `world.js` filling the band past it
+  // with cliffs and forest, so what stops him is a thing he can see.
+  //
+  // 90 IS PINNED BY TWO RULES, not chosen for looks. The finale camp is at (-4, -74) with radius 9,
+  // so the march on it reaches z = -83 and the edge has to sit outside that. And Wren carried off the
+  // map is the defeat: `updateTaken` fires at `size / 2 - 4` = 91, so her escorts must still be able
+  // to reach 90.5 -- which they can, because nothing clamps a raider. Moving `edge` below 84 breaks
+  // the finale silently; moving it above 90.5 lets the King stand where she is meant to leave.
+  world: { size: 190, edge: 90 },
   // the grey mesas in the north-west; nothing spawns or walks here
   cliffs: { x: -14, z: -33 },
 
