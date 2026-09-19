@@ -36,13 +36,20 @@ export const CFG = {
     //                       he spins 180   spins and walks   ordinary play   random jinking
     //   before #181              0.59            0.04            0.15             0.06
     //   the anchor alone         1.90            0.21            0.43             0.27
-    //   both                     1.90            1.00            0.99             0.83
+    //   all three                1.90            1.00            0.99             0.94
     //
     // THE ANCHOR IS THE FIX and the two columns say so: a spin on the spot goes from walking through
     // the middle of him to never coming closer than the follow distance at all. What it cannot fix is
     // the second column -- he turns round AND WALKS, so the place he is walking to is the place she is
-    // standing, and no choice of target helps with being walked at. That is what `kingGap` is for, and
-    // in ordinary play it fires on 7% of frames against 28% under random jinking.
+    // standing, and no choice of target helps with being walked at.
+    //
+    // `kingGap` is two things, and the second one was nearly missed. It is the distance `collideKing`
+    // holds, and it is also the radius `steerRoundKing` aims past -- and WITHOUT THE STEERING the
+    // hold alone is a trap: the opening leaves her in front of a standing King, so the follow pulled
+    // her in while the hold pushed her out and she sat dead in front of him at exactly this figure
+    // for twenty seconds of game time, never getting round. Aiming at the tangent instead fixes that
+    // in about a second and does most of the work everywhere else too: the hold now fires on 4% of
+    // frames in ordinary play against 7% before it, and random jinking went 0.83 to 0.94.
     //
     // `followTurn` 3.0 swings her round a 180 in about a second and settles in 0.25s. Faster is
     // worse, not better: at 3.8 she cannot keep up with her own anchor and starts cutting the chord

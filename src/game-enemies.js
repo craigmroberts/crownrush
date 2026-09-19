@@ -1113,6 +1113,45 @@ export const EnemiesMethods = {
     return false;
   },
 
+  // #181: and she AIMS round him, which is the half the orbiting anchor does not cover.
+  //
+  // Found by measuring the opening rather than by reading the code, and it is the more interesting
+  // bug of the two. The opening puts her in FRONT of him and he stands still: the anchor is behind
+  // him, so the straight line to it goes through him, and `collideKing` -- which was the whole
+  // answer at that point -- pushed her back out every frame while the follow pulled her in. She sat
+  // dead in front of him at exactly the gap, bearing 0 degrees, for TWENTY SECONDS of game time and
+  // never got round. A check asserting 0.8 passes that happily. It had turned "walks through him"
+  // into "stands in front of him for ever", which is the shape of fix CLAUDE.md warns about: the
+  // thing it was meant to protect, deleted.
+  //
+  // So when he is inside the corridor she is walking down -- nearer than her target and within the
+  // angle his exclusion circle subtends at that range -- she aims at the TANGENT of that circle
+  // instead of at the target. She walks past him at arm's length and the anchor takes her round the
+  // back from there. It is one asin and one atan2, and it is what "make her go round" means.
+  steerRoundKing(p, dir, d) {
+    const k = this.king.mesh.position;
+    const kx = k.x - p.x, kz = k.z - p.z;
+    const dk = Math.hypot(kx, kz);
+    const gap = CFG.queen.kingGap;
+    if (dk < 1e-3 || dk >= d || dk <= gap) return false;   // not between her and where she is going
+    const halfWidth = Math.asin(Math.min(1, gap / dk));
+    const ang = Math.atan2(dir.x, dir.z);
+    const kang = Math.atan2(kx, kz);
+    let rel = ((kang - ang + Math.PI) % (Math.PI * 2)) - Math.PI;
+    if (rel < -Math.PI) rel += Math.PI * 2;
+    if (Math.abs(rel) >= halfWidth) return false;          // the corridor is clear, walk straight
+    // Dead ahead has no side, and `%` would pick one on a coin flip. Take the side of his centreline
+    // she is already standing on, which is the same tie-break the anchor uses and for the same reason.
+    let side = rel > 1e-3 ? -1 : rel < -1e-3 ? 1 : 0;
+    if (!side) {
+      const fx = Math.sin(this.king.mesh.rotation.y), fz = Math.cos(this.king.mesh.rotation.y);
+      side = (kx * fz - kz * fx) >= 0 ? 1 : -1;
+    }
+    const a = kang + side * halfWidth;
+    dir.set(Math.sin(a) * d, 0, Math.cos(a) * d);
+    return true;
+  },
+
   // #181: she yields rather than being walked through.
   //
   // This is NOT the fix for the ticket's bug -- the orbiting anchor in `updateQueen` is, and with it
@@ -1227,6 +1266,7 @@ export const EnemiesMethods = {
     tmp2.subVectors(tmp, p);
     tmp2.y = 0;
     const d = tmp2.length();
+    this.steerRoundKing(p, tmp2, d);
     let moving = 0;
     if (d > 0.25) {
       const sp = Math.min(q.stats.speed * (d > 5 ? 1.5 : 1), d / dt);
