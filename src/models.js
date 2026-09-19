@@ -226,6 +226,24 @@ export function swayMaterial(color, opts = {}) {
             shove += (d / r) * (1.0 - smoothstep(0.0, uFeetR, r));
           }
         }
+        #ifdef USE_INSTANCING
+          // BACK INTO THE CLUMP'S OWN FRAME, and this is not a nicety. shove is a world direction
+          // and transformed is local, and every tuft is planted with a RANDOM Y ROTATION
+          // (world.js: put(..., r() * Math.PI, ...)). Adding a world vector to a local position means
+          // each clump leans in a direction of its own -- it still looks like the grass is moving,
+          // and a pixel diff still goes green, which is exactly why this was worth catching by
+          // reading rather than by looking.
+          //
+          // XZ scale is uniform per clump (width and depth move together, so a clump stays a clump),
+          // so the inverse is the transpose over the scale squared: with ax = wide * r0,
+          // dot(v, ax) = wide * dot(v, r0), and local = (dot(v,ax), dot(v,az)) / wide^2. One
+          // inversesqrt, no normalize, and the world displacement comes out the same whatever width
+          // the clump was rolled at.
+          vec2 ax = vec2(instanceMatrix[0].x, instanceMatrix[0].z);
+          vec2 az = vec2(instanceMatrix[2].x, instanceMatrix[2].z);
+          float invW = inversesqrt(max(dot(ax, ax), 1e-6));
+          shove = vec2(dot(shove, ax), dot(shove, az)) * invW * invW;
+        #endif
         transformed.xz += shove * uFeetPush * bend;` : ''}`);
   };
   return m;
