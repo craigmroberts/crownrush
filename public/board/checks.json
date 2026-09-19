@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-19T13:40:49.499Z",
+  "at": "2026-09-19T13:46:34.928Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -282,6 +282,11 @@
     "deck-seats-the-crew": {
       "pass": true,
       "at": "2026-09-19T13:40:49.499Z"
+    },
+    "tower-crew-placed": {
+      "pass": true,
+      "note": "9 on one deck, each on the planking, and a replacement took the dead man's place",
+      "at": "2026-09-19T13:46:34.407Z"
     }
   }
 }
