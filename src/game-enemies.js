@@ -188,7 +188,12 @@ export const EnemiesMethods = {
   // marked `rescue` so the raid bar leaves them alone: this is a scripted beat with an outcome, not a
   // fight to be measured, and a progress bar on something the player cannot win is a cruelty.
   updateOpening(dt) {
-    if (this.snatched || this.queen.captive) return;
+    // #224: once she is captive the beat is over and this never runs again. Before that, being
+    // `snatched` is NOT the end of this method's job -- it used to be, and that was the bug: the
+    // party could be killed on its way to her, and then nothing in the game was trying to take her
+    // any more while every gate that waits on `openingDone` stayed shut. See `sendCollectors`.
+    if (this.queen.captive) return;
+    if (this.snatched) return this.updateSnatch(dt);
     const O = CFG.opening;
     // #152: `?tour` holds the morning open. The kingdom is meant to be designed and it cannot be
     // judged while it keeps being pulled down half a minute in -- so the clock simply does not run,
@@ -208,6 +213,30 @@ export const EnemiesMethods = {
     this.snatched = true;
     // #152: and the kingdom goes with her. The player has spent the calm walking around this.
     this.fallOfTheVillage();
+    this.sendCollectors(0);
+  },
+
+  // #224: WATCHING FOR A PARTY THAT IS NOT COMING ANY MORE.
+  //
+  // Runs every frame between the snatch and the capture, which is a window of a few seconds in
+  // almost every run and unbounded in the one that reported this. The test is not "are they dead" --
+  // it is "is anything still walking at her", which is the thing the premise actually needs to be
+  // true. A collector stops being a collector the moment he takes hold of her (`captureQueen` clears
+  // the flag on the whole party), so this cannot fire in the frame she is being carried off.
+  updateSnatch(dt) {
+    if (this.enemies.some((e) => e.collector)) { this.openRetryT = 0; return; }
+    this.openRetryT = (this.openRetryT || 0) + dt;
+    if (this.openRetryT < CFG.opening.retry) return;
+    this.openRetryT = 0;
+    this.sendCollectors((this.openWave || 0) + 1);
+  },
+
+  // The collecting party, and every replacement for it. Pulled out of `updateOpening` for #224 --
+  // it was inline there, which is part of why there was no way to send a second one.
+  sendCollectors(wave) {
+    const O = CFG.opening;
+    this.openWave = wave;
+    const up = wave * O.retryRank;
     audio.wave(true);
     const [fx, fz] = O.from;
     const make = (type, x, z, rank) => {
@@ -225,13 +254,26 @@ export const EnemiesMethods = {
       e.stats = { ...e.stats, speed: O.speed };
       return e;
     };
-    for (let i = 0; i < O.collectors; i++) {
-      const t = O.collectors === 1 ? 0.5 : i / (O.collectors - 1);
-      make('knight', fx + (t - 0.5) * O.spread, fz, O.rank);
+    // #224: and the party grows. Rank tops out at the first replacement (see `retryRank`); numbers
+    // are what actually make each one harder than the last. The spread grows with it so eight men do
+    // not walk in as one column -- `spread` is the width of the line, not a gap between the men.
+    const n = O.collectors + wave * O.retryMore;
+    const spread = O.spread * (n / O.collectors);
+    for (let i = 0; i < n; i++) {
+      const t = n === 1 ? 0.5 : i / (n - 1);
+      make('knight', fx + (t - 0.5) * spread, fz, O.rank + up);
     }
-    if (O.captain) make('brute', fx, fz - 2.4, O.captainRank);
-    this.raiseAlarm('They are coming for Wren!', 'fear');
-    this.hud.toast('The walls are down and they are not stopping for you. *Get her away from them.*', 4200, 'Wren');
+    if (O.captain) make('brute', fx, fz - 2.4, O.captainRank + up);
+    // The first party is the fall of the kingdom and says so. A replacement is a different sentence:
+    // the player has just won a fight and needs to be told why it did not settle anything, or the
+    // next party reads as the game ignoring him rather than as them not stopping.
+    if (wave === 0) {
+      this.raiseAlarm('They are coming for Wren!', 'fear');
+      this.hud.toast('The walls are down and they are not stopping for you. *Get her away from them.*', 4200, 'Wren');
+    } else {
+      this.raiseAlarm('More on the north road.', 'fear');
+      this.hud.toast('You put that party down and the road sent another. *They are not going home without her.*', 3800, 'Wren');
+    }
   },
 
   captureQueen() {

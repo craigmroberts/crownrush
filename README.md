@@ -1423,6 +1423,29 @@ meant to spend walking beside him was a minute of looking at a balcony. Taking h
 the door rule (#106) put her straight back every frame, so it is gated on the premise having happened.
 Every count in the state was correct and only a screenshot showed it.
 
+**And a fourth, reported from a real run (#224): he can WIN the snatch.** The same hole
+`opening.speed` closes, by the other route — that one stops a player walking away from the premise,
+and nothing stopped him beating it. Archers bought during the calm cut the collecting party down
+before it reached her, so `captureQueen` was never called; `snatched` was already true, so
+`updateOpening` returned on its first line for the rest of the session. The village had already
+fallen. A ruined kingdom, a Queen standing in it, every gate that reads `openingDone` shut, and
+nothing left to do.
+
+Reproduced before it was explained, on a build from before the fix: 140 seconds of game time after
+the party was killed, `snatched` true, `captive` false, `openingDone` false, zero collectors on the
+road. Nothing was coming.
+
+The road sends another party now, 6 seconds later, and keeps sending them. **Size is what guarantees
+it terminates, not rank** — rank runs out and men do not. `ranks` has four entries and the collectors
+start at 2, so the first replacement is already at the top of the table and every one after it is the
+same (measured: waves 1, 2 and 3 all report rank 3). Each party brings two more than the last: 5, 7,
+9, 11. That also closes what would otherwise be a coin farm, since every rank carries `coins` and an
+endless supply of identical parties arriving on a timer is an income.
+
+Driven end to end in a real running game: three parties cut down, each replaced by a bigger one, and
+the moment the player stops she is taken and `openingDone` is set. The uninterrupted opening is
+unchanged — first party, `wave` 0, captive at frame 218.
+
 ### `?tour` — the morning holds
 
 Add `?tour` to the address and nobody comes. The clock does not run, the village stays up, and it can

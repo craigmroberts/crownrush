@@ -40,6 +40,7 @@ export const RELEASES = [
       'An archer sent to man a tower or a gate could walk into a wall and stay there for the rest of the run. He takes the gate now.',
       'Archers on a watchtower are sized to the deck they stand on, so a full crew no longer has its heads through the roof.',
       'The Back button on Credits had its arrow pointing the wrong way.',
+      'A run could stick at the very start: kill the raiders sent to take Wren before they reach her and nobody ever came for her again, leaving a ruined village and nothing to do. The road sends more now.',
     ],
   },
   {

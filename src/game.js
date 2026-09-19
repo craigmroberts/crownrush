@@ -580,6 +580,11 @@ export class Game {
     this.snatched = false;
     this.openWarned = false;
     this.openingDone = false;
+    // #224: which collecting party is on the road, and how long the road has been empty. A run that
+    // goes the way the story expects never touches either -- they matter only when the player wins a
+    // fight he was not meant to be able to win.
+    this.openWave = 0;
+    this.openRetryT = 0;
     const hc = TIERS[0].bounds;
     this.homeSide = this.world.riverInfo((hc.x0 + hc.x1) / 2, (hc.z0 + hc.z1) / 2).side;
 

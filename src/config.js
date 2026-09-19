@@ -155,6 +155,34 @@ export const CFG = {
     rank: 2,
     captain: true,
     captainRank: 3,
+    // #224: AND IF HE KILLS THEM ALL, MORE COME. The same hole `speed` below closes, by the other
+    // route. `speed` stops a player WALKING AWAY from the snatch; nothing stopped him winning it.
+    // Reported from a real run: archers bought during the calm cut the collecting party down before
+    // it reached her, so `captureQueen` was never called -- and `snatched` was already true, so
+    // `updateOpening` returned on its first line for the rest of the session. The village had
+    // already fallen. She was never taken, and every gate that reads `openingDone` stayed shut: a
+    // run with a ruined kingdom, a Queen standing in it, and nothing left to do.
+    //
+    // 6 seconds between parties. Long enough that the player sees he has won the fight -- the shot
+    // that drops the last one has to land as a win, or killing them means nothing -- and short
+    // enough that the morning does not go quiet again. The calm is 30 and it is doing three jobs;
+    // this is not a second one of those.
+    retry: 6,
+    // A replacement party comes at the top of the table. `ranks` has four entries and the collectors
+    // already start at 2 with the captain at 3, so +1 is the top from the FIRST replacement on and
+    // `spawnEnemy` clamps it there -- this is a step up, not a ramp, and it was measured saying so
+    // (waves 1, 2 and 3 all report rank 3).
+    retryRank: 1,
+    // WHICH IS WHY SIZE IS WHAT GUARANTEES THIS TERMINATES, and rank is not. Rank runs out; men do
+    // not. Each party brings two more than the last, so however many archers he has bought, some
+    // party is bigger than they can hold -- and the run cannot sit for ever in a beat the player
+    // keeps winning.
+    //
+    // It also closes what would otherwise be a coin farm. Every rank carries `coins`, so a collector
+    // pays out when he dies, and an endless supply of identical parties arriving every 6 seconds is
+    // an income. Parties that grow are an income with a bill at the end of it: the thing that stops
+    // the farm is losing her, which is the thing that was supposed to happen in the first place.
+    retryMore: 2,
     // ABOVE `king.footSpeed` (5.6), and this is not a difficulty number -- it is what stops the
     // opening from having a hole in it. A knight moves at 3.8 and she follows him at his own pace, so
     // a player who simply walks away is never caught: the snatch never lands, the day clock never
