@@ -188,6 +188,7 @@ export function swayMaterial(color, opts = {}) {
       // landed. Toggling this is how the effect is measured without recompiling anything: a program
       // that changes between the two reads would make the comparison meaningless.
       m.userData.feetPush = feetPush;
+      m.userData.feetRadius = feetRadius;
     }
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>\nuniform float uSway;${feet ? `\nuniform vec3 uFeet[${FEET}];\nuniform float uFeetR;\nuniform float uFeetPush;` : ''}`)

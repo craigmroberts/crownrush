@@ -558,11 +558,23 @@ export const CFG = {
   ground: {
     cell: 8, radius: 6, full: 0.55, edge: 0.1, fillPerFrame: 3, fill: 1,
     spread: 3.8, clumped: 0.55, patches: 3,
-    // #200: the grass noticing feet. PLACEHOLDER until it has been looked at -- see the README.
-    // `radius` is how far from a foot a clump leans; `push` is how far its TIP moves, against the
-    // 0.14 the wind already moves it, so a number near 0.5 is several times the wind and should be
-    // obvious. The root never moves: this material is `rooted` and that is the whole point of it.
-    feet: { radius: 1.1, push: 0.5 },
+    // #200: the grass noticing feet. `radius` is how far from a foot a clump leans; `push` is how far
+    // its TIP moves in world units, against the 0.14 the wind already moves it -- so 0.8 is about six
+    // times the wind and reads as a different kind of thing. The root never moves: this material is
+    // `rooted` and that is the whole point of it.
+    //
+    // Pinned by measuring rather than picked. The mean pixel change over a disc round his feet is a
+    // bad guide -- it is diluted by whatever bare ground is in the disc -- so what was measured is the
+    // SHARE of nearby pixels that moved by more than 8/255, at two different spots in open grass:
+    //
+    //     radius  push    visibly moved
+    //       1.1   0.5     9.1%  9.1%
+    //       1.8   0.9    14.3% 12.7%
+    //       2.5   0.9    15.4% 14.6%
+    //
+    // 2.5 buys almost nothing over 1.8 and parts grass two and a half metres from a man, which reads
+    // as a force field rather than as legs. 1.8 is about a stride and the swing of a leg.
+    feet: { radius: 1.8, push: 0.8 },
     // A clover patch is a metre and a half across and half the cells have one, which is what makes it
     // read as a plant that spreads rather than as confetti. Stones come in groups of six to eight in
     // two cells out of five. `flowerChance` is per tuft: 900 flowers against 13,000 tufts is 6.9%,

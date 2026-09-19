@@ -351,6 +351,53 @@ the raids keep coming for a high score.
   (#180) and up to a wheat field's fence, because a bald border round every farm is the one thing in
   an open field you cannot help looking at.
 
+  **And it parts around feet** (#200). `swayMaterial` already did the hard part: `bend =
+  max(transformed.y, 0.0)` is the height up the blade, which is why the material is called
+  **rooted** — the tip moves and the root stays planted. Feet reuse it, so four world positions push
+  a clump's tip away and the grass closes again behind you.
+
+  **Push, not bend.** Pushing the tip away reads as grass being shouldered aside. Bending it *down*
+  reads as trampling — and trampling wants to spring back, which needs state a vertex shader does not
+  have. This recovers on distance alone: walk away and the blade is upright.
+
+  **Four feet, and which four is the only real decision**, because the loop costs the same whether a
+  slot is used or not. The King takes the first; Wren the second when she is out; the last two go to
+  whoever is nearest **him** rather than nearest the camera, because a raider closing on the King is
+  the thing in frame. Unused slots are parked far away instead of counted — a uniform count would make
+  the loop dynamic.
+
+  **The tufts opt in and the wheat does not.** A field is walked past; the lawn he is standing on is
+  walked through. The cache key moves with the opt-in (`sway-tinted-rooted-feet`) or a wheat material
+  and a grass one compile to matching defines with different hooks, which is #155 a fourth time.
+
+  **The shove goes back into the clump's own frame, and that bug would have survived a screenshot.**
+  `shove` is a world direction and `transformed` is local — and every tuft is planted with a *random*
+  Y rotation. Adding a world vector to a local position makes each clump lean somewhere of its own
+  choosing: it still looks like the grass is moving, and a pixel diff still goes green. XZ scale is
+  uniform per clump, so the inverse is the transpose over the scale squared — one `inversesqrt`, no
+  `normalize`, and the world displacement is the same whatever width the clump was rolled at.
+
+  **The numbers were pinned by measuring, and the obvious measurement is the wrong one.** Mean pixel
+  change over a disc round his feet is diluted by whatever bare ground is in the disc, so what was
+  measured is the **share of nearby pixels that moved by more than 8/255**, at two spots in open
+  grass:
+
+  | radius | push | visibly moved |
+  | ---: | ---: | --- |
+  | 1.1 | 0.5 | 9.1% · 9.1% |
+  | **1.8** | **0.9** | **14.3% · 12.7%** |
+  | 2.5 | 0.9 | 15.4% · 14.6% |
+
+  2.5 buys almost nothing over 1.8 and parts grass two and a half metres from a man, which reads as a
+  force field rather than as legs. Shipped at **1.8 and 0.8** — about a stride and the swing of a leg,
+  and a tip that moves about six times what the wind moves it.
+
+  **It costs no draw call, no triangle and no program**: 172 → 172 calls and 48 → 48 programs on the
+  desktop frame, 140 → 140 and 48 → 48 on the phone, toggling the uniform inside a single frame. The
+  A/B is localised exactly where it should be — **0.717 mean change inside two units of his feet and
+  0.000 across the rest of the field** — which is the test that matters when 13,000 blades make almost
+  every pixel an edge.
+
   **And it follows the King** (#191). The tufts used to be scattered once over the whole 190 x 190
   map, one every 1.6 units -- and the camera shows about 35 units of ground, so the player saw under
   2% of them at a time and the rest were submitted every frame and never looked at. That is why an
