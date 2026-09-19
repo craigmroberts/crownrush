@@ -1600,6 +1600,29 @@ four levels) adds a tenth of the mounted speed per level, additive like Train Ar
 saved like `archerPower`, and the panel it opens says the state the way the archers' does: *You ride
 at 10.5 instead of 7.5: 40% faster than an untrained horse*.
 
+**And the army still follows, which is the thing the ticket was worried about.** `CFG.army.trail` was
+tuned against a King at 7.5, and four levels of training put him at 10.5 — 40% past it. Driven at a
+fixed dt on open ground, twelve soldiers, ten game-seconds of running flat out, distance from the
+King:
+
+| | King | median | p95 | worst | put back |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| on foot | 5.6 | 6.52 | 7.98 | 7.98 | 0 |
+| mounted, untrained | 7.5 | 7.90 | 9.34 | 9.38 | 0 |
+| **mounted, trained ×4** | **10.5** | **12.13** | 16.63 | **18.29** | **0** |
+| trained ×4, 24 soldiers | 10.5 | 12.08 | 16.85 | 18.33 | 0 |
+
+The trail roughly doubles, and **nobody is ever put back**: `CFG.army.lost` is 26 and the worst single
+soldier reaches 18.3, so the blink that reads worse than a lag never fires. Twice the army makes no
+difference. `trail` did not need revisiting.
+
+Those are with `holdGround` **off**, which is the pre-#116 behaviour and the only mode where the
+question means anything — **the shipped army does not follow him at all**. It holds the grounds, so a
+faster King stretches nothing: measured the same way with `holdGround: true`, the soldiers sit 41 to
+55 units behind a departing King at every speed, with zero put back, because the distance that gets a
+soldier picked up is measured against his **slot** and not against the King. #82's third done-when
+was written before #116 landed, and #116 answered it by removing the coupling.
+
 The yard (#117) is the block's front half, a post-and-rail paddock with a gap on the road side, and
 **the horses standing in it are the capacity**. **A Horse for the Yard** (18, +6, four at most) puts
 one there; **Mount a Swordsman** (8) sends the nearest one walking out through the gap to a swordsman
