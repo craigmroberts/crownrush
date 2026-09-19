@@ -232,6 +232,27 @@ the raids keep coming for a high score.
   before and after. A light is per-fragment and costs no calls. What it does cost is one more light
   per fragment over the whole frame, and ms/frame for that needs a real phone — the same measurement
   #193 is still open for.
+- **The river, banded across the channel** (#188). The land's bands quantise the **light** — `dotNL`,
+  a cosine. A river is flat and level, so every fragment of it has the same `dotNL` and banding the
+  light does nothing to it at all. What a river has instead is depth, and depth runs across the
+  channel: `abs(uv.x - 0.5)` steps into a deep middle, a mid band and a pale shallow at each bank,
+  with a light **foam line** where it meets the sand — two sines of different wavelength running
+  opposite ways, so the line meanders instead of the whole river breathing in and out.
+
+  **Its step constants are its own, and the ticket asked for the land's.** They are the same numbers
+  meaning different things: 0.20 and 0.48 are thresholds on a cosine, and used across a channel they
+  would put the deep water in the middle fifth and pale shallows over the other four — a dark stripe
+  in a wide light river, which is backwards. A river is deep in the middle.
+
+  The raw `uv` is carried as a varying rather than read from `vMapUv`, which is the same attribute
+  **after** the texture transform — and that transform is exactly what scrolls this material every
+  frame. Reading it there would slide the bands downstream with the highlights and the channel would
+  appear to move sideways. The map itself is kept: the banded colour is multiplied by its luminance,
+  so the scrolling streaks still run over the top of the bands rather than being painted out.
+
+  It stays opaque, so it sorts against nothing, and the crossing stays legible — checked with the
+  bridge built and with only its ghost, from the King's own camera on the east trail. Draw calls
+  unchanged: 522 in the map frame either way.
 - **Grass, and where it is not.** 13,000 instanced tufts in one draw call. What is kept bare is the
   **citadel** -- the tight first ring the Keep and its three service buildings stand in, which is
   paved and walked over all game. Everything beyond it is countryside, including the ground inside the

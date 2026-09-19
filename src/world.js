@@ -133,6 +133,63 @@ function waterTexture() {
   return tex;
 }
 
+// #188: THE RIVER, BANDED ACROSS THE CHANNEL AND WITH A LINE AT EACH BANK.
+//
+// The land's bands (#185) quantise the LIGHT -- `dotNL`, a cosine. A river is flat and level, so
+// every fragment of it has the same `dotNL` and banding the light does nothing to it at all; what a
+// river has instead is depth, and depth runs across the channel. So this quantises `uv.x` and is a
+// different hook that happens to produce the same kind of picture.
+//
+// THE STEP CONSTANTS ARE ITS OWN, and #188 asked for the land's. They are the same numbers meaning
+// different things: 0.20 and 0.48 are thresholds on a cosine, and used here they would put the deep
+// water in the middle fifth of the channel and pale shallows across the other four -- a dark stripe
+// in a wide light river, which is backwards. A river is deep in the middle. Built both and looked;
+// the edges below are where the bands fall in the right proportions.
+//
+// THE RAW `uv` IS CARRIED AS A VARYING rather than reading `vMapUv`, which is the same attribute
+// AFTER the texture transform -- and that transform is exactly what scrolls this material every
+// frame (`waterTex.offset.y -= dt * 0.08`). Reading it here would make the bands slide downstream
+// with the highlights, and the channel would appear to move sideways.
+function riverWater(m, world) {
+  world.riverPhase = { value: 0 };
+  m.customProgramCacheKey = () => 'river-water';
+  m.onBeforeCompile = (shader) => {
+    shader.uniforms.uRiver = world.riverPhase;
+    shader.uniforms.uDeep = { value: new THREE.Color(0x2c7cb4) };
+    shader.uniforms.uMid = { value: new THREE.Color(0x3d9bd4) };
+    shader.uniforms.uShallow = { value: new THREE.Color(0x4fa8d2) };
+    shader.uniforms.uFoam = { value: new THREE.Color(0xdff1fa) };
+    shader.uniforms.uRiverEdge = { value: new THREE.Vector2(0.52, 0.80) };
+    world.riverUniforms = shader.uniforms;   // so a harness can move a band without a rebuild
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec2 vRiverUv;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vRiverUv = uv;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+varying vec2 vRiverUv;
+uniform float uRiver;
+uniform vec3 uDeep;
+uniform vec3 uMid;
+uniform vec3 uShallow;
+uniform vec3 uFoam;
+uniform vec2 uRiverEdge;`)
+      // after the map, because the map is what the scrolling highlights live in and they are kept:
+      // the banded colour is multiplied by the map's own luminance, so the streaks still run
+      // downstream over the top of the bands instead of being painted out by them.
+      .replace('#include <map_fragment>', `#include <map_fragment>
+  float shore = abs( vRiverUv.x - 0.5 ) * 2.0;
+  float lum = dot( diffuseColor.rgb, vec3( 0.3, 0.5, 0.2 ) );
+  vec3 band = mix( mix( uDeep, uMid, step( uRiverEdge.x, shore ) ), uShallow, step( uRiverEdge.y, shore ) );
+  // The line at the bank. Two sines of different wavelength, one running each way, so it meanders
+  // rather than pulsing -- a single sine reads as the whole river breathing in and out.
+  float wob = sin( vRiverUv.y * 2.1 + uRiver * 1.5 ) * 0.075 + sin( vRiverUv.y * 5.3 - uRiver * 0.9 ) * 0.038;
+  float edge = 0.905 + wob;
+  float foam = smoothstep( edge - 0.042, edge + 0.012, shore );
+  diffuseColor.rgb = mix( band * ( 0.80 + 0.40 * lum ), uFoam, foam * 0.85 );`);
+  };
+  return m;
+}
+
 function foamTexture() {
   const c = document.createElement('canvas');
   c.width = 128;
@@ -442,11 +499,11 @@ export function buildWorld(scene, soleShadows = false) {
   world.river = { samples: riverSamples, halfWidth: MAP.river.halfWidth };
   scene.add(ribbon(riverSamples, MAP.river.halfWidth * 2 + 2.6, 0xd8cc9d, 0.012, { wobble: 0.1 }));
   const waterTex = waterTexture();
-  // #186: deliberately NOT banded, and it carries a key now so the band sweep can say so by name
-  // rather than reporting an anonymous white surface. The river is #188's ticket, and a moving,
-  // scrolling surface is the one place hard steps in the lighting would read as a fault.
+  // #186: deliberately not banded by the LAND's hook, which quantises by light angle. The river gets
+  // its own, by distance across the channel, in `riverWater` below -- and keeps the key so the band
+  // sweep can name it rather than reporting an anonymous white surface.
   const waterMat = new THREE.MeshStandardMaterial({ map: waterTex, color: 0xffffff, roughness: 0.35, metalness: 0.05, side: THREE.DoubleSide });
-  waterMat.customProgramCacheKey = () => 'river-water';
+  riverWater(waterMat, world);
   scene.add(ribbon(riverSamples, MAP.river.halfWidth * 2, 0x3d9bd4, 0.02, { material: waterMat }));
   world.waterTex = waterTex;
   // pebbles along both banks
@@ -1759,6 +1816,7 @@ export function buildWorld(scene, soleShadows = false) {
     smoke.instanceMatrix.needsUpdate = true;
     smokeAlpha.needsUpdate = true;
     if (world.waterTex) world.waterTex.offset.y -= dt * 0.08;
+    if (world.riverPhase) world.riverPhase.value += dt;   // #188: the shoreline's own clock
     if (!world.windOff) world.sway.value = world.time;   // #168: a quality tier can still the air
     for (const r of world.roads) {
       if (!r.revealed || r.progress >= 1) continue;
