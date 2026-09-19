@@ -2133,7 +2133,22 @@ for the reason claimed — a check that has never failed on purpose has not been
 npm run check -- --prove
 ```
 
-breaks the game the way each check exists to catch and expects **red**. The sabotage is aimed at the
+breaks the game the way each check exists to catch and expects **red**.
+
+**The first thing it found was a check written the day before.** `hud-quiet` (#197) replayed the
+HUD's setters with unchanged arguments and asserted a `MutationObserver` saw no writes — and called
+`ob.disconnect()` in the same synchronous block as the replay. A MutationObserver delivers its
+callback as a **microtask**, and `disconnect()` empties the record queue, so the callback never ran
+and `writes` was empty whatever the HUD did. Its headline assertion, the one guarding the house rule
+that everything in `Hud.set` dirty-checks, **had never been capable of failing**. It takes
+`ob.takeRecords()` before disconnecting now, and under sabotage it reports *"the HUD wrote 10 times
+when replayed with unchanged values"* — ten writes for ten replays.
+
+Two of the other three that came back red on the first prove run were the **sabotage** being wrong
+rather than the check: `views-open` does its own eighteen navigations and never calls `boot()`, so
+sabotage delivered through `boot` could never reach the check with the worst record. It goes through
+`addInitScript` now and arms on every navigation, which is why where a check chooses to go is no
+longer the harness's problem. The sabotage is aimed at the
 specific thing the registry claims that check covers, never at "make the page throw", which any check
 would notice and which proves nothing: `walls-solid` loses `collideWalls`, `bands-hooked` keeps its
 hook and loses its flag, `queen-visible` gets #181 put back exactly as it was, `hud-quiet` gets a HUD
