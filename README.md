@@ -1169,6 +1169,35 @@ Keep mesh without one could have stranded her (#126).
 Square pads BUILD something (structures, walls, bridges, expansions). Round pads do everything else,
 with a coloured rim: blue recruits units or sends a crew, purple upgrades, green raises the Keep.
 
+**A mat sits at the door** (#202). Every building in `models.js` puts its door on the **+z** face —
+the Keep's at z 1.72, the Barracks' at 1.53, the hut's at `D / 2` — because the camera looks north
+over the King's shoulder, so +z is the face you see. `makeBarracks` says so in its own comment. Three
+of the five fixed mats already sat square on that axis; the Keep's sat at (−5, 5) against a building
+at (0, 0), which is diagonally off a corner touching no face at all, and the Barracks' was 4 units
+off its centre line.
+
+**The bridges were the interesting half.** Their mats were constants in config while the bridge is
+placed where the road *actually* meets the river — `world.crossings`, sampled off the road curve — so
+the two were positioned by unrelated mechanisms and agreed only by luck. Measured: the crossings are
+at (1.17, 50.58) and (54.32, 2.96) and the mats were typed at (6, 44) and (47, 7). **Eight units
+out**, each with one coordinate roughly right and the other wrong. The tell had been on screen the
+whole time and nobody had put it together — the *ghost preview* of the bridge has used `crossingFor`
+since it was written, so a translucent bridge stood in the river while its own mat sat eight units
+away on the bank.
+
+So the mat is **derived**, not re-typed, for the reason #139 gives about tower mats: a better constant
+is still a constant and it drifts the next time a road moves. `bridgeMatPos` steps back from the
+crossing toward the village — the near bank, on the road, clear of the water by half a mat — onto a
+**fresh `pos` array**, never `CFG`'s own, because mutating that would move the mat for every future
+run in the session. Off the road's centre line: **5.47 → 0** and **3.75 → 0**.
+
+`mats-at-doors` in `npm run check` holds both halves. It exempts **placeable** pads, and finding that
+out is what stopped it being wrong: the first version asserted the rule over every pad with a
+`structure` and went red on thirteen watchtowers and three villager homes, all of which carry
+`place: true`. For those the player chooses the spot, the config position is a proposal and the mat is
+derived from where the building actually landed — so a config coordinate is not the geometry, and
+asserting against it measures nothing.
+
 The marker on the ground carries identity only: a big icon, a short name, and a level where the thing
 it points at has one ("Royal Keep · Level 4", "Watchtower · Level 2"). Nobody can read a price off the
 floor at a sharp angle while running past, so the cost lives on a chip that appears above the controls
@@ -1521,6 +1550,29 @@ One bug worth recording. `updatePopping` sets `visible = true` on everything sti
 frame, so a building picked up within half a second of being built refused to disappear — the ghost
 was in hand and the building was still standing there. Picking one up now takes it out of the pop-in
 list first. Not reachable by walking to a building, but a save would have found it eventually.
+
+## A gate fills its section
+
+A gate is a wall section like any other and its span is the tier's `gateWidth` — 6.2 everywhere. But
+`makeGate` took no length where `makeWallSegment` does, so it dropped a fixed **4.8**-wide structure
+into a **6.2** hole: measured on all four citadel gates, section 6.2, mesh −2.4 … 2.4, **1.4 units of
+nothing, 0.7 at each end** (#201).
+
+**Worse than cosmetic.** `collideWalls` skips a gate entirely for anyone friendly, so the *passable*
+opening was the whole 6.2 while the *visible* one was the 3.2 between the posts — probed at both ends
+and the middle of all four gates, every sample walked through. And `roadWidth` is 4.2, so the road ran
+visibly **through** the posts.
+
+The posts sit at the section's own ends now, which fixes all three at once: no gap, the road passes
+cleanly between them, and the opening is as wide as it looks. **Filling the ends with wall stubs was
+rejected** — it makes the mismatch worse rather than better, because a friendly would then walk
+through a piece of wall you can see. Dead space **1.4 → −0.08**, and the 8 cm is a decorative bracket
+standing proud of its post, which is what a bracket does.
+
+The check that exists to catch this had been told not to look. `wall-ring-unbroken` excused any hole
+within **6 units** of a gate centre, and a gateway is 3.1 from its centre — so roughly three units of
+ring either side of every gate could not be reported, and there was a hole in it the whole time. The
+exclusion is `len / 2 + 0.6` now: the doorway, not its neighbourhood.
 
 ## The army holds the grounds
 

@@ -282,6 +282,61 @@ export const CHEAP = {
     return bad.length ? no(bad) : ok(`3 setters replayed 10x with no DOM write; 0 -> 200 runs ${r.seq.join(' ')} in ${r.dur}s`);
   },
 
+  // #202: a build mat sits at the entrance to the thing it builds.
+  //
+  // Two shapes of the same rule, and they fail in different ways. A STRUCTURE's mat belongs square on
+  // its door's axis: every building in models.js puts its door on the +z face, because the camera
+  // looks north over the King's shoulder. The Keep's mat used to sit diagonally off a corner touching
+  // no face at all. A BRIDGE's mat belongs on the road at the crossing -- and that one cannot be
+  // asserted from config, because the bridge is placed where the road actually meets the river while
+  // the mat was a typed constant. They were eight units apart.
+  //
+  // The bridge half is measured as distance OFF THE ROAD'S CENTRE LINE rather than distance from the
+  // crossing: how far back from the water the mat sits is a judgement (it clears the bank by half a
+  // mat), but being off to one side of the road is just wrong, and it was 5.47 and 3.75.
+  async 'mats-at-doors'(page, url) {
+    await boot(page, url);
+    const r = await page.evaluate(() => {
+      const g = window.game, CFG = window.CFG;
+      const bad = [];
+      const checked = { structures: 0, bridges: 0 };
+      for (const def of window.PADS || []) {
+        // A PLACEABLE pad is exempt, and finding that out is what stopped this check being wrong.
+        // The first version asserted the rule over every pad with a `structure` and went red on
+        // thirteen watchtowers and three villager homes -- all of which carry `place: true`, meaning
+        // the PLAYER chooses where they go. For those, the config position is a proposal and the mat
+        // is derived from where the building actually landed (#139's `tower.padOffset`), so a config
+        // coordinate is not the geometry and asserting against it measures nothing. That is #179's
+        // "knowing one shape of a right answer", caught in a brand new check by running it.
+        if (def.place) continue;
+        if (def.structure && def.buildAt) {
+          checked.structures++;
+          const [px, pz] = def.pos, [bx, bz] = def.buildAt;
+          const fp = CFG.footprint[def.structure];
+          if (Math.abs(px - bx) > 0.8) bad.push(`${def.id}: mat is ${(px - bx).toFixed(1)} off its building's centre line, so it is not on the door's axis`);
+          const clear = pz - bz - (fp ? fp[1] / 2 : 0);
+          if (pz <= bz) bad.push(`${def.id}: mat is behind the building (door is on +z)`);
+          else if (fp && clear < 0.2) bad.push(`${def.id}: mat overlaps the footprint by ${(-clear).toFixed(1)}`);
+        }
+        if (def.bridge) {
+          const c = g.world.crossingFor(def.bridge);
+          if (!c) { bad.push(`${def.id}: no crossing for road "${def.bridge}"`); continue; }
+          checked.bridges++;
+          const d = g.bridgeMatPos(def);
+          const off = Math.abs((d.pos[0] - c.x) * -c.dz + (d.pos[1] - c.z) * c.dx);
+          const back = Math.hypot(d.pos[0] - c.x, d.pos[1] - c.z);
+          if (off > 0.4) bad.push(`${def.id}: mat sits ${off.toFixed(2)} off the road's centre line`);
+          if (back < g.world.river.halfWidth + 0.6) bad.push(`${def.id}: mat is ${back.toFixed(2)} from the crossing, which is in the water`);
+        }
+      }
+      // A check that iterated nothing would pass. `hud-quiet` shipped exactly that fault and only
+      // --prove found it, so this says so out loud rather than reporting a quiet success.
+      if (!checked.structures || !checked.bridges) bad.push(`nothing to check: ${checked.structures} structure mats and ${checked.bridges} bridge mats found -- is PADS reachable?`);
+      return { bad, checked };
+    });
+    return r.bad.length ? no(r.bad) : ok(`${r.checked.structures} structure mats on their door's axis, ${r.checked.bridges} bridge mats on the road at the crossing`);
+  },
+
   async 'post-once'(page, url) {
     await boot(page, url);
     const r = await page.evaluate(() => {
@@ -549,6 +604,11 @@ export const PROVE = {
     if (c) { c.renderTarget1.samples = 0; c.renderTarget2.samples = 0; }
   },
   'walls-solid': () => { window.game.collideWalls = () => {}; },
+  // the Keep's mat shoved back off its door axis, which is the state this check was written after
+  'mats-at-doors': () => {
+    const d = (window.PADS || []).find((p) => p.id === 'keep');
+    if (d) d.pos = [-5, 5];
+  },
   // the gates stay gates and the wall stops honouring them
   'gates-passable': () => {
     const g = window.game, real = g.collideWalls.bind(g);

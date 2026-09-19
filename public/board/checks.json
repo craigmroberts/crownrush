@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-19T10:16:51.206Z",
+  "at": "2026-09-19T10:56:14.938Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -86,6 +86,13 @@
       "why": "`Hud.set` runs every frame and the rule that everything in it dirty-checks had nothing enforcing it. #197 put an animation inside that path: a tally that forgets to stop looks completely normal and costs a DOM write sixty times a second on the device that can least afford one."
     },
     {
+      "id": "mats-at-doors",
+      "area": "Build",
+      "cost": "cheap",
+      "asserts": "Every structural mat sits square on its building's door axis, and every bridge mat sits on the road at the crossing.",
+      "why": "A mat is the game's one \"you can build here\" affordance and it is read at a glance. The Keep's sat diagonally off a corner touching no face, and the bridge mats were typed constants eight units from where the bridge actually goes -- positioned by a different mechanism from the thing they build, so they agreed only by luck."
+    },
+    {
       "id": "post-once",
       "area": "Render",
       "cost": "cheap",
@@ -166,52 +173,52 @@
   "checks": {
     "pads-requires-exist": {
       "pass": true,
-      "at": "2026-09-19T09:17:38.532Z"
+      "at": "2026-09-19T10:50:04.700Z"
     },
     "pads-buildat-in-bounds": {
       "pass": true,
-      "at": "2026-09-19T09:17:38.533Z"
+      "at": "2026-09-19T10:50:04.700Z"
     },
     "pads-no-overlap": {
       "pass": true,
-      "at": "2026-09-19T09:17:38.541Z"
+      "at": "2026-09-19T10:50:04.703Z"
     },
     "opening-homes-legal": {
       "pass": true,
-      "at": "2026-09-19T09:17:38.541Z"
+      "at": "2026-09-19T10:50:04.703Z"
     },
     "icons-exist": {
       "pass": true,
-      "at": "2026-09-19T09:17:38.546Z"
+      "at": "2026-09-19T10:50:04.708Z"
     },
     "upgrade-mods-exist": {
       "pass": true,
       "note": "17 of 17 upgrades declare a mod key, all 17 resolve",
-      "at": "2026-09-19T09:17:38.546Z"
+      "at": "2026-09-19T10:50:04.708Z"
     },
     "footprints-cover-kinds": {
       "pass": true,
-      "at": "2026-09-19T09:17:38.546Z"
+      "at": "2026-09-19T10:50:04.708Z"
     },
     "walls-solid": {
       "pass": true,
       "note": "24 directions, held every time",
-      "at": "2026-09-19T09:24:49.252Z"
+      "at": "2026-09-19T10:44:56.950Z"
     },
     "gates-passable": {
       "pass": true,
       "note": "4 gates",
-      "at": "2026-09-19T09:25:15.080Z"
+      "at": "2026-09-19T10:44:22.122Z"
     },
     "wall-ring-unbroken": {
       "pass": true,
       "note": "360 samples",
-      "at": "2026-09-19T09:25:41.194Z"
+      "at": "2026-09-19T10:43:47.697Z"
     },
     "views-open": {
       "pass": true,
       "note": "19 views, each with its panel up",
-      "at": "2026-09-19T09:22:42.095Z"
+      "at": "2026-09-19T10:49:48.015Z"
     },
     "opening-resolves": {
       "pass": true,
@@ -231,12 +238,12 @@
     "tokens-resolve": {
       "pass": true,
       "note": "no cycles; 3 tokens nothing reads -- --frame-hi, --frame-lo, --danger-edge (#135)",
-      "at": "2026-09-19T09:17:38.546Z"
+      "at": "2026-09-19T10:50:04.707Z"
     },
     "icons-unique": {
       "pass": true,
       "note": "54 icons, no key declared twice",
-      "at": "2026-09-19T09:17:38.546Z"
+      "at": "2026-09-19T10:50:04.708Z"
     },
     "bands-hooked": {
       "pass": true,
@@ -252,6 +259,11 @@
       "pass": true,
       "note": "3 setters replayed 10x with no DOM write; 0 -> 200 runs 0 116 175 197 200 200 in 0.34s",
       "at": "2026-09-19T10:16:50.645Z"
+    },
+    "mats-at-doors": {
+      "pass": true,
+      "note": "5 structure mats on their door's axis, 2 bridge mats on the road at the crossing",
+      "at": "2026-09-19T10:56:13.738Z"
     }
   }
 }

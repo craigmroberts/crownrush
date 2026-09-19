@@ -6,7 +6,7 @@ import { preloadProps, usePropRenderer, releasePropTranscoder } from './props.js
 import { preloadIcons, mountIcons, iconSvg } from './icons.js';
 import { readScores, readDiary } from './scores.js';
 import { SAVE_VERSION, readLength, writeLength } from './game-save.js';
-import { CFG } from './config.js';
+import { CFG, PADS } from './config.js';
 import { sampleFrame, bugReport, reportWithLog } from './report.js';
 
 const canvas = document.getElementById('game');
@@ -1213,6 +1213,7 @@ window.game = game;
 // #144: the balance table too. Sweeping a tuning number in a live game is how the figures beside it
 // in config.js get pinned, and rebuilding once per candidate value is the alternative.
 window.CFG = CFG;
+window.PADS = PADS;   // #202: a separate export, and the checks need to read it
 window.audio = audio;
 
 // Add to Home Screen. The service worker holds the whole game — the bundle, the models and the

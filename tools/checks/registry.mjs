@@ -79,6 +79,11 @@ export const CHECKS = [
     why: '`Hud.set` runs every frame and the rule that everything in it dirty-checks had nothing enforcing it. #197 put an animation inside that path: a tally that forgets to stop looks completely normal and costs a DOM write sixty times a second on the device that can least afford one.',
   },
   {
+    id: 'mats-at-doors', area: 'Build', cost: 'cheap',
+    asserts: 'Every structural mat sits square on its building\'s door axis, and every bridge mat sits on the road at the crossing.',
+    why: 'A mat is the game\'s one "you can build here" affordance and it is read at a glance. The Keep\'s sat diagonally off a corner touching no face, and the bridge mats were typed constants eight units from where the bridge actually goes -- positioned by a different mechanism from the thing they build, so they agreed only by luck.',
+  },
+  {
     id: 'post-once', area: 'Render', cost: 'cheap',
     asserts: 'The post pass tone-maps exactly once, keeps the canvas multisampling, and toggles without changing the program set.',
     why: 'All three failures are silent: a doubled or missing tone map is just a different picture, lost MSAA is a jaggier one, and a toggle that swaps the render path recompiles the whole scene at the moment the device is already behind.',

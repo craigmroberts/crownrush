@@ -64,6 +64,7 @@ export const BuildMethods = {
   // seconds and 104 coins, two levels of which nobody asked for. It is the most expensive mat in the
   // game to fire twice.
   addPad(def, justBought = false) {
+    def = this.bridgeMatPos(def);   // #202: a bridge mat goes where the bridge goes
     const { mesh, canvas, tex } = makePad();
     mesh.position.set(def.pos[0], 0.03, def.pos[1]);
     mesh.scale.setScalar(0.01);
@@ -142,6 +143,35 @@ export const BuildMethods = {
     }
     this.drawPad(pad);
     this.pads.push(pad);
+  },
+
+  // #202: A BRIDGE MAT SITS AT THE BRIDGE, and until now it sat wherever somebody typed.
+  //
+  // The two were positioned by unrelated mechanisms. The bridge is placed where the road ACTUALLY
+  // meets the river -- `world.crossings`, sampled off the road curve -- while `pos` was a constant in
+  // config. Measured: the crossings are (1.17, 50.58) and (54.32, 2.96), the mats were typed at
+  // (6, 44) and (47, 7). Eight units out, each with one coordinate roughly right and the other
+  // wrong, which is what "they only agree by luck" looks like when the luck runs out.
+  //
+  // The tell was already on screen and nobody had put it together: the GHOST preview of the bridge
+  // has used `crossingFor` since it was written, so the translucent bridge stood in the river while
+  // its own mat sat eight units away on the bank.
+  //
+  // Derived rather than re-typed, for the reason #139 gives about tower mats: a better constant is
+  // still a constant, and it drifts the next time a road or the river moves. Stepped back from the
+  // crossing toward the village -- the near bank, on the road, clear of the water by half a mat.
+  //
+  // A FRESH `def` with a fresh `pos` array, never the config's own. `def.pos` is shared with `CFG`
+  // and mutating it would move the mat for every future run in this session, which is the same trap
+  // #139 names.
+  bridgeMatPos(def) {
+    if (!def.bridge || !this.world || !this.world.crossingFor) return def;
+    const c = this.world.crossingFor(def.bridge);
+    if (!c) return def;                       // no road reaches the river yet: keep what config said
+    const back = this.world.river.halfWidth + 0.6 + CFG.spend.padSize / 2 + 0.4;
+    // Toward the origin along the road, so it lands on the side the player is standing on.
+    const sign = (c.x * c.dx + c.z * c.dz) > 0 ? -1 : 1;
+    return { ...def, pos: [c.x + c.dx * back * sign, c.z + c.dz * back * sign] };
   },
 
   padKind(def) {
