@@ -315,10 +315,64 @@ export class Game {
     this.camDist = this.camLock || (this.camera.aspect < 0.8 ? 23 : this.camera.aspect < 1.3 ? 19 : 16.5);
   }
 
+  // #190: hand back the GPU side of a finished run.
+  //
+  // WHAT IT SKIPS IS THE WHOLE CARE OF IT. A geometry under the old root may be shared with
+  // something that is staying -- the world, the lights' helpers, a cached mesh -- so the keep-set is
+  // built by walking the scene AFTER the root has been removed from it. Whatever is left in the
+  // scene is by definition not this run's to free.
+  //
+  // Disposing a geometry that turns out to be shared with something OUTSIDE the scene (a rig's GLB
+  // template, held in rig.js's cache) is not fatal and that is deliberate: `dispose()` frees the GPU
+  // buffers and leaves the JS object intact, so the next use re-uploads it. The cost of being wrong
+  // here is one upload on the next run, which that run is paying for a whole village anyway. The
+  // cost of being timid is the count climbing for ever, which is what it was doing.
+  //
+  // MATERIALS AND TEXTURES ARE NOT SWEPT. `mat()` hands the same material to everyone who asks for a
+  // colour and `bake()` puts half the world on three singletons, so a sweep here would dispose the
+  // program every remaining object is drawn with and recompile the scene. The per-run ones are freed
+  // by name, above -- the pads, the banner, the trade mat -- which is why those three lines exist.
+  disposeRun(root) {
+    const keep = new Set();
+    const keepBones = new Set();
+    this.scene.traverse((o) => {
+      if (o.geometry) keep.add(o.geometry.uuid);
+      if (o.isSkinnedMesh && o.skeleton) keepBones.add(o.skeleton.uuid);
+    });
+    let freed = 0;
+    root.traverse((o) => {
+      // THE BONE TEXTURE, which is the one nothing in this file made and nothing was freeing. Three
+      // builds a DataTexture of the bone matrices per SKELETON, lazily, the first time a skinned mesh
+      // is drawn (`Skeleton.computeBoneTexture`) -- and `cloneSkeleton` gives every rig its own. So
+      // each character on the field held an 8x8 float texture that the renderer knew about and this
+      // game did not, and dropping the root freed the mesh and left the texture uploaded for ever.
+      // Named by catching every texture at construction and reading the stack: it was 0.8 a restart
+      // on the instanced path and 3.5 in safe mode, where the crowd is off and every character is a
+      // real SkinnedMesh. `Skeleton.dispose()` frees it and nulls it; a skeleton that is somehow used
+      // again simply recomputes one.
+      if (o.isSkinnedMesh && o.skeleton && !keepBones.has(o.skeleton.uuid)) {
+        keepBones.add(o.skeleton.uuid);
+        if (o.skeleton.boneTexture) { o.skeleton.dispose(); freed++; }
+      }
+      if (!o.geometry || keep.has(o.geometry.uuid)) return;
+      keep.add(o.geometry.uuid);   // a geometry shared by two objects under root is one dispose
+      o.geometry.dispose();
+      freed++;
+    });
+    return freed;
+  }
+
   // ---------- lifecycle ----------
   reset() {
     this.camLock = this.camLock || 0;   // #178: a `?view=` camera survives a restart and a resize
-    if (this.root) this.scene.remove(this.root);
+    // #190: and everything else the run owned, which until now was only the three things below.
+    // Measured with the renderer ON -- which is the whole point, because #167's soak ran with it
+    // stubbed out and `renderer.info.memory` counts what has been UPLOADED, so nothing rendering
+    // reads as nothing leaking. A restart cost 23 geometries and half a texture, for ever.
+    if (this.root) {
+      this.scene.remove(this.root);
+      this.disposeRun(this.root);
+    }
     // Dropping the old root unparents everything but frees nothing: the pads standing on the field
     // still hold a canvas texture each, and a player who restarts five times would be carrying five
     // runs' worth of them. Hand back what this run allocated before the next one starts.

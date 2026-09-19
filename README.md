@@ -1975,6 +1975,37 @@ thing in the game that grows without one is a coin nobody walks over -- which is
 (do coins expire, or is the field capped?) rather than a bug, and is ticketed as one.
 The soak is `soak167.mjs` in the session scratchpad and takes about five minutes.
 
+**And the soak could not see the biggest one** (#190). The answer above is right about the JS heap and
+blind to the GPU, because it ran with `renderer.render` stubbed out -- and `renderer.info.memory`
+counts what has been **uploaded**. With nothing rendering, nothing uploads, so a leak that is entirely
+GPU-side reads as zero by construction, which is how "the geometry count plateaus" survived a thirty
+night soak. Driven again with the renderer **on**, a restart cost **22.85 geometries** every time:
+`reset()` dropped the old `game.root` out of the scene, and dropping a root unparents everything and
+frees nothing. Thirty restarts left 520 geometries resident where a fresh page has 197.
+
+`disposeRun` walks the outgoing root and disposes what the scene no longer holds. The keep-set is
+built by traversing the scene **after** the root has been removed, so anything still reachable -- the
+world, a cached mesh, a geometry two objects share -- is by definition not this run's to free.
+Materials and textures are deliberately *not* swept: `mat()` hands one material to everyone who asks
+for a colour and `bake()` puts half the world on three singletons, so a sweep there would dispose the
+program the rest of the scene is drawn with and recompile it. The per-run ones are still freed by
+name, which is why those three lines above it exist.
+
+The other half was **bone textures**, which nothing in this repo makes and nothing was freeing. Three
+builds a `DataTexture` of the bone matrices per *skeleton*, lazily, the first time a skinned mesh is
+drawn, and `cloneSkeleton` gives every rig its own -- so each character on the field held an 8x8 float
+texture the renderer knew about and the game did not. Named by hooking `Texture.prototype.source` at
+construction and reading the creation stack: **0.8 a restart** on the instanced path and **3.45 in
+safe mode**, where the crowd is off and every character is a real `SkinnedMesh`. `Skeleton.dispose()`
+frees it and nulls it, and a skeleton that is somehow used again simply recomputes one.
+
+Measured after, renderer on, three full rounds of rain, rebuilds, thirty restarts, 3,000 raiders,
+portraits and resizes: a restart now gives geometry **back** (-10, -14, -14 across the three rounds)
+instead of costing 22.85 each, textures settle at 48 and stay, programs at 51, materials at 73, and
+the heap settles at 64 MB after the first round and does not move across the next two. **The one thing
+still climbing is raiders** -- 3,000 spawned and killed adds 20-29 geometries, most of which the next
+block of restarts gives back, leaving about +6 a round. That is not resolved and is on the ticket.
+
 **Adaptive quality** (#168). The game had one adaptive path -- `safeMode()`, which fires when a frame
 draws *nothing* -- and no response at all between "fine" and "blank". Now `game-quality.js` reads the
 **uncapped** frame delta (`dt` is capped at 0.05, so it cannot see below 20fps) and gives things up in
