@@ -2225,6 +2225,54 @@ It also answers the open question in #183: the `build` line is the hash the serv
 *answering* with, so "am I even running the build I think I am" stops being unanswerable from a
 screenshot.
 
+## And then the report is rewritten as a ticket (#207)
+
+The report above is the right shape for the person sending it and the wrong shape for the person
+picking it up. Forty lines of device profile with one sentence of human at the bottom — *"the archers
+in the tower are standing on the roof"* — is evidence, not a ticket, and the wish typed on a phone at
+the other end of the range (*"it would be nice to have some release notes in the settings about
+area"*) is not one either. **Both are exactly the right thing to send.** The cost of reporting has to
+stay near zero or the reports stop; the work of turning one into something anybody can pick up cold
+is separate work, and most of the answer to it is already in the repository.
+
+So `.github/workflows/triage.yml` listens for `issues: opened` and runs `tools/triage/refine.mjs`,
+which reads the issue, reads `CLAUDE.md`, and builds a map of every source file and tool out of the
+first sentence of its own header comment — falling back, for the four that open with imports rather
+than a comment, to the line the README's own project layout already keeps about them. Then it
+rewrites the issue in place: what was asked, what it probably touches, what is genuinely ambiguous,
+how anybody would know it was done, and the **Model and effort** line CLAUDE.md says every ticket
+ends with.
+
+Three things it does not do, and they are the design rather than the caveats:
+
+- **It never throws away a word.** The report goes back into the body verbatim, under a fold. The
+  rewrite is a *reading* of the report and can be wrong, and the only way anyone catches that is by
+  having the thing it was read from.
+- **It never invents a fact about the game.** Everything it asserts comes from the report, from
+  CLAUDE.md or from the map; anything it cannot ground there it asks as a question instead. A
+  confident wrong pointer costs more than no pointer, because somebody follows it.
+- **It never decides.** No labels, no closing, no assigning, no priority, no reply. It has read one
+  sentence from a person and a repository, and neither of those says whether the thing is worth
+  doing. It also signs what it wrote, in visible prose rather than an HTML comment: anybody reading
+  the issue is entitled to know a model wrote it, and a hidden marker means only the robot can tell.
+
+It runs on `opened` **and nothing else**, because the rewrite is an edit and an `edited` trigger would
+watch itself work. The marker it signs with is the second latch — a re-run, a replayed delivery or a
+double dispatch all stop there rather than rewriting a rewrite — and `workflow_dispatch` takes an
+issue number so an old one can be put through it, or a bad rewrite redone after the prompt is fixed.
+
+Anybody can open an issue on a public repository, and the body goes into a prompt — so the system
+prompt says in as many words that a report is data and that one telling it what to write gets
+rewritten like any other. The defence that actually matters is the shape of the thing rather than
+that sentence: no tools, one `PATCH`, the original kept, and nothing a stranger typed ever reaching a
+shell — the workflow passes an issue *number*, and the title and body are fetched inside the script.
+
+It wants an `ANTHROPIC_API_KEY` secret. **Without one it prints why and exits 0**: a repository that
+has not been given a key should not collect a red cross on every issue anybody opens. The model is
+Opus, for the reason CLAUDE.md gives for reaching for it — being wrong here is cheap to do and
+expensive to catch, because a plausible, well-written, confidently wrong ticket reads exactly like a
+good one right up until somebody has spent a morning on it.
+
 ## What the checks are worth (#179)
 
 `npm run check` drives the real game in headless Chromium and writes `public/board/checks.json`,
@@ -2308,6 +2356,7 @@ tools/icons/      draws the home-screen icons from the game's own crown (npm run
 tools/models/     re-compresses the exported characters with meshopt (see Making characters)
 tools/probe/      drives the built game headless and reports what the renderer did (see its README)
 tools/scout/      offline pass that studies the game and files improvement issues (see its README)
+tools/triage/     #207: rewrites a new issue as a ticket the moment it is opened (npm run triage)
 src/world.js      terrain, paths, cliffs, trees, lighting
 src/input.js      virtual joystick + keyboard
 src/hud.js        DOM overlay

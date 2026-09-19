@@ -1,0 +1,75 @@
+# #207: a new issue is read, understood and rewritten as a ticket, the moment it is opened.
+#
+# `issues: opened` and nothing else, on purpose. The rewrite EDITS the issue, and an `edited` trigger
+# would then watch itself work -- so the one event that cannot be caused by this workflow is the only
+# one it listens to. `refine.mjs` also refuses an issue that already carries its marker, which is the
+# second latch: a re-run by hand, a replayed delivery, or somebody firing the dispatch twice all stop
+# at the same place rather than rewriting a rewrite.
+#
+# It is deliberately the whole of the automation. It does not label, close, assign, prioritise or
+# reply -- see the header of tools/triage/refine.mjs for why that line is where it is.
+#
+# NOTHING A STRANGER TYPED IS INTERPOLATED INTO A COMMAND. The only `${{ }}` below are an issue
+# NUMBER and a boolean; the title and the body are fetched from the API inside the script and never
+# touch a shell. That is the whole of the defence, and it is why the step passes `--issue 207` rather
+# than the convenient thing, which would be the title.
+name: Refine a new issue
+
+on:
+  issues:
+    types: [opened]
+  # So an issue from before this existed can be put through it, and so a bad rewrite can be redone
+  # after the prompt is fixed.
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Issue number to refine
+        required: true
+      force:
+        description: Refine it again even if it has already been refined
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+# One at a time, keyed on the issue: two runs editing one body would have the second overwrite the
+# first with a rewrite of a rewrite. Not `cancel-in-progress` -- a run that is already talking to the
+# API should finish and write, rather than spend the tokens and throw the answer away.
+concurrency:
+  group: triage-${{ github.event.issue.number || inputs.issue }}
+  cancel-in-progress: false
+
+jobs:
+  refine:
+    runs-on: ubuntu-latest
+    # A report opened BY a bot is usually this repo's own machinery talking to itself, and rewriting
+    # its own words is the one thing triage can do that is pure noise. The script checks this too;
+    # here it saves starting a runner at all.
+    if: github.event_name == 'workflow_dispatch' || github.event.issue.user.type != 'Bot'
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # The whole dev tree, because `npm ci` is what the lockfile describes and a partial install is
+      # a second thing to keep in step. It is cached, and this job runs once per issue. The one thing
+      # skipped is Playwright's browsers: this job never opens one, and they are a couple of hundred
+      # megabytes between an issue being opened and it being readable.
+      - run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+      - name: Read the issue and rewrite it
+        env:
+          # With no key the script says so and exits 0. A repository that has not been given one
+          # should not collect a red cross on every issue anybody opens.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: >
+          node tools/triage/refine.mjs
+          --issue ${{ github.event.issue.number || inputs.issue }}
+          ${{ (github.event_name == 'workflow_dispatch' && inputs.force) && '--force' || '' }}
