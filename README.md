@@ -276,6 +276,72 @@ the raids keep coming for a high score.
 
   Both constants sit under what looks right in a still: a vignette is a thing you stop noticing and
   then cannot unsee, and this frame already has a HUD in three of its corners.
+- **Warm near, cool far** (#196). Colour temperature keyed to distance from the camera: a warm bias on
+  the ground at the King's feet sliding to a cool one across the field, composed **on top of** the fog
+  rather than replacing it. The camera is close and nearly top-down, so there is no perspective
+  convergence and almost never a horizon -- what is left to say "behind" rather than "beside" is value
+  and hue, and #185 spent the value budget on bands.
+
+  **It lives in the post pass and not in the material hook**, which the ticket left open. The deciding
+  argument is who it has to reach: enemies are seen mostly at distance and they are **not** banded --
+  characters are out of #184's scope -- so a depth tint in the hook would separate the near grass from
+  the far grass and leave the raiders standing on it untouched. In the pass it is one place, it reaches
+  everything the camera renders, and it costs no second program. `from` 14 and `to` 52 are the band, in
+  world units: this camera sits about 21 units from the King and the ground runs out around 55.
+
+  **The trap was which buffer holds the depth.** The composer's two targets are named the other way
+  round from the way they read -- `writeBuffer` is `renderTarget1`, the target you passed in, and
+  `readBuffer` is `renderTarget2`, a clone of it -- and `RenderPass` draws into `readBuffer`. So the
+  scene's depth lands in the **clone's** depth texture, which `RenderTarget.copy` made as a separate
+  object, and a uniform pinned to `target.depthTexture` samples something nothing ever rendered into.
+  It comes back 0, `perspectiveDepthToViewZ` turns 0 into the near plane, and the whole screen gets
+  `far = 0` -- the warm tint at every distance and no gradient at all. It looked plausible in a
+  screenshot and the measurement is what caught it: ground at 17 units and ground at 39 both shifted
+  14 toward warm. The uniform is taken from `readBuffer` every frame now, which follows the picture
+  instead of guessing at it. Depth is linearised before it is used, because a tint keyed to raw depth
+  puts the entire change in the first few units in front of the lens.
+
+  **What it does to the frame.** Ground sampled along the view ray, as blue-minus-red against the same
+  frame with the effect off, desktop road frame: **-12 at 17 units, -18 at 21, -8 at 25, -4 at 32, 0 at
+  39**; the phone frame sees further and crosses over, **-10, -8, -3, -1, +4, +8 out to 49 units**.
+  Monotonic, warm to cool, and it composes with the fog rather than fighting it.
+
+  **What it costs the ranks**, which is the thing the ticket said to re-measure. Four ranks stood in
+  open grass at (-33, 41), read through the real render path with the grade on against the identical
+  frame with it off. At noon: Bandit **2.86 -> 3.01**, Raider **4.50 -> 4.26**, Marauder
+  **6.95 -> 7.01**, Warlord **12.05 -> 11.36**. Across #194's four dusk phases:
+
+  | | Bandit | Raider | Marauder | Warlord |
+  | --- | --- | --- | --- | --- |
+  | 0.52 | 2.39 → 2.39 | 2.73 → 2.50 | 5.09 → 4.86 | 7.31 → 6.64 |
+  | 0.58 | 1.31 → 1.28 | 1.69 → 1.52 | 3.01 → 2.86 | 4.45 → 3.97 |
+  | 0.62 | 1.27 → 1.23 | 1.59 → 1.43 | 2.65 → 2.51 | 3.97 → 3.53 |
+  | 0.66 | 1.20 → 1.16 | 1.51 → 1.37 | 2.21 → 2.11 | 3.24 → 2.89 |
+
+  Every rank loses a little at dusk and the Warlord loses the most, from the most headroom. The
+  **order holds at every phase**, before and after, which is what a player reads. The worst number on
+  the page is the Bandit at 1.16 against dusk grass, and he was at 1.20 before this and 1.3 before
+  #194 -- that one is his tunic, and characters are out of #184's scope.
+
+  **These absolutes are not #194's table and should not be laid against it.** They are this ticket's
+  own instrument at a named spot, read through the post pass, on grass #185 has since banded; what is
+  comparable is each pair, because both halves of it are the same pixels in the same frame with one
+  uniform moved. Two earlier versions of the harness proved why that matters: one stood the Bandit
+  against the castle's red brick and one put half the row in the wall's shadow, and both reported a
+  ladder with the Warlord -- a near-black tunic -- **below** the Marauder, which cannot happen on
+  grass. The open-grass spot is searched for now and the frame is the judge.
+
+  **Budgets hold.** Road 227-251 calls and 821-833k triangles, the stable 317-358 and 796-965k, the
+  phone road 180-199 and 749-770k, across all four phases -- under 400 and under 1M everywhere. Safe
+  mode builds no composer, so the effect is off rather than broken: all three arms of the measurement
+  come back identical to the digit and every delta is 0.00.
+
+  One harness note, because it produced a wrong table before it produced a right one: `setDayPhase`
+  ends by calling `updateDaylight`, so stubbing `updateDaylight` to stop the frame loop repainting and
+  *then* asking for a phase sets `dayPhase` and changes no light at all. Four different phases came
+  back as four copies of the first. The three measurement arms also have to run inside **one**
+  `page.evaluate` -- run as three, they disagreed in safe mode, where no post pass exists and all
+  three are literally the same call.
 - **Grass, and where it is not.** 13,000 instanced tufts in one draw call. What is kept bare is the
   **citadel** -- the tight first ring the Keep and its three service buildings stand in, which is
   paved and walked over all game. Everything beyond it is countryside, including the ground inside the

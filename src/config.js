@@ -472,7 +472,19 @@ export const CFG = {
   // The grade runs BEFORE the tone map, on linear light, which is why its numbers look small: a 7%
   // push on a linear highlight is a visible warmth after ACES, and the same figure applied to the
   // finished pixel would barely register.
-  post: { vignette: 0.30, grade: 0.65 },
+  //
+  // #196: WARM NEAR, COOL FAR. `from` and `to` are distances from the camera in world units, and
+  // between them the grade slides from the warm tint to the cool one; `temp` is how much of it is
+  // applied. This camera sits about 21 units from the King and the ground runs out around 55, so
+  // 14 to 52 is the band the player actually looks at -- narrower and the near field is all one
+  // temperature, wider and nothing in the frame reaches either end.
+  //
+  // IT LIVES IN THE POST PASS rather than the material hook, and #196 left that open. The deciding
+  // argument is who it has to reach: enemies are mostly seen at distance and they are NOT banded --
+  // characters are out of #184's scope -- so a depth tint in the material hook would separate the
+  // grass from the far grass and leave the raiders standing on it untouched. In the pass it is one
+  // place, it reaches everything the camera sees, and it costs no second program.
+  post: { vignette: 0.30, grade: 0.65, from: 14, to: 52, temp: 0.42, near: 0xffd9b4, far: 0xb9d2f2 },
 
   // #191: THE GRASS FOLLOWS THE KING. 13,000 tufts used to be scattered once over the whole 190 x 190
   // map -- about one every 1.6 units -- and the camera shows roughly 35 units of ground, so the player
