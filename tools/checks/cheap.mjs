@@ -245,6 +245,13 @@ export const CHEAP = {
       const ob = new MutationObserver((ms) => { for (const m of ms) writes.push((m.target.parentElement || m.target).id || m.target.nodeName); });
       ob.observe(hud, { childList: true, characterData: true, subtree: true });
       for (let i = 0; i < 10; i++) for (const sp of spies) if (sp.args) sp.real(...sp.args);
+      // `takeRecords()` BEFORE `disconnect()`, and that ordering is the whole assertion. A
+      // MutationObserver delivers its callback as a MICROTASK, and `disconnect()` empties the queue
+      // -- so a callback and a disconnect in the same synchronous block means the callback never
+      // runs and `writes` is empty whatever the HUD did. This check shipped that way and passed its
+      // own sabotage in `--prove`, which is exactly what --prove is for: it was not covering the
+      // thing the registry said it covered, and no amount of reading it would have shown that.
+      for (const m of ob.takeRecords()) writes.push((m.target.parentElement || m.target).id || m.target.nodeName);
       ob.disconnect();
       for (const sp of spies) g.hud[sp.name] = sp.real;
       const pumping = g.hud.pumping;
