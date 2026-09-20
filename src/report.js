@@ -105,6 +105,17 @@ export function bugReport(game, input, extra = {}) {
   L.push(pad('run') + `night ${game.wave} · keep lv ${game.baseLevel} · score ${game.score} · ${game.units.length} army · ${game.enemies.length} raiders · ${game.coinsCarried} coins`);
   L.push(pad('live') + `arrows ${s.arrows} · coins ${s.coins} · fx ${s.fx} · queue ${s.queue} · heap ${s.heap == null ? 'n/a' : s.heap + ' MB'}`);
   L.push(pad('gpu') + `${s.geometries} geometries · ${s.textures} textures · ${s.programs} programs`);
+  // #64: HOW MANY CHARACTERS ARE ACTUALLY ON SCREEN, which is the number that ticket turns on and
+  // which no report could answer until now. It says to add a distance LOD "if character counts ever
+  // climb past roughly 150 on screen" -- and `drawn` is exactly that, the count the instance writer
+  // keeps after its own frustum test, as against `characters`, which is everybody alive. A night-30
+  // wave is 143 raiders and the army can reach ~120, so the total goes well past the trigger while
+  // the drawn count may never approach it. Reporting the total alone would have argued for work that
+  // is not needed; reporting both is what settles it from a real phone rather than from a guess.
+  if (game.crowdStats) {
+    const cr = game.crowdStats();
+    L.push(pad('crowd') + `${cr.drawn} drawn of ${cr.characters} alive`);
+  }
   L.push(pad('shadows') + `${game.shadowProfile} · post ${game.post ? (game.post.grade.enabled ? 'on' : 'off at this tier') : 'none (safe mode)'}`);
   L.push('');
   L.push(pad('device') + (extra.size || 'n/a'));
