@@ -89,6 +89,10 @@ const BLOCKS = {
 //   crowd  reported +540 geometries a round. The block removed each unit's mesh from the root and
 //          never called `disposeEntity`, which is the second half of what the game itself does
 //          (`game-units.js`: splice, remove, dispose). The geometries were the harness's.
+//   crowd  reported +540 geometries a round a SECOND time, after the dispose was added. `updateCrowd`
+//          is what reaps a character whose mesh has left the scene and gives back its tint row, and
+//          the block never ran it -- so the row pool drained, `grow()` reallocated the instance
+//          buffers every round, and the harness measured its own growth again.
 //   popups reported +228 textures a round. The block emptied `game.popups` instead of letting them
 //          expire, so the sprites stayed in the scene with their cloned materials alive, keeping
 //          every canvas texture uploaded. `updateEffects` removes and disposes on expiry; the cache
@@ -122,7 +126,19 @@ for (const name of names) {
   rows.push(await read());
   for (let r = 0; r < ROUNDS; r++) {
     await page.evaluate((src) => { const g = window.game; new Function('g', src)(g); }, BLOCKS[name]);
-    // a few real frames, so anything the block queued is actually uploaded or actually collected
+    // #190: AND THEN LET THE GAME TIDY UP, which is not optional and is where this harness lied to
+    // itself three times. Half of what the game frees, it frees on a later frame rather than at the
+    // call that removed something: `updateEffects` disposes a popup's material when its timer runs
+    // out, and `updateCrowd` reaps a character whose mesh has left the scene and GIVES BACK its tint
+    // row -- without which the crowd's row pool never refills and `grow()` reallocates the instance
+    // buffers again and again. A block measured the instant it finishes is a block measured before
+    // any of that has happened, and every counter it reads is the harness's own mess.
+    //
+    // So every block gets a second of game time through the real `update` before anything is read.
+    // Uniform rather than per block, because the three times this caught me out were three
+    // different blocks and the next one will be a fourth.
+    await page.evaluate(() => { const g = window.game; for (let t = 0; t < 1; t += 0.05) g.update(0.05); });
+    // and a few real frames, so anything still queued is actually uploaded or actually collected
     await page.evaluate(() => new Promise((res) => { let i = 0; const t = () => (++i >= 3 ? res() : requestAnimationFrame(t)); requestAnimationFrame(t); }));
     rows.push(await read());
   }

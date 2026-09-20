@@ -887,18 +887,25 @@ export const PROVE = {
   },
   'wall-ring-unbroken': () => { window.game.collideWalls = () => {}; },
   // she is never taken, so the opening never resolves -- the run that softlocks
-  'opening-resolves': () => {
-    // Re-applied on a timer because this check presses Play, and `reset()` builds a new Queen -- a
-    // one-shot defineProperty would be thrown away by the very run it is meant to break.
-    const pin = () => {
-      const q = window.game && window.game.queen;
-      if (q && !Object.getOwnPropertyDescriptor(q, 'captive').get) {
-        Object.defineProperty(q, 'captive', { get: () => false, set: () => {}, configurable: true });
-      }
-    };
-    pin();
-    setInterval(pin, 40);
-  },
+  // #179: THE HOLE `CFG.opening.speed` EXISTS TO CLOSE, which is a truer sabotage than the one that
+  // was here and the only one that does not corrupt the game on its way past.
+  //
+  // It used to pin `queen.captive` to false with a defineProperty. That does make the check go red,
+  // but not honestly: `captureQueen` still runs its whole body every time `updateSeize` calls it,
+  // the flag never latches, so it is called again on the very next frame -- thousands of times, each
+  // one rebuilding her escort. The run fell over inside three's ANIMATION mixer
+  // (`Cannot set properties of undefined (setting '_cacheIndex')`, which is `PropertyBinding`'s
+  // memory manager, not the renderer), and the runner reported "sabotage broke the run rather than
+  // the assertion" -- correctly refusing to count it as proved.
+  //
+  // The collectors run at 6.2 because that must beat a King on foot at 5.6: config.js says so
+  // outright -- "a player who simply walks away is never caught: the snatch never lands, the day
+  // clock never starts, and the run sits in its first minute for ever". This check runs him flat out
+  // at 0.28 a step, which is exactly 5.6/s. Drop the collectors to 2 and the documented bug is back,
+  // the check goes red for the reason it was written, and nothing is left in a state three cannot
+  // animate. One assignment to a config number, and no interval to survive `reset()` either, because
+  // CFG is a module constant and a run does not rebuild it.
+  'opening-resolves': () => { window.CFG.opening.speed = 2; },
   // #181 put back exactly as it was: the anchor teleports and nothing holds her off him
   'queen-visible': () => { window.CFG.queen.followTurn = 1e6; window.CFG.queen.kingGap = 0; },
   // #203 put back exactly as it was found: a ring of seven, a slot chosen by COUNTING the crew, and
