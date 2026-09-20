@@ -38,6 +38,7 @@ export const RELEASES = [
       'The ring under the King can be turned off, in Settings \u203a Video. It only hides it \u2014 you still pick coins up from just as far.',
       'And so can the stack of coins on his head \u2014 turn it off and what you pick up flies to the counter instead.',
       'The camera leans the way you are walking, and turns toward a fight when one is close. Settings \u203a Video turns it off.',
+      'Trees, rocks and spike barricades are solid \u2014 you and everyone else have to go round them now, and your soldiers know how.',
     ],
     fixed: [
       'An archer sent to man a tower or a gate could walk into a wall and stay there for the rest of the run. He takes the gate now.',

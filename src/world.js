@@ -918,6 +918,9 @@ export function buildWorld(scene, soleShadows = false) {
     && !nearRiver(x, z, 1.2) && roadOk(x, z, r) && !grassNode(x, z) && !nearPad(x, z);
   const half = size / 2 - 6;
   const scenery = new THREE.Group();
+  // #215: every solid thing on the map, as {x, z, r}. Filled by the scatter below, bucketed at the
+  // end of it -- see the note there for why it has to be captured rather than asked for.
+  const solids = [];
   // CLUMPED, like the grass and the trees, and for the same reason: uniform random gives every square
   // metre the same amount of everything, which is the one thing real ground never does. `patches` is
   // how many centres to scatter and `spread` how far from one a thing may land; a quarter of them
@@ -971,18 +974,52 @@ export function buildWorld(scene, soleShadows = false) {
       const x = cx + Math.cos(a) * d;
       const z = cz + Math.sin(a) * d;
       if (Math.abs(x) > half || Math.abs(z) > half || !free(x, z, 1.4)) continue;
-      const t = makeTree(0.75 + rand() * 0.85);
+      const sc = 0.75 + rand() * 0.85;
+      const t = makeTree(sc);
       t.position.set(x, 0, z);
       scenery.add(t);
+      solids.push({ x, z, r: 0.26 * sc });   // #215: the trunk, same number as below
       placedTrees++;
     }
   }
-  place(() => makeTree(0.9 + rand() * 0.5), Math.max(0, 210 - placedTrees), 1.6);
+  // #215: SOLID THINGS ARE RECORDED AS THEY ARE SCATTERED, because in a moment they stop existing.
+  //
+  // `mergeGroup(scenery)` below collapses every tree, rock and barricade into a handful of meshes
+  // per material and per 30-unit cell -- which is exactly why the map can afford 660 of them, and
+  // exactly why there is nothing left to ask "where are you" at runtime. So the answer is taken
+  // here, where it is still known, and kept in a flat list the game owns.
+  //
+  // `place` already hands the maker its x and z, so this costs no change to the scatter itself.
+  //
+  // WHICH ONES ARE SOLID is a feel question and this is the ticket's own reading of it: a trunk and
+  // a rock are things you walk into, a bush is something you push through and a hay bale is
+  // something you walk round because you can see it. Spikes are a barricade and being stopped is
+  // the entire point of them.
+  //
+  // The radii are measured off the models rather than guessed. A trunk is `CylinderGeometry(0.16,
+  // 0.26)` under `g.scale.setScalar(scale)`, so 0.26 at the base times its own scale -- the TRUNK
+  // and not the canopy, so a wood is walkable and the trees in it are not. A rock is a
+  // dodecahedron of 0.55 scaled by 1.2 across, so 0.66 times its scale. Spikes are a 2.6-long beam
+  // rather than a disc at all, and 1.1 is the compromise: it blocks the middle and leaves the last
+  // 0.2 of each end passable, which is a barricade somebody can just get round the end of.
+  const TRUNK_R = 0.26;
+  const ROCK_R = 0.66;
+  const SPIKE_R = 1.1;
+  place((x, z) => {
+    const sc = 0.9 + rand() * 0.5;
+    solids.push({ x, z, r: TRUNK_R * sc });
+    return makeTree(sc);
+  }, Math.max(0, 210 - placedTrees), 1.6);
   place(() => makeBush(), 230, 0.9, 0, { patches: 70, spread: 7 });
-  place(() => makeRock(0.55 + rand() * 1.1), 150, 0.9, 0, { patches: 55, spread: 6 });
-  place(() => {
+  place((x, z) => {
+    const sc = 0.55 + rand() * 1.1;
+    solids.push({ x, z, r: ROCK_R * sc });
+    return makeRock(sc);
+  }, 150, 0.9, 0, { patches: 55, spread: 6 });
+  place((x, z) => {
     const s = makeSpikes();
     s.rotation.y = rand() * Math.PI;
+    solids.push({ x, z, r: SPIKE_R });
     return s;
   }, 55, 1.5, 0, { patches: 26, spread: 5 });
   place(() => makeHayBale(), 16, 1);
@@ -1577,6 +1614,22 @@ export function buildWorld(scene, soleShadows = false) {
   // that is wider than the 2.6 it will draw, which is an accident to depend on.
   for (const c of COVER) scenery.add(c.mesh);
 
+  // #215: bucket the solids before the objects they describe are merged away.
+  //
+  // A straight loop would be 415 of them against every mover every frame -- and there are a lot of
+  // movers at once on a bad night. `updateEnemies` already solves this shape with a cell grid and
+  // this is the same trick. 6 units a cell: the biggest solid is 1.1 and the biggest mover about
+  // 0.6, so a 3x3 block of cells always contains everything that could possibly be touching, and at
+  // 415 objects over 190x190 an average cell holds well under one.
+  world.solidCell = 6;
+  world.solidGrid = new Map();
+  for (const o of solids) {
+    const k = `${Math.floor(o.x / 6)},${Math.floor(o.z / 6)}`;
+    let a = world.solidGrid.get(k);
+    if (!a) world.solidGrid.set(k, (a = []));
+    a.push(o);
+  }
+  world.solids = solids;
   mergeGroup(scenery); // trees, bushes, rocks and barricades, merged per material and per 30-unit cell
   scene.add(scenery);
   mergeGroup(cliffs);

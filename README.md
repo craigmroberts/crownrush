@@ -1936,6 +1936,68 @@ The Warlord going down is the exception, and it is in the victory panel rather t
 there would have had six hundred milliseconds before the overlay covered it, which is not long enough
 to read anything.
 
+## Trees and rocks are solid (#215)
+
+Nothing scattered on the map used to stop anybody. Now a trunk, a rock and a spike barricade do.
+
+**Which ones, and why those.** A trunk and a rock are things you walk into; a bush is something you
+push through and a hay bale is something you walk round because you can see it. Spikes are a
+barricade and being stopped is the point of them. So: trees, rocks and spikes solid — 415 of them —
+and bushes, bales and the wheat fields not.
+
+**The radii are measured off the models, not guessed.** A trunk is `CylinderGeometry(0.16, 0.26)`
+under `g.scale.setScalar(scale)`, so 0.26 × its scale — **the trunk and not the canopy**, which is
+what keeps a wood walkable while the trees in it are not. A rock is a 0.55 dodecahedron scaled 1.2
+across, so 0.66 × scale. Spikes are a 2.6-long beam rather than a disc at all; 1.1 blocks the middle
+and leaves the last 0.2 of each end passable, which is a barricade you can get round the end of.
+Measured in the running game: 415 solids, radii 0.199 to 1.1, and **none inside the tier-0 ring** —
+`free()` already keeps scenery out of the village and off the roads, so this only ever bites in the
+countryside.
+
+**They have to be captured, because by the time the game runs they do not exist.** `mergeGroup`
+collapses every tree, rock and barricade per material and per 30-unit cell — which is exactly why
+the map can afford 660 of them and exactly why there is nothing left to ask "where are you". The
+scatter records them as it places them; `place` already hands its maker the x and z, so it costs no
+change to the scatter itself. Bucketed at 6 units, so a query reads a 3×3 block: checked against a
+brute-force scan on 400 random probes, **0 mismatches**.
+
+**Steering, not just push-out — and #181 is why.** "A separation pass was the obvious fix and is the
+wrong one": correcting after the fact means what you see is a character sliding out of something it
+was never meant to be in, and a unit walking dead-on at a trunk with only a push to stop it grinds
+against the bark for ever. So `steerRoundSolid` bends the *direction* to graze past — the same shape
+as `steerRoundKing`, for the same reason — and `collideScenery` is only the backstop for what that
+cannot catch. The King is the exception: **he is blocked, never steered**, because bending the
+direction of the one mover with a person driving him is the game taking the stick off the player.
+
+Thirty dead-on approaches at the map's biggest solids, each the same 16-unit journey straight
+through a trunk's centre:
+
+| | arrived | frames | ever inside a trunk |
+| --- | --- | --- | --- |
+| steer + push | 30/30 | **124** | 1 |
+| push only, for comparison | 30/30 | **268** | 1 |
+
+The straight line is about 107 frames, so steering costs 16% on the worst case a unit can meet and
+the naive fix costs 150%. That is the grinding the ticket predicted, with a number on it. The push
+runs up to three passes because being pushed out of one trunk can put a shoulder inside the next —
+one pass left 2 of 30 still touching, three leaves none of those.
+
+**It costs the raid nothing.** Forty crossings of the countryside: 40 arrive either way, **0 stuck**,
+**+0.0% path**. A 24-raider raid with the starting state pinned closes 20.3 with collision on against
+20.3 with it off, the same 1 never-moved and the same 8 long-stalled raiders in both arms — those
+pre-date this and are raiders stopping to fight, not snagging. The steer fires on 3.4% of
+raider-frames and the push on 0.3%. No geometry is added, so the draw-call and triangle budgets
+cannot move for this; the 210–220 spread between runs is where the King happens to be standing.
+
+**A day was nearly lost to a bad test**, which is worth recording because it looked exactly like a
+real regression. The first raid comparison said the raid closed 20.7 without the change and 7.0 with
+it, reproducibly, three runs each. It was not the change: building the grid costs a millisecond at
+load, the King had walked a different distance by the time the raid started, and the raiders chased
+him somewhere else. Disabling the collision at runtime still gave 7.0 — `solidNear` called zero
+times — which is what proved the test rather than the code was wrong. Pinning the King, the Queen
+and the army before spawning made both arms agree. **A measurement that moves when the thing it
+measures is switched off is measuring something else.**
+
 ## The camera turns itself (#222)
 
 There is no control to give it. The canvas has one gesture and it is spent: a drag is the joystick,

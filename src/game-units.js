@@ -187,6 +187,11 @@ export const UnitsMethods = {
     this.collideWalls(p, 0.55, true);
     this.collideRiver(p, 0.5);
     this.collideKeep(p, 0.5);
+    // #215: THE KING IS BLOCKED, NEVER STEERED. He is the one mover with a person driving him, and
+    // bending his direction round a trunk would be the game taking the stick off the player -- the
+    // thumb says one thing and the man does another. A push-out is legible instead: he stops
+    // against the tree, the player can see the tree, and a flick of the stick goes round it.
+    this.collideScenery(p, 0.5);
     k.moving = inp.mag > 0.05;
     this.animateWalk(k, inp.mag, dt);
     // king fires his own bow
@@ -410,6 +415,9 @@ export const UnitsMethods = {
       // A region, not a point. Stopping only within 15cm of an exact coordinate is what made them
       // fidget; a slot you are allowed to be near is a formation you are allowed to be loose in.
       const stopDist = target ? target.radius + 0.6 : rallied ? A.rallySlack : A.slack;
+      // #215: round the tree rather than into it. Before the move, so there is nothing to correct
+      // after it -- the lesson #181 paid for.
+      this.steerRoundSolid(p, tmp2, d, 0.3);
       let moving = 0;
       if (d > stopDist) {
         const rally = rallied ? CFG.horn.rallySpeed : 1;
@@ -426,6 +434,7 @@ export const UnitsMethods = {
       this.collideWalls(p, 0.3, true);
       this.collideRiver(p, 0.3);
       this.collideKeep(p, 0.3);
+      this.collideScenery(p, 0.3);
       // Only for the genuinely stuck -- the wrong side of a wall or a river. It used to fire at 14,
       // which a soldier allowed to trail properly reaches honestly, and a man blinking to the King's
       // feet reads far worse than one jogging to catch up.
@@ -494,12 +503,18 @@ export const UnitsMethods = {
       if (u.detour && Math.hypot(u.detour[0] - p.x, u.detour[1] - p.z) < 1.2) u.detour = null;
       const goal = u.detour || u.assign;
       tmp2.set(goal[0] - p.x, 0, goal[1] - p.z);
-      const want = Math.min(u.stats.speed * dt, tmp2.length());
+      // #215: steer on the FULL distance to the post, not on this frame's step. `steerRoundSolid`
+      // looks a little way down the path, and a step is about 0.15 -- it would be looking at his
+      // own boots and never see the tree at all.
+      const full = tmp2.length();
+      this.steerRoundSolid(p, tmp2, full, 0.3);
+      const want = Math.min(u.stats.speed * dt, full);
       tmp2.normalize().multiplyScalar(want);
       const wasX = p.x;
       const wasZ = p.z;
       p.add(tmp2);
       this.collideWalls(p, 0.3, true);
+      this.collideScenery(p, 0.3);
       // What he actually made of the step he asked for. A man sliding along a wall still makes
       // ground and is not stuck; a man held square against one makes almost none.
       const made = Math.hypot(p.x - wasX, p.z - wasZ);

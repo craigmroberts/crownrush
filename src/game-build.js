@@ -2033,6 +2033,114 @@ export const BuildMethods = {
   },
 
   // Keep a position out of the river unless it is on a bridge. Returns true when it was pushed.
+  // #215: THE NEAREST SOLID THING THAT IS IN THE WAY, or null.
+  //
+  // Trees, rocks and barricades, recorded by the scatter in `world.js` because `mergeGroup` merges
+  // the objects themselves out of existence before the game ever runs. Bucketed at 6 units, so this
+  // reads a 3x3 block of cells rather than all 415 of them -- the same trick `updateEnemies` uses.
+  solidNear(x, z, r) {
+    const W = this.world;
+    if (!W.solidGrid) return null;
+    const c = W.solidCell;
+    const cx = Math.floor(x / c);
+    const cz = Math.floor(z / c);
+    let best = null;
+    let bestPen = 0;
+    for (let i = -1; i <= 1; i++) {
+      for (let j = -1; j <= 1; j++) {
+        const a = W.solidGrid.get(`${cx + i},${cz + j}`);
+        if (!a) continue;
+        for (const o of a) {
+          const dx = x - o.x;
+          const dz = z - o.z;
+          const reach = o.r + r;
+          const d2 = dx * dx + dz * dz;
+          if (d2 >= reach * reach) continue;
+          // the deepest overlap wins, not the nearest centre: two trunks touching a shoulder want
+          // the one actually pushing hardest
+          const pen = reach - Math.sqrt(d2);
+          if (pen > bestPen) { bestPen = pen; best = o; }
+        }
+      }
+    }
+    return best;
+  },
+
+  // #215: the backstop, and ONLY the backstop. Push a mover out of a trunk it is already inside.
+  //
+  // #181 is the reason this is not the whole answer. "A separation pass was the obvious fix and is
+  // the wrong one" -- correcting after the fact means what you see is a character sliding out of
+  // something it was never meant to be in, and a unit walking dead-on at a trunk with only this to
+  // stop it grinds against the bark for ever, which is worse than walking through. `steerRoundSolid`
+  // below is what actually keeps them out; this catches what that cannot: a unit spawned in a wood,
+  // one shoved into a trunk by `collideWalls`, the King held against one by a player's own thumb.
+  collideScenery(p, r) {
+    let pushed = false;
+    // Up to three passes, because being pushed out of one trunk can put a shoulder inside the next.
+    // `solidNear` answers with the DEEPEST overlap, so each pass takes the worst one and the next
+    // pass sees what is left; measured over 30 dead-on approaches at the map's biggest solids, one
+    // pass left 2 of them still touching something and three leaves none. It almost always exits on
+    // the first pass -- scenery is scattered with a clearance margin, so genuine double contact is
+    // rare and the loop is paid for only where it is needed.
+    for (let i = 0; i < 3; i++) {
+      const o = this.solidNear(p.x, p.z, r);
+      if (!o) break;
+      let dx = p.x - o.x;
+      let dz = p.z - o.z;
+      let d = Math.hypot(dx, dz);
+      if (d < 1e-4) {
+        // dead centre has no direction to leave by, and a coin flip here would chatter on a frame
+        // boundary. The +x edge, every time: arbitrary, but the same arbitrary answer each frame.
+        dx = 1; dz = 0; d = 1;
+      }
+      const reach = o.r + r;
+      p.x = o.x + (dx / d) * reach;
+      p.z = o.z + (dz / d) * reach;
+      pushed = true;
+    }
+    return pushed;
+  },
+
+  // #215: WALK ROUND IT, rather than into it and then out of it.
+  //
+  // The same shape as `steerRoundKing` (#181) and for the same reason it was written: fixing the
+  // DIRECTION means there is nothing to correct afterwards. The obstacle is seen as a cone of some
+  // angular half-width; if where the mover wants to go lies inside that cone, the direction is bent
+  // to the edge of it, so it grazes past rather than aiming at the middle. Outside the cone the path
+  // is already clear and nothing happens at all.
+  //
+  // `dir` is mutated in place and keeps its length, so the caller's speed is untouched -- this
+  // changes where a unit is going, never how fast.
+  steerRoundSolid(p, dir, d, r) {
+    if (d < 1e-3) return false;
+    const look = Math.min(d, CFG.scenery.look);
+    // Look a little way down the intended path rather than at the feet: a trunk that is beside the
+    // mover is not in its way, and steering round one it has already passed is how a unit ends up
+    // orbiting a tree instead of leaving it behind.
+    const ax = p.x + (dir.x / d) * look * 0.5;
+    const az = p.z + (dir.z / d) * look * 0.5;
+    const o = this.solidNear(ax, az, r + CFG.scenery.clear);
+    if (!o) return false;
+    const ox = o.x - p.x;
+    const oz = o.z - p.z;
+    const dk = Math.hypot(ox, oz);
+    const gap = o.r + r + CFG.scenery.clear;
+    if (dk < 1e-3 || dk - o.r >= d || dk <= gap * 0.35) return false;   // behind it, past it, or on top of it
+    const halfWidth = Math.asin(Math.min(1, gap / dk));
+    const ang = Math.atan2(dir.x, dir.z);
+    const oang = Math.atan2(ox, oz);
+    let rel = ((oang - ang + Math.PI) % (Math.PI * 2)) - Math.PI;
+    if (rel < -Math.PI) rel += Math.PI * 2;
+    if (Math.abs(rel) >= halfWidth) return false;                      // the corridor is clear
+    // Dead ahead has no side and `%` would pick one on a coin flip, which chatters on a frame
+    // boundary. Take the side the mover is already off-centre on -- the same tie-break, and the
+    // same reason, as #181's.
+    const side = rel > 0 ? -1 : 1;
+    const a = oang + side * halfWidth;
+    dir.set(Math.sin(a) * d, 0, Math.cos(a) * d);
+    return true;
+  },
+
   collideRiver(p, r) {
     const info = this.world.riverInfo(p.x, p.z);
     const limit = this.world.river.halfWidth + 0.6 + r;

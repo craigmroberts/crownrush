@@ -84,6 +84,18 @@ export const CFG = {
     breathDay: 0.98,
     breathNight: 1.05,
   },
+  // #215: how a character treats the things scattered on the map.
+  scenery: {
+    // How far ahead a mover looks for something in its way. Shorter than it sounds because the
+    // steering is applied every frame: a unit re-decides continuously, so this only has to be far
+    // enough to start the turn before the trunk is under its feet. Too long and a unit swerves
+    // round a tree it was going to miss anyway, which reads as drunk rather than as careful.
+    look: 3.2,
+    // Air left between a shoulder and the bark. Without it the steer aims exactly at the tangent,
+    // the mover grazes the trunk, and the push-out backstop fires every frame of the pass -- which
+    // is the grinding this is all written to avoid, arriving by the back door.
+    clear: 0.35,
+  },
   king: { speed: 7.5, footSpeed: 5.6, hp: 140, range: 8.5, fireRate: 1.2, damage: 10, pickupRadius: 3.7 },
   // #83: the Queen cannot be hurt. She has no health at all -- nothing in the game takes any off
   // her, because raiders take her by getting hold of her rather than by wearing her down. `seize` is

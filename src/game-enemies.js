@@ -845,6 +845,7 @@ export const EnemiesMethods = {
       if (wp) {
         tmp2.set(wp.x - p.x, 0, wp.z - p.z);
         const wd = tmp2.length();
+        this.steerRoundSolid(p, tmp2, wd, e.radius);   // #215
         this.faceTowards(e.mesh, tmp.set(wp.x, 0, wp.z), dt, 8);
         if (wd > 0.05) {
           tmp2.normalize().multiplyScalar(Math.min(e.stats.speed * dt, wd));
@@ -855,6 +856,10 @@ export const EnemiesMethods = {
       } else {
         this.faceTowards(e.mesh, t.mesh.position, dt, 8);
         if (d > reach) {
+          // #215: bend round a trunk before stepping, not after. A raider walks in a straight line
+          // at whatever it is attacking, which is exactly the mover the ticket warns would grind
+          // against bark for ever on a push-out alone.
+          this.steerRoundSolid(p, tmp2, d, e.radius);
           tmp2.normalize().multiplyScalar(Math.min(e.stats.speed * dt, d - reach + 0.01));
           p.add(tmp2);
           blocked = this.collideWalls(p, e.radius, false) || this.collideKeep(p, e.radius);
@@ -906,6 +911,7 @@ export const EnemiesMethods = {
       this.collideWalls(p, e.radius, false);
       this.collideRiver(p, e.radius);
       this.collideKeep(p, e.radius);
+      this.collideScenery(p, e.radius);   // #215
       // hit flash squash
       if (e.flash > 0) {
         e.flash -= dt;
