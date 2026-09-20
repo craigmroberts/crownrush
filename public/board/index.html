@@ -213,7 +213,8 @@ const GROUPS = [
   ]],
   ['world', 'The world', [
     ['kingdom', 'The kingdom', '../?tour', 'The opening village, held open at morning. Walls, Keep, towers, four homes, Wren beside the King.'],
-    ['map', 'Whole map', '../?view=map', 'Camera up, fog off, smoke off. The only place the whole board is visible at once.'],
+    ['map', 'Whole map', '../?view=map', 'Camera up, fog off, smoke off. The only place the whole board is visible at once. Seed 0 \u2014 the hand-placed layout, which is what every frame on this page is built from.'],
+    ['seeded', 'A seeded map', '../?view=map&seed=413', 'The same camera on map 413. The village, the walls, the roads, the river and the bridges are identical to the frame above it, down to the pixel; the woods, the boulder fields and every resource node are the seed\u2019s (#219). Change the number in the URL to look at another one.'],
     ['mesa', 'The mesa\u2019s shadow', '../?view=mesa', 'Terrain throwing a real shadow across the grass \u2014 the one frame the shadow map is worth judging in. Add &shadows=off or &shadows=full to the URL to compare profiles (#193).'],
     ['road', 'The east road', '../?view=road', 'The King on the castle road inside the town wall, the trail beginning past the gate: edges, ruts, mud, the verge and the grass in it (#180).'],
     ['stable', 'The Stable', '../?view=stable', 'The block in the west strip: the yard in front, horses in it, one soldier riding. The building is the placeholder until the generated one lands (#82).'],
@@ -245,7 +246,7 @@ const GROUPS = [
   ['ends', 'Pause and endings', [
     ['pause', 'Paused', '../?view=pause', 'Night and score under the badge, and five buttons.'],
     ['report', 'Report a bug', '../?view=report', 'What the report carries, shown before it is sent (#182).'],
-    ['defeat', 'Defeat', '../?view=defeat', 'The King has fallen: headline, one line of why, the stat box.'],
+    ['defeat', 'Defeat', '../?view=defeat&seed=413', 'The King has fallen: headline, one line of why, the stat box. On a seed, so the map line under Best score is the one a player sees (#219) \u2014 at seed 0 there is no map number to give and the line is not drawn.'],
     ['victory', 'Victory', '../?view=victory', 'The other ending, off the same live state.'],
   ]],
 ];

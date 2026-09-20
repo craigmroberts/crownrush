@@ -15,13 +15,45 @@ import { UnitsMethods } from './game-units.js';
 import { ViewMethods } from './game-view.js';
 import { VillagerMethods } from './game-villagers.js';
 import { HorseMethods } from './game-horses.js';
-import { SaveMethods, readLength } from './game-save.js';
+import { SaveMethods, readLength, RUN_KEY } from './game-save.js';
 import { QualityMethods } from './game-quality.js';
 
 // #174: a stored on/off, defaulting on when nothing is stored
 // #222: the system's own motion preference. Wrapped because `matchMedia` is absent in some embeds
 // and a throw here would take the constructor with it; absent means "no preference stated", which
 // is the same answer as not having set one.
+// #219: `?seed=N` pins the map, `?view=` and `?tour` get the fixed one, a run waiting to be picked
+// up gets its own, and anything else is rolled.
+function mapSeed() {
+  const asked = (/[?&]seed=(\d+)/.exec(location.search) || [])[1];
+  if (asked !== undefined) return Number(asked) >>> 0;
+  if (/[?&](view|tour)=?/.test(location.search)) return 0;
+  // A RUN THAT CAN BE PICKED UP DECIDES THE MAP, and it has to decide it here.
+  //
+  // `buildWorld` runs once, in the constructor, long before the title screen offers Continue -- so
+  // by the time `restoreRun` knows which map the save is on, the world it would be restored into has
+  // already been built. Reading the save here is what closes that: the map is laid out for the run
+  // the player is most likely about to resume, and `restoreRun` checks the two agree before it
+  // applies anything (see the refusal there).
+  //
+  // The cost is that New Run, chosen from the title screen with a save still sitting there, gets the
+  // saved run's map rather than a fresh one. It is the same map for one run and then the save is
+  // gone; the alternative is reloading the page to re-roll the world, which is seconds of black
+  // screen between every run to avoid a repeat somebody asked for by pressing New Run.
+  //
+  // Read raw and defensively -- this runs before the save module has been asked anything, it must
+  // never throw (a corrupt save cannot be allowed to stop the game starting), and a save from before
+  // #219 has no seed at all, which is 0: the hand-placed map those runs were played on.
+  try {
+    const raw = localStorage.getItem(RUN_KEY);
+    if (raw) {
+      const s = JSON.parse(raw);
+      if (s && typeof s.wave === 'number') return (s.seed || 0) >>> 0;
+    }
+  } catch (e) { /* private mode, or a save we cannot read: roll one */ }
+  return (Math.floor(Math.random() * 0xffffff) + 1) >>> 0;
+}
+
 function prefersReducedMotion() {
   try {
     return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -105,7 +137,26 @@ export class Game {
     this.post = this.safe ? null : makePost(this.renderer, this.scene, this.camera, { aa: !this.mobile && !this.safe });
     // The world needs to know whether anything else casts, because then its contact discs are the
     // only shadow there is and they go heavier. `world.setSoleShadows` moves it afterwards.
-    this.world = buildWorld(this.scene, this.shadowProfile === 'off');
+    // #219: THE SEED FOR THIS MAP, and where it comes from matters more than what it is.
+    //
+    // `?seed=N` pins it, which is what makes a map a thing you can send somebody. `?view=` and the
+    // board frames get 0 -- the hand-placed layout, unchanged -- because a board that re-rolled its
+    // own map would make two screenshots of one page two different pictures (#222). Everything else
+    // gets a fresh one, and `game-save.js` writes it down so a Continue picks up the same country
+    // rather than the same village in a different one.
+    //
+    // `buildWorld` runs ONCE per page load, so this is a seed per LOAD rather than per run: Try Again
+    // in the same tab keeps the map. That is short of what #219's title asks for and is recorded as
+    // such rather than papered over -- a new map per restart means tearing the world down and
+    // building it again, and everything `buildWorld` allocates (merged geometries, the ground
+    // shaders, the instanced fields, the textures) would have to be handed back with it. #190 is the
+    // whole argument for not doing that casually: dropping a root unparents everything and frees
+    // nothing. It is its own piece of work.
+    //
+    // What a player actually gets today: a different map every time the game is opened, the same one
+    // for as long as that tab lives, and the number on the ending screen to ask for either again.
+    this.seed = mapSeed();
+    this.world = buildWorld(this.scene, this.shadowProfile === 'off', this.seed);
     // #165 / #166: how big the for-ever caches in models.js are, for the perf overlay and for tests.
     this.cacheSizes = cacheSizes;
     // #166: a sample every two seconds of GAME time, kept for an hour, whether or not anyone is
@@ -1094,7 +1145,7 @@ export class Game {
       // #58: the pills on the end screen say what Play Again will start, which is the stored preference
     // rather than this run's length -- they differ after a Continue, where the run being finished is
     // whatever was saved and the next one is whatever the player last chose.
-    this.hud.showGameOver(this.baseLevel, this.coinsEarned, this.score, this.bestScore, reason, readLength(), this.legacyProgress(), this.wave, this.kills);
+    this.hud.showGameOver(this.baseLevel, this.coinsEarned, this.score, this.bestScore, reason, readLength(), this.legacyProgress(), this.wave, this.kills, this.seed);
   }
 
   victory() {

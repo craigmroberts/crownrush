@@ -31,6 +31,8 @@ export const RELEASES = [
     date: '2026-09-20',
     title: 'Three things that were broken',
     added: [
+      'The country around the village is different every time you open the game. The woods, the boulder fields and every seam of wood, stone, iron and diamond are somewhere new \u2014 so the walk is a new walk, while the village, the roads, the river and the bridges are exactly where you left them.',
+      'The ending screen tells you which map you were on. Tap it to copy a link that opens that same one again, or send it to somebody else.',
       'You can get off the horse now. The button by the warhorn puts the King down, the horse follows for a few seconds and then wanders the grounds, and pressing it again whistles the horse back \u2014 it comes at a gallop and waits beside you until you choose to get on.',
     ],
     fixed: [

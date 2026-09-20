@@ -775,7 +775,7 @@ export class Hud {
   }
   // #172: the reference's ending -- a headline, one line under it, and a stat box. The headline is
   // still the sentence for how it ended; the line under it is the reason in words.
-  showGameOver(level, coins, score, best, reason = 'king', len = CFG.defaultLength, legacy = null, wave = 0, kills = 0) {
+  showGameOver(level, coins, score, best, reason = 'king', len = CFG.defaultLength, legacy = null, wave = 0, kills = 0, seed = 0) {
     this.renderLengths(document.getElementById('over-length'), len, true);
     this.renderLegacy(document.getElementById('over-legacy'), legacy, 'end');
     document.getElementById('gameover-title').textContent = reason === 'taken' ? 'They Carried Wren Away' : reason === 'queen' ? 'Wren Is Lost' : 'The King Has Fallen';
@@ -792,8 +792,40 @@ export class Hud {
     // The screen is shown first so the tally is not racing a panel that is still easing in.
     const finals = [['coins', coins], ['kills', kills], ['score', score], ['best', best]];
     for (const [k] of finals) this.finalTallies[k].to(0, true);   // zeroed before the panel is shown
+    // #219: which map this was, and how to get it again. Hidden at seed 0, which is the hand-placed
+    // layout every `?view=` frames -- there is no map number to give somebody for the map the game
+    // has always had, and a "Map 0" on a board screenshot is a line about a feature that is off.
+    this.setSeedLine(seed);
     this.overScreen.classList.remove('hidden');
     for (const [k, v] of finals) this.finalTallies[k].to(v);
+  }
+  // #219: the map line, and the tap that copies the link which rebuilds it. The clipboard write is
+  // inside the handler because iOS grants it only to a gesture -- the same reason `#set-size` does it
+  // that way -- and it is allowed to fail: the number is on screen either way, and reading six digits
+  // off a screen is a worse second best than a screenshot but still a working one.
+  //
+  // `location.href` rather than a built path, minus any query it already had: a run reached from
+  // `?len=short` should copy a link that keeps the length and swaps the seed, and a home-screen
+  // launch has no query at all.
+  setSeedLine(seed) {
+    const el = this.seedLine || (this.seedLine = document.getElementById('final-seed'));
+    if (!el) return;
+    el.hidden = !seed;
+    if (!seed) return;
+    this.seedValue = seed;
+    el.textContent = `Map ${seed} · tap to copy`;
+    if (this.seedBound) return;
+    this.seedBound = true;
+    el.addEventListener('click', async () => {
+      const u = new URL(location.href);
+      u.searchParams.set('seed', String(this.seedValue));
+      try {
+        await navigator.clipboard.writeText(u.toString());
+        el.textContent = 'Link copied — that map again.';
+      } catch (e) {
+        el.textContent = `Map ${this.seedValue}`;   // no clipboard: leave the number to be read
+      }
+    });
   }
   hideGameOver() {
     this.overScreen.classList.add('hidden');

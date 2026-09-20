@@ -2152,6 +2152,115 @@ times — which is what proved the test rather than the code was wrong. Pinning 
 and the army before spawning made both arms agree. **A measurement that moves when the thing it
 measures is switched off is measuring something else.**
 
+## The village stays put; the land around it is seeded (#219)
+
+**The map was the same every run, so the route was the same every run, and the route is the game.**
+Learnability is the right thing to optimise for while a game is being built and exactly the thing
+that expires: once you know the iron is at the mesa foot and the diamond is across the east bridge,
+the walk is muscle memory and all that is left to improve is how fast you do it.
+
+So: **fixed skeleton, seeded outfield.** Not a procedural map — a procedural *hinterland*.
+
+| | |
+| --- | --- |
+| **Never moves** | The village plot, all three `TIERS`, every pad, the four roads, the river's course, the bridges, the cliff box, the raider camp |
+| **The seed's** | Every resource node — where, how many, how rich — and every forest, boulder field, bush, barricade and hay bale |
+
+The split is not a preference. Every measured number in `config.js` is measured against the fixed
+layout, `tools/layout/check.mjs` exists because the pad positions are hand-fitted, and `CFG.footprint`
+checks them against the models. Randomising any of that is a different game. Muscle memory for the
+*build* survives whole, which is what makes moving the *route* safe.
+
+### Nodes are seeded per material, inside a band, by rejection
+
+The economy is balanced on distance — `CFG.base.materialAt` gates each material to a Keep level so
+each level-up opens new ground — so a diamond that lands twelve units from the Keep does not make the
+run different, it breaks it. `NODE_BANDS` gives each material the shape the hand-placed layout had:
+a distance range, an arc, a count, a total stock, how many clumps, and what the opening is owed.
+
+A candidate is generated and then **rejected**, never nudged. Nudging a bad point until it passes is
+how a diamond ends up beside the Keep on one seed in four hundred and nobody finds out for a week. A
+node has to clear the cliff box, the camp, the river, the roads, the citadel and the mats, and a
+diamond has to be on the far bank — judged by `riverSideOf`, which is the same cross product
+`world.riverInfo` uses, kept identical on purpose, because a seam judged across the water by one rule
+and walked to by the other is a seam nobody can reach.
+
+**And the floor is the map the game has always had.** Rejection is per material and so is the
+fallback: a band that cannot be satisfied in sixty attempts keeps its hand-placed nodes. The worst a
+seed can do is hand you the shipped layout for that one material. `world.seededNodes` says which
+materials actually generated, because a fallback nobody can see is a fallback that quietly becomes
+the normal case — which is precisely what happened, twice, and both times the sweep is what said so:
+
+- **Wood is two bands, not one, and the arc matters as much as the distance.** The hand-placed ten
+  are seven seams packed between 21.2 and 24.8 in two thickets, plus three out at 52–56. Asked for
+  from a single `dist` of `[20, 58]` with a "six within 28" filter, the generator had to roll a clump
+  into a narrow ring twice by luck: **wood fell back on seven seeds in ten**. `clumpDist` and
+  `clumpArc` say it outright — two thickets by the gate, one wood out west — and when the far stand
+  was still drawn from the whole arc it rolled past 210° at radius 52 on three seeds in ten and
+  landed *inside the cliff box*. Per-clump bearings: **0 fallbacks in ten, 1 in forty.**
+- **One unplaceable point threw away nine good ones.** `if (!placed) break` discarded every point
+  after the first failure and failed the attempt with three of ten.
+
+### Two bugs the sweep found that reasoning would not have
+
+**The pad clearance was the grass rule.** Nodes were tested with `nearPad`, which is 2.6 — sized to
+keep a *blade of grass* out of a mat's lettering. Measured off the real meshes in a browser, the
+widest node spans 1.93 from its centre against a mat's half of 1.8, so **3.7** is the first distance
+at which no part of a seam is over something the player has to read and tap. (The shipped wood sits
+2.5 from the `crown` mat and does overlap it. That is a fact about the hand-placed layout, not a
+licence for the generator to repeat it — so the sweep holds a material to that rule only when the
+seed actually generated it.)
+
+**A point was rounded after it was tested, not before.** `+x.toFixed(2)` was applied when the point
+was stored, so the value that passed every check was not the value that got kept — and seed 123456
+put an iron seam 3.6997 from `tower-1-nw`, which cleared the test unrounded and failed it rounded.
+Test the number you are going to keep.
+
+### The scatter's stream, and why seed 0 is untouched
+
+`buildWorld` runs on one `rng(1337)` from top to bottom, and the scatter drew from it. Re-seeding
+that stream would have moved the roads and the river's wander, which are on the "never moves" side.
+So the scatter has its own — and `seed ? rng(...) : rand` is not a shortcut: **at seed 0 it is
+literally the same generator object, consumed in the same order**, so `?seed=0` builds the identical
+world it always has, down to the number. That is what every `?view=`, `?tour`, the check suite and
+the probe are, and `probe.mjs` now pins `seed=0` outright — a budget check that measures a different
+map each run is measuring the seed rather than the change.
+
+### The map has a number, and the save knows it
+
+The ending screen carries `Map 4821067 · tap to copy`, which copies the link that rebuilds it —
+keeping whatever else was in the address, so a short run copies a short run. At seed 0 the line is
+not drawn: there is no map number to give somebody for the map the game has always had.
+
+**The save stores the seed**, and it has to. `runState().nodes` is an array indexed by position in
+`NODES`, which on a seeded map is the list the generator made — hand a run to a different seed and
+every quarry comes back with some other quarry's contents, of some other material, somewhere else on
+the map, and nothing in the save would say so. Two things close it: `mapSeed()` reads the saved
+run's seed *before* the world is built, so Continue gets its own map; and `restoreRun` refuses a save
+whose seed is not this world's, before a single mesh is built. The case that leaves is `?seed=N` in
+the address overruling a save on purpose, and starting clean on the map that was asked for is the
+honest answer there.
+
+### Still a seed per LOAD, not per run
+
+Try Again in the same tab keeps the map. `buildWorld` runs once, in the constructor, and a new map
+per restart means tearing the world down and building it again — every merged geometry, ground
+shader, instanced field and texture handed back with it. #190 is the whole argument for not doing
+that casually: dropping a root unparents everything and frees nothing. It is its own piece of work.
+What a player gets today is a different map every time the game is opened, the same one for as long
+as that tab lives, and the number on the ending screen to ask for either again.
+
+### How it is checked
+
+`npm run seeds` builds each map in a real browser and holds every node it made to the list above —
+the generator runs inside `buildWorld`, reading the roads, river samples and pads it has actually
+laid, so there is nothing out here to re-derive and nothing that can drift. Ten seeds by default,
+`SEEDN=40` for the sweep. **All 40 legal, one wood fallback.**
+
+One more thing that cost a sweep: `n.pos` on a live node is a `Vector3`, not the `[x, z]` pair in
+`NODES`. Read as an array it gives `undefined` on both axes, every distance comes out `NaN`, and ten
+seeds in ten report a constraint broken that none of them broke.
+
 ## The camera turns itself (#222)
 
 There is no control to give it. The canvas has one gesture and it is spent: a drag is the joystick,

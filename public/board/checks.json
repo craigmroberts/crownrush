@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-19T21:04:46.173Z",
+  "at": "2026-09-20T19:31:42.480Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -201,116 +201,116 @@
   "checks": {
     "pads-requires-exist": {
       "pass": true,
-      "at": "2026-09-19T16:02:20.563Z"
+      "at": "2026-09-20T18:52:29.961Z"
     },
     "pads-buildat-in-bounds": {
       "pass": true,
-      "at": "2026-09-19T16:02:20.564Z"
+      "at": "2026-09-20T18:52:29.961Z"
     },
     "pads-no-overlap": {
       "pass": true,
-      "at": "2026-09-19T16:02:20.571Z"
+      "at": "2026-09-20T18:52:29.963Z"
     },
     "opening-homes-legal": {
       "pass": true,
-      "at": "2026-09-19T15:20:37.822Z"
+      "at": "2026-09-20T18:52:29.963Z"
     },
     "icons-exist": {
       "pass": true,
-      "at": "2026-09-19T15:20:37.827Z"
+      "at": "2026-09-20T18:52:29.967Z"
     },
     "upgrade-mods-exist": {
       "pass": true,
       "note": "17 of 17 upgrades declare a mod key, all 17 resolve",
-      "at": "2026-09-19T15:20:37.827Z"
+      "at": "2026-09-20T18:52:29.968Z"
     },
     "footprints-cover-kinds": {
       "pass": true,
-      "at": "2026-09-19T16:02:20.571Z"
+      "at": "2026-09-20T18:52:29.968Z"
     },
     "walls-solid": {
       "pass": true,
       "note": "24 directions, held every time",
-      "at": "2026-09-19T15:27:32.688Z"
+      "at": "2026-09-20T18:59:01.209Z"
     },
     "gates-passable": {
       "pass": true,
       "note": "4 gates",
-      "at": "2026-09-19T15:27:52.485Z"
+      "at": "2026-09-20T18:59:18.593Z"
     },
     "wall-ring-unbroken": {
       "pass": true,
       "note": "360 samples",
-      "at": "2026-09-19T15:28:12.613Z"
+      "at": "2026-09-20T18:59:39.961Z"
     },
     "views-open": {
       "pass": true,
       "note": "21 views, each with its panel up",
-      "at": "2026-09-19T15:25:09.422Z"
+      "at": "2026-09-20T18:56:42.882Z"
     },
     "opening-resolves": {
       "pass": true,
       "note": "taken after 789 frames of running",
-      "at": "2026-09-19T15:40:37.236Z"
+      "at": "2026-09-20T19:11:33.002Z"
     },
     "queen-visible": {
       "pass": true,
       "note": "400 frames, including on the Keep doorstep",
-      "at": "2026-09-19T15:47:14.902Z"
+      "at": "2026-09-20T19:18:36.019Z"
     },
     "rebuild-after-fall": {
       "pass": true,
       "note": "empty plot, clear ledger, every mat on it buys",
-      "at": "2026-09-19T16:00:27.796Z"
+      "at": "2026-09-20T19:31:40.969Z"
     },
     "tokens-resolve": {
       "pass": true,
       "note": "no cycles; 3 tokens nothing reads -- --frame-hi, --frame-lo, --danger-edge (#135)",
-      "at": "2026-09-19T15:20:37.826Z"
+      "at": "2026-09-20T18:52:29.967Z"
     },
     "icons-unique": {
       "pass": true,
       "note": "54 icons, no key declared twice",
-      "at": "2026-09-19T15:20:37.826Z"
+      "at": "2026-09-20T18:52:29.967Z"
     },
     "bands-hooked": {
       "pass": true,
       "note": "ground, tufts and canopies banded; every lit world surface over 200 triangles with them",
-      "at": "2026-09-19T21:04:45.106Z"
+      "at": "2026-09-20T18:57:00.390Z"
     },
     "post-once": {
       "pass": true,
-      "note": "one tone map (4 from ACES, 28.71 from none), 4x MSAA kept, toggle costs no programs",
-      "at": "2026-09-19T15:27:04.016Z"
+      "note": "one tone map (3.53 from ACES, 28.83 from none), 4x MSAA kept, toggle costs no programs",
+      "at": "2026-09-20T18:58:40.935Z"
     },
     "hud-quiet": {
       "pass": true,
       "note": "3 setters replayed 10x with no DOM write; 0 -> 200 runs 0 116 175 197 200 200 in 0.34s",
-      "at": "2026-09-19T15:25:53.077Z"
+      "at": "2026-09-20T18:57:23.402Z"
     },
     "mats-at-doors": {
       "pass": true,
       "note": "5 structure mats on their door's axis, 2 bridge mats on the road at the crossing",
-      "at": "2026-09-19T16:02:44.332Z"
+      "at": "2026-09-20T18:57:40.838Z"
     },
     "deck-seats-the-crew": {
       "pass": true,
-      "at": "2026-09-19T16:02:20.571Z"
+      "at": "2026-09-20T18:52:29.967Z"
     },
     "tower-crew-placed": {
       "pass": true,
       "note": "9 on one deck, each on the planking, and a replacement took the dead man's place",
-      "at": "2026-09-19T18:30:53.592Z"
+      "at": "2026-09-20T18:58:09.086Z"
     },
     "release-greeting": {
       "pass": true,
       "note": "quiet for a new player, shown once to one behind, quiet after",
-      "at": "2026-09-19T15:47:57.094Z"
+      "at": "2026-09-20T19:19:10.531Z"
     },
     "post-walk-unblocked": {
       "pass": true,
-      "note": "across a wall and onto his post in 40 frames",
-      "at": "2026-09-19T17:32:55.981Z"
+      "note": "across a wall and onto his post in 41 frames",
+      "at": "2026-09-20T19:20:07.228Z"
     }
   }
 }

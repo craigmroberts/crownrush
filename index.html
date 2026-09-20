@@ -316,6 +316,10 @@
           <div class="stat-row"><i data-icon="swords" data-size="20"></i>Raiders defeated<b id="final-kills">0</b></div>
         </div>
         <p class="hint">Best score <span id="final-best">0</span></p>
+        <!-- #219: which map this was. The hinterland is rolled per map, so two runs are two different
+             walks -- and a number nobody can write down is a map nobody can play again or send to
+             anyone. A tap copies the link that rebuilds it. -->
+        <p class="hint" id="final-seed" hidden></p>
         <!-- #58: the length Play Again will use, changeable here. The end of a run is the one moment a
              player knows what the last one cost them, and the title screen is shown once at load and
              never again -- so without this, changing length meant reloading the page. -->

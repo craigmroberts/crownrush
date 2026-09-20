@@ -372,6 +372,18 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #699a3f; f
 .panel .stat-row b { margin-left: auto; font-size: 17px; color: #fff; font-weight: 800; }
 .panel p { color: var(--ink); margin-bottom: 14px; line-height: 1.4; }
 .panel .hint { font-size: 13px; color: var(--ink-dim); }
+/* #219: the map's number, under Best score. Dressed like the hint it sits with rather than like a
+   control -- a thing to press once, when you want this map again or want to send it to somebody,
+   which is the same treatment `#set-size` gets and for the same reason. The padding is the tap
+   target: the text is 13px and a box big enough to hit reliably has to come from somewhere, and
+   padding grows the hit area without drawing a button. The negative top margin pulls it back under
+   Best score, so it reads as belonging to the figures above rather than labelling Try Again. */
+#final-seed {
+  margin: -2px 0 8px; padding: 6px 8px; border-radius: 8px; opacity: 0.7;
+  cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none;
+}
+#final-seed:active { opacity: 1; background: rgba(255, 255, 255, 0.08); }
+#final-seed[hidden] { display: none; }
 .panel .best { font-size: 14px; color: var(--ink-dim); margin-top: 14px; margin-bottom: 0; }
 /* #182: the report, shown before it is sent. Monospace because it is columns of numbers and a
    proportional font turns them into prose. 11px is the smallest that still screenshots legibly on a

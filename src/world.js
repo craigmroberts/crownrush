@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CFG, MAP, TIERS, NODES, PADS } from './config.js';
+import { CFG, MAP, TIERS, NODES, NODE_BANDS, PADS } from './config.js';
 import {
   mat, matFlat, swayMaterial, setSwayUniform, setFeetUniform, FEET_SLOTS, makeTree, makeBush, makeRock, makeSpikes, makeCliff, makePeak, makeBridge, makeHayBale, makeWheatField, makeLantern, mergeGroup,
   band,
@@ -475,10 +475,123 @@ function breakTiling(m) {
 
 // `soleShadows` is true when nothing else casts -- see the contact-shadow block below for what it
 // changes and why it has to be told rather than worked out here.
-export function buildWorld(scene, soleShadows = false) {
+// #219: the hinterland's nodes, seeded per map, inside the bands measured off the hand-placed
+// layout (`NODE_BANDS`, config.js).
+//
+// A SEED THAT PRODUCES AN UNPLAYABLE MAP HAS TO BE IMPOSSIBLE, NOT UNLIKELY, and that is the whole
+// shape of this: it generates a candidate, checks it against every hard constraint, and REJECTS it.
+// It does not nudge a bad point until it passes, because nudging is how a diamond ends up twelve
+// units from the Keep in one seed out of four hundred and nobody finds out for a week.
+//
+// The rejections are per material and the fallback is per material too: if a band cannot be
+// satisfied in `TRIES` attempts, that material keeps its hand-placed nodes. So the worst a seed can
+// ever do is give you the map the game has always had.
+//
+// `seed === 0` is the hand-placed layout untouched, which is what every `?view=` frames -- a board
+// that re-rolled its own map would make two screenshots of one page two different pictures (#222).
+const TRIES = 60;
+function seedNodes(seed, riverSamples, ok, inCliffs) {
+  const seeded = {};
+  if (!seed) return seeded;                // 0 or undefined: the layout in config.js, unchanged
+  const HOME = riverSideOf(riverSamples, 0, 8);   // which bank the village stands on
+  const kept = [];
+  for (const [type, band] of Object.entries(NODE_BANDS)) {
+    const original = NODES.filter((n) => n.type === type);
+    let made = null;
+    for (let attempt = 0; attempt < TRIES && !made; attempt++) {
+      // A fresh stream per material per attempt, so one material's rejections cannot shift another
+      // material's layout -- otherwise adding a constraint to iron would silently move the wood.
+      const rand = rng(seed * 7919 + hashType(type) * 104729 + attempt);
+      const want = band.count[0] + Math.floor(rand() * (band.count[1] - band.count[0] + 1));
+      const clumps = band.clumps[0] + Math.floor(rand() * (band.clumps[1] - band.clumps[0] + 1));
+      const centres = [];
+      for (let c = 0; c < clumps; c++) {
+        // `clumpArc` and `clumpDist` give a clump its own bearing and its own ring (see wood in
+        // config.js). Without them every clump is drawn from the band's full range, which is right
+        // for a material that is one kind of place -- iron is a seam along one cliff foot, diamond
+        // is the deep rock across the water -- and wrong for one that is several.
+        const sector = band.clumpArc ? band.clumpArc[c % band.clumpArc.length] : band.arc;
+        const a = sector
+          ? (sector[0] + rand() * (sector[1] - sector[0])) * Math.PI / 180
+          : rand() * Math.PI * 2;
+        const ring = band.clumpDist ? band.clumpDist[c % band.clumpDist.length] : band.dist;
+        const d = ring[0] + rand() * (ring[1] - ring[0]);
+        centres.push([Math.cos(a) * d, Math.sin(a) * d]);
+      }
+      const pts = [];
+      for (let i = 0; i < want; i++) {
+        let placed = null;
+        for (let k = 0; k < 40 && !placed; k++) {
+          const [cx, cz] = centres[i % centres.length];
+          // Around its clump's centre, and the spread grows with each failed try so a clump that
+          // landed somewhere tight can still find room rather than failing the whole attempt.
+          const spread = 3 + k * 0.8;
+          // ROUNDED BEFORE IT IS TESTED, not after. It used to be `[+x.toFixed(2), +z.toFixed(2)]`
+          // at the end, so the point that passed every check was not the point that got stored --
+          // and seed 123456 put an iron seam 3.6997 from the `tower-1-nw` mat, which cleared a 3.7
+          // test on the unrounded value and failed it on the rounded one. Two decimals is what the
+          // layout is written in; test the number you are going to keep.
+          const x = +(cx + (rand() * 2 - 1) * spread).toFixed(2);
+          const z = +(cz + (rand() * 2 - 1) * spread).toFixed(2);
+          const d = Math.hypot(x, z);
+          if (d < band.dist[0] || d > band.dist[1]) continue;
+          if (inCliffs(x, z)) continue;                       // the box the King cannot mine in
+          if (!ok(x, z)) continue;                            // citadel, mats, roads, river, camp, cliffs
+          if (band.acrossRiver && riverSideOf(riverSamples, x, z) === HOME) continue;
+          if (pts.some((p) => Math.hypot(p[0] - x, p[1] - z) < 5)) continue;   // not on top of each other
+          placed = [x, z];
+        }
+        // NOT `break`. It was, and that is what made wood fall back to the hand-placed list on
+        // seven seeds in ten: `want` is 9 to 11 and `count[0]` is 9, so a single point that could not
+        // find room -- one clump centred close to the citadel is enough -- discarded every point
+        // after it and failed the attempt with three. Skip the point; the length check below is
+        // already the thing that decides whether the attempt was good enough.
+        if (placed) pts.push(placed);
+      }
+      if (pts.length < band.count[0]) continue;               // too few: reject the whole attempt
+      if (band.near && pts.filter((p) => Math.hypot(p[0], p[1]) <= band.near.within).length < band.near.atLeast) continue;
+      // The band's total stock, split over however many nodes this seed made, so a seed with fewer
+      // nodes gets richer ones rather than a poorer run. Rounded up, then the last one takes the
+      // remainder, so the total is exactly the number the economy was balanced on.
+      const each = Math.max(1, Math.round(band.stock / pts.length));
+      made = pts.map((p, i) => ({
+        type,
+        pos: p,
+        stock: i === pts.length - 1 ? Math.max(1, band.stock - each * (pts.length - 1)) : each,
+      }));
+    }
+    seeded[type] = !!made;
+    for (const n of (made || original)) kept.push(n);
+  }
+  // In place, because `NODES` is what game.js, world.js and game-save.js all read and threading a
+  // second list through three files to say the same thing is how they drift apart.
+  NODES.length = 0;
+  for (const n of kept) NODES.push(n);
+  return seeded;
+}
+
+function hashType(t) {
+  let h = 0;
+  for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) >>> 0;
+  return h % 9973;
+}
+
+// Which bank a point is on, before the world object exists to ask. `nearestOnPolyline` gives the
+// nearest SEGMENT and its distance and no more, so the sign test is done here -- the same cross
+// product `world.riverInfo` uses, kept identical on purpose: a node judged to be across the water by
+// one rule and walked to by the other is a diamond seam nobody can reach.
+function riverSideOf(samples, x, z) {
+  const n = nearestOnPolyline(samples, x, z);
+  const a = samples[Math.max(0, n.i - 1)];
+  const b = samples[Math.min(samples.length - 1, n.i + 1)];
+  const q = samples[n.i];
+  return Math.sign((b.x - a.x) * (z - q.z) - (b.z - a.z) * (x - q.x)) || 1;
+}
+
+export function buildWorld(scene, soleShadows = false, seed = 0) {
   const size = CFG.world.size;
   const rand = rng(1337);
-  const world = { river: null, bridges: [], crossings: [], roads: [], paths: [], fields: [], foam: [], time: 0, sway: { value: 0 }, flowerSpots: [], focus: new THREE.Vector3() };
+  const world = { seed, river: null, bridges: [], crossings: [], roads: [], paths: [], fields: [], foam: [], time: 0, sway: { value: 0 }, flowerSpots: [], focus: new THREE.Vector3() };
   setSwayUniform(world.sway);
   // #200: the feet the grass parts around, shared the way the sway uniform is. Parked far away so a
   // world with nothing walking in it displaces nothing; the game writes into these vectors in place
@@ -862,6 +975,46 @@ export function buildWorld(scene, soleShadows = false) {
   const inCamp = (x, z) => Math.hypot(x - CFG.finale.pos[0], z - CFG.finale.pos[1]) < CFG.finale.radius + 3;
   const free = (x, z, m = 1.5) => !inVillage(x, z) && !inCliffs(x, z) && !inCamp(x, z) && !nearRiver(x, z, m + 1.5) && !nearRoad(x, z, m) && !nearNode(x, z);
   world.free = free;
+  // The citadel is the ring the Keep and the three service buildings stand in -- packed, paved and
+  // walked over all game. Grass is kept out of it (see below) and so is a seam: a node that spawned
+  // under the Keep would be unreachable, and one on the ring road would be mined through a wall.
+  const citadel = TIERS[0].ring;
+  const inCitadel = (x, z) => Math.hypot(x - citadel.x, z - citadel.z) < citadel.r + 2;
+  // and off the mats, which carry a name and a price. `spend.padSize` is 3.6 across, so 2.6 keeps a
+  // blade of grass out of the lettering. A NODE needs more than a blade does -- see `padClear`.
+  const nearPad = (x, z) => PADS.some((p) => Math.abs(p.pos[0] - x) < 2.6 && Math.abs(p.pos[1] - z) < 2.6);
+
+  // #219: THE NODES ARE SEEDED HERE, and here is the only place they can be.
+  //
+  // The validators this needs all exist at this point and nowhere else: the river has been sampled,
+  // the roads are laid, the pads are known, and `inCliffs` is the box the King is pushed out of and
+  // cannot mine in. A generator that lived in config.js would have to re-derive every one of them
+  // and would drift from the real ones the first time a road moved.
+  //
+  // It runs BEFORE the scatter on purpose. `free` asks `nearNode`, so trees and rocks are kept off
+  // the nodes -- and since #215 made trunks solid, a tree standing on a seam would be a seam nobody
+  // can reach. Seeding after the scatter would do exactly that.
+  //
+  // NOT `free`. `free` opens with `!inVillage`, which is the outer tier's 82-by-70 footprint, and a
+  // resource node is allowed inside that -- the shipped wood sits at (-11, 22) and (-15, -15), well
+  // within it, because wood is meant to be a few steps from the gate. Asking `free` made the
+  // generator reject every wood and stone candidate and fall back to the hand-placed list on all ten
+  // test seeds: legal, and completely unseeded. What a NODE has to dodge is the citadel the buildings
+  // stand in, the mats, the roads, the river, the camp and the cliff box -- not the whole village.
+  //
+  // AND NOT `nearPad` EITHER, which is the grass rule: 2.6, sized to keep a blade out of the
+  // lettering. A node is not a blade. Measured off the real meshes in a browser, the widest node --
+  // wood -- spans 1.93 from its own centre, against a mat's half of 1.8 (`spend.padSize` 3.6), so
+  // 3.7 between centres is the first distance at which no part of a seam is over a mat the player
+  // has to read and tap. The shipped wood sits 2.5 from the `crown` pad and does overlap it; that is
+  // a fact about the hand-placed layout, not a licence for the generator to repeat it.
+  const padClear = (x, z) => !PADS.some((p) => Math.abs(p.pos[0] - x) < 3.7 && Math.abs(p.pos[1] - z) < 3.7);
+  const nodeOk = (x, z) => !inCliffs(x, z) && !inCamp(x, z) && !nearRiver(x, z, 3)
+    && !nearRoad(x, z, 2.5) && padClear(x, z) && !inCitadel(x, z);
+  // Which materials this seed actually generated, and which kept their hand-placed nodes. On the
+  // world object because a fallback that leaves no trace is one nobody ever notices has become the
+  // normal case -- `tools/seeds/seeds.mjs` reads it, and so can a console.
+  world.seededNodes = seedNodes(world.seed, riverSamples, nodeOk, inCliffs);
 
   // GRASS GETS ITS OWN RULE, and the reason is that `free` was answering the wrong question for it.
   //
@@ -878,11 +1031,8 @@ export function buildWorld(scene, soleShadows = false) {
   //
   // The margins are tighter than `free`'s too. A tree needs 1.5 of clearance from a track; grass
   // growing up to the edge of one is what a track through a field looks like.
-  const citadel = TIERS[0].ring;
-  const inCitadel = (x, z) => Math.hypot(x - citadel.x, z - citadel.z) < citadel.r + 2;
-  // and off the mats, which carry a name and a price. `spend.padSize` is 3.6 across, so 2.6 keeps a
-  // blade out of the lettering without drawing a bald circle around every pad.
-  const nearPad = (x, z) => PADS.some((p) => Math.abs(p.pos[0] - x) < 2.6 && Math.abs(p.pos[1] - z) < 2.6);
+  // -- `inCitadel` and `nearPad` are up with the placement helpers, because #219's node generator
+  // asks them too and runs before this.
   // #180: grass creeps into the verge. It used to stop 0.5 short of the road on both sides, which
   // drew a ruled line of bare dirt against a ruled line of grass -- the hard edge the ticket is
   // about. Now a tuft is placed by how far into the verge it would stand: sure of a place a unit out
@@ -921,6 +1071,21 @@ export function buildWorld(scene, soleShadows = false) {
   // #215: every solid thing on the map, as {x, z, r}. Filled by the scatter below, bucketed at the
   // end of it -- see the note there for why it has to be captured rather than asked for.
   const solids = [];
+  // #219: THE SCATTER GETS ITS OWN STREAM, and at seed 0 that stream IS the world's.
+  //
+  // The ticket asks for the forests and boulder fields to move with the map, not just the nodes --
+  // and everything below this point drew from `rand`, the one stream `buildWorld` runs on from top
+  // to bottom. Re-seeding that stream would have moved the roads and the river's wander, which the
+  // ticket puts firmly on the "stays exactly where it is" side.
+  //
+  // So the scatter draws from its own. `seed ? rng(...) : rand` is not a shortcut: at seed 0 this is
+  // literally the same generator object, consumed in the same order, so `?seed=0` -- every `?view=`,
+  // `?tour`, the checks and the probe -- builds the identical world it always has, down to the
+  // number. At any other seed the scatter takes its numbers from here instead, which also means the
+  // lanterns and the flowers laid out after it no longer line up with seed 0's. They are decoration
+  // and they are allowed to move; the roads, the river and the plot were all laid before this line.
+  const srand = seed ? rng(((seed * 2654435761) >>> 0) + 17) : rand;
+
   // CLUMPED, like the grass and the trees, and for the same reason: uniform random gives every square
   // metre the same amount of everything, which is the one thing real ground never does. `patches` is
   // how many centres to scatter and `spread` how far from one a thing may land; a quarter of them
@@ -929,7 +1094,7 @@ export function buildWorld(scene, soleShadows = false) {
   const patchesFor = (n) => {
     if (!patchSets.has(n)) {
       const list = [];
-      for (let i = 0; i < n; i++) list.push([(rand() * 2 - 1) * half, (rand() * 2 - 1) * half]);
+      for (let i = 0; i < n; i++) list.push([(srand() * 2 - 1) * half, (srand() * 2 - 1) * half]);
       patchSets.set(n, list);
     }
     return patchSets.get(n);
@@ -939,16 +1104,16 @@ export function buildWorld(scene, soleShadows = false) {
     for (let i = 0; i < count && tries < count * 40; tries++) {
       let x;
       let z;
-      if (clump && rand() < 0.75) {
-        const [px, pz] = patchesFor(clump.patches)[(rand() * clump.patches) | 0];
-        const a = rand() * Math.PI * 2;
-        const d = (rand() ** 0.6) * clump.spread;
+      if (clump && srand() < 0.75) {
+        const [px, pz] = patchesFor(clump.patches)[(srand() * clump.patches) | 0];
+        const a = srand() * Math.PI * 2;
+        const d = (srand() ** 0.6) * clump.spread;
         x = px + Math.cos(a) * d;
         z = pz + Math.sin(a) * d;
         if (Math.abs(x) > half || Math.abs(z) > half) continue;
       } else {
-        x = (rand() * 2 - 1) * half;
-        z = (rand() * 2 - 1) * half;
+        x = (srand() * 2 - 1) * half;
+        z = (srand() * 2 - 1) * half;
       }
       if (!free(x, z, margin) || Math.hypot(x, z) < minDist) continue;
       const o = maker(x, z);
@@ -964,17 +1129,17 @@ export function buildWorld(scene, soleShadows = false) {
   // taught: instanced or merged, the cost is triangles, and the draw calls were the thing that used
   // to make density expensive (see `mergeGroup`, which now makes it not).
   const clumps = [];
-  for (let i = 0; i < 22; i++) clumps.push([(rand() * 2 - 1) * half, (rand() * 2 - 1) * half]);
+  for (let i = 0; i < 22; i++) clumps.push([(srand() * 2 - 1) * half, (srand() * 2 - 1) * half]);
   let placedTrees = 0;
   for (const [cx, cz] of clumps) {
     for (let k = 0; k < 13; k++) {
       // denser at the heart of a wood than at its edge, so it has a shape rather than a boundary
-      const a = rand() * Math.PI * 2;
-      const d = (rand() ** 0.65) * 10;
+      const a = srand() * Math.PI * 2;
+      const d = (srand() ** 0.65) * 10;
       const x = cx + Math.cos(a) * d;
       const z = cz + Math.sin(a) * d;
       if (Math.abs(x) > half || Math.abs(z) > half || !free(x, z, 1.4)) continue;
-      const sc = 0.75 + rand() * 0.85;
+      const sc = 0.75 + srand() * 0.85;
       const t = makeTree(sc);
       t.position.set(x, 0, z);
       scenery.add(t);
@@ -1006,19 +1171,19 @@ export function buildWorld(scene, soleShadows = false) {
   const ROCK_R = 0.66;
   const SPIKE_R = 1.1;
   place((x, z) => {
-    const sc = 0.9 + rand() * 0.5;
+    const sc = 0.9 + srand() * 0.5;
     solids.push({ x, z, r: TRUNK_R * sc });
     return makeTree(sc);
   }, Math.max(0, 210 - placedTrees), 1.6);
   place(() => makeBush(), 230, 0.9, 0, { patches: 70, spread: 7 });
   place((x, z) => {
-    const sc = 0.55 + rand() * 1.1;
+    const sc = 0.55 + srand() * 1.1;
     solids.push({ x, z, r: ROCK_R * sc });
     return makeRock(sc);
   }, 150, 0.9, 0, { patches: 55, spread: 6 });
   place((x, z) => {
     const s = makeSpikes();
-    s.rotation.y = rand() * Math.PI;
+    s.rotation.y = srand() * Math.PI;
     solids.push({ x, z, r: SPIKE_R });
     return s;
   }, 55, 1.5, 0, { patches: 26, spread: 5 });

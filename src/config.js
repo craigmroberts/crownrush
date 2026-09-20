@@ -1535,6 +1535,71 @@ export const PADS = [
 
 // Resource nodes the King mines by standing next to them. `stock` regrows over time. A node only
 // appears once the Keep can use its material (CFG.base.materialAt), so each level-up opens new ground.
+// #219: WHERE EACH MATERIAL IS ALLOWED TO BE, so the route changes between runs and the economy
+// does not.
+//
+// The map has been the same every run on purpose -- `world.js` seeds its scatter with literal
+// integers and says so -- and that was right while the game was being built. It is wrong for a game
+// somebody plays four days running: once you know the iron is at the mesa foot and the diamond is
+// across the east bridge, the walk is muscle memory and the only thing left to improve is how fast
+// you do it. The route is the game, and the route was a constant.
+//
+// THE VILLAGE DOES NOT MOVE. Everything inside the tier-2 walls -- the pads, the three rings, the
+// four roads, the river, the bridges -- is measured against itself by `tools/layout/check.mjs` and
+// against the models by `CFG.footprint`. Randomising it is a different game and it invalidates every
+// number in this file. What is seeded is the hinterland.
+//
+// EVERY NUMBER HERE IS MEASURED OFF THE HAND-PLACED LAYOUT BELOW, which is what `seed=0` still
+// gives. Distances and arcs are from the origin; `arc` is null where the material was already
+// scattered right round and a pair of degrees where it was not:
+//
+//   wood     10 nodes, 86 stock, in three stands: two thickets at 21-25 (117-139 and 223-232) and
+//             one wood at 52-56 (143-148). Seven of the ten are within 28. See `clumpArc` below --
+//             a single arc across all three is what made it unseedable.
+//   straw     5 nodes, 27-64 out, 66 stock, no arc -- widest empty gap only 199 degrees
+//   stone     5 nodes, 24-70 out, 94 stock, no arc -- widest empty gap 137
+//   iron      5 nodes, 36-53 out, 80 stock, arc 210-257: the foot of the north-west mesas, and the
+//             widest empty gap is 314 degrees, so that sector is the intent and not an accident
+//   diamond   4 nodes, 75-81 out, 60 stock, arc 14-68: far out and across the river, gap 306
+//
+// `near` is the constraint that keeps a seed playable rather than merely legal. Wood is "close to
+// home, available immediately": a seed that puts all ten of it at 55 units does not make the run
+// different, it breaks the opening. So the generator REJECTS a seed that cannot put six wood inside
+// 28, rather than hoping. Same shape for the one stone a player needs before the first Keep level.
+export const NODE_BANDS = {
+  // WOOD IS TWO BANDS, NOT ONE, and pretending otherwise is what made it unseedable. The hand-placed
+  // ten are seven seams packed between 21.2 and 24.8 in two thickets -- one at 117-139 degrees, one
+  // at 223-232 -- and three more out at 52.2 to 56.3. A single `dist` of [20, 58] with a `near`
+  // filter asking for six inside 28 describes that shape only by accident: the generator has to roll
+  // a clump centre into the narrow 21-26 ring twice by luck, and on seven of ten test seeds it did
+  // not, so wood fell back to the hand-placed list and the map did not vary at all.
+  //
+  // `clumpDist` and `clumpArc` say it outright: clump 0 is the thicket north-west of the gate
+  // (shipped: 117-139 degrees), clump 1 the one south-west of it (223-232), clump 2 the wood out
+  // west (143-148). Three clumps always, because two would be two thickets and no distant wood, and
+  // the far stand is what makes the second axe-trip a journey.
+  //
+  // The far clump needs its own bearing as much as its own ring. Drawn from wood's whole 112-236 it
+  // rolled past 210 at radius 52 on three of ten seeds, which lands inside the cliff box (x < -14
+  // AND z < -33) -- the ground the King is pushed out of and cannot mine in -- and the attempt was
+  // thrown out. Every range here is wider than the angles it was measured from, so a seed still
+  // moves a thicket; it moves it within the bearing that thicket has always had.
+  wood: {
+    dist: [20, 60], count: [9, 11], stock: 86, clumps: [3, 3], near: { within: 28, atLeast: 6 },
+    clumpDist: [[21, 26], [21, 26], [46, 58]],
+    clumpArc: [[100, 150], [210, 250], [128, 172]],
+  },
+  straw: { dist: [25, 66], arc: null, count: [5, 6], stock: 66, clumps: [2, 3] },
+  stone: { dist: [23, 72], arc: null, count: [5, 6], stock: 94, clumps: [2, 3], near: { within: 32, atLeast: 1 } },
+  iron: { dist: [34, 56], arc: [205, 262], count: [4, 6], stock: 80, clumps: [1, 2] },
+  // The one material that must be ACROSS the water: the generator checks the river side rather than
+  // trusting the arc, because the arc is a guess about where the river runs and the river knows.
+  diamond: { dist: [72, 84], arc: [10, 72], count: [4, 5], stock: 60, clumps: [1, 2], acrossRiver: true },
+};
+
+// The hand-placed layout, and still exactly what `?seed=0` builds. It is the fallback the generator
+// falls back TO when a band cannot be satisfied, so a bad seed can never produce a bad map -- it
+// produces this one.
 export const NODES = [
   // wood: close to home, available immediately
   { type: 'wood', pos: [-11, 22], stock: 8 }, { type: 'wood', pos: [-16.5, 14.5], stock: 8 }, { type: 'wood', pos: [-13, 18], stock: 8 }, { type: 'wood', pos: [-15, 17.5], stock: 8 },

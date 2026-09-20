@@ -512,7 +512,12 @@ if (!has('no-build')) await run('npx', ['vite', 'build']);
 const port = await freePort(PORT);
 const server = await serve(port);
 try {
-  const url = `http://localhost:${port}/${QUERY ? `?${QUERY}` : ''}`;
+  // #219: SEED 0 ALWAYS, unless `--query` asks for something else. The hinterland is rolled per map
+  // now, so an unqualified load gets a random one -- and a budget check that measures a different map
+  // every run is measuring the seed rather than the change. Seed 0 is the hand-placed layout, which
+  // is what every previous number in the README was taken against.
+  const q = QUERY ? (/(^|&)seed=/.test(QUERY) ? QUERY : `seed=0&${QUERY}`) : 'seed=0';
+  const url = `http://localhost:${port}/?${q}`;
   const results = [];
   for (const d of DEVICES) results.push(await measure(url, { mobile: d === 'phone' }));
   console.log('\nProbe\n');

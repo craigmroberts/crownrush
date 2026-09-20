@@ -36,7 +36,10 @@
 import { CFG, PADS, NODES } from './config.js';
 import { setHealthBar } from './models.js';
 
-const KEY = 'crownrush-run';
+// Exported because `mapSeed` in game.js has to read this before the save module exists to ask -- see
+// the note there. One name for the key, in the file that owns it.
+export const RUN_KEY = 'crownrush-run';
+const KEY = RUN_KEY;
 // #58: which length the player last chose, kept apart from the run above. It has to outlive a run --
 // it is read on the title screen before there is a game to ask -- and it must survive a save format
 // bump, because a preference is not run state and losing it would silently put somebody back on the
@@ -99,6 +102,15 @@ export const SaveMethods = {
       // bumping VERSION -- every save written before it is a thirty-night run, which is exactly what
       // `s.len || 'long'` reads it as, so bumping would have thrown away live runs to add a word.
       len: this.runLength,
+      // #219: WHICH MAP THIS RUN IS ON. Added without bumping VERSION, like `len` above: a save
+      // written before this has no seed, and `applyRun` reads that as 0 -- the hand-placed layout,
+      // which is the only map any of those runs was ever played on.
+      //
+      // It has to be stored because `nodes` below is an array indexed by position in `NODES`, and on
+      // a seeded map `NODES` is what the generator made. Restoring index 11's stock onto a run whose
+      // index 11 is a different node -- of a different material, somewhere else on the map -- is not
+      // a wrong number, it is a wrong world, and nothing in the save would have said so.
+      seed: this.seed,
       time: round(this.time),
       wave: this.wave,
       dayPhase: round(this.dayPhase, 4),
@@ -243,6 +255,21 @@ export const SaveMethods = {
   // whatever a new run would have, and a field of enemies from a previous run cannot survive.
   restoreRun(s) {
     if (!s) return false;
+    // #219: A SAVE FROM ANOTHER MAP IS REFUSED, and it is refused HERE -- before `reset`, before a
+    // single mesh is built -- because the failure it prevents is silent. `applyRun` restores node
+    // stock by index into `NODES`, which on a seeded map is the list the generator made; hand it a
+    // run from a different seed and every quarry comes back with some other quarry's contents. The
+    // player gets a run that is subtly wrong and nothing anywhere says why.
+    //
+    // `mapSeed` reads the save before the world is built precisely so this cannot normally happen.
+    // What it catches is the case that is left: `?seed=N` in the address, which overrules the save on
+    // purpose. Starting a clean run on the map that was asked for is the honest answer there.
+    if ((s.seed || 0) !== this.seed) {
+      console.warn(`the saved run is on map ${s.seed || 0} and this is map ${this.seed}; starting clean`);
+      this.clearRun();
+      this.reset();
+      return false;
+    }
     this.reset();
     this.restoring = true;
     this.hud.mute = true;
