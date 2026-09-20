@@ -18,7 +18,7 @@ import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CHECKS } from './registry.mjs';
 import { FREE } from './free.mjs';
-import { CHEAP, PROVE } from './cheap.mjs';
+import { CHEAP, PROVE, PROVE_AT } from './cheap.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
@@ -170,7 +170,8 @@ async function main() {
         //
         // 5 sits between the two with room either side. Once, not per frame: several sabotages wrap
         // a method and re-arming would nest the wrapper a frame deep every frame.
-        const SABOTAGE_AT = 5;
+        // A check may override it -- see `PROVE_AT` in cheap.mjs for the one that does and why.
+        const SABOTAGE_AT = PROVE_AT[c.id] ?? 5;
         await page.addInitScript(([src, min]) => {
           const fn = new Function(`return (${src})`)();
           const arm = () => {

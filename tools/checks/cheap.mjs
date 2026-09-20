@@ -820,6 +820,19 @@ export const CHEAP = {
 //
 // A check missing from here is reported as unproved rather than counted as proved. That is the same
 // honesty the `judged` rows get: a gap you can see beats a number that flatters.
+// #179: WHEN a sabotage arms, for the ones that cannot use the default.
+//
+// The harness arms at frame 5 -- late enough that shaders have compiled and early enough to be
+// underneath anything a check wraps (see `checks.mjs`). `opening-resolves` is the exception and the
+// reason is in its own shape: it pins `queen.captive` to false so the opening can never resolve, and
+// by frame 5 the opening has already started taking her. Pinning the flag mid-capture leaves the
+// scene half-built and three throws on its own internals -- which the runner correctly reports as
+// "sabotage broke the run rather than the assertion" rather than counting it as proved.
+//
+// So it arms at 0, before there is an opening to interrupt. Anything added here needs the same kind
+// of sentence: a number on its own is the thing this file exists not to have.
+export const PROVE_AT = { 'opening-resolves': 0 };
+
 export const PROVE = {
   // one view is held shut, which is the failure the check was written after: a board frame showing
   // the wrong thing looks exactly like a board frame showing the right thing
