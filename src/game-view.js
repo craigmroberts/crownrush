@@ -171,6 +171,33 @@ export const ViewMethods = {
     }
     // fog mask on top
     ctx.drawImage(fogCanvas, 0, 0);
+    // #218: the raider camps, drawn OVER the fog rather than under it like the resource seams.
+    //
+    // Not an oversight and not a freebie. A camp only appears here once it has started sending a
+    // party at you (`fromWave`), and at that point you have stood on your own wall and watched them
+    // walk in from that direction -- so the map is showing you something the King already knows.
+    // Under the fog it would be a mechanic the player cannot act on until they have wandered 50
+    // units into the dark on the off-chance, which is how a strategic layer goes unnoticed.
+    //
+    // A standing camp is filled, a broken one is a hollow ring: the difference between "that is
+    // tonight's flank" and "that one is dealt with, for now" is the whole thing the player is
+    // reading this map for.
+    for (const c of this.camps || []) {
+      if (this.raidNight() < CFG.camps.fromWave + c.index * CFG.camps.everyWave) continue;
+      ctx.beginPath();
+      ctx.arc(tx(c.x), tz(c.z), 5, 0, Math.PI * 2);
+      if (c.cleared) {
+        ctx.strokeStyle = '#8c8c96';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = '#b4271f';
+        ctx.fill();
+        ctx.strokeStyle = '#1b1b24';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
     // enemies (only in explored areas read from the fog alpha)
     const fctx = fogCanvas.getContext('2d');
     ctx.fillStyle = '#e8342a';
@@ -1826,6 +1853,26 @@ export const ViewMethods = {
     this.king.mesh.position.set(-20, 0, -26);
     this.king.mesh.rotation.y = Math.PI * 0.25;
     this.queen.mesh.position.set(-22, 0, -24.5);
+  },
+
+  // #218: a raider camp, from the distance the King meets one at. The board has to be able to show
+  // this -- it is a new thing standing on the map and the rule is that anything added to the game is
+  // added to the board in the same commit.
+  //
+  // The FIRST camp of the seed rather than a hardcoded spot, because the camps are seeded with the
+  // rest of the hinterland (#219) and a frame aimed at coordinates would be aimed at open grass the
+  // first time somebody looked at another map. `?view=camp&seed=N` frames that map's camp instead.
+  //
+  // Outside `wakeRadius` (14) on purpose: this is the garrison asleep at its posts, which is what a
+  // camp looks like when you come over the rise and have to decide. Awake it is just a fight.
+  showCampView() {
+    const c = (this.camps || [])[0];
+    if (!c) return;
+    this.king.mesh.position.set(c.x, 0, c.z + CFG.camps.wakeRadius + 3);
+    this.king.mesh.rotation.y = Math.PI;
+    this.queen.mesh.position.set(c.x - 1.6, 0, c.z + CFG.camps.wakeRadius + 4.4);
+    this.camLock = 20;
+    this.camDist = 20;
   },
 
   // #180: the east road from the King's own camera, just inside the town wall, where it is the

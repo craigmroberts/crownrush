@@ -2152,6 +2152,145 @@ times — which is what proved the test rather than the code was wrong. Pinning 
 and the army before spawning made both arms agree. **A measurement that moves when the thing it
 measures is switched off is measuring something else.**
 
+## The raid comes from camps standing on the map (#218)
+
+> "i feel like its very singular decisions at the moment and you have to follow the story in a way
+> but i think that can get boring after playing it for a few days... I think it needs some more
+> complex strategy."
+
+**The day had no teeth.** Daylight was a deterministic errand — walk to a node, hold, walk to the
+trade post, stand on a mat — and nothing done out there changed what arrived at nightfall. The raid
+was a pure function of the night count and the Keep level, so the strategic question each day was
+"which mat next", and that question has a near-optimal answer that does not move between runs. That
+is the boredom, and it is not fixed by adding more mats.
+
+**Now three camps stand outside the walls, each sends a party of tonight's raid from its own
+direction, and breaking one in daylight means that party does not come.** Mine, or take the King and
+his Guard out and break the camp before dusk?
+
+### What a camp costs to break, which is the whole of why it is a decision
+
+A day is `cycle.length * cycle.nightStart` = **45 seconds**. The King walks at 5.6 and rides at 7.5,
+so the round trip *alone* is:
+
+| distance | on foot | mounted |
+| --- | --- | --- |
+| 46 | 16.4 s — 37% of the day | 12.3 s — 27% |
+| 54 | 19.3 s — 43% | 14.4 s — 32% |
+| 62 | 22.1 s — 49% | 16.5 s — 37% |
+
+— before the fight, and before walking home with whatever he was carrying. `dist` is `[46, 62]`
+because the outer wall is at 38 × 32 and a camp has to be outside it with room for a fight, and
+because the main camp is at 74 and anything beyond that is a longer walk than the finale for a
+fraction of the prize. A camp close enough to break for free is not a decision.
+
+### The failure mode is "clear every camp, no raid ever"
+
+Three guards, and all three are in `CFG.camps`:
+
+1. **`share` is what one camp is worth, and `count * share` is deliberately under 1.** Three camps at
+   0.2 leaves **0.4** — the floor, which always comes, aimed from the main camp's direction, which
+   cannot be cleared before the finale. The camps modulate the raid; they do not constitute it.
+2. **`reoccupy` puts a cleared camp back** after 2 nights. Clearing is a habit, not an errand.
+3. **Clearing costs the day**, which is the table above.
+
+### Measured, because "a run that finishes proves nothing here"
+
+`npm run raids` drives the wave assembler at each raid night and reads what comes out — size, and
+how many *sides* of the village it arrives on. Every cell is the mean of nine assemblies, because
+the raid rolls ranks, shuffles its list and jitters every bearing; the first version of this table
+moved 15% between runs on numbers that had not changed.
+
+| raid night | all standing | one broken | all broken | all ÷ standing |
+| --- | --- | --- | --- | --- |
+| 1 | 6, 1 side | 6, 1 | 6, 1 | 100% |
+| 2 | 8, 1 side | 8, 1 | 8, 1 | 100% |
+| 3 | 13, 1.4 sides | 10, 1 | 10, 1 | 77% |
+| 5 | 22, 1.6 sides | 18, 1 | 18, 1 | 82% |
+| 6 | 25, 4 sides | 20, 3 | 15, 1 | 60% |
+| 9 | 44, 3.9 sides | 35, 3 | 18, 1 | 41% |
+| 12 | 58, 4 sides | 46, 3 | 23, 1 | 40% |
+| 20 | 99, 4 sides | 79, 3 | 40, 1 | 40% |
+
+**The opening is untouched**, which was a requirement rather than a hope. The assembler used to open
+flanking directions on a ramp of its own — one direction, two from raid night 3, three from raid
+night 6 — and `fromWave`/`everyWave` reproduce it exactly for the first two camps, so nights 1 and 2
+read 100% at one side. The third camp arrives at raid night 9, and that fourth direction **is** a
+change to the late game: one more side to watch, and one more camp that can be taken off the board.
+
+**Three things the table says that are worth knowing before tuning it:**
+
+- **The mechanic is weak early and strong late, and that is right.** Breaking the one camp at night 3
+  buys you three fewer raiders for an entire day of lost mining — almost never worth it. By night 12
+  it is twelve fewer, and breaking all three is 58 down to 23. It ramps with the army that makes it
+  possible at all, so it gates itself.
+- **Sides fall faster than numbers do.** All three broken is always **one** side, from raid night 6
+  on. A night from one direction is most of what the player actually feels, and it is not in the
+  raider count.
+- **There is one dip in the curve, at raid night 9.** All-broken is 22 raiders at night 8 and 18 at
+  night 9, because a third camp becomes active and the floor is a share of a list that has not grown
+  enough to cover it. It costs 50% more daylight to hold the floor from that night on, so the dip is
+  paid for; it is recorded here rather than smoothed away.
+
+### Fifteen more standing characters cost four draw calls
+
+The ticket flagged this: "camps are standing crowd that did not exist before — worth watching
+against the draw-call budget and #64." Three garrisons of five sleep on the map from the first frame
+of every run. The probe, at `seed=0`, against the same run before this landed:
+
+| | before | after |
+| --- | --- | --- |
+| characters | 37 | **52** |
+| crowd drawn / alive | 28 / 37 | **30 / 52** |
+| draw calls, desktop | 269 median · 315 peak | 273 · **326** |
+| draw calls, phone | 93 · 116 | 84 · **114** |
+| triangles, desktop | 1094k | 1034k |
+| scene drawables | 495 | 543 |
+
+**Fifteen more characters for four more draw calls**, against a budget of 400. That is the crowd
+instancing (#64) doing exactly what it is for — 30 drawn of 52 where it was 28 of 37 — and it is the
+reason this mechanic is affordable at all. Triangles moved the wrong way by 60k, which is run-to-run
+variance in what the camera happens to hold rather than a saving; nothing was removed.
+
+### Two bugs the driving caught that the code did not look like it had
+
+**Walking up to one picket woke every camp on the map.** `updateCampSleeper` woke `every` enemy with
+`e.camp` set, which was correct while there was one camp and is the loudest possible bug with four —
+approaching a picket in the west would have stood the Warlord up seventy units away in the north.
+The wake is scoped to `e.campId` now. Driven and confirmed: King at camp 0 → `awake in camp0=5,
+camp1=0, camp2=0, finale awake=0`.
+
+**A sector can have no good ground in it at all.** Camps are placed one per sector of the circle so
+three camps are three directions rather than a cluster — and on seed 42 that produced **two camps
+instead of three**, silently, because one 120° slice was river on one side and the main camp's arc
+on the other. Two camps is a quieter game and nothing said so; it is the same silent fallback that
+stopped #219's wood varying. Anything the sectors cannot place now sweeps the whole circle instead,
+with `apart` still holding. Eight seeds, three camps each, minimum separation 37.9 against a
+required 30.
+
+### Where the pieces live, and why
+
+The camps are **one more `CFG.finale`**, not a new kind of thing: `campFor(e)` returns the finale or
+the small camp an enemy belongs to, so `updateCampSleeper` and `updateCampReturn` stay single copies
+of themselves. `wakeRadius` 14 and `leash` 26 are tighter than the finale's 20 and 38, because a
+leash of 38 on something 46 units out would chase the King most of the way home.
+
+**Positions are the map's; state is the run's** — the same split the resource seams have. Where a
+camp stands is seeded with the rest of the hinterland (#219) and lives on `world.camps`; whether it
+is broken and on which night lives on the game and is rebuilt every reset. The save stores the
+broken ones **by id rather than by index**, because a list read positionally is a list that silently
+means something else on a map with a different number of camps.
+
+**They spawn on the usual ring, not at the camp.** A camp is 46–62 units out and a night is 30
+seconds, so raiders walking the whole way would arrive after it. The *direction* is the truthful
+part: what walks out of the dark comes from the thing you chose not to attack.
+
+**The minimap draws them over the fog**, unlike the resource seams, and only once a camp has started
+sending a party at you — at which point you have stood on your own wall and watched them walk in
+from that direction, so the map is showing you something the King already knows. Under the fog it
+would be a strategic layer nobody can act on until they have wandered 50 units into the dark on the
+off-chance.
+
 ## A mat goes where the King can stand (#230, #231)
 
 Two bug reports from a phone, one root cause each, and both found the same way: stand the village up

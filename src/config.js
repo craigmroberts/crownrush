@@ -438,7 +438,7 @@ export const CFG = {
   // resource-payment path it belongs to is still whole and is what any future pad priced in
   // materials would use; said out loud here so nobody measures a balance change against it and
   // wonders why nothing moved. `material: 2` is untouched and still paid for every one mined.
-  score: { earlyWavePerSecond: 4, kill: { knight: 10, elite: 25, brute: 20, boss: 200, thief: 40, sapper: 15, archer: 20, shield: 30 }, coin: 1, material: 2, buildPerCoin: 2, buildPerMaterial: 3, soldierPerWave: 2, waveClear: 50, levelUp: 60, rescue: 150, recapture: 90, finale: 1500 },
+  score: { earlyWavePerSecond: 4, kill: { knight: 10, elite: 25, brute: 20, boss: 200, thief: 40, sapper: 15, archer: 20, shield: 30 }, coin: 1, material: 2, buildPerCoin: 2, buildPerMaterial: 3, soldierPerWave: 2, waveClear: 50, levelUp: 60, rescue: 150, recapture: 90, campClear: 120, finale: 1500 },
 
   // #69: the army FOLLOWS the King rather than orbiting him. Each soldier still gets a slot on a
   // ring -- that is what keeps a hundred of them from standing in each other -- but the slot is a
@@ -763,6 +763,77 @@ export const CFG = {
   // `leash`: how far from the camp the King has to get before the garrison gives up and goes home.
   // Walking away has to be an answer, or an early visit to the camp ends the run (#28).
   finale: { pos: [-4, -74], radius: 9, garrison: 8, wakeRadius: 20, leash: 38, level: 13, chiefHp: 3.2, callEvery: 9, callCount: 3 },
+
+  // #218: THE RAID COMES FROM CAMPS THAT ARE STANDING ON THE MAP.
+  //
+  // The complaint this answers: "it's very singular decisions at the moment and you have to follow
+  // the story... I think it needs some more complex strategy." The day had no teeth. Daylight was a
+  // deterministic errand -- walk to a node, hold, walk to the trade post, stand on a mat -- and
+  // nothing done out there changed what arrived at nightfall. The raid was a pure function of the
+  // night count and the Keep level, so the strategic question each day was "which mat next", and
+  // that question has a near-optimal answer that does not move between runs.
+  //
+  // Now: small camps stand outside the walls, each one sends a party of tonight's raid from its own
+  // direction, and breaking one in daylight means that party does not come. Mine, or take the King
+  // and his Guard out and break the camp before dusk? Both are right some days.
+  //
+  // THE FAILURE MODE IS "CLEAR EVERY CAMP, NO RAID EVER", and three things guard against it:
+  //
+  //   1. `share` is what ONE camp is worth, and `count * share` is deliberately under 1. What is
+  //      left over -- 1 - 3 * 0.2 = 0.4 -- is the floor, and it always comes, from the main camp's
+  //      direction. The camps modulate the raid; they do not constitute it.
+  //   2. `reoccupy` puts a cleared camp back. Clearing is a habit, not a one-time errand.
+  //   3. Clearing costs the day, which is the arithmetic below and is the whole point.
+  //
+  // WHAT A CAMP COSTS TO BREAK. A day is `cycle.length * cycle.nightStart` = 45 seconds. The King
+  // walks at `king.footSpeed` 5.6 and rides at `king.speed` 7.5, so the round trip alone is:
+  //
+  //           on foot        mounted
+  //     46    16.4s  37%     12.3s  27%
+  //     54    19.3s  43%     14.4s  32%
+  //     62    22.1s  49%     16.5s  37%
+  //
+  // -- before the fight, and before walking back with whatever he was carrying. Half a day at the
+  // near edge of the band and most of one at the far edge. That is the cost that makes it a
+  // decision; a camp close enough to break for free is not one.
+  //
+  // `dist` starts at 46 because the outer wall is at 38 by 32 and a camp has to be outside it with
+  // room for its own radius and a fight. It stops at 62 because the main camp is at 74 and a camp
+  // further than that is a longer walk than the finale for a fraction of the prize.
+  //
+  // WHY THREE, AND WHEN EACH ONE STARTS SENDING. The wave assembler used to open flanking
+  // directions on a ramp of its own -- 1 direction, then 2 from raid night 3, then 3 from raid
+  // night 6. `fromWave` and `everyWave` reproduce that exactly for the first two camps, so the
+  // opening of a run is unchanged, and add a third at raid night 9. That third direction IS a
+  // change to the late game and a deliberate one: it is one more side to watch and one more camp
+  // that can be taken off the board.
+  //
+  // `garrison` is 5 against a player who by raid night 3 has a handful of archers and the Guard.
+  // The camp fights at one rank BELOW the raid (`rankUnder`), because it is a picket rather than
+  // the war party -- and because a camp that fights at full rank is one the early King cannot break
+  // at all, which turns the whole mechanic off for the players who need it most.
+  //
+  // `wakeRadius` and `leash` are tighter than the finale's 20 and 38: these are small camps and a
+  // leash of 38 on something 46 units out would chase the King most of the way home.
+  camps: {
+    count: 3,
+    dist: [46, 62],
+    apart: 30,          // between camps, so three camps are three directions rather than a cluster
+    radius: 5.2,        // the finale's is 9; this is a picket, not a war camp
+    garrison: 5,
+    rankUnder: 1,
+    wakeRadius: 14,
+    leash: 26,
+    fromWave: 3,        // camp 0 starts sending on raid night 3...
+    everyWave: 3,       // ...and each later one three raid nights after the last: 3, 6, 9
+    share: 0.2,         // what one standing camp is worth of tonight's raid
+    reoccupy: 2,        // nights a cleared camp stays empty before raiders move back in
+    // `seed` 0 is the hand-placed map (#219), and camps did not exist before this ticket, so there
+    // is no hand-placed layout to preserve -- they are generated at every seed. This is the seed the
+    // generator uses when the map's own is 0, so `?view=`, `?tour` and the checks get the same three
+    // camps in the same places every time.
+    fixedSeed: 20218,
+  },
 
   // #58: two run lengths, because 30 nights at 75 seconds is ~37 minutes and that was the only one on
   // offer -- a very large ask of somebody who opened a web game on a phone and does not yet know

@@ -661,6 +661,7 @@ export class Game {
     // fight he was not meant to be able to win.
     this.openWave = 0;
     this.openRetryT = 0;
+    this.campsTaught = false;   // #218: the one-time explanation, per run
     const hc = TIERS[0].bounds;
     this.homeSide = this.world.riverInfo((hc.x0 + hc.x1) / 2, (hc.z0 + hc.z1) / 2).side;
 
@@ -732,6 +733,14 @@ export class Game {
       chief.bar.scale.multiplyScalar(1 / 1.1);
       chief.lastCall = -99;
     }
+    // #218: and the small camps the nightly raid comes from. Positions are the MAP's (`world.camps`,
+    // seeded with everything else in #219); what happens to them is the RUN's, which is why the
+    // state lives here and is rebuilt on every reset. Same split as the resource nodes: where a seam
+    // is belongs to the map, how much is left in it belongs to the run.
+    this.camps = (this.world.camps || []).map((c, i) => ({
+      id: c.id, x: c.x, z: c.z, index: i, cleared: false, clearedOn: -99, mesh: null,
+    }));
+    for (const c of this.camps) this.standCamp(c, true);
     this.resetFog();
     // #20: the starting purse is scattered along the road west, the way the pink arrow points, so the
     // first three seconds teach the pickup rule and the stack builds because of what you did.

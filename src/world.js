@@ -570,6 +570,84 @@ function seedNodes(seed, riverSamples, ok, inCliffs) {
   return seeded;
 }
 
+// #218: WHERE THE RAIDER CAMPS STAND.
+//
+// Three of them, outside the walls, each in its own direction, because the whole mechanic is that
+// breaking one takes a side of the village off tonight's raid. Three camps in a cluster would be one
+// decision wearing three hats, so `apart` is as load-bearing here as `dist` is.
+//
+// It runs where `seedNodes` does and for the same reason: the river has been sampled, the roads are
+// laid and the cliff box is known, so every constraint can be ASKED rather than re-derived. And it
+// runs before the scatter, so `free` can keep trees and rocks out of a camp's clearing -- a camp with
+// a solid trunk (#215) standing in the middle of it is a fight against the scenery.
+//
+// ON THE HOME BANK, always. A camp across the water sends a party every night from raid night 3 and
+// cannot be reached until a bridge is bought -- which is a mechanic the player can see working
+// against them and cannot act on, the exact opposite of what this ticket is for.
+//
+// AND CLEAR OF THE MAIN CAMP'S ARC. The finale sits at (-4, -74), and the floor party -- the part of
+// the raid that always comes -- is aimed from there. A small camp in the same direction would make
+// breaking it look like it did nothing, because the parties would arrive on top of each other.
+function seedCamps(seed, riverSamples, ok, homeSide) {
+  const C = CFG.camps;
+  const rand = rng((seed || C.fixedSeed) * 2246822519 >>> 0);
+  const fin = Math.atan2(CFG.finale.pos[1], CFG.finale.pos[0]);
+  const out = [];
+  // One camp per sector, so they cannot bunch: the circle is cut into `count` equal slices and each
+  // camp is placed inside its own, jittered rather than pinned to the middle of it.
+  const base = rand() * Math.PI * 2;
+  const step = (Math.PI * 2) / C.count;
+  for (let i = 0; i < C.count; i++) {
+    let placed = null;
+    for (let k = 0; k < 90 && !placed; k++) {
+      // The spread opens with each failed try -- a sector whose good ground is all at one end can
+      // still find it -- and the distance walks out from the near edge, because a camp you can reach
+      // is worth more to this mechanic than one placed perfectly.
+      const a = base + i * step + (rand() - 0.5) * step * Math.min(1, 0.35 + k * 0.08);
+      const d = C.dist[0] + rand() * (C.dist[1] - C.dist[0]);
+      const x = +(Math.cos(a) * d).toFixed(2);
+      const z = +(Math.sin(a) * d).toFixed(2);
+      // a quarter turn either side of the finale is its arc, and nothing else goes in it
+      let da = Math.abs(Math.atan2(z, x) - fin) % (Math.PI * 2);
+      if (da > Math.PI) da = Math.PI * 2 - da;
+      if (da < 0.55) continue;
+      if (!ok(x, z)) continue;
+      if (riverSideOf(riverSamples, x, z) !== homeSide) continue;
+      if (out.some((c) => Math.hypot(c.x - x, c.z - z) < C.apart)) continue;
+      placed = { id: `camp-${i}`, x, z };
+    }
+    if (placed) out.push(placed);
+  }
+  // A SECTOR CAN HAVE NO GOOD GROUND IN IT AT ALL, and the sweep found one: seed 42 produced two
+  // camps instead of three, silently, because one 120-degree slice was river on one side and the
+  // main camp's arc on the other. Two camps is a quieter game than three and nothing anywhere said
+  // so -- the same silent fallback that made #219's wood stop varying.
+  //
+  // So anything the sectors could not place is placed by sweeping the whole circle instead. `apart`
+  // still holds, which is what stops the loser bunching against a camp that did find its sector, and
+  // it is the constraint that was doing the real work all along -- the sectors are only a cheap way
+  // of getting a good spread first.
+  for (let i = out.length; i < C.count; i++) {
+    let placed = null;
+    for (let k = 0; k < 240 && !placed; k++) {
+      const a = (k / 240) * Math.PI * 2;
+      const d = C.dist[0] + ((k * 7) % 11) / 10 * (C.dist[1] - C.dist[0]);
+      const x = +(Math.cos(a) * d).toFixed(2);
+      const z = +(Math.sin(a) * d).toFixed(2);
+      let da = Math.abs(Math.atan2(z, x) - fin) % (Math.PI * 2);
+      if (da > Math.PI) da = Math.PI * 2 - da;
+      if (da < 0.55) continue;
+      if (!ok(x, z)) continue;
+      if (riverSideOf(riverSamples, x, z) !== homeSide) continue;
+      if (out.some((c) => Math.hypot(c.x - x, c.z - z) < C.apart)) continue;
+      placed = { id: `camp-${out.length}`, x, z };
+    }
+    if (!placed) break;        // the map genuinely has nowhere left: fewer camps, and `world.camps` says so
+    out.push(placed);
+  }
+  return out;
+}
+
 function hashType(t) {
   let h = 0;
   for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) >>> 0;
@@ -972,7 +1050,12 @@ export function buildWorld(scene, soleShadows = false, seed = 0) {
   const nearRoad = (x, z, m) => world.roads.some((r) => nearestOnPolyline(r.samples, x, z).d < MAP.roadWidth / 2 + m);
   const nearNode = (x, z) => NODES.some((n) => Math.hypot(n.pos[0] - x, n.pos[1] - z) < 4.5) || MAP.fields.some((f) => Math.abs(f.pos[0] - x) < f.size[0] / 2 + 3 && Math.abs(f.pos[1] - z) < f.size[1] / 2 + 3);
   // #19: the raider camp's clearing stays free of trees and rocks
-  const inCamp = (x, z) => Math.hypot(x - CFG.finale.pos[0], z - CFG.finale.pos[1]) < CFG.finale.radius + 3;
+  // #218: and so does every small camp's, once they are seeded below. `world.camps` does not exist
+  // yet when the node generator asks this, which is exactly right -- a node is allowed where a camp
+  // has not been put yet, and the camps are placed against the nodes rather than the other way
+  // round. By the time the scatter asks, the list is there.
+  const inCamp = (x, z) => Math.hypot(x - CFG.finale.pos[0], z - CFG.finale.pos[1]) < CFG.finale.radius + 3
+    || (world.camps || []).some((c) => Math.hypot(x - c.x, z - c.z) < CFG.camps.radius + 3);
   const free = (x, z, m = 1.5) => !inVillage(x, z) && !inCliffs(x, z) && !inCamp(x, z) && !nearRiver(x, z, m + 1.5) && !nearRoad(x, z, m) && !nearNode(x, z);
   world.free = free;
   // The citadel is the ring the Keep and the three service buildings stand in -- packed, paved and
@@ -1015,6 +1098,19 @@ export function buildWorld(scene, soleShadows = false, seed = 0) {
   // world object because a fallback that leaves no trace is one nobody ever notices has become the
   // normal case -- `tools/seeds/seeds.mjs` reads it, and so can a console.
   world.seededNodes = seedNodes(world.seed, riverSamples, nodeOk, inCliffs);
+
+  // #218: and the raider camps, on the same ground rules plus their own. `campOk` is `nodeOk` with
+  // the camp's whole clearing given room rather than its centre point: a camp is 5.2 across and a
+  // seam or a road through the middle of one is a fight in a corridor.
+  const campOk = (x, z) => {
+    const R = CFG.camps.radius;
+    for (let k = 0; k < 8; k++) {
+      const a = (k / 8) * Math.PI * 2;
+      if (!nodeOk(x + Math.cos(a) * R, z + Math.sin(a) * R)) return false;
+    }
+    return nodeOk(x, z);
+  };
+  world.camps = seedCamps(world.seed, riverSamples, campOk, riverSideOf(riverSamples, 0, 8));
 
   // GRASS GETS ITS OWN RULE, and the reason is that `free` was answering the wrong question for it.
   //

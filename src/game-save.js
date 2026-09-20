@@ -223,6 +223,12 @@ export const SaveMethods = {
       keep: this.keep ? { hp: round(this.keep.hp), state: this.keep.state, level: this.keep.level } : null,
       // stock, so a quarry worked flat does not come back full
       nodes: this.nodes.map((n) => [round(n.stock, 2), round(n.regrow, 2)]),
+      // #218: which raider camps are broken and on which night, so a day spent clearing one is not
+      // handed back by a restore. Keyed by id rather than positional, because the camps are seeded
+      // per map (#219) and a list read by index is a list that silently means something else on a
+      // map with a different number of them. Additive, no VERSION bump: a save from before this has
+      // no `camps`, which reads as every camp standing -- exactly what those runs had.
+      camps: (this.camps || []).filter((c) => c.cleared).map((c) => [c.id, c.clearedOn]),
       // what has been walked. The minimap is most of how the map is read, and starting a restored run
       // blind would undo a good part of what the player did.
       fog: this.fog ? this.fog.canvas.toDataURL('image/png') : null,
@@ -452,6 +458,18 @@ export const SaveMethods = {
       n.stock = Math.min(stock, n.max);
       n.regrow = regrow;
     });
+    // #218: the broken camps. `standCamp` in `reset` has already stood every one of them up with a
+    // garrison, so clearing one here means taking its raiders off the board -- `removeEnemy` rather
+    // than `killEnemy`, because these belong to a part of the run that already happened and paying
+    // out their coins and score a second time is how a restore becomes a way to farm.
+    for (const [id, on] of s.camps || []) {
+      const c = (this.camps || []).find((x) => x.id === id);
+      if (!c) continue;                     // a save from another map shape: that camp simply stands
+      c.cleared = true;
+      c.clearedOn = on;
+      if (c.mesh) c.mesh.visible = false;
+      for (const e of this.enemies.filter((x) => x.campId === id)) this.removeEnemy(e);
+    }
     if (s.fog) this.restoreFog(s.fog);
 
     this.addFeedPad();

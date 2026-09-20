@@ -5,7 +5,7 @@ import { CFG, TIERS } from './config.js';
 import { audio } from './audio.js';
 import { beatFor } from './story.js';
 import { makeRigged } from './rig.js';
-import { makeKnight, makeElite, makeBrute, makeBoss, makeCoin, makeHealthBar, setHealthBar, LANTERN_FLAME } from './models.js';
+import { makeKnight, makeElite, makeBrute, makeBoss, makeCoin, makeHealthBar, setHealthBar, makeCamp, LANTERN_FLAME } from './models.js';
 import { tmp, tmp2, tmpM, rand, randInt } from './game-shared.js';
 
 export const EnemiesMethods = {
@@ -74,6 +74,10 @@ export const EnemiesMethods = {
     }
     this.wave++;
     const w = this.wave;
+    // #218: raiders move back into the camps they were driven out of, BEFORE tonight's parties are
+    // worked out below -- so a camp whose nights are up is standing again and sends its party
+    // tonight. A camp broken this morning is still empty for this one, which is the reward.
+    this.reoccupyCamps();
     // #58: every ramp below is "by night N of thirty" and is read off the raid's clock rather than
     // the calendar, so a short run gets the whole curve in half the nights instead of half the curve.
     // `w` is still the calendar: the toast at the bottom, and the boss rhythm, which is a beat the
@@ -116,20 +120,65 @@ export const EnemiesMethods = {
       if (roll < 0.4) return top - 1;
       return top;
     };
-    // raiding parties come from 1-3 directions -- on the raid's clock like every other night ramp,
-    // so full flanking arrives a fifth of the way into the run at either length rather than at an
-    // absolute night 6 that is a fifth of a long run and a third of a short one.
-    const dirs = 1 + Math.min(2, Math.floor(rw / 3));
     const b = TIERS[this.tier].bounds;
     const cx = (b.x0 + b.x1) / 2;
     const cz = (b.z0 + b.z1) / 2;
-    // the first party always comes from the camp's direction; later ones flank
+    // #218: THE PARTIES ARE THE CAMPS NOW, and this is the balance spine of the whole ticket.
+    //
+    // It used to be `dirs = 1 + min(2, floor(rw / 3))` -- one direction, two from raid night 3,
+    // three from raid night 6 -- with the first aimed from the main camp and the rest at random
+    // angles. The shape is kept exactly: `fromWave` and `everyWave` open camps on 3 and 6, so the
+    // first two thirds of a run has the direction count it always had. What changes is that a
+    // direction is now a PLACE, and a place can be taken off the board.
+    //
+    // `active` is every camp whose night has come, standing or not. `standing` is the ones that
+    // still have a garrison. A camp that was broken this morning is active and not standing, so it
+    // contributes no party and no share -- which is the entire mechanic in one line.
+    const active = (this.camps || []).filter((c) => rw >= CFG.camps.fromWave + c.index * CFG.camps.everyWave);
+    const standing = active.filter((c) => !c.cleared);
+    // WHAT THE RAID IS WORTH TONIGHT. Each standing camp is `share` of it; the rest is the floor,
+    // which always comes. With three camps at 0.2 the floor is 0.4, so a player who has broken
+    // everything still fights a real night -- they have just bought themselves the smallest one the
+    // game can produce, at the cost of every daylight hour it took.
+    const scale = Math.min(1, 1 - active.length * CFG.camps.share + standing.length * CFG.camps.share);
+    if (scale < 1) {
+      // TRIMMED FROM THE SHUFFLED LIST, BOSSES KEPT. A boss night is a beat the player counts, and
+      // a raid that drops the boss because three camps were cleared would read as the game losing
+      // track rather than as a reward. Everything else is fair game.
+      const keep = Math.max(1, Math.round(list.length * scale));
+      const bosses = list.filter((t) => t === 'boss');
+      const rest = list.filter((t) => t !== 'boss').slice(0, Math.max(0, keep - bosses.length));
+      list.length = 0;
+      for (const t of bosses) list.push(t);
+      for (const t of rest) list.push(t);
+      for (let i = list.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [list[i], list[j]] = [list[j], list[i]];
+      }
+    }
+    // The floor party comes from the main camp, as it always has; each standing camp aims one from
+    // where it actually stands. They spawn on the usual ring rather than at the camp itself: a camp
+    // is 46 to 62 units out and a night is 30 seconds, so raiders walking the whole way would arrive
+    // after it. The DIRECTION is the truthful part -- what walks out of the dark comes from the
+    // thing you chose not to attack.
     const angles = [Math.atan2(CFG.finale.pos[1] - cz, CFG.finale.pos[0] - cx)];
-    for (let i = 1; i < dirs; i++) angles.push(rand(0, Math.PI * 2));
+    const weights = [Math.max(0.0001, 1 - active.length * CFG.camps.share)];
+    for (const c of standing) {
+      angles.push(Math.atan2(c.z - cz, c.x - cx));
+      weights.push(CFG.camps.share);
+    }
+    // Which party each raider belongs to, by weight rather than round-robin: the floor is twice a
+    // camp's share, so the main thrust stays the main thrust and the camps read as flanks.
+    const total = weights.reduce((a, w) => a + w, 0);
+    const partyOf = (i) => {
+      let t = ((i + 0.5) / list.length) * total;
+      for (let k = 0; k < weights.length; k++) { t -= weights[k]; if (t <= 0) return k; }
+      return 0;
+    };
     const halfDiag = Math.hypot(b.x1 - b.x0, b.z1 - b.z0) / 2;
     const half = CFG.world.size / 2 - 8;
     list.forEach((type, i) => {
-      let a = angles[i % dirs] + rand(-0.5, 0.5);
+      let a = angles[partyOf(i)] + rand(-0.5, 0.5);
       let r = halfDiag + rand(10, 16);
       let x = 0;
       let z = 0;
@@ -148,6 +197,18 @@ export const EnemiesMethods = {
       }
       this.spawnQueue.push({ type, x, z, t: i * CFG.waves.stagger, rank: pickRank(type, i) });
     });
+    // #218: THE ONE TIME THE MECHANIC IS EXPLAINED, on the night the first camp starts sending.
+    //
+    // Said once, when it first becomes true, and never again -- the rule CLAUDE.md sets for the
+    // release greeting and for the same reason. A player who is told every night that camps can be
+    // broken is a player who stops reading toasts. The compass word is worth the four lines it
+    // costs: "a camp is out there somewhere" is not something anyone can act on before dusk.
+    if (!this.campsTaught && standing.length) {
+      this.campsTaught = true;
+      const c = standing[0];
+      const dir = Math.abs(c.x) > Math.abs(c.z) ? (c.x > 0 ? 'east' : 'west') : (c.z > 0 ? 'south' : 'north');
+      this.hud.toast(`Part of tonight's raid marched from a camp to the ${dir}. *Break it in daylight and it sends nobody.*`, 4200, 'Raid');
+    }
     this.thiefTimer = CFG.waves.thieves.every * 0.6;   // #35: first chance shortly into the night
     const boss = list.includes('boss');
     audio.wave(boss);
@@ -589,16 +650,21 @@ export const EnemiesMethods = {
 
   // #19: the camp wakes when the King comes for it
   updateCampSleeper(e, dt) {
-    const F = CFG.finale;
+    const F = this.campFor(e);            // #218: the finale, or the small camp this one belongs to
     const kp = this.king.mesh.position;
     if (Math.hypot(kp.x - F.pos[0], kp.z - F.pos[1]) < F.wakeRadius) {
-      for (const x of this.enemies) if (x.camp) {
+      // ONLY THIS CAMP WAKES. It used to be every sleeper on the map, which was correct while there
+      // was one camp and is the loudest possible bug with four: walking up to a picket in the west
+      // would have stood the Warlord up seventy units away in the north.
+      for (const x of this.enemies) if (x.camp && x.campId === e.campId) {
         x.camp = false;
         x.fromCamp = true;                                   // #28: and this is the post it returns to
         x.post = { x: x.mesh.position.x, z: x.mesh.position.z };
       }
       this.raiseAlarm('The camp is awake!');
-      this.hud.toast(this.finaleOpen ? 'The Warlord stands. He has been waiting for this.' : 'The whole camp is up and you are one man. Run.', 3000, 'Raid');
+      this.hud.toast(F.small ? 'The camp is up. *Break it before dusk and that party will not come.*'
+        : this.finaleOpen ? 'The Warlord stands. He has been waiting for this.'
+          : 'The whole camp is up and you are one man. Run.', 3000, 'Raid');
       audio.wave(true);
       return;
     }
@@ -606,15 +672,82 @@ export const EnemiesMethods = {
     this.animateWalk(e, 0, dt);
   },
 
+  // #218: put a camp on the field -- tents and a sleeping garrison.
+  //
+  // `first` is the run's opening build, where nothing should be announced: the camps have always
+  // been there as far as the player is concerned. A reoccupation mid-run is news, and says so.
+  standCamp(c, first = false) {
+    const C = CFG.camps;
+    if (!c.mesh) {
+      c.mesh = makeCamp(C.radius);
+      c.mesh.position.set(c.x, 0, c.z);
+      this.root.add(c.mesh);
+    }
+    c.mesh.visible = true;
+    c.cleared = false;
+    // One rank under the raid. A picket rather than the war party -- and a camp that fights at full
+    // rank is one the early King cannot break at all, which turns the mechanic off for exactly the
+    // players it is meant to give something to do.
+    const rank = Math.max(0, this.topRank() - C.rankUnder);
+    for (let i = 0; i < C.garrison; i++) {
+      const a = (i / C.garrison) * Math.PI * 2;
+      const e = this.spawnEnemy(i % 3 === 0 ? 'brute' : 'knight',
+        c.x + Math.cos(a) * C.radius * 0.75, c.z + Math.sin(a) * C.radius * 0.75, rank);
+      e.camp = true;
+      e.campId = c.id;
+      e.mesh.rotation.y = Math.atan2(Math.cos(a), Math.sin(a));
+    }
+    if (!first) this.hud.toast('Raiders have moved back into a camp you cleared.', 2600, 'Raid');
+  },
+
+  // The camp a sleeping or returning raider belongs to, as a shape with a position, a wake radius
+  // and a leash. The finale is one of these -- it is the big one rather than a different kind of
+  // thing -- which is what lets `updateCampSleeper` and `updateCampReturn` stay single copies of
+  // themselves instead of growing a second, nearly identical pair for the small camps.
+  campFor(e) {
+    if (!e.campId) return CFG.finale;
+    const c = this.camps && this.camps.find((x) => x.id === e.campId);
+    if (!c) return CFG.finale;
+    const C = CFG.camps;
+    return { pos: [c.x, c.z], radius: C.radius, wakeRadius: C.wakeRadius, leash: C.leash, small: c };
+  },
+
+  // #218: the last raider of a garrison is down, so that camp sends nobody tonight.
+  //
+  // Checked here rather than on a timer because `killEnemy` is the one death path in the game
+  // (#172's comment says so and it is still true), so there is no way for a garrison to empty
+  // without passing through it.
+  campCleared(campId) {
+    const c = this.camps && this.camps.find((x) => x.id === campId);
+    if (!c || c.cleared) return;
+    if (this.enemies.some((e) => e.campId === campId)) return;
+    c.cleared = true;
+    c.clearedOn = this.wave;
+    if (c.mesh) c.mesh.visible = false;
+    const left = this.camps.filter((x) => !x.cleared).length;
+    this.hud.toast(left
+      ? `Camp broken! That party will not come tonight. *${left} still standing.*`
+      : 'Every camp is broken. *Tonight they come from the main camp alone.*', 3200, 'Raid');
+    this.addScore(CFG.score.campClear);
+  },
+
+  // Raiders move back in after `reoccupy` nights. Called at nightfall, so a camp broken today is
+  // gone tonight -- which is the reward -- and comes back on a night the player can count.
+  reoccupyCamps() {
+    for (const c of this.camps || []) {
+      if (c.cleared && this.wave - c.clearedOn >= CFG.camps.reoccupy) this.standCamp(c);
+    }
+  },
+
   // #28: true while this one is disengaging, so the normal chase is skipped.
   updateCampReturn(e, dt) {
-    const F = CFG.finale;
+    const F = this.campFor(e);            // #218
     const kp = this.king.mesh.position;
     const kingFar = Math.hypot(kp.x - F.pos[0], kp.z - F.pos[1]) > F.leash;
     if (!kingFar && !e.returning) return false;
     if (!e.returning) {
       e.returning = true;
-      if (!this.campCalm) {
+      if (!this.campCalm && !F.small) {
         this.campCalm = true;
         this.raiseAlarm('');
         this.hud.toast('The camp breaks off the chase and falls back.', 3200, 'Raid');
@@ -622,7 +755,7 @@ export const EnemiesMethods = {
     }
     if (!kingFar && e.returning && Math.hypot(kp.x - F.pos[0], kp.z - F.pos[1]) < F.leash * 0.7) {
       e.returning = false;    // he came back for them
-      this.campCalm = false;
+      if (!F.small) this.campCalm = false;
       return false;
     }
     const post = e.post || { x: F.pos[0], z: F.pos[1] };
@@ -1464,6 +1597,7 @@ export const EnemiesMethods = {
     for (let i = 0; i < n; i++) this.dropCoin(e.mesh.position);
     audio.enemyDie();
     this.addScore(CFG.score.kill[e.type] || 10);
+    if (e.campId) this.campCleared(e.campId);   // #218: was that the last of that garrison?
     if (e.chief) {
       this.addScore(CFG.score.finale);
       this.victory();
