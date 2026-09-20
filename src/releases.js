@@ -38,6 +38,7 @@ export const RELEASES = [
       'Selling at the trade post added coin without showing it, if you had the coin stack turned off. The coin flies to the counter now.',
       'A coin on its way to the counter had faded to nothing before it arrived. It arcs, it stays solid the whole way, and a handful arrives as a handful.',
       'Raiders carrying Wren away walked straight through your walls. They have to break through now, which is the one moment a wall is worth what it cost.',
+      'A long run got heavier the longer it went: every spawn flourish \u2014 every recruit, every building, every villager \u2014 left something behind that was never cleared up. It is cleared up now.',
     ],
   },
   {

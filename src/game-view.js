@@ -1144,6 +1144,14 @@ export const ViewMethods = {
       }
       if (p >= 1) {
         this.root.remove(f.mesh);
+        // #190: and its MATERIALS go with it. Taking the group off the root was all this ever did,
+        // so every flourish left a dozen `MeshBasicMaterial`s behind for the rest of the run. The
+        // geometries are shared now (see `makeSpawnFx`) and must NOT be disposed here -- the next
+        // flourish is drawn with the same ones.
+        f.mesh.traverse((o) => {
+          if (!o.material) return;
+          for (const m of Array.isArray(o.material) ? o.material : [o.material]) m.dispose();
+        });
         this.fx.splice(i, 1);
       }
     }

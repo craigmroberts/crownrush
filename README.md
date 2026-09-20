@@ -1936,6 +1936,41 @@ The Warlord going down is the exception, and it is in the victory panel rather t
 there would have had six hundred milliseconds before the overlay covered it, which is not long enough
 to read anything.
 
+## The spawn flourish leaked nine geometries, every time (#190)
+
+Found by the churn harness, located to the line, and fixed.
+
+**`makeSpawnFx` built a fresh `CircleGeometry` for its glow and a fresh `BoxGeometry` for each of
+its eight sparks — nine new geometries per flourish, none ever disposed.** The rings and the column
+had always shared one geometry each; these three did not, for no reason. `updateFx` takes the group
+off the root when it expires and that is all it did, so every one of them stayed uploaded for the
+rest of the run.
+
+Measured through the game's own removal path — spawn a unit, remove it the way `game-units.js` does
+with `disposeEntity`, settle two seconds, count:
+
+| | before | after |
+| --- | --- | --- |
+| geometries left per unit | **9** | **0** |
+| ten spawned and removed | 252 → 342 | 242 → 242 |
+| churn `crowd` block | **+543.5/round** | **+3.5/round** |
+
+**A spawn flourish plays constantly** — every recruit, every purchase, every villager, the dismount
+(#217), the lanterns. It is the likeliest thing behind a phone's geometry count going 441 → 716 →
+2044 across one run.
+
+The fix is at the source rather than in the cleanup: the glow and spark geometries are module-level
+constants now, identical every time as they always were, so **the leak cannot happen again by
+construction**. The materials stay per instance because their opacity is animated per flourish, and
+`updateFx` disposes those on the way out — which also stops hearts and bursts leaking a
+`SpriteMaterial` apiece. Their textures are cached and shared, and `Material.dispose()` does not
+touch a map, so that stays safe.
+
+**Everything else in the churn is flat**: `rebuild`, `restore`, `popups` and `pads` do not move at
+all across three rounds. What is left is small and not yet explained — `rain` and `raiders` at about
+one geometry a round, and the `crowd` residual — small enough that it may be threshold noise rather
+than a leak, and not worth calling a finding until it is measured over more rounds.
+
 ## Every check proves it can fail (#179)
 
 `--prove` breaks the game the way each check exists to catch and expects the check to go **red**.

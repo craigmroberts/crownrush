@@ -790,6 +790,24 @@ export function makeArrow() {
 // ---- effects ----
 const ringGeo = new THREE.RingGeometry(0.7, 1.15, 32);
 const columnGeo = new THREE.CylinderGeometry(0.8, 1.1, 3.0, 18, 1, true);
+// #190: THE GLOW AND THE SPARKS ARE SHARED TOO, and they were the leak.
+//
+// The rings and the column have always shared one geometry each; the glow made a fresh
+// `CircleGeometry` and the eight sparks a fresh `BoxGeometry` apiece -- NINE new geometries every
+// time a spawn flourish played, none of them ever disposed. `updateFx` takes the group off the root
+// when it expires and that is all it does, so every one of them stayed uploaded for the rest of the
+// run. Measured through the game's own path: 9 geometries per unit spawned, never returned.
+//
+// And a spawn flourish plays constantly -- every recruit, every purchase, every villager, the
+// dismount (#217), the lanterns. It is the likeliest thing behind a phone's geometry count going
+// 441 to 716 to 2044 over one run.
+//
+// Every one of these is identical every time, so there was never a reason for them to be per
+// instance. Shared, the leak cannot happen again by construction -- which is better than remembering
+// to dispose. The MATERIALS stay per instance because their opacity is animated per flourish, and
+// `updateFx` disposes those on the way out.
+const glowGeo = new THREE.CircleGeometry(1.6, 24);
+const sparkGeo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
 export function makeSpawnFx(color = 0xff9a2e) {
   const g = new THREE.Group();
   const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
@@ -801,14 +819,14 @@ export function makeSpawnFx(color = 0xff9a2e) {
   ring2.scale.setScalar(0.5);
   const column = new THREE.Mesh(columnGeo, new THREE.MeshBasicMaterial({ color: 0xffb454, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
   column.position.y = 1.3;
-  const glow = new THREE.Mesh(new THREE.CircleGeometry(1.6, 24), new THREE.MeshBasicMaterial({ color: 0xff7a1a, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const glow = new THREE.Mesh(glowGeo, new THREE.MeshBasicMaterial({ color: 0xff7a1a, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }));
   glow.rotation.x = -Math.PI / 2;
   glow.position.y = 0.04;
   g.add(glow, ring, ring2, column);
   g.userData = { ring, ring2, column, glow };
   const sparks = [];
   for (let i = 0; i < 8; i++) {
-    const sp = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.12), new THREE.MeshBasicMaterial({ color: i % 2 ? 0xffd166 : 0xff8a3a, transparent: true, opacity: 1 }));
+    const sp = new THREE.Mesh(sparkGeo, new THREE.MeshBasicMaterial({ color: i % 2 ? 0xffd166 : 0xff8a3a, transparent: true, opacity: 1 }));
     const a = (i / 8) * Math.PI * 2;
     sp.position.set(Math.cos(a) * 0.5, 0.2, Math.sin(a) * 0.5);
     sp.userData = { vx: Math.cos(a) * 1.4, vz: Math.sin(a) * 1.4, vy: 3 + Math.random() * 2 };
