@@ -1936,6 +1936,74 @@ The Warlord going down is the exception, and it is in the victory panel rather t
 there would have had six hundred milliseconds before the overlay covered it, which is not long enough
 to read anything.
 
+## The camera turns itself (#222)
+
+There is no control to give it. The canvas has one gesture and it is spent: a drag is the joystick,
+a long press is a building pick-up (#137), and #160 took the double-tap for the dash — "the only
+spare gesture a one-thumb game has". A two-finger twist on a phone held in one hand is not a
+control, it is a way to lose. So the camera earns its own angle.
+
+**Every number in `CFG.camera` is a motion-sickness number**, and this is the one feature in the
+repo where no assertion can find the failure — it happens in a person, minutes in. So: small clamp,
+slow ease, rest as the default, off under `prefers-reduced-motion`, and a switch in Settings › Video
+for the player who feels it anyway.
+
+**Both biases read a LATERAL offset, not a bearing**, and that is the one real design decision here.
+A bearing wraps at due north — which is exactly where the player walks most, because that is where
+the camp is — so a heading-based target flips sign as he crosses it and the camera swings through
+its whole range at the worst moment in the game. A lateral component has no wrap. Driven, at 0.05
+steps:
+
+| | yaw |
+| --- | --- |
+| standing still | 0.00° |
+| walking dead north (the finale march) | **0.00°** |
+| walking east, held 72s | −22.00°, and −22.00° |
+| walking west | +22.00° |
+| a 0.6 thumb wobble (deadzone is 0.9) | 0.00° |
+| letting go: 2s, then 12s | −8.09°, −0.05° |
+| raider to the west while walking east | **+22.00°** — the raid wins |
+| that raider at 60 units (radius is 26) | −22.00° — back to the walking bias |
+| the opening's captors, and the camp | 0.00° — neither is a raid |
+
+One owner of the yaw at a time and the raid wins; the handover needs no code because both write the
+same number through the same ease. A building in hand **freezes** the yaw rather than easing it —
+`camPan` keeps the ground under the thumb (#138) and a camera turning under that drag is the one
+thing the pan exists to prevent. Held at −21.97° through 15 seconds of placement.
+
+**The distance breathes** 2% in by day to 5% out by night — 18.03 to 19.32 on the ground at the
+phone's `camDist` of 23. It is a multiplier rather than a write, because `camDist` is re-derived on
+every resize and pinned by `camLock`; writing to it would have the resize handler and the clock
+overwriting each other.
+
+**A `?view=` is a framed still, and `camLock` was not enough to say so.** Most views pin themselves
+with `camLock` and got this for free, but `?view=road` and `?view=mesa` never set it — measured
+breathing 18.03 by day to 19.32 at night, which would have put the board's five "Times of day"
+frames at five different distances and made the one comparison that strip exists for a comparison of
+two things at once. `game.framed` is set once in `startForView` for any `?view=`, so the rule covers
+every view there will ever be rather than the ones somebody remembered. All four now differ by 0.001
+between day and night, which is the follow lerp settling and not the clock. `?tour` is deliberately
+not framed: it is play, and the camera should behave there as it does in a run.
+
+**The three things that read screen position were driven rather than reasoned about**, because the
+ticket is right that "should be fine" is the phrase that precedes the bug. A world point projected
+to its pixel and unprojected back to the ground returns **0.0000 error** at −22°, 0° and +22°; the
+coin-fly projection and the whole edge-arrow pass run clean at all three. They ask the camera rather
+than assuming its angle, and now that is measured.
+
+**Two still frames at different yaws do not compare by eye**, which cost a detour worth recording.
+Side by side they look like the camera has moved *closer* — a different set of buildings dominates
+the frame, because seeing round things is what orbiting does and is the whole reason #223 wants this
+first. The arithmetic says a 22° orbit changes the distance to a point 6 units north of the King by
+about 1%. Three independent measurements agree with the arithmetic and not with the impression: a
+fixed 4-unit rod at the origin projects to **100.3, 100.5 and 100.5 pixels** at −22°, 0° and +22°;
+the camera's ground distance to the King is 18.03 at all three; and the origin's screen position
+moves 195 → 134 → 258 across in x with y unchanged. Pure lateral orbit, no scale change.
+
+**What is NOT verified here**: the feel. The ticket's own test is ten minutes of play on a phone,
+and the failure mode is nausea. Nothing above can stand in for that — which is why the switch and
+the `prefers-reduced-motion` default exist.
+
 ## Day and night
 
 The sun is the clock. Daylight is for gathering, building, recruiting and repairing; the raid arrives

@@ -169,6 +169,16 @@ const startGame = () => {
 function startForView() {
   try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) { /* private mode */ }
   game.start();
+  // #222: A `?view=` IS A FRAMED STILL, so the camera does not move itself in one. Most views pin
+  // themselves with `camLock` and get this for free, but `?view=road` and `?view=mesa` never did --
+  // they were measured breathing 18.03 by day to 19.32 at night, which would put the board's five
+  // "Times of day" frames at five different distances and make the one comparison that strip exists
+  // for a comparison of two things at once. Set here rather than in each view, because the rule is
+  // about every view there will ever be and the board is only worth having while it is complete.
+  //
+  // `?tour` is deliberately NOT this. It is play -- the morning held open so the village can be
+  // walked around and argued with -- and the camera should behave there exactly as it does in a run.
+  game.framed = !!VIEW;
   // After `start`, because it resets the run, and before the view, because a panel that reads the
   // sky should read the one it is going to be shown under.
   if (PHASE !== undefined) game.setDayPhase(PHASE, BLOOD || null);
@@ -571,6 +581,7 @@ document.getElementById('set-shake').addEventListener('click', () => { game.setS
 document.getElementById('set-numbers').addEventListener('click', () => { game.setNumbers(!game.numbersOn); syncSettings(); });
 document.getElementById('set-ring').addEventListener('click', () => { game.setRing(!game.ringOn); syncSettings(); });
 document.getElementById('set-stack').addEventListener('click', () => { game.setStack(!game.stackOn); syncSettings(); });
+document.getElementById('set-drift').addEventListener('click', () => { game.setDrift(!game.driftOn); syncSettings(); });
 document.getElementById('set-quality').addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
@@ -589,6 +600,7 @@ function syncSettings() {
   pill('set-numbers-state', game.numbersOn);
   pill('set-ring-state', game.ringOn);
   pill('set-stack-state', game.stackOn);
+  pill('set-drift-state', game.driftOn);
   const q = game.quality.forced == null ? 'auto' : String(game.quality.forced);
   for (const b of document.querySelectorAll('#set-quality button')) b.classList.toggle('on', b.dataset.q === q);
   let tab = 'game';

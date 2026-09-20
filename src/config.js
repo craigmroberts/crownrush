@@ -27,6 +27,63 @@ export const CFG = {
   // hundred units standing on it, and 3.7 is already 54% wider than the 2.4 it used to start at, so
   // the job is done by the reach being honest rather than by a second rule on top of it. One number,
   // drawn and tested, is the whole point.
+  // #222: THE CAMERA EARNS ITS OWN ANGLE, because there is no gesture left to give it.
+  //
+  // The canvas has one gesture and it is spent: a drag is the joystick, a long press is a building
+  // pick-up (#137, which suspends the stick for exactly that reason), and #160 took the double-tap
+  // for the dash, noting it was "the only spare gesture a one-thumb game has". A two-finger twist on
+  // a phone held in one hand with a sapper on the wall is not a control, it is a way to lose.
+  //
+  // EVERY NUMBER HERE IS A MOTION-SICKNESS NUMBER. A camera that yaws on a phone 30cm from a face is
+  // the easiest way to make somebody put the game down, and it is the one failure in this repo that
+  // no assertion can catch -- it takes minutes to appear and it appears in a person, not in a value.
+  // So the numbers are small, the easing is slow, rest is the default, and there is a switch.
+  camera: {
+    // How far off the home angle the yaw may ever go. The clamp is the whole reason this is not a
+    // third-person camera: the player never loses which way the map is, and "north is where the camp
+    // is" survives -- which matters, because the finale march is the one trip that crosses the whole
+    // board. 22 degrees rather than the 30 the ticket suggested: 30 is where the village's own
+    // skyline starts sliding far enough to notice as movement rather than as framing.
+    yawMax: 22 * Math.PI / 180,
+    // The lateral speed at which the yaw is asked for in full. `king.footSpeed` is 5.6, so walking
+    // dead sideways asks for all of it and a diagonal asks for about 0.7 of it.
+    yawFull: 5.6,
+    // Below this the yaw is not asked to move at all. Without it the camera answers the wobble in a
+    // thumb on a joystick, which is a camera that never quite settles -- the specific thing that
+    // makes a slow drift nauseating rather than invisible.
+    yawDead: 0.9,
+    // Time constant of the ease, in seconds. `1 - exp(-dt / tau)`: about 63% of the way in 1.2s and
+    // settled by three of those, which is the "something like a second and a half" the ticket asked
+    // for read as a curve rather than a duration. Slow enough that the camera is never seen to
+    // start; the eye reads it as the world having been that way.
+    yawTau: 1.2,
+    // Coming back to rest is slower still. A camera that snaps square the moment the stick is let go
+    // turns every stop into a small lurch, and stopping is the most common thing the player does.
+    yawHomeTau: 2.0,
+    // #222 part 3: DURING A RAID THE CAMERA FRAMES THE FIGHT INSTEAD. One owner of the yaw at a
+    // time, the raid wins, and the handover eases because both write the same target through the
+    // same filter. Only a threat inside this radius counts -- beyond it the nearest raider is not
+    // what the player is dealing with, and turning toward a dot on the far side of the map is the
+    // camera being automatic rather than intuitive.
+    threatRadius: 26,
+    // The raid bias is allowed to be a little stronger than the walking one, because it is showing
+    // something rather than flavouring something. Still inside `yawMax`.
+    threatFull: 14,
+    // #222 part 1: THE DISTANCE BREATHES. Pull back as night falls, push in by day. A multiplier on
+    // `camDist` rather than a write to it, because `camDist` is re-derived on every resize from the
+    // aspect ratio and is PINNED by `camLock` for `?view=map` and every board frame -- writing to it
+    // would have the resize handler and the breathing overwriting each other, and would quietly
+    // un-pin the board's framing. `camLock` opts out of the breathing entirely for the same reason.
+    //
+    // 2% in by day and 5% out by night: a 7% swing end to end, and asymmetric because the resting
+    // framing is the daytime one and night is what departs from it. Meant to be felt and not seen --
+    // it crosses the whole of dusk, so it is about a thousand frames wide, and no two consecutive
+    // frames differ by anything an eye can find. Measured at the phone's `camDist` of 23: 18.03 out
+    // to 19.32 on the ground. The first draft was 0.97/1.06 and that is a 9.2% swing, close enough
+    // to the 10% where this starts reading as a zoom that it was not worth the last two points.
+    breathDay: 0.98,
+    breathNight: 1.05,
+  },
   king: { speed: 7.5, footSpeed: 5.6, hp: 140, range: 8.5, fireRate: 1.2, damage: 10, pickupRadius: 3.7 },
   // #83: the Queen cannot be hurt. She has no health at all -- nothing in the game takes any off
   // her, because raiders take her by getting hold of her rather than by wearing her down. `seize` is

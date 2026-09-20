@@ -410,9 +410,76 @@ export const ViewMethods = {
     }
   },
 
+  // #222: WHERE THE YAW WANTS TO BE THIS FRAME, in radians off the home angle, already clamped.
+  //
+  // Both biases are computed from a LATERAL offset rather than from a bearing, and that is the one
+  // real design decision in this. A bearing wraps at due north -- which is exactly where the player
+  // walks most, because it is where the camp is -- so a heading-based target flips sign as he
+  // crosses it and the camera swings through its whole range at the worst possible moment. A lateral
+  // component has no wrap: walking dead north or dead south asks for nothing, and the finale march
+  // gets a camera that stays square the entire way.
+  //
+  // ONE OWNER AT A TIME, and the raid wins. They are never mixed: a camera being pulled by two
+  // things at once is a camera that settles nowhere. The handover needs no code of its own because
+  // both write the same number through the same ease below.
+  camYawTarget() {
+    const C = CFG.camera;
+    // A building in hand freezes the yaw where it is. `camPan` puts the ground under the thumb and
+    // keeps it there (#138); a camera turning underneath that drag would have the world sliding out
+    // from under the finger, which is the one thing that pan exists to prevent.
+    if (this.camPan) return this.camYaw;
+    const kp = this.king.mesh.position;
+    // Part 3: the fight, if there is one close enough to be the thing he is dealing with. The
+    // `!captor && !camp` test is not a guess at what a raid is -- it is verbatim what
+    // `anyActiveEnemy` uses to answer "is anyone out raiding", so this owns the yaw exactly when
+    // the game itself says a raid is on, and the opening's collecting party and the standing camp
+    // across the map are neither of them a fight the camera should turn toward.
+    let near = null;
+    let bestD = C.threatRadius * C.threatRadius;
+    for (const e of this.enemies) {
+      if (e.captor || e.camp) continue;                   // the premise and the far camp are not raids
+      const dx = e.mesh.position.x - kp.x;
+      const dz = e.mesh.position.z - kp.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 < bestD) { bestD = d2; near = dx; }
+    }
+    if (near !== null) return THREE.MathUtils.clamp(-near / C.threatFull, -1, 1) * C.yawMax;
+    // Part 2: otherwise, a little toward where he is going.
+    const vx = this.king.vel ? this.king.vel.x : 0;
+    if (Math.abs(vx) < C.yawDead) return 0;
+    return THREE.MathUtils.clamp(-vx / C.yawFull, -1, 1) * C.yawMax;
+  },
+
   updateCamera(dt) {
     const kp = this.king.mesh.position;
-    const d = this.camDist;
+    const C = CFG.camera;
+    // #222 part 2 and 3: ease toward whatever owns the yaw, slower on the way home than on the way
+    // out -- a camera that snaps square the moment the stick is let go turns every stop into a small
+    // lurch, and stopping is the most common thing the player does.
+    //
+    // `driftOn` is off under `prefers-reduced-motion` and can be turned off by hand; when it is off
+    // the yaw is eased back to square rather than held wherever it happened to be, so turning the
+    // setting off mid-run straightens the view instead of freezing a tilt into it.
+    //
+    // `camLock` pins a frame in EVERY respect, not just its distance. Every board view sets it, and
+    // a `?view=` that quietly re-aimed itself because a raider wandered into range would make two
+    // screenshots of one page two different pictures -- the thing `public/board/` exists not to be.
+    const still = this.camLock || this.framed;
+    const want = (this.driftOn && !still) ? this.camYawTarget() : 0;
+    // Going HOME is the slow one, and home means square rather than merely nearer. Easing from -22
+    // to -10 is still the camera being pulled somewhere and moves at the ordinary rate; it is the
+    // return to rest that wants the extra second, because stopping is the most common thing the
+    // player does and a camera that snaps square makes a small lurch out of every one of them.
+    const tau = want === 0 ? C.yawHomeTau : C.yawTau;
+    this.camYaw += (want - this.camYaw) * (1 - Math.exp(-dt / tau));
+    const sy = Math.sin(this.camYaw);
+    const cy = Math.cos(this.camYaw);
+    // #222 part 1: the distance breathes with the day -- but never on a locked frame. `camLock` is
+    // what pins `?view=map` and every board view, and a board frame that quietly re-framed itself
+    // with the clock would make every screenshot of it a different picture.
+    const breath = still ? 1
+      : C.breathDay + (C.breathNight - C.breathDay) * THREE.MathUtils.smoothstep(this.dayPhase, 0.5, 0.75);
+    const d = this.camDist * breath;
     // #138: the only thing that ever moves the camera off the King, and it exists only while a
     // building is in hand. Edit mode spent the canvas's one gesture on the ghost and the King is
     // frozen for the duration, so the view was pinned to whatever happened to be on screen when the
@@ -421,7 +488,10 @@ export const ViewMethods = {
     // edit mode can leave the camera somewhere the King is not.
     const px = this.camPan ? this.camPan.x : 0;
     const pz = this.camPan ? this.camPan.z : 0;
-    tmp.set(kp.x + px, d * 0.92, kp.z + pz + d * 0.8);
+    // The offset and the look-ahead point are rotated together, so the rig turns as one piece about
+    // the King rather than the camera sliding sideways while still facing north.
+    const back = d * 0.8;
+    tmp.set(kp.x + px + sy * back, d * 0.92, kp.z + pz + cy * back);
     if (this.shake > 0) {
       this.shake -= dt;
       tmp.x += (Math.random() - 0.5) * 0.5;
@@ -431,7 +501,7 @@ export const ViewMethods = {
     // or the drag reads as slipping. The King's own follow keeps its ease.
     if (this.camPan) this.camera.position.copy(tmp);
     else this.camera.position.lerp(tmp, 1 - Math.exp(-dt * 6));
-    tmp2.set(kp.x + px, 0, kp.z + pz - 2);
+    tmp2.set(kp.x + px - sy * 2, 0, kp.z + pz - cy * 2);
     this.camera.lookAt(tmp2);
     this.sun.position.set(kp.x + 18 + (34 - this.sunHeight) * 0.6, this.sunHeight, kp.z + 12 + (34 - this.sunHeight) * 0.4);
     this.sun.target.position.set(kp.x, 0, kp.z);

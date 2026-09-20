@@ -19,6 +19,17 @@ import { SaveMethods, readLength } from './game-save.js';
 import { QualityMethods } from './game-quality.js';
 
 // #174: a stored on/off, defaulting on when nothing is stored
+// #222: the system's own motion preference. Wrapped because `matchMedia` is absent in some embeds
+// and a throw here would take the constructor with it; absent means "no preference stated", which
+// is the same answer as not having set one.
+function prefersReducedMotion() {
+  try {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  } catch (e) {
+    return false;
+  }
+}
+
 function readFlag(key, fallback) {
   try {
     const v = localStorage.getItem(key);
@@ -118,6 +129,16 @@ export class Game {
     this.ringOn = readFlag('crownrush-ring', true);
     // #216 part 2: the coins carried on his head. Off sends them to the counter instead.
     this.stackOn = readFlag('crownrush-stack', true);
+    // #222: the camera turning itself. DEFAULTS OFF WHERE THE SYSTEM ASKS FOR LESS MOTION -- a
+    // yawing camera is the single easiest way to make somebody queasy, and somebody who has set
+    // that preference has already told us. `readFlag` still wins if they have chosen by hand, so
+    // the preference is the default and not an override.
+    this.driftOn = readFlag('crownrush-drift', !prefersReducedMotion());
+    // #222: true for any `?view=`, set by `startForView`. A framed still does not move itself --
+    // neither the yaw nor the breathing. Declared here so it is never undefined on a real run.
+    this.framed = false;
+    // Where the yaw actually is, in radians off the home angle. Rest is square (#222).
+    this.camYaw = 0;
     if (this.quality.forced != null) this.applyQuality(this.quality.forced);
     this.buildFog();
     // every health bar in the game is drawn by this one instanced mesh
@@ -990,6 +1011,14 @@ export class Game {
   // What IS lost is `COIN_TIER_COLORS`: the stack is the only place the coin tier is drawn as
   // colour. That costs nothing today because `coinTier()` returns 'gold' and only 'gold', but it is
   // the thing to remember if tiers ever become real.
+  // #222: the camera's own angle, as a switch. The ticket's own test is "playing it for ten
+  // minutes, not looking at it for ten seconds", and the failure it is testing for happens in a
+  // person rather than in a number -- so the honest answer to a feature that cannot be asserted is
+  // that the player who feels it can turn it off.
+  setDrift(on) {
+    this.driftOn = !!on;
+    try { localStorage.setItem('crownrush-drift', on ? '1' : '0'); } catch (e) { /* private mode */ }
+  }
   setStack(on) {
     this.stackOn = !!on;
     try { localStorage.setItem('crownrush-stack', on ? '1' : '0'); } catch (e) { /* private mode */ }

@@ -14,7 +14,10 @@
 export default [
   {
     files: ['**/*.js', '**/*.mjs'],
-    ignores: ['dist/**', 'node_modules/**'],
+    // `.*.mjs` is the same pattern `.gitignore` carries, and for the same reason: a session's
+    // scratch driver is not repo code. It was failing `npm run lint` from outside the repo, which
+    // is a linter reporting on a file that will never be committed.
+    ignores: ['dist/**', 'node_modules/**', '.*.mjs'],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: 'module',
