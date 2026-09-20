@@ -901,11 +901,15 @@ export const PROVE = {
   // The collectors run at 6.2 because that must beat a King on foot at 5.6: config.js says so
   // outright -- "a player who simply walks away is never caught: the snatch never lands, the day
   // clock never starts, and the run sits in its first minute for ever". This check runs him flat out
-  // at 0.28 a step, which is exactly 5.6/s. Drop the collectors to 2 and the documented bug is back,
-  // the check goes red for the reason it was written, and nothing is left in a state three cannot
-  // animate. One assignment to a config number, and no interval to survive `reset()` either, because
+  // at 0.28 a step -- but CLAMPED to +/-18, which is the part that matters here. He reaches the clamp
+  // after about 130 of the 2000 steps and stands still for the rest, so a merely SLOW party still
+  // walks up to a stationary Queen and takes her: `speed = 2` was tried and the check stayed green,
+  // correctly. Zero is the honest version of the same bug -- the party spawns, the snatch is marked
+  // as having happened, and nobody ever arrives, so the run sits in its first minute for ever with
+  // `snatched` true and `captive` false. That is exactly the shape the check's own failure message
+  // reports. One assignment to a config number, and no interval to survive `reset()` either, because
   // CFG is a module constant and a run does not rebuild it.
-  'opening-resolves': () => { window.CFG.opening.speed = 2; },
+  'opening-resolves': () => { window.CFG.opening.speed = 0; },
   // #181 put back exactly as it was: the anchor teleports and nothing holds her off him
   'queen-visible': () => { window.CFG.queen.followTurn = 1e6; window.CFG.queen.kingGap = 0; },
   // #203 put back exactly as it was found: a ring of seven, a slot chosen by COUNTING the crew, and
