@@ -30,7 +30,9 @@ export const RELEASES = [
     id: 5,
     date: '2026-09-20',
     title: 'Three things that were broken',
-    added: [],
+    added: [
+      'You can get off the horse now. The button by the warhorn puts the King down, the horse follows for a few seconds and then wanders the grounds, and pressing it again whistles the horse back \u2014 it comes at a gallop and waits beside you until you choose to get on.',
+    ],
     fixed: [
       'The game could freeze for good when a watchtower was upgraded. A tower whose crew had been killed and replaced could stack up a second upgrade mat, and paying both put it on a level that does not exist.',
       'Selling at the trade post added coin without showing it, if you had the coin stack turned off. The coin flies to the counter now.',

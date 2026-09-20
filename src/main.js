@@ -364,6 +364,13 @@ document.getElementById('horn-btn').addEventListener('pointerdown', (e) => {
   e.stopPropagation();
   game.useHorn();
 });
+// #217: `stopPropagation` for the same reason as the other two -- the canvas under them listens for
+// the drag that walks the King, and a press that reached it would start him moving as he dismounts.
+document.getElementById('mount-btn').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  game.toggleMount();
+});
 // #57: `stopPropagation` for the same reason the horn has it -- the canvas under these buttons
 // listens for the drag that moves the King, and a press that reaches it would start walking him at
 // the same time (#128 is what that bug looks like from the player's side).
@@ -844,6 +851,8 @@ window.addEventListener('keydown', (e) => {
   // #57: B for banner. Not a modifier, because it is a deliberate order rather than a reflex, and
   // nothing else in the game uses it. `e.repeat` because a held key fires until it is let go.
   if ((e.key === 'b' || e.key === 'B') && !e.repeat) return game.plantBanner();
+  // #217: H, because Space, B, Enter, Esc and M are the warhorn, the banner, place, cancel and move.
+  if ((e.key === 'h' || e.key === 'H') && !e.repeat) return game.toggleMount();
   if (e.key === 'Enter' && game.placing) return game.confirmPlacing();   // #43
   if ((e.key === 'm' || e.key === 'M') && !e.repeat && game.movable) return game.beginMoving(game.movable);
   if (e.key === 'i' || e.key === 'I') game.toggleInfo();

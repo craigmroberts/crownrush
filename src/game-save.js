@@ -194,7 +194,13 @@ export const SaveMethods = {
       // #117: the yard's horses. A horse out on the way to a rider comes back as one walking home,
       // which forfeits that one mount purchase; it is a second or two of a run, and storing the
       // promise would mean storing which unit it was made to.
-      horses: this.horses.map((h) => ({ at: pos(h.mesh), state: h.state === 'yard' ? 'yard' : 'home' })),
+      // #217: the King's own horse is written down as his, wherever it had wandered to. Everything
+      // else keeps the existing convention -- anything not in the yard saves as `home`, i.e. "it was
+      // walking back" -- which a dawn save makes true: a horse standing in a field at dusk has
+      // wandered home by morning. His does not go home, because he has not got back on it.
+      horses: this.horses.map((h) => (h.royal
+        ? { at: pos(h.mesh), state: 'roam', royal: true }
+        : { at: pos(h.mesh), state: h.state === 'yard' ? 'yard' : 'home' })),
       turrets: this.turrets.map((t) => ({
         at: [round(t.pos.x), round(t.pos.y), round(t.pos.z)], tower: t.tower, hp: round(t.hp),
       })),
@@ -298,7 +304,16 @@ export const SaveMethods = {
     // --- the village, in pad order so an expansion happens before the walls it makes room for
     this.rebuildVillage(s);
     // #117: and the horses, once there is a yard for them to stand in
-    if (this.stable) for (const h of s.horses || []) this.addHorse(h.at[0], h.at[1], h.state);
+    // #217: his is restored WITHOUT the Stable gate. The yard horses need somewhere to stand, but a
+    // loose royal horse does not -- and the legacy unlock "Begin every run already mounted" starts a
+    // run with no Stable at all, so gating it would lose the King's horse for exactly the player who
+    // never built one.
+    for (const h of s.horses || []) {
+      if (!h.royal) continue;
+      const r = this.addHorse(h.at[0], h.at[1], 'roam');
+      r.royal = true;
+    }
+    if (this.stable) for (const h of s.horses || []) { if (!h.royal) this.addHorse(h.at[0], h.at[1], h.state); }
 
     // --- the royals
     const k = this.king;

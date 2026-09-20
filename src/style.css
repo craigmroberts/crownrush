@@ -1657,6 +1657,24 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
    corner of the eye for most of a run is a tic, not a cue.
    #160: this was the dash's slot, with the banner one further left at 148px. The dash went, and the
    banner slid into its place rather than leaving a gap beside the horn. */
+/* #217: the mount button, third in the row and further left again. Same body as the banner's so the
+   three read as one set of controls; no `.ring`, because this one has no cooldown -- what it has is
+   a WORD, and the word is the state. Smaller than the other two on purpose: the horn is the thumb's
+   button and this is the one you press between fights. */
+#mount-btn {
+  position: fixed; bottom: max(16px, calc(4px + env(safe-area-inset-bottom)));
+  right: max(146px, calc(134px + env(safe-area-inset-right)));
+  width: 50px; height: 50px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; pointer-events: auto;
+  background: rgba(20, 38, 30, 0.86); box-shadow: var(--wood-ring), 0 6px 16px rgba(0,0,0,0.35); z-index: 5;
+  display: grid; place-items: center; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+#mount-btn.hidden { display: none; }
+#mount-btn i { position: relative; opacity: 0.5; transition: opacity 0.15s, transform 0.15s; margin-top: -6px; }
+#mount-btn.ready i { opacity: 1; }
+#mount-btn b {
+  position: absolute; bottom: 5px; color: #f2e8d0; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+  font-size: 11px; line-height: 1; letter-spacing: 0.02em; text-shadow: 0 1px 0 rgba(0,0,0,0.6);
+}
 #banner-btn {
   position: fixed; bottom: max(16px, calc(4px + env(safe-area-inset-bottom)));
   width: 56px; height: 56px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; pointer-events: auto;

@@ -916,7 +916,34 @@ export const CFG = {
   // rider always gets to a breach before he could. `walk` is a horse's own pace about the yard and
   // on the way to a rider; `home` is the trot back when its rider falls. `patrolLap` is how many
   // seconds a mounted soldier takes to ride the whole post ring (#116) while the grounds are quiet.
-  horse: { yard: 4, soldierSpeed: 1.5, walk: 2.0, home: 4.6, patrolLap: 34, reach: 1.3, idle: [1.5, 4] },
+  horse: {
+    yard: 4, soldierSpeed: 1.5, walk: 2.0, home: 4.6, patrolLap: 34, reach: 1.3, idle: [1.5, 4],
+    // #217: THE KING'S OWN HORSE, once he is off it. Nothing here applies to a soldier's mount --
+    // a rider's horse is lost with its rider (#117) and the army has no way to be told to get down.
+    royal: {
+      // It stays at his shoulder first, and the reason is not charm: it makes an accidental press
+      // instantly reversible. Get off by mistake and the horse is still there to get back on.
+      follow: 8,
+      // Behind him, further than Wren's 1.0 because a horse is bigger than Wren.
+      gap: 2.2,
+      // Called, it GALLOPS. `home` is 4.6 and that is a trot -- the wrong verb for "comes running
+      // over". The bar it has to clear is the King ON FOOT at 5.6, because a mounted King never
+      // calls one; it never needs to beat the mounted 7.5. 8.5 closes on a player who keeps walking.
+      called: 8.5,
+      // It stops BESIDE him. `reach` is 1.3 and that is a mounting distance, not a standing one.
+      stop: 1.8,
+      // And the button says Mount from here in -- just outside `stop`, so the word changes as the
+      // horse arrives and the player sees it happen rather than finding it already changed.
+      mountAt: 2.5,
+      // Where it wanders: `TIERS[tier].bounds` -- the same rectangle the army holds (#116), which
+      // grows with each expansion so nothing has to be told the village got bigger -- shrunk to half
+      // about its centre. The whole of tier 2 is 82 x 70, and a horse in the far corner is fifty
+      // units and eleven seconds away, which is not a feature. Half of it is never more than ~27
+      // from the middle. A horse also belongs nearer the centre than the soldiers posted just inside
+      // the wall, which is what it looks like as well as what it measures.
+      roam: 0.5,
+    },
+  },
 
   // One currency, and enemies drop more of it the higher their rank.
   // Coins are gold, always. They used to change colour with the Keep (bronze, silver, gold,

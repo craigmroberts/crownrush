@@ -12,7 +12,7 @@
 // target, guard or rally a horse. A MOUNTED horse is not in this list either -- the unit's mesh is
 // the horse with the rider seated on it, and `u.mounted` is the whole of what the army code needs
 // to know. The record comes back to this list the moment the rider is off it.
-import { CFG, PADS } from './config.js';
+import { CFG, PADS, TIERS } from './config.js';
 import { makeHorse } from './models.js';
 import { V3, tmp, rand } from './game-shared.js';
 
@@ -24,8 +24,51 @@ export const HorseMethods = {
   // horses standing in the yard: what "Mount a Swordsman" can still spend
   yardHorses() {
     let n = 0;
-    for (const h of this.horses) if (h.state === 'yard') n++;
+    // #217: never the King's. `yardHorses` is the capacity -- "the yard IS the capacity" (#117) --
+    // so counting his would hand the army a free horse it never bought. He never enters `yard`
+    // state, and this holds anyway, because the day somebody lets him stable himself is the day
+    // that stops being true by construction.
+    for (const h of this.horses) if (h.state === 'yard' && !h.royal) n++;
     return n;
+  },
+
+  // #217: the King's own loose horse, or null. There is only ever one -- `mountKing` removes it and
+  // `dismountKing` is the only thing that makes one.
+  royalHorse() {
+    for (const h of this.horses) if (h.royal) return h;
+    return null;
+  },
+
+  // #217: somewhere in the castle grounds to wander to. See `CFG.horse.royal.roam` for why it is the
+  // tier's bounds at half extent and not the Stable's yard -- the short version is that a loose
+  // horse must not need a Stable, because the legacy unlock starts a run mounted without one.
+  roamPoint(out) {
+    const b = TIERS[Math.min(this.tier, TIERS.length - 1)].bounds;
+    const cx = (b.x0 + b.x1) / 2;
+    const cz = (b.z0 + b.z1) / 2;
+    const k = CFG.horse.royal.roam;
+    const hw = ((b.x1 - b.x0) / 2) * k;
+    const hd = ((b.z1 - b.z0) / 2) * k;
+    return out.set(rand(cx - hw, cx + hw), 0, rand(cz - hd, cz + hd));
+  },
+
+  // #217: whistle. It breaks off whatever it was doing and gallops at him.
+  callHorse() {
+    const h = this.royalHorse();
+    if (!h) return false;
+    h.state = 'come';
+    h.target = null;
+    h.stats.speed = CFG.horse.royal.called;
+    return true;
+  },
+
+  // #217: how far the King's horse is, or Infinity when he has none. The button reads this every
+  // frame, so it is a number rather than a branch.
+  royalHorseDist() {
+    const h = this.royalHorse();
+    if (!h) return Infinity;
+    const p = this.king.mesh.position;
+    return Math.hypot(h.mesh.position.x - p.x, h.mesh.position.z - p.z);
   },
 
   // A place in the yard for horse `i`: a loose two-by-two inside the fence, so four horses stand as
@@ -75,7 +118,7 @@ export const HorseMethods = {
   // "Mount a Swordsman": a yard horse sets off for him. `horseComing` is the promise, so a second
   // buy sends the next horse to the next man rather than two horses to one.
   sendHorse() {
-    const h = this.horses.find((x) => x.state === 'yard');
+    const h = this.horses.find((x) => x.state === 'yard' && !x.royal);   // #217: never the King's
     const u = this.riderCandidates()[0];
     if (!h || !u) return false;
     h.state = 'out';
@@ -173,6 +216,54 @@ export const HorseMethods = {
         }
         const p = u.mesh.position;
         if (this.villagerWalkTo(h, p.x, p.z, dt, H.home) < H.reach) this.mountUnit(u, h);
+      } else if (h.state === 'follow') {
+        // #217: at his shoulder for a few seconds after he gets down, then it loses interest. The
+        // anchor is behind him and turns with him -- the same shape as the Queen's follow (#181),
+        // which is there so a horse never cuts across his front on a turn.
+        const R = H.royal;
+        h.followT -= dt;
+        const kp = this.king.mesh.position;
+        const a = this.king.mesh.rotation.y;
+        this.villagerWalkTo(h, kp.x - Math.sin(a) * R.gap, kp.z - Math.cos(a) * R.gap, dt, R.called * 0.8);
+        if (h.followT <= 0) {
+          h.state = 'roam';
+          h.target = null;
+          h.idleT = rand(...H.idle);
+          h.stats.speed = H.walk;
+        }
+      } else if (h.state === 'roam') {
+        // The yard's own behaviour -- stand, wander, stand -- over the grounds instead of the fence.
+        if (!h.target) {
+          h.idleT -= dt;
+          this.animateWalk(h, 0, dt);
+          if (h.idleT <= 0) h.target = this.roamPoint(new V3());
+          continue;
+        }
+        if (this.villagerWalkTo(h, h.target.x, h.target.z, dt, H.walk) < 0.3) {
+          h.target = null;
+          h.idleT = rand(...H.idle);
+        }
+      } else if (h.state === 'come') {
+        // #217: called. It runs at him and STOPS BESIDE him -- it does not put him on. A horse that
+        // mounts you on arrival takes the decision away at the exact moment you might have changed
+        // your mind.
+        const R = H.royal;
+        const kp = this.king.mesh.position;
+        if (this.villagerWalkTo(h, kp.x, kp.z, dt, R.called) < R.stop) {
+          // Unless he already pressed Mount while it was closing, in which case the press stands and
+          // he gets on as it arrives -- no waiting for an animation to finish.
+          if (this.mountQueued) this.mountKing();
+          else { h.state = 'wait'; h.stats.speed = H.walk; }
+        }
+      } else if (h.state === 'wait') {
+        const R = H.royal;
+        this.animateWalk(h, 0, dt);
+        const kp = this.king.mesh.position;
+        const d = Math.hypot(h.mesh.position.x - kp.x, h.mesh.position.z - kp.z);
+        if (this.mountQueued) this.mountKing();
+        // He walked off while it was standing there. It follows rather than being abandoned -- and
+        // the slack is what stops it twitching between the two states while he shuffles about.
+        else if (d > R.mountAt + 1.2) { h.state = 'come'; h.stats.speed = R.called; }
       } else if (h.state === 'home') {
         if (!this.stable) continue;
         // to the gap, then to a spot inside, then it is a yard horse again

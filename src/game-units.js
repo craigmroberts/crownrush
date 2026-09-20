@@ -70,20 +70,100 @@ export const UnitsMethods = {
   mountKing() {
     if (this.mounted) return;
     this.mounted = true;
+    // #217: if this is him getting back ON his own horse, the horse stops existing separately --
+    // `king_mounted` is one model with the horse in it, which is the whole reason a dismount cannot
+    // mirror `riderFell`. Taken out here rather than by the caller so every route on (the button,
+    // the Warhorse mat, a restore) leaves exactly one horse in the world.
+    const loose = this.royalHorse();
+    if (loose) {
+      this.horses.splice(this.horses.indexOf(loose), 1);
+      this.root.remove(loose.mesh);
+      this.disposeEntity(loose.mesh);
+    }
+    this.mountQueued = false;
+    this.swapKingMesh('king_mounted', 3.2);
+    this.spawnFx(this.king.mesh.position.x, this.king.mesh.position.z, 0xffd166);
+    this.refreshPads();          // the Warhorse mat is skipped while he has a horse
+  },
+
+  // #217: GETTING OFF, which was never possible: `mountKing` set `this.mounted` and the only place
+  // it was ever cleared was `reset()`. A choice made in the first few minutes was permanent.
+  //
+  // It cannot mirror `riderFell`, because the King is not SEATED the way a soldier is. A soldier's
+  // mesh is the horse with the rider reparented onto it, so falling off is a detach. The King's mesh
+  // is REPLACED by `king_mounted`, a single model with the horse built in -- there is no horse object
+  // to hand back, because there was never one to take. So this swaps the mesh back and CREATES a
+  // horse beside him.
+  //
+  // Everything keyed off `this.mounted` has to flip with it, and that is the real work: the health
+  // bar's height (3.2 against 2.4), `stackBase` for the carried coins, his speed, and the Warhorse
+  // mat, which is skipped while mounted and would otherwise reappear and sell him a second horse.
+  // Missing one of those is the exact shape of bug this repo keeps writing down -- every count still
+  // right and a health bar floating above nothing -- so the two heights live in `swapKingMesh` and
+  // the mat asks `hasHorse()` rather than `mounted`.
+  dismountKing() {
+    if (!this.mounted) return null;
+    this.mounted = false;
+    this.swapKingMesh('king', 2.4);
+    const k = this.king;
+    const a = k.mesh.rotation.y;
+    const p = k.mesh.position;
+    // Behind and just to his left, which is the side a rider dismounts on.
+    const h = this.addHorse(p.x - Math.sin(a) * 1.5 - Math.cos(a) * 0.8, p.z - Math.cos(a) * 1.5 + Math.sin(a) * 0.8, 'follow');
+    h.royal = true;
+    h.followT = CFG.horse.royal.follow;
+    h.mesh.rotation.y = a;
+    this.popIn(h.mesh);
+    this.spawnFx(h.mesh.position.x, h.mesh.position.z, 0xffd166);
+    this.refreshPads();
+    return h;
+  },
+
+  // #217: the half of mounting and dismounting that is identical either way. It was inline in
+  // `mountKing`; a second copy of it in `dismountKing` is how the bar height and the scale drift
+  // apart later.
+  swapKingMesh(rigName, barY) {
     const k = this.king;
     const old = k.mesh;
-    const rig = makeRigged('king_mounted');
-    k.mesh = rig ? rig.mesh : makeKing();
+    const rig = makeRigged(rigName);
+    k.mesh = rig ? rig.mesh : rigName === 'king_mounted' ? makeKing() : makeKingFoot();
     k.mesh.position.copy(old.position);
     k.mesh.rotation.copy(old.rotation);
     k.mesh.scale.setScalar(k.scale);
     this.root.remove(old);
     k.bar = makeHealthBar(1.6, true);
-    k.bar.position.y = 3.2;
+    k.bar.position.y = barY;
+    // #217: and it carries his HEALTH across. A fresh bar starts full, so mounting while hurt used
+    // to quietly show a full bar until the next hit moved it -- true of `mountKing` before this and
+    // worth fixing here rather than reproducing on the way down.
+    setHealthBar(k.bar, k.hp / k.maxHp);
     k.mesh.add(k.bar);
     this.root.add(k.mesh);
     this.popIn(k.mesh, 0, k.scale);
-    this.spawnFx(k.mesh.position.x, k.mesh.position.z, 0xffd166);
+  },
+
+  // #217: WHAT THE BUTTON DOES, in one place, because there are three ways to press it (the button,
+  // the H key, and a press that lands while the horse is still closing) and they must not each carry
+  // their own idea of what state the King is in.
+  //
+  // Mounted -> get down. Horse near -> get on. Horse away -> whistle, and a press during the gallop
+  // is REMEMBERED rather than ignored: `mountQueued` is redeemed by `updateHorses` the moment the
+  // horse arrives, so the player never has to press twice or wait out an approach.
+  toggleMount() {
+    if (this.mounted) { this.dismountKing(); return 'dismount'; }
+    const h = this.royalHorse();
+    if (!h) return null;
+    if (this.royalHorseDist() <= CFG.horse.royal.mountAt) { this.mountKing(); return 'mount'; }
+    this.mountQueued = true;
+    this.callHorse();
+    return 'call';
+  },
+
+  // #217: does he have a horse AT ALL -- sitting on it, or one of his own roaming the grounds. The
+  // Warhorse mat asks this rather than `mounted`, or getting down would put a 20-coin mat back on
+  // the field and sell him a second horse.
+  hasHorse() {
+    return this.mounted || !!this.royalHorse();
   },
 
   // #82: what the King's horse does, trained. `horseLevel` is the Stable's "Train the Horse" count,

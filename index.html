@@ -164,6 +164,11 @@
            in a row along the bottom right, the bigger and rightmost being the horn, because that is
            the one under the thumb. (#160: the dash sat between them until it went.) -->
       <button data-sfx="off" id="banner-btn" class="hidden" title="Rally banner (B): the army holds this spot"><span class="ring"></span><i data-icon="banner" data-size="26"></i><b id="banner-cd"></b></button>
+      <!-- #217: getting off the horse, and calling it back. Left of the banner, because the horn and
+           the banner are the King's verbs in a fight and this one is not -- it belongs at the quiet
+           end of the row. The label and the icon change with where the horse is, which is why both
+           carry an id: `Hud.set` runs every frame and writes neither unless it moved. -->
+      <button data-sfx="off" id="mount-btn" class="hidden" title="Dismount (H)"><i data-icon="horse" data-size="26" id="mount-ic"></i><b id="mount-lbl">Off</b></button>
       <!-- #43: put the building down where the King is standing. It takes the horn's own corner while
            a placement is in progress, because it is the only thing the player should be doing. -->
       <!-- #137: a tick, not a hammer. The hammer said "build", which is right for a new watchtower and

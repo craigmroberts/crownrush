@@ -1936,6 +1936,60 @@ The Warlord going down is the exception, and it is in the victory panel rather t
 there would have had six hundred milliseconds before the overlay covered it, which is not long enough
 to read anything.
 
+## Getting off the horse (#217)
+
+Mounting used to be one-way. `mountKing` opened with `this.mounted = true` and the only place it was
+ever cleared was `reset()` — so a choice made in the first few minutes was permanent for the rest of
+the run.
+
+**A dismount cannot mirror `riderFell`.** There are two different mountings in this game and only one
+of them reverses. A *soldier* is seated: `mountUnit` reparents his mesh onto the horse's, and falling
+off is a detach. The *King* is replaced — his mesh becomes `king_mounted`, one model with the horse
+built into it, so there is no horse object to hand back because there was never one to take. Getting
+down swaps the mesh back and **creates** a horse beside him.
+
+**The real work is everything else keyed off `this.mounted`**, and missing one is the exact shape of
+bug this repo keeps writing down: every count still correct and a health bar floating above nothing.
+Driven, on both sides of a dismount:
+
+| | mounted | on foot |
+| --- | --- | --- |
+| health bar height | 3.2 | 2.4 |
+| `stackBase` (carried coins) | 3.2 | 2.4 |
+| speed | 7.5 | 5.6 |
+| Warhorse mat offered | no | **no** |
+
+That last row is the one that would have shipped broken. The mat is skipped on `this.mounted`, so the
+first dismount would have put a 20-coin Warhorse mat back on the field and sold him a second horse.
+It asks `hasHorse()` now — mounted, **or** one of his roaming.
+
+**What the loose horse does.** It follows at his shoulder for 8 seconds (measured holding at exactly
+the 2.2 gap), then loses interest and roams. Called, it gallops at 8.5 — `home` is 4.6 and that is a
+trot, the wrong verb for "comes running over", and the bar it has to clear is the King **on foot at
+5.6**, because a mounted King never calls one. It stops at 1.8, *beside* him: `reach` is 1.3 and that
+is a mounting distance, not a standing one. **It does not put him on** — a horse that mounts you on
+arrival takes the decision away at the moment you might have changed your mind. A press while it is
+still closing is remembered and redeemed on arrival, so nobody waits out an animation.
+
+**It roams the grounds, not the yard**, and that is not decoration. `TIERS[tier].bounds` is the
+game's own answer to "the castle grounds" (#116) and grows with each expansion, shrunk to half about
+its centre because the whole of tier 2 is 82 × 70 and a horse in the far corner is an eleven-second
+wait. More importantly a loose horse then **never needs a Stable** — the legacy unlock "Begin every
+run already mounted" starts a run without one, and `home` state bails on `if (!this.stable)`, so a
+horse dismounted there would have stood still for ever. Verified with `stable` nulled: loose,
+roaming, moving.
+
+**A swordsman can never ride it.** `sendHorse` and `yardHorses` both take yard horses, and "the yard
+IS the capacity" (#117) — so the King's horse entering that pool would hand the army a free horse it
+never bought. It is flagged `royal`, excluded from both, and never enters `yard` state at all.
+
+**It survives a save.** Saved as `{at, state: 'roam', royal: true}` and restored **without** the
+Stable gate the yard horses have, or the legacy-unlock player loses his horse. Checked through a real
+save and Continue: position preserved exactly, still loose, King still on foot.
+
+The button is third in the bottom-right row, left of the banner, and its word is its state — Off,
+Call, Ride. `H`, because Space, B, Enter, Esc and M are the warhorn, banner, place, cancel and move.
+
 ## Trees and rocks are solid (#215)
 
 Nothing scattered on the map used to stop anybody. Now a trunk, a rock and a spike barricade do.

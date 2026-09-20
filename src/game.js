@@ -1280,6 +1280,11 @@ export class Game {
       this.bannerT = Math.max(0, this.bannerT - dt);
       if (this.banner && this.time >= this.banner.until) this.clearBanner();
       this.hud.setBanner(verbs, this.bannerT / CFG.banner.cooldown, this.bannerT, !!this.bannerStanding());
+      // #217: and the mount button, which stands down with the other two for the same reason. Its
+      // mode is derived here rather than in the HUD, because the HUD does not know how far away a
+      // horse is and should not learn.
+      this.hud.setMount(verbs && this.hasHorse(),
+        this.mounted ? 'dismount' : this.royalHorseDist() <= CFG.horse.royal.mountAt ? 'mount' : 'call');
       this.hud.setCoinTier(this.coinTier());
       // #119: with one number on the HUD instead of two, the one case it could lie about is a player
       // falling behind -- the raid is fought at `raidLevel()`, which runs ahead of the Keep when the

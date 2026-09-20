@@ -946,6 +946,24 @@ export class Hud {
     }
   }
 
+  // #217: the mount button. Three states and it is the only HUD control whose WORD changes, so the
+  // dirty-check matters more here than on the horn: `mode` is compared before anything is written,
+  // and a horse trotting nearer by a centimetre a frame must not rewrite the label every one of
+  // them. `show` is false whenever he has no horse at all, which is most of a first run.
+  setMount(show, mode) {
+    const b = this.mountBtn || (this.mountBtn = document.getElementById('mount-btn'));
+    if (show !== this.mountShown) {
+      this.mountShown = show;
+      b.classList.toggle('hidden', !show);
+    }
+    if (!show || mode === this.mountMode) return;
+    this.mountMode = mode;
+    const word = mode === 'dismount' ? 'Off' : mode === 'mount' ? 'Ride' : 'Call';
+    (this.mountLbl || (this.mountLbl = document.getElementById('mount-lbl'))).textContent = word;
+    b.title = mode === 'dismount' ? 'Dismount (H)' : mode === 'mount' ? 'Get on the horse (H)' : 'Call the horse (H)';
+    b.classList.toggle('ready', mode !== 'call');
+  }
+
   // #57: the banner button. Same shape as the horn's above, plus `flying` -- whether one is actually
   // standing, which the ring cannot say because it is filling both while the banner is up and for
   // the ten seconds after it falls. Dirty-checked like the rest: this runs every frame.

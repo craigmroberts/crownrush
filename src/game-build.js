@@ -37,7 +37,10 @@ export const BuildMethods = {
       if (def.maxBuys && (this.buyCount[def.id] || 0) >= def.maxBuys) continue;
       // #82: the Warhorse mat has nothing to sell a King who is already riding -- the legacy that
       // starts a run mounted, or a save from when the horse was a mat of its own with this id.
-      if (def.effect === 'horse' && this.mounted) continue;
+      // #217: and nothing to sell one whose horse is standing in the field either. The test used to
+      // be `this.mounted`, so the first dismount would have put a 20-coin Warhorse mat back on the
+      // ground and sold him a second horse. What it is really asking is whether he HAS one.
+      if (def.effect === 'horse' && this.hasHorse()) continue;
       this.addPad(def);
       added++;
     }
