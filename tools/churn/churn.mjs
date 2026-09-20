@@ -68,15 +68,34 @@ const BLOCKS = {
   rebuild: `for (let i = 0; i < 4; i++) { g.wallLevel = 1 + (i % 3); if (g.rebuildStructures) g.rebuildStructures(); }`,
   // A restore builds a whole world over the top of one that already exists.
   restore: `{ const s = g.runState(); for (let i = 0; i < 3; i++) g.restoreRun(JSON.parse(JSON.stringify(s))); }`,
-  // Spawn and kill, which is the commonest event in the game by a wide margin.
-  raiders: `for (let i = 0; i < 200; i++) { const e = g.spawnEnemy('knight', 20 + (i % 9), -20 - (i % 7), 0); g.killEnemy ? g.killEnemy(e) : (e.hp = 0); } g.enemies.length = 0;`,
-  // Damage numbers: `popupCache` is one canvas texture per distinct number, and #167 found it climbing.
-  popups: `for (let i = 0; i < 300; i++) { g.popup(String(1000 + i), g.king.mesh.position, '#fff', 0.1); } g.popups && (g.popups.length = 0);`,
+  // Spawn and kill, which is the commonest event in the game by a wide margin. `killEnemy` is the
+  // real path and moves them to the dying list, so the block drains that list rather than truncating
+  // `enemies` -- see the note below on why that matters.
+  raiders: `for (let i = 0; i < 200; i++) { const e = g.spawnEnemy('knight', 20 + (i % 9), -20 - (i % 7), 0); g.killEnemy(e); } for (let t = 0; t < 4; t += 0.05) g.updateEnemies(0.05);`,
+  // Damage numbers: `popupCache` is one canvas texture per distinct number, and #167 found it
+  // climbing. They are driven to their own expiry -- `updateEffects` is what removes the sprite and
+  // disposes the CLONED material each one carries.
+  popups: `for (let i = 0; i < 300; i++) { g.popup(String(1000 + i), g.king.mesh.position, '#fff', 0.1); } for (let t = 0; t < 2.5; t += 0.05) g.updateEffects(0.05);`,
   // Mats: `drawPad` makes a canvas and a texture per mat, and `disposePad` is meant to take them back.
   pads: `for (let i = 0; i < 20; i++) { g.refreshPads(); }`,
   // The crowd re-allocates its instance buffers when it grows, and disposes the old ones.
-  crowd: `for (let i = 0; i < 60; i++) { const u = g.spawnUnit('archer', 4 + (i % 5), 4 + (i % 5)); g.units.splice(g.units.indexOf(u), 1); g.root.remove(u.mesh); }`,
+  crowd: `for (let i = 0; i < 60; i++) { const u = g.spawnUnit('archer', 4 + (i % 5), 4 + (i % 5)); g.units.splice(g.units.indexOf(u), 1); g.root.remove(u.mesh); g.disposeEntity(u.mesh); }`,
 };
+
+// #190: A BLOCK THAT DOES NOT TEAR DOWN THE WAY THE GAME DOES REPORTS ITS OWN MESS AS A LEAK, and
+// the first run of this harness did exactly that, twice. It is worth writing down because it is the
+// same trap #179 is about, arriving through the instrument instead of the check.
+//
+//   crowd  reported +540 geometries a round. The block removed each unit's mesh from the root and
+//          never called `disposeEntity`, which is the second half of what the game itself does
+//          (`game-units.js`: splice, remove, dispose). The geometries were the harness's.
+//   popups reported +228 textures a round. The block emptied `game.popups` instead of letting them
+//          expire, so the sprites stayed in the scene with their cloned materials alive, keeping
+//          every canvas texture uploaded. `updateEffects` removes and disposes on expiry; the cache
+//          eviction already disposes correctly (`gone.map.dispose()`), and neither was at fault.
+//
+// So the rule for anything added here: end the block through the SAME path the game uses, and if
+// that path is a timer or an animation, drive the frames rather than truncating the array.
 
 const read = () => page.evaluate(async () => {
   if (window.gc) window.gc();
