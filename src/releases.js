@@ -27,6 +27,18 @@
 // LENGTH: one line each, and the line says what is different to play, not what was done to the code.
 export const RELEASES = [
   {
+    id: 5,
+    date: '2026-09-20',
+    title: 'Three things that were broken',
+    added: [],
+    fixed: [
+      'The game could freeze for good when a watchtower was upgraded. A tower whose crew had been killed and replaced could stack up a second upgrade mat, and paying both put it on a level that does not exist.',
+      'Selling at the trade post added coin without showing it, if you had the coin stack turned off. The coin flies to the counter now.',
+      'A coin on its way to the counter had faded to nothing before it arrived. It arcs, it stays solid the whole way, and a handful arrives as a handful.',
+      'Raiders carrying Wren away walked straight through your walls. They have to break through now, which is the one moment a wall is worth what it cost.',
+    ],
+  },
+  {
     id: 4,
     date: '2026-09-19',
     title: 'What changed, and where to read it',

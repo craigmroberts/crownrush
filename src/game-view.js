@@ -801,6 +801,16 @@ export const ViewMethods = {
     audio.ching();
     tmp.set(this.tradePos[0], 1.9, this.tradePos[1]);
     this.popup(`+${paid}`, tmp, '#ffd23f', 1.4, null, 0, '+');
+    // #225: AND THE COIN HAS TO GO SOMEWHERE THE PLAYER CAN SEE.
+    //
+    // Reported as "when I trade for coins the coins doesn't go to the bag with the coin on the head
+    // setting turned off", and that is exactly right. This has never spawned a coin -- it adds to
+    // `coinsCarried` and leaves a `+N` popup -- because the stack on the King's head WAS the
+    // feedback: sell ten and ten more coins appear over him. #216 let that stack be switched off and
+    // this was the one payout that had nothing else to fall back on, so selling a bagful became a
+    // number quietly changing. With the stack off it now takes the same flight to the counter that
+    // a picked-up coin does, which is the behaviour the setting promises everywhere else.
+    if (!this.stackOn) this.flyToCoins(tmp);
   },
 
   makeNodeMesh(type) {

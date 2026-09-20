@@ -532,7 +532,9 @@ export const UnitsMethods = {
   updateTurrets(dt) {
     for (const t of this.turrets) {
       t.cooldown -= dt;
-      const lv = t.tower && this.towers[t.tower] ? CFG.tower.levels[this.towers[t.tower].level - 1] : CFG.tower.levels[0];
+      // #227: through `towerLevel`, which clamps. This line is where the freeze actually happened --
+      // it reads the table every frame for every turret, so one bad level stops the whole game.
+      const lv = t.tower && this.towers[t.tower] ? this.towerLevel(this.towers[t.tower]) : CFG.tower.levels[0];
       const target = this.nearestEnemy(t.pos, CFG.tower.range * lv.range * this.mods.towerRange);
       if (target) {
         this.faceTowards(t.mesh, target.mesh.position, dt, 10);

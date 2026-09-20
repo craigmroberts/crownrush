@@ -573,10 +573,21 @@ export class Hud {
     if (this.flying.length >= 8) return;      // an armful, never a storm
     const r = cell.getBoundingClientRect();
     if (!r.width) return;                     // the HUD is not laid out yet
+    // #225: two elements, because one cannot arc -- see the note on `.fly` in style.css. The outer
+    // one owns X and the inner owns Y, each on its own curve.
     const el = document.createElement('i');
     el.className = 'fly';
-    el.innerHTML = iconSvg(icon, 20);
-    el.style.transform = `translate(${Math.round(x - 10)}px, ${Math.round(y - 10)}px)`;
+    const inner = document.createElement('span');
+    inner.innerHTML = iconSvg(icon, 20);
+    el.appendChild(inner);
+    // #225: AND THEY LEAVE IN A STREAM. A trade post pays a unit every 0.09s and a wood pile gives
+    // an armful at once; without a stagger they take off stacked on each other and arrive as one
+    // blob. 45ms apart is a handful of coins rather than a handful-shaped object.
+    const delay = this.flying.length * 0.045;
+    el.style.transitionDelay = `${delay}s, ${delay + 0.36}s`;   // transform, then opacity
+    inner.style.transitionDelay = `${delay}s`;
+    el.style.transform = `translateX(${Math.round(x - 10)}px)`;
+    inner.style.transform = `translateY(${Math.round(y - 10)}px)`;
     document.body.appendChild(el);
     this.flying.push(el);
     const land = () => {
@@ -586,12 +597,16 @@ export class Hud {
       if (i >= 0) this.flying.splice(i, 1);
       this.bump(cell);
     };
-    el.addEventListener('transitionend', land, { once: true });
+    // The OUTER element's transform is the one that decides it has landed: both elements finish
+    // together, and listening to whichever fired first would end the flight at a random axis.
+    el.addEventListener('transitionend', (e) => { if (e.target === el && e.propertyName === 'transform') land(); });
     // A transition that never starts never ends -- a hidden tab, or reduced motion taking it away
-    // altogether. The timer is what guarantees the element goes either way.
-    setTimeout(land, 900);
+    // altogether. The timer is what guarantees the element goes either way, and it has to clear the
+    // stagger as well as the flight or a late coin is removed in mid-air.
+    setTimeout(land, 900 + delay * 1000);
     requestAnimationFrame(() => {
-      el.style.transform = `translate(${Math.round(r.left + r.width / 2 - 10)}px, ${Math.round(r.top + r.height / 2 - 10)}px) scale(0.5)`;
+      el.style.transform = `translateX(${Math.round(r.left + r.width / 2 - 10)}px)`;
+      inner.style.transform = `translateY(${Math.round(r.top + r.height / 2 - 10)}px) scale(0.55)`;
       el.style.opacity = '0';
     });
   }

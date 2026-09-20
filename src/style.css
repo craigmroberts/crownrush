@@ -1228,10 +1228,24 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 
 /* #88: a picked-up armful on its way to the bag. Fixed and moved with `transform`, never left/top,
    so the flight is a compositor job rather than a layout one at sixty frames a second. */
+/* #225: A THROWN COIN, NOT A SLIDING ONE, and it is two elements because one cannot arc.
+   A single transform tweens in a straight line between its start and end, so the old coin slid
+   diagonally across the screen and -- with `opacity 0.22s ease-in 0.28s` against a 0.5s flight --
+   was fully transparent at the instant it arrived. It ended in nothing, which is what was reported.
+   The outer element carries X and the inner carries Y on a DIFFERENT curve: X eases out (away fast,
+   settling) while Y eases in (slow, then a swoop), and the composite of two different curves on two
+   axes is a parabola. That is the whole trick, and it costs one extra span per coin.
+   It also stays opaque now: the fade is 0.1s at the very end of 0.46s, so the coin is solid for
+   four fifths of its flight and the cell's bump is what says it landed. */
 .fly {
   position: fixed; left: 0; top: 0; z-index: 6; pointer-events: none; opacity: 1;
-  transition: transform 0.5s cubic-bezier(0.5, 0, 0.7, 0.3), opacity 0.22s ease-in 0.28s;
+  transition: transform 0.46s cubic-bezier(0.22, 0.61, 0.36, 1), opacity 0.1s ease-in 0.36s;
   will-change: transform, opacity; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.45));
+}
+.fly > span {
+  display: block;
+  transition: transform 0.46s cubic-bezier(0.55, 0.06, 0.68, 0.19);
+  will-change: transform;
 }
 /* and the bag answers when something lands in it, so the arrival is the beat rather than the number
    quietly being different */

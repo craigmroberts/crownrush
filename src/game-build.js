@@ -347,7 +347,7 @@ export const BuildMethods = {
     // the same deck the player would have paid for.
     for (const id of Object.keys(this.towers)) {
       const t = this.towers[id];
-      for (const [x, z, y] of this.crewSpots({ tower: id, crew: CFG.tower.levels[t.level - 1].slots })) {
+      for (const [x, z, y] of this.crewSpots({ tower: id, crew: this.towerLevel(t).slots })) {   // #227
         this.addTurret(x, z, y, id);
         t.crew++;
       }
@@ -542,19 +542,55 @@ export const BuildMethods = {
   },
 
   // A tower's pad cycles: build -> man it -> upgrade -> man the new slots -> upgrade ... (3 levels)
+  // #227: THE SAME MAT, TWICE, IS A TOWER THAT UPGRADES TWICE.
+  //
+  // Reported as "the game has frozen when upgrading the archer tower", with 220 errors swallowed by
+  // the update loop and `lv.range` on the end of them. Reproduced exactly: a level-2 tower with its
+  // upgrade mat already standing, a crew member killed by a raid, the slot refilled -- the refill
+  // path calls `queueTowerPad(id, 'up')` again and nothing checked that the mat was already there.
+  // Two mats with the identical id, both payable, `t.level++` twice, level 4 against a table of
+  // three. `CFG.tower.levels[3]` is undefined and `updateTurrets` reads `.range` off it every frame
+  // for the rest of the run.
+  //
+  // The id was always unique per tower and level -- `up-tower-0-ne-3` -- so it was already saying
+  // what it is; nothing was asking. A tower crew dies every raid on a long run, which is why this
+  // took until night 6 to appear and why it appeared for good once it did.
+  padQueued(padId) {
+    if (this.dynamicPads.some((d) => d.id === padId)) return true;
+    return this.pads.some((p) => p.def && p.def.id === padId);
+  },
+
   queueTowerPad(id, kind) {
     const t = this.towers[id];
-    const lv = CFG.tower.levels[t.level - 1];
+    const lv = this.towerLevel(t);
     if (kind === 'crew') {
       const add = lv.slots + this.mods.towerSlots - t.crew;
       if (add <= 0) return this.queueTowerPad(id, 'up');
-      this.dynamicPads.push({ id: `crew-${id}-${t.level}`, pos: [t.pos[0], t.pos[1]], crew: add, icon: 'archer', label: 'Man the Tower', tower: id, toast: 'Tower manned!' });
+      const padId = `crew-${id}-${t.level}`;
+      if (this.padQueued(padId)) return;
+      this.dynamicPads.push({ id: padId, pos: [t.pos[0], t.pos[1]], crew: add, icon: 'archer', label: 'Man the Tower', tower: id, toast: 'Tower manned!' });
     } else if (t.level < CFG.tower.levels.length) {
+      const padId = `up-${id}-${t.level + 1}`;
+      if (this.padQueued(padId)) return;
       const up = CFG.tower.upgrade[t.level - 1];
       const next = CFG.tower.levels[t.level];
-      this.dynamicPads.push({ id: `up-${id}-${t.level + 1}`, pos: [t.pos[0], t.pos[1]], cost: up.cost, coin: up.coin, icon: 'tower', label: `Tower Level ${t.level + 1}`, towerUp: id, toast: `Watchtower level ${t.level + 1}: ${next.slots} crew, sharper arrows.` });
+      this.dynamicPads.push({ id: padId, pos: [t.pos[0], t.pos[1]], cost: up.cost, coin: up.coin, icon: 'tower', label: `Tower Level ${t.level + 1}`, towerUp: id, toast: `Watchtower level ${t.level + 1}: ${next.slots} crew, sharper arrows.` });
     }
     this.refreshPads();
+  },
+
+  // #227: a tower's rung on the table, whatever the tower thinks its level is.
+  //
+  // The duplicate mat above is the bug that was found; this is so that no OTHER way of getting a
+  // level out of range can freeze the game again. A level comes out of a save file as well as out
+  // of `t.level++` (`game-save.js` assigns it straight in), and a game that stops rendering is the
+  // worst possible answer to a number being 4 when the table has three rows. There is no level 4,
+  // so a tower claiming to be one is a tower at the top -- which is also true of one whose level
+  // arrived as 0, undefined or NaN.
+  towerLevel(t) {
+    const L = CFG.tower.levels;
+    const i = Math.round(t.level) - 1;
+    return L[Number.isFinite(i) ? Math.max(0, Math.min(L.length - 1, i)) : 0];
   },
 
   completePad(pad) {
@@ -1264,7 +1300,7 @@ export const BuildMethods = {
     }
     for (const id of Object.keys(this.towers)) {
       const t = this.towers[id];
-      if (CFG.tower.levels[t.level - 1].slots + this.mods.towerSlots > t.crew) this.queueTowerPad(id, 'crew');
+      if (this.towerLevel(t).slots + this.mods.towerSlots > t.crew) this.queueTowerPad(id, 'crew');   // #227
     }
   },
 

@@ -403,13 +403,39 @@ export const EnemiesMethods = {
     tmp2.set(e.exit.x - p.x, 0, e.exit.z - p.z);
     const d = tmp2.length();
     this.faceTowards(e.mesh, tmp.set(e.exit.x, 0, e.exit.z), dt, 8);
+    // #226: "they walked straight through a wall together instead of using the gate". They did: this
+    // was the ONE mover in the game that only ever asked about the river. Every other raider is put
+    // through `collideWalls` and `collideKeep` as well, and the escort skipped both -- so a party
+    // carrying the Queen off walked through the player's walls at the exact moment the walls are the
+    // only thing that matters.
+    //
+    // It reads as an opening bug and is worse than that. `fallOfTheVillage` breaks every wall before
+    // the premise escort exists, so at the opening there is usually nothing there to pass through;
+    // the case that really bit is a MID-RUN RECAPTURE, where the walls are standing, the player has
+    // paid for them, and she was carried out through the stonework.
+    //
+    // Blocked, they attack it, which is what a raider does and what a wall is for. Deliberately NOT
+    // a gate detour: an enemy is stopped by a gate too (`collideWalls`'s `friendly` flag is what
+    // lets a gate pass your own men and not theirs), so routing them to one would walk a party into
+    // the strongest section rather than round it. A wall that holds her escort is a wall buying the
+    // player the seconds to catch them, and that is the whole point of having built it.
     if (d > 0.1) {
       tmp2.normalize().multiplyScalar(Math.min(speed * dt, d));
       p.add(tmp2);
     }
+    const blocked = this.collideWalls(p, e.radius, false) || this.collideKeep(p, e.radius);
     this.collideRiver(p, e.radius);
-    e.moving = true;
-    this.animateWalk(e, 1, dt);
+    this.collideScenery(p, e.radius);                       // #215
+    if (blocked) {
+      e.cooldown -= dt;
+      if (e.cooldown <= 0) {
+        e.cooldown = 1 / e.stats.attackRate;
+        this.attackAnim(e);
+        this.damageWall(blocked, e.damage * (e.stats.aoe ? 2 : 1), e);
+      }
+    }
+    e.moving = !blocked;
+    this.animateWalk(e, blocked ? 0 : 1, dt);
     // The premise never ends a run: it ends at the picket, which `updateTaken` watches for -- once,
     // on the one escort that is actually carrying her, rather than once per escort from in here
     // while this loop is walking the array the hand-off is about to empty.
