@@ -1936,6 +1936,42 @@ The Warlord going down is the exception, and it is in the victory panel rather t
 there would have had six hundred milliseconds before the overlay covered it, which is not long enough
 to read anything.
 
+## Every check proves it can fail (#179)
+
+`--prove` breaks the game the way each check exists to catch and expects the check to go **red**.
+A check that stays green under its own sabotage is not covering what the registry says it covers.
+
+**24 of 24 now prove they can fail, with no sabotage missing.** Each red is the check demonstrating
+the bug it was written for:
+
+| check | what its sabotage proved |
+| --- | --- |
+| `walls-solid` | the King reached 69.2 from the middle at 30°, 45° and 60° |
+| `gates-passable` | every gate reported shut |
+| `wall-ring-unbroken` | 268 points on the ring neither wall nor gate |
+| `queen-visible` | Wren inside the King, 0.74 apart |
+| `tower-crew-placed` | two archers 0.13 apart on a full deck |
+| `post-once` | the composer target at 0 samples — multisampling not carried over |
+| `opening-resolves` | *"she was never taken (openT 30.01, snatched true)"* |
+
+**Three sabotages were wrong before they were right**, and only running them showed it — which is
+the argument for `--prove`, made against `--prove` itself.
+
+`bands-hooked` was armed on frame 0, before its shader had compiled, so `onBeforeCompile` wrote the
+flag back and the check stayed green. `opening-resolves` was worse twice over: it pinned
+`queen.captive` with a `defineProperty`, so `captureQueen` ran its whole body every frame without
+the flag ever latching, rebuilding her escort thousands of times until the run died inside three's
+**animation** mixer — `_cacheIndex` is `PropertyBinding`'s memory manager, which is what pointed at
+it. Replaced with `CFG.opening.speed = 2`, it stayed green, and correctly: the check clamps the King
+at ±18, so he stands still for most of its 2000 steps and a merely slow party still reaches a
+stationary Queen. Zero is the honest version.
+
+**And `asserts` has to describe the rule, not the field the code happens to read** — now written
+into the registry header with the two checks that earned it. `rebuild-after-fall` asserted
+`structures.length` grew, but `buildStructure` deliberately keeps the trade post out of that list,
+so it reported "buying a mat built nothing" about a game that had built it. `pads-no-overlap`
+asserted no two pads share a spot, but two on one spot *is* the design where one unlocks the other.
+
 ## A sabotage that arms too early proves nothing (#179)
 
 `--prove` breaks the game the way each check exists to catch and expects the check to go **red**. A

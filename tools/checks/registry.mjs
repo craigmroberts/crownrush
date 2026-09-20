@@ -14,6 +14,25 @@
 //             so the board can say "this is not covered" rather than quietly implying it is.
 //
 // A `judged` row is not a failure and never fails a run. It is an honest gap.
+//
+// AND `asserts` HAS TO DESCRIBE THE RULE, NOT THE FIELD THE CODE HAPPENS TO READ.
+//
+// Two of the four checks that were wrong about the game (#179) were wrong in the same way: they
+// asserted one shape of a right answer because it is the shape MOST answers take.
+//
+//   rebuild-after-fall  asserted `structures.length` grew, because that is where most buildings
+//                       land. `buildStructure` deliberately keeps the trade post OUT of it and
+//                       hangs it on `tradePost`, since it is not a thing raiders attack. The check
+//                       reported "buying a mat built nothing" about a game that had built it.
+//   pads-no-overlap     asserted no two pads share a spot, because that is true of most pads. Two
+//                       on one spot IS the design where one unlocks the other -- they are never on
+//                       the field together.
+//
+// So: an assertion that names one field of one data structure has to say what the OTHER shapes are,
+// or ask the game a question instead of reading its furniture. `completePad` builds; where the
+// record lands is an implementation detail, and a check that knows it is coupled to it. Writing
+// `asserts` as the rule in English is the cheapest guard there is -- the sentence and the code have
+// to agree, and they cannot both be wrong quietly.
 export const CHECKS = [
   // ---- free: config and source, no browser ----
   {
