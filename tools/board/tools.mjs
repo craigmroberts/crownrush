@@ -27,6 +27,12 @@ function header(text, kind) {
       if (!l.startsWith('#')) break;
       out.push(l.replace(/^#\s?/, ''));
     } else {
+      // #190: a shebang is not the end of the header. The `py` branch above has always skipped one
+      // and this branch did not, so a `.mjs` tool starting `#!/usr/bin/env node` broke the scan on
+      // its first line and reached the board with no description at all. `probe` looked fine only
+      // because it has a README to fall back on; `churn`, `blender` and `icons` did not, and
+      // CLAUDE.md says the header comment IS the description on /board/#/tools.
+      if (!out.length && l.startsWith('#!')) continue;
       if (!l.startsWith('//')) break;
       out.push(l.replace(/^\/\/\s?/, ''));
     }
