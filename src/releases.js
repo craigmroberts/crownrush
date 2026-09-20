@@ -36,6 +36,8 @@ export const RELEASES = [
       'You can get off the horse now. The button by the warhorn puts the King down, the horse follows for a few seconds and then wanders the grounds, and pressing it again whistles the horse back \u2014 it comes at a gallop and waits beside you until you choose to get on.',
     ],
     fixed: [
+      'A watchtower on the edge of the village could put its "Man the Tower" mat outside the walls \u2014 and at the south-east corner, once the village had been extended twice, in the river. You had paid for the tower and could never crew it. Every tower now puts its mat somewhere you can actually stand.',
+      'The bridge mats sat with one edge under the water, which hid the price and how much of it you had paid \u2014 so paying into one looked like pouring coin into a hole with no bottom. They stand on the bank now.',
       'The game could freeze for good when a watchtower was upgraded. A tower whose crew had been killed and replaced could stack up a second upgrade mat, and paying both put it on a level that does not exist.',
       'Selling at the trade post added coin without showing it, if you had the coin stack turned off. The coin flies to the counter now.',
       'A coin on its way to the counter had faded to nothing before it arrived. It arcs, it stays solid the whole way, and a handful arrives as a handful.',

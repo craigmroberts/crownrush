@@ -2152,6 +2152,90 @@ times — which is what proved the test rather than the code was wrong. Pinning 
 and the army before spawning made both arms agree. **A measurement that moves when the thing it
 measures is switched off is measuring something else.**
 
+## A mat goes where the King can stand (#230, #231)
+
+Two bug reports from a phone, one root cause each, and both found the same way: stand the village up
+in a real browser and **measure every mat against the world the game actually built**, rather than
+against the arithmetic that placed it.
+
+### The archers' mat was in the river (#231)
+
+> "After extending the village twice the archers mat is in the water and I cannot reach it."
+
+`CFG.tower.padOffset` is `[0, 3.6]` and it was applied to every tower unconditionally. South is the
+right answer for a tower standing in the middle of the village — it is the face the camera looks at,
+which is the whole of #139's reasoning and still true. It is the wrong answer for a tower standing
+**on a wall**, because south of a south-wall tower is *outside* the village, and at the south-east
+corner of tier 2, outside the village is the river.
+
+Measured, with every tower stood up and every mat sampled at its four corners against `riverInfo`:
+
+| | mat | closest to the river centreline |
+| --- | --- | --- |
+| before | `crew-tower-2-se-1` at (38, 35.6) | **0.71** against a half-width of 3.6 — under the water |
+| after | (35.3, 29.7) | 5.63 |
+
+The same sweep found three more mats out beyond the wall — `tower-2-sw`, `tower-2-gs`, and
+`tower-1-se` before the second expansion — each of them a walk out of the gate and back round to man
+your own tower, and four more sitting on the wall line itself.
+
+**The offset is a preference now, not a rule.** South if south works; otherwise step round the
+tower and take the first direction that does, nearest-to-inward first. Written as a search rather
+than as a table of which wall each tower is on, because a tower can be **dragged** (#137) and a map's
+river **moves with the seed** (#219) — a table would be right about today's fifteen towers and silent
+about the sixteenth.
+
+`matStandable` is the whole of the rule, and it asks three things: not in the water, not outside the
+outermost wall, and not on *any* wall line — including an inner one, which is the second thing the
+sweep caught. Checking only the outermost wall passed `crew-tower-1-nw-1` at (−30, −22.4), which is
+comfortably inside the tier-2 box and sits exactly on the tier-1 **west** wall, because expanding the
+village does not pull the old walls down. The tiers are tested from their geometry rather than from
+`this.walls`, so the answer does not depend on how much of the village happens to be standing when a
+tower is registered — during a restore that is "not much".
+
+**And one bug in the fix, which the measurement caught and reasoning did not.** The fan of directions
+was written `for (let k = 1; ...)`, so it opened at inward ±30° and **never tried inward itself** —
+which for the south-east corner tower is the one direction of the twelve that works. The sweep said
+the mat was still in the river while `matStandable` said the spot beside it was fine. Two true
+readings that only add up to a bug when you check that the search can reach the spot.
+
+Result: **all sixteen towers, at every tier, get a mat that is dry, inside the walls and off every
+wall line.** The four tier-0 mats are unchanged, because south already worked there.
+
+### The bridge mat's price was under the water (#230)
+
+> "I can't see the bridge mat fully and it's just taking loads of coins. Wondering if there is an end
+> to it or if it just sinks all my coins."
+
+Both halves of that are one fault. The mat carries its own name, its price and how much of it is paid
+— that is what `drawPad` writes on the floor — so the one surface that answers *is there an end to
+it* was the part you could not see.
+
+The setback used to be arithmetic: half the river, plus half the mat, plus air, stepped back **along
+the road**. That is right only if the road meets the water square on, and neither crossing does — so
+6.4 along the road moves you less than 6.4 away from the river, and a square mat's corner is nearer
+still than its centre.
+
+| | closest corner to the centreline | bank showing |
+| --- | --- | --- |
+| before | 3.68 (east), against a half-width of 3.6 | **0.08** |
+| after | 4.50 (both) | 0.90 |
+
+It steps back until the whole mat is clear now, asking `riverInfo` — the river the world actually
+built, wander and all — rather than trusting a number.
+
+### What this did not change
+
+The same report notes that *"some archer towers are built in the walls"*. They are, and it is the
+layout the game has always had: corner and gate towers stand **on** the wall line, which
+`tools/layout/check.mjs` names as deliberate ("corner towers straddle their own wall on purpose").
+It reads oddly at tier 2 and it is an art call rather than a fault, so it is written down here rather
+than quietly changed.
+
+`tools/layout/check.mjs` also reports two problems that predate all of this and still stand:
+`keep:pad` sits on the south road (all four roads meet under the castle) and `barracks:pad` straddles
+the tier-0 citadel wall. A tool that prints "2 problems" on every run is a tool people stop reading.
+
 ## The village stays put; the land around it is seeded (#219)
 
 **The map was the same every run, so the route was the same every run, and the route is the game.**

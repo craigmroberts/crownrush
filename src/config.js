@@ -509,6 +509,11 @@ export const CFG = {
     // 3.6 is the two halves plus air: the tower's footprint is 2.50 x 3.32 (1.66 deep from centre)
     // and a mat is `spend.padSize` 3.6 across (1.8), so 3.46 is touching and this clears it. South,
     // because that is the face the camera looks at and the side a player walks up to.
+    //
+    // #231: A PREFERENCE NOW, NOT A RULE -- see `towerMatPos`. Applied unconditionally it put the
+    // south-east tier-2 tower's crew mat 0.71 from the river's centreline, under the water, on a
+    // tower the player had already paid for. The distance is still this; which way round the tower
+    // it is measured depends on whether that spot is somewhere the King can stand.
     padOffset: [0, 3.6],
     range: 14, fireRate: 0.7, damage: 12,
     levels: [{ slots: 3, damage: 1, range: 1 }, { slots: 5, damage: 1.35, range: 1.15 }, { slots: 7, damage: 1.8, range: 1.3 }],

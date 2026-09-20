@@ -167,14 +167,43 @@ export const BuildMethods = {
   // A FRESH `def` with a fresh `pos` array, never the config's own. `def.pos` is shared with `CFG`
   // and mutating it would move the mat for every future run in this session, which is the same trap
   // #139 names.
+  // #230: "I can't see the bridge mat fully and it's just taking loads of coins. Wondering if there
+  // is an end to it or if it just sinks all my coins."
+  //
+  // Both halves of that are one fault. The mat carries its own name, its price and how much of it is
+  // paid -- that is what `drawPad` writes on the floor -- and the near edge of it was under the
+  // water, so the one surface that answers "is there an end to it" was the part you could not see.
+  //
+  // The setback used to be arithmetic: half the river, plus half the mat, plus air. It is right only
+  // if the road meets the water square on, and neither crossing does -- both roads run at an angle,
+  // so stepping 6.4 back ALONG the road moves you less than 6.4 away from the river, and a square
+  // mat's corner is nearer still than its centre. Measured in a browser: the east mat's closest
+  // corner sat 3.68 from the centreline against a half-width of 3.6. Eight centimetres of bank.
+  //
+  // So it steps back until the WHOLE mat is clear, asking `riverInfo` -- the river the world
+  // actually built, wander and all -- rather than trusting a number. 0.8 is the strip of grass left
+  // showing between the mat and the water, enough to read the mat as standing on the bank.
   bridgeMatPos(def) {
     if (!def.bridge || !this.world || !this.world.crossingFor) return def;
     const c = this.world.crossingFor(def.bridge);
     if (!c) return def;                       // no road reaches the river yet: keep what config said
-    const back = this.world.river.halfWidth + 0.6 + CFG.spend.padSize / 2 + 0.4;
     // Toward the origin along the road, so it lands on the side the player is standing on.
     const sign = (c.x * c.dx + c.z * c.dz) > 0 ? -1 : 1;
-    return { ...def, pos: [c.x + c.dx * back * sign, c.z + c.dz * back * sign] };
+    const half = CFG.spend.padSize / 2;
+    const want = this.world.river.halfWidth + 0.8;
+    const start = this.world.river.halfWidth + 0.6 + half + 0.4;
+    let pos = [c.x + c.dx * start * sign, c.z + c.dz * start * sign];
+    for (let back = start; back <= start + 6; back += 0.2) {
+      const x = c.x + c.dx * back * sign;
+      const z = c.z + c.dz * back * sign;
+      let near = Infinity;
+      for (let ix = -1; ix <= 1; ix++) for (let iz = -1; iz <= 1; iz++) {
+        near = Math.min(near, this.world.riverInfo(x + ix * half, z + iz * half).dist);
+      }
+      pos = [+x.toFixed(2), +z.toFixed(2)];
+      if (near >= want) break;
+    }
+    return { ...def, pos };
   },
 
   padKind(def) {
@@ -1129,6 +1158,99 @@ export const BuildMethods = {
     for (const p2 of this.pads) this.drawPad(p2);
   },
 
+  // #231: A TOWER'S MAT GOES SOMEWHERE THE KING CAN STAND, which is not the same as 3.6 to the south.
+  //
+  // Reported as "after extending the village twice the archers mat is in the water and I cannot
+  // reach it", with a photograph of it. Reproduced by standing a tier-2 village up and measuring
+  // every tower's mat against the river the game had actually built: `crew-tower-2-se-1` sits at
+  // (38, 35.6), which is **0.71 from the river's centreline** against a half-width of 3.6. The mat
+  // is under the water. The tower was paid for and its crew could never be hired.
+  //
+  // `CFG.tower.padOffset` is [0, 3.6] and it was applied to every tower unconditionally. South is
+  // the right answer for a tower standing in the middle of the village -- it is the face the camera
+  // looks at, which is the whole of #139's reasoning and still true. It is the wrong answer for a
+  // tower standing ON a wall, because south of a south-wall tower is OUTSIDE the village, and at the
+  // south-east corner of tier 2 outside the village is the river. The same measurement found three
+  // more mats out beyond the wall -- `tower-2-sw`, `tower-2-gs`, and `tower-1-se` before the second
+  // expansion -- each of them a walk out of the gate and round to man your own tower.
+  //
+  // So the offset is a PREFERENCE now rather than a rule. South if south works; otherwise step round
+  // the tower and take the first direction that does, nearest-to-inward first. Written as a search
+  // rather than as a table of which wall each tower is on, because a tower can be DRAGGED (#137) and
+  // a map's river moves with the seed (#219) -- a table would be right about today's fifteen towers
+  // and silent about the sixteenth.
+  //
+  // `tier` is the TOWER'S own tier rather than `this.tier`, and the difference is not academic: a
+  // restore replays the expansions in order (`rebuildVillage`), so a tier-2 tower is stood up while
+  // the game still thinks it is on tier 1 -- and judged against the tier-1 box there is nowhere
+  // within reach of a corner tower at (38, 32) that counts as inside, so it fell straight back to
+  // the old offset and the mat went back in the river. A tier-2 tower means the tier-2 wall, whether
+  // or not the counter has caught up.
+  towerMatPos(x, z, tier = this.tier) {
+    const R = Math.hypot(CFG.tower.padOffset[0], CFG.tower.padOffset[1]);
+    const lvl = Math.max(this.tier, tier || 0);
+    // inward is toward the village centre, which is where the player is walking from
+    const toMid = Math.atan2(-z, -x);
+    const south = Math.atan2(CFG.tower.padOffset[1], CFG.tower.padOffset[0]);
+    // south first, then the rest ordered by how close each is to inward. A tower in open ground
+    // keeps the mat it has always had; only one with nowhere to put it south of itself moves.
+    // `k = 0` is inward EXACTLY, and leaving it out is how this fix failed its first measurement:
+    // the fan opened at toMid +/- 30 degrees and never tried toMid itself, which for the south-east
+    // corner tower is the one direction of the twelve that works. The sweep said the mat was still
+    // in the river while `matStandable` said the spot beside it was fine -- two true readings that
+    // only add up to a bug when you check that the search can actually reach the spot.
+    const ways = [south];
+    for (let k = 0; k < 12; k++) ways.push(toMid + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * (Math.PI / 6));
+    for (const r of [R, R + 1.6]) {
+      for (const a of ways) {
+        const px = x + Math.cos(a) * r;
+        const pz = z + Math.sin(a) * r;
+        if (this.matStandable(px, pz, lvl)) return [+px.toFixed(2), +pz.toFixed(2)];
+      }
+    }
+    // Nothing clear anywhere round it: keep the old behaviour rather than inventing a spot. A mat
+    // in the wrong place is a bad mat; a mat at NaN is a crash.
+    return [x + CFG.tower.padOffset[0], z + CFG.tower.padOffset[1]];
+  },
+
+  // Can a 3.6 mat sit here with the King able to walk onto it? Three things say no: water, the far
+  // side of the outermost wall, and standing on ANY wall -- including an inner one.
+  //
+  // That last clause is the second thing the sweep caught. Checking only the outermost wall passed
+  // `crew-tower-1-nw-1` at (-30, -22.4), which is comfortably inside the tier-2 box and sits exactly
+  // on the tier-1 WEST wall, because expanding the village does not pull the old walls down. The
+  // tiers are tested from their geometry rather than from `this.walls`, so the answer does not
+  // depend on how much of the village happens to be standing when a tower is registered -- during a
+  // restore that is "not much".
+  matStandable(x, z, tier = this.tier) {
+    const HALF = 1.9;
+    const lvl = Math.max(0, Math.min(TIERS.length - 1, tier));
+    const r = this.world.riverInfo ? this.world.riverInfo(x, z) : null;
+    if (r && r.dist < this.world.river.halfWidth + HALF) return false;
+    // inside the outermost wall: a mat outside it is a walk out of the gate to man your own tower
+    const out = TIERS[lvl];
+    if (out.ring) { if (Math.hypot(x - out.ring.x, z - out.ring.z) > out.ring.r - HALF) return false; }
+    else if (!(x > out.bounds.x0 + HALF && x < out.bounds.x1 - HALF && z > out.bounds.z0 + HALF && z < out.bounds.z1 - HALF)) return false;
+    // and off every wall line the village has, old ones included
+    const CLEAR = 2.2;
+    for (let i = 0; i <= lvl; i++) {
+      const t = TIERS[i];
+      if (t.ring) {
+        if (Math.abs(Math.hypot(x - t.ring.x, z - t.ring.z) - t.ring.r) < CLEAR) return false;
+      } else {
+        const b = t.bounds;
+        // distance to the rectangle's OUTLINE -- inside it that is the nearest edge, outside it the
+        // nearest point of the box
+        const inside = x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1;
+        const d = inside
+          ? Math.min(x - b.x0, b.x1 - x, z - b.z0, b.z1 - z)
+          : Math.hypot(Math.max(b.x0 - x, 0, x - b.x1), Math.max(b.z0 - z, 0, z - b.z1));
+        if (d < CLEAR) return false;
+      }
+    }
+    return true;
+  },
+
   // #43: `at` is where it actually goes, and `def.buildAt` is only the suggestion it defaults to.
   // Every reader below used to go to `def.buildAt` directly -- the mesh, the tower's own x/z, the
   // villager who moves into a house, the chimney's smoke and the Keep's position, six of them -- so
@@ -1152,8 +1274,7 @@ export const BuildMethods = {
       // config nominated and the player had to walk back across the village to upgrade it. A fresh
       // array, never the config's own: `def.pos` is shared with `CFG` and mutating it would move the
       // mat for every future run in this session.
-      const P = CFG.tower.padOffset;
-      this.towers[def.id] = { id: def.id, x: at[0], z: at[1], top: m.userData.top, level: 1, mesh: m, crew: 0, pos: [at[0] + P[0], at[1] + P[1]] };
+      this.towers[def.id] = { id: def.id, x: at[0], z: at[1], top: m.userData.top, level: 1, mesh: m, crew: 0, pos: this.towerMatPos(at[0], at[1], def.tier) };
       this.queueTowerPad(def.id, 'crew');
     }
     // #48: a home is not just a roof. Someone moves in, and they work.
