@@ -146,14 +146,40 @@ async function main() {
       // #179: in --prove mode the game is broken first and the check is expected to go RED. A check
       // that stays green under its own sabotage is not covering what the registry says it covers.
       if (proving && PROVE[c.id]) {
-        await page.addInitScript((src) => {
+        // #179: ARMED A FEW FRAMES IN, not the instant a King exists. Not "when settled" either --
+        // settled is too late, see below -- which is why this is its own number and not `BOOT_MIN`.
+        //
+        // It used to fire on the first frame where `window.game.king` was truthy, which is frame 0.
+        // `bands-hooked` stayed green under its own sabotage because of it: the sabotage cleared
+        // `userData.bandedShader`, the ground material had not compiled yet, and `onBeforeCompile`
+        // set the flag straight back on first render. Measured -- sabotage at frame 0, flag true
+        // again by frame 21. A check that cannot fail is the thing --prove exists to find, and the
+        // harness was the reason rather than the check.
+        //
+        // The frame it arms on is squeezed from BOTH sides, which is why it is a constant with a
+        // paragraph rather than a zero:
+        //
+        //   late enough  -- a material's shader compiles on its FIRST RENDER, and `onBeforeCompile`
+        //                   writes `userData.bandedShader` when it does. Arming before that means
+        //                   the compile undoes the sabotage. Frames 1-2 draw everything.
+        //   early enough -- `boot()` hands over as soon as `frames >= BOOT_MIN` (14) and the King
+        //                   has been still for three frames, and `hud-quiet` wraps `hud.set` the
+        //                   moment it gets control. A sabotage that also wraps `hud.set` has to be
+        //                   underneath that, so it must be in place BEFORE boot returns. Arming at
+        //                   BOOT_MIN itself was tried and races with it: measured green.
+        //
+        // 5 sits between the two with room either side. Once, not per frame: several sabotages wrap
+        // a method and re-arming would nest the wrapper a frame deep every frame.
+        const SABOTAGE_AT = 5;
+        await page.addInitScript(([src, min]) => {
           const fn = new Function(`return (${src})`)();
           const arm = () => {
-            if (window.game && window.game.king) { try { fn(); } catch (e) { console.error('sabotage threw', e); } }
+            const g = window.game;
+            if (g && g.king && (g.frames || 0) >= min) { try { fn(); } catch (e) { console.error('sabotage threw', e); } }
             else requestAnimationFrame(arm);
           };
           requestAnimationFrame(arm);
-        }, PROVE[c.id].toString());
+        }, [PROVE[c.id].toString(), SABOTAGE_AT]);
       }
       try {
         const res = await CHEAP[c.id](page, url);

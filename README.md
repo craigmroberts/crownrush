@@ -1936,6 +1936,35 @@ The Warlord going down is the exception, and it is in the victory panel rather t
 there would have had six hundred milliseconds before the overlay covered it, which is not long enough
 to read anything.
 
+## A sabotage that arms too early proves nothing (#179)
+
+`--prove` breaks the game the way each check exists to catch and expects the check to go **red**. A
+check that stays green under its own sabotage is not covering what the registry says it covers.
+
+**The harness was arming the sabotage on frame 0**, the first frame where `window.game.king` existed,
+and that is too early for anything a shader touches. `bands-hooked` stayed green under its own
+sabotage for exactly that reason: the sabotage cleared `userData.bandedShader`, the ground material
+had not compiled yet, and `onBeforeCompile` wrote the flag straight back on first render. Measured —
+sabotage at frame 0 hitting 1 material, flag `true` again by frame 21, cache key untouched.
+
+**The frame it arms on is squeezed from both sides**, which is why it is a constant with a paragraph
+next to it rather than a zero:
+
+| | |
+| --- | --- |
+| late enough | a shader compiles on its **first render** and writes its flags then. Frames 1–2 draw everything, so anything before that gets undone |
+| early enough | `boot()` hands over at `frames >= 14`, and `hud-quiet` wraps `hud.set` the moment it gets control. A sabotage that also wraps `hud.set` has to be **underneath** that |
+
+Arming at `BOOT_MIN` was tried and races with `boot()` returning on the same frame — `hud-quiet` came
+back green. **5** sits between the two with room either side: both now go red, `bands-hooked` with
+*"ground: compiled without the patch"* and `hud-quiet` with *"the HUD wrote 10 times when replayed
+with unchanged values"*.
+
+This is the ticket's own point landing on the ticket's own tooling. Four checks were once wrong about
+the game; the fix for that was `--prove`, and `--prove` was itself quietly not working for a whole
+class of check. A check that has never failed on purpose has not been tested — and neither has the
+thing that tests it.
+
 ## Getting off the horse (#217)
 
 Mounting used to be one-way. `mountKing` opened with `this.mounted = true` and the only place it was
