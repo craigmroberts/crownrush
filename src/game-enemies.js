@@ -1179,6 +1179,7 @@ export const EnemiesMethods = {
   dawnBreaks(cleared) {
     this.dawnHolding = false;
     if (this.wave <= 0) return;
+    this.soldToday = {};   // #236: the glut is a day's, and this is the day ending
     this.dawnRules(cleared);   // #235
     // #50: the run is written down here, on the one beat where there is nothing in flight to write.
     this.saveRun();

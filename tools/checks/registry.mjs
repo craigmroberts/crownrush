@@ -193,6 +193,16 @@ export const CHECKS = [
     why: '#238. Three mechanics shipped with a borrowed sound each, and the way that happens again is a new verb written by copying a neighbour and moving two numbers. The first dig written for this ticket was a low thud under low-passed noise, which is the raider death note for note: 0.10 apart on this scale, and this check is what said so before anyone with ears could.',
   },
   {
+    id: 'glut-levels-the-seams', area: 'Economy', cost: 'free',
+    asserts: 'Every material has a glut, and no material at three tranches of it is worth more than twice any other material fresh, in coin per second of swinging.',
+    why: '#236. Coin per swing-second was a fixed ladder and diamond was 3.2x wood at the top of it, so once the east bridge stood the only reason to mine anything else was that the Keep had not opened it yet -- a schedule, not a decision. This is the arithmetic that keeps the ladder from being put back one price at a time.',
+  },
+  {
+    id: 'glut-resets-at-dawn', area: 'Economy', cost: 'cheap',
+    asserts: 'Thirty diamond sold through the real trade post in one day pay 20, then 15, then 11 a unit; the first one after the dawn beat pays 20 again; and the panel at the post reads the list price and today\'s for a glutted material and one number for a fresh one.',
+    why: '#236. The glut is a rule the player has to be able to see to plan a morning around, and a price that quietly compounds wrong -- or never resets -- makes a run too grindy or too easy without failing anything. Driven through updateTrade at its own rate rather than through sellPrice, because the count is kept by the sale.',
+  },
+  {
     id: 'deck-rotates', area: 'Upgrades', cost: 'free',
     asserts: 'Over 2000 simulated runs no offer is three cards the player has already read while an unread card is left; level 10 and 12 offers with nothing new on them stay under 20%; an offer repeated whole at level 15 stays under 10%.',
     why: '#235. Seventeen multipliers and three a level meant 55% of offers by level 10 had nothing on them the player had not seen, on the best-designed panel in the game. Level 15 is not held to a number because fifteen offers of three from twenty-three cards run out under any draw; a x3 weighting was measured to make that worse and is not in the code.',

@@ -27,7 +27,9 @@ the raids keep coming for a high score.
   upgrades.
 - The King starts on foot and gathers wood, stone and straw by standing next to lumber groves, ore outcrops
   and wheat fields. Everything in the game is paid for in coin; what you mine is not spent anywhere, it is
-  carried to the trade post and sold. That is the whole of what mining is for -- and the bag says so
+  carried to the trade post and sold -- and the post pays 0.75x for a material after every ten of it
+  sold today, compounding, until dawn (#236: the glut, in `CFG.materials`, with the coin-per-second table
+  that made diamond a schedule rather than a choice). That is the whole of what mining is for -- and the bag says so
   when it fills, once per fill, because filling it is the moment that sentence is worth reading. It
   used to be said only when you walked onto a heap you could not lift, which is a refusal rather than
   a notice: the moment the bag actually filled, nothing was said and the swings went on landing (#129).

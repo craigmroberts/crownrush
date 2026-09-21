@@ -570,6 +570,7 @@ export class Game {
     this.feedDef = null;
     this.mounted = false;
     this.res = { wood: 0, stone: 0, straw: 0, iron: 0, diamond: 0 };
+    this.soldToday = {};   // #236: per material, what the trade post has bought since dawn
     this.flyRes = [];
     this.score = 0;
     this.bestScore = readNumber('crownrush-best-score', 0);
@@ -1492,6 +1493,9 @@ export class Game {
       this.bannerT = Math.max(0, this.bannerT - dt);
       if (this.banner && this.time >= this.banner.until) this.clearBanner();
       this.hud.setBanner(verbs, this.bannerT / CFG.banner.cooldown, this.bannerT, !!this.bannerStanding());
+      // #217: and the mount button, which stands down with the other two for the same reason. Its
+      // mode is derived here rather than in the HUD, because the HUD does not know how far away a
+      // horse is and should not learn.
       // #217: and the mount button, which stands down with the other two for the same reason. Its
       // mode is derived here rather than in the HUD, because the HUD does not know how far away a
       // horse is and should not learn.

@@ -158,6 +158,32 @@ export const FREE = {
     return bad.length ? no(bad) : { pass: true, note: `2000 runs: nothing new at level 10 ${(r.reheated[10] * 100).toFixed(0)}%, at 12 ${(r.reheated[12] * 100).toFixed(0)}%, at 15 ${(r.reheated[15] * 100).toFixed(0)}% (the deck runs out by level ${r.allSeenBy}); an offer repeated whole at 15: ${(r.identical[15] * 100).toFixed(0)}%` };
   },
 
+  // #236: NO SEAM IS WORTH MORE THAN TWICE ANY OTHER ONCE IT IS GLUTTED. Coin per second of
+  // swinging, straight off `CFG.materials`: each material at three tranches of its own glut
+  // against every other material fresh. Diamond fresh is 3.2x wood, which is the schedule this
+  // ticket exists to break; at three tranches it is 1.4x, and this is what keeps somebody from
+  // putting the ladder back by nudging one price.
+  'glut-levels-the-seams'() {
+    const M = CFG.materials;
+    const bad = [];
+    const rate = (t, tranches = 0) => {
+      const m = M[t];
+      if (!m.glut) { bad.push(`${t} has no glut`); return m.coin / m.mine; }
+      return Math.max(1, Math.round(m.coin * Math.pow(m.glut.pay, tranches))) / m.mine;
+    };
+    const rows = [];
+    for (const a of Object.keys(M)) {
+      const glutted = rate(a, 3);
+      for (const b of Object.keys(M)) {
+        if (a === b) continue;
+        const fresh = rate(b);
+        if (glutted > 2 * fresh) bad.push(`${a} at three tranches is ${glutted.toFixed(1)} coin/s, more than twice fresh ${b} at ${fresh.toFixed(1)}`);
+      }
+      rows.push(`${a} ${rate(a).toFixed(1)}->${glutted.toFixed(1)}`);
+    }
+    return bad.length ? no(bad) : { pass: true, note: `coin/s fresh -> at three tranches: ${rows.join(', ')}` };
+  },
+
   'icons-exist'() {
     const bad = [];
     for (const d of PADS) if (d.icon && !ICONS[d.icon]) bad.push(`pad ${d.id} wants icon "${d.icon}"`);

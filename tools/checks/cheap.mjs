@@ -74,7 +74,7 @@ export const CHEAP = {
       // `?view=camp` shipped with #218 and went two tickets before anybody noticed the count had not
       // moved. The number in the note is the tell; if it does not go up when a frame is added, the
       // frame is not being checked.
-      ['?view=camp', null], ['?view=picks', 'picks-screen'], ['?view=plateau', null],   // #223
+      ['?view=camp', null], ['?view=picks', 'picks-screen'], ['?view=plateau', null], ['?view=trade', null],   // #223, #236
       // #194: the same view at a pinned time of day, and its red twin. The third column is the phase
       // the URL asked for, because "the page loaded" is not the assertion that matters here -- a
       // `?phase=` that quietly did nothing would open the road at the morning and pass everything
@@ -1224,6 +1224,58 @@ export const CHEAP = {
     if (r.nan.pan !== 0 || r.nan.node !== null) bad.push(`a cue with no position reads ${f(r.nan.pan)}, not the middle`);
     return bad.length ? no(bad) : ok(`east wall ${f(r.e.pan)}, west wall ${f(r.w.pan)}, the King's own cue down the middle, the far side clamped`);
   },
+  // #236: THE GLUT COMPOUNDS BY THE TRANCHE AND DAWN RESETS IT. Thirty diamond sold through the
+  // real `updateTrade` -- the post itself, at its own rate of a unit every 0.09s -- and the coins
+  // that arrived counted against 10 x 20 + 10 x 15 + 10 x 11 (the unit price rounds, so the third
+  // tranche is 11 and not 11.25). Then the dawn beat, and the next unit at 20 again. The panel is
+  // read at the end: with ten sold today and diamond in the bag, its chip has to carry both prices.
+  async 'glut-resets-at-dawn'(page, url) {
+    await boot(page, url);
+    const r = await page.evaluate(() => {
+      const g = window.game;
+      const CFG = window.CFG;
+      g.hud.toast = () => {};
+      g.saveRun = () => {};
+      // the post, wherever it is: stand the King on it
+      if (!g.tradePost) g.buildStructure(g.pads.map((p) => p.def).concat(window.PADS || []).find((d) => d && d.id === 'exchange') || { id: 'exchange', structure: 'bank', pos: [9.8, -6], buildAt: [9.8, -9.8] });
+      g.king.mesh.position.set(g.tradePos[0], 0, g.tradePos[1]);
+      const sell = (n) => {
+        for (const k of Object.keys(g.res)) g.res[k] = 0;
+        g.res.diamond = n;
+        const before = g.coinsCarried;
+        for (let i = 0; i < 4000 && g.res.diamond > 0; i++) g.updateTrade(0.1);
+        return { got: g.coinsCarried - before, left: g.res.diamond };
+      };
+      const day1 = sell(30);
+      g.wave = 3;
+      g.dawnBreaks(true);
+      const day2 = sell(1);
+      // the panel: ten sold today, diamond and stone in the bag, the King just outside selling range
+      for (const k of Object.keys(g.res)) g.res[k] = 0;
+      g.res.diamond = 6; g.res.stone = 4;
+      g.soldToday = { diamond: 10 };
+      g.king.mesh.position.set(g.tradePos[0], 0, g.tradePos[1] + CFG.trade.radius + 1.5);
+      g.hud.toastShowing = false; g.hud.gain = null;
+      const shown = g.tradeTip();
+      const chips = [...document.querySelectorAll('#pad-tip .chip, .tip .chip')].map((c) => c.textContent.trim());
+      const tipHidden = (document.querySelector('#pad-tip') || document.querySelector('.tip') || { classList: { contains: () => null } }).classList.contains('hidden');
+      const coin = CFG.materials.diamond.coin;
+      const g1 = CFG.materials.diamond.glut;
+      let expect = 0;
+      for (let i = 0; i < 30; i++) expect += Math.max(1, Math.round(coin * Math.pow(g1.pay, Math.floor(i / g1.every))));
+      return { day1, day2, expect, coin, shown, chips, tipHidden };
+    });
+    const bad = [];
+    if (r.day1.left) bad.push(`${r.day1.left} diamond never sold`);
+    if (r.day1.got !== r.expect) bad.push(`thirty diamond in one day paid ${r.day1.got}, not ${r.expect} (10 x 20 + 10 x 15 + 10 x 11)`);
+    if (r.day2.got !== r.coin) bad.push(`the first diamond after dawn paid ${r.day2.got}, not ${r.coin}`);
+    if (!r.shown) bad.push('the trade post showed no panel with the King beside it');
+    if (!r.chips.some((c) => /Diamond 20 . 15 today/.test(c))) bad.push(`no chip reads "Diamond 20 -> 15 today": ${JSON.stringify(r.chips)}`);
+    if (!r.chips.some((c) => /^Stone 4$/.test(c))) bad.push(`no chip reads "Stone 4" for a material at full price: ${JSON.stringify(r.chips)}`);
+    if (r.tipHidden) bad.push('the panel element is still hidden');
+    return bad.length ? no(bad) : ok(`30 diamond paid ${r.day1.got} (20, then 15, then 11 a unit); dawn, and the next paid ${r.day2.got}; the panel reads ${r.chips.join(' | ')}`);
+  },
+
   // #235: AN OFFER ALWAYS HAS A CARD YOU HAVE NOT READ, while one is left. Driven on the real level-up
   // panel rather than on `pickOffer`, because the seen set is the game's to keep: a `showOffer` that
   // forgot to pass it, or to add the offer to it, would leave `pickOffer` correct and the panel wrong.
@@ -1544,5 +1596,7 @@ export const PROVE = {
   // #238: the release becomes the horn again, which is exactly what it was before the ticket
   'cues-do-not-converge': () => { window.audio.wrenRelease = window.audio.horn; },
   // #235: the game forgets what it has shown -- `seen` reads empty and writes go nowhere
+  // #236: the glut priced back to nothing -- every tranche pays full, which is the ladder as it was
+  'glut-resets-at-dawn': () => { for (const m of Object.values(window.CFG.materials)) if (m.glut) m.glut.pay = 1; },
   'unseen-card-on-offer': () => { Object.defineProperty(window.game, 'seen', { get: () => ({}), set() {}, configurable: true }); },
 };

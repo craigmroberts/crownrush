@@ -423,11 +423,30 @@ export const CFG = {
   // more per unit, so the far seams are worth the walk without being required for anything -- which
   // is what keeps the map optional rather than gated.
   materials: {
-    wood:    { mine: 0.45, coin: 2,  name: 'Wood' },
-    straw:   { mine: 0.40, coin: 2,  name: 'Straw' },
-    stone:   { mine: 0.70, coin: 4,  name: 'Stone' },
-    iron:    { mine: 1.00, coin: 9,  name: 'Iron' },
-    diamond: { mine: 1.40, coin: 20, name: 'Diamond' },
+    // #236: THE GLUT. The trade post pays `pay` times less for a material after every `every` of it
+    // sold today, compounding, and the count resets at dawn. Before it, coin per second of swinging
+    // was a fixed ladder and the top rung won outright:
+    //
+    //     material   coin   swing   coin/s        after 30 sold today (x0.42)
+    //     straw        2    0.40     5.0            2.1
+    //     wood         2    0.45     4.4            1.9
+    //     stone        4    0.70     5.7            2.4
+    //     iron         9    1.00     9.0            3.8
+    //     diamond     20    1.40    14.3            6.0
+    //
+    // -- so once the east bridge stood, diamond was 3.2x wood and the only reason to mine anything
+    // else was that `materialAt` had not opened it yet. That is a schedule, not a decision. With
+    // the glut, the thirty-first diamond of the day is worth 6.0 coin/s against fresh stone's 5.7:
+    // the third trip to the seam is the one where stone is worth walking to instead. Nothing is
+    // spent that was not already spent; what changes is which seam this morning is for. Held by
+    // `glut-levels-the-seams`: no material at three tranches is worth more than twice any other
+    // fresh one. `every: 10` is a bagful at the base cap (`carry.base`), so the first sale of a
+    // full bag is always at full price and the second bag is the one that asks the question.
+    wood:    { mine: 0.45, coin: 2,  name: 'Wood',    glut: { every: 10, pay: 0.75 } },
+    straw:   { mine: 0.40, coin: 2,  name: 'Straw',   glut: { every: 10, pay: 0.75 } },
+    stone:   { mine: 0.70, coin: 4,  name: 'Stone',   glut: { every: 10, pay: 0.75 } },
+    iron:    { mine: 1.00, coin: 9,  name: 'Iron',    glut: { every: 10, pay: 0.75 } },
+    diamond: { mine: 1.40, coin: 20, name: 'Diamond', glut: { every: 10, pay: 0.75 } },
   },
   // How much he can carry before he has to walk it back. This is what makes the trade post a place
   // you go rather than a formality, and what gives a trip out to the diamonds something to lose.

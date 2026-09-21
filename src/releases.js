@@ -32,6 +32,7 @@ export const RELEASES = [
     title: 'The river crossing',
     added: [
       'Sounds come from where they happen. A wall being hit on your right is in your right ear, a raider falling on your left is on your left, and the howl at nightfall comes from the side the raid does \u2014 with earbuds in, you can hear which wall to run to.',
+      'The trade post pays less for the tenth of anything you sell in a day, and less again for the twentieth, until dawn \u2014 so once the diamond seam is open it is no longer the only place worth walking to. The panel at the post shows what each thing in your bag fetches today.',
       'Six new rewards, and each one changes a rule rather than a number: archers who fall are back by dawn, a watchtower\u2019s arrows set raiders burning, walls mend themselves by day, a broken gate stands again at dawn, every coin left on the field at dawn is yours, and the King\u2019s bow goes for whoever is carrying Wren. And the deck keeps track of what it has shown you \u2014 while there is a card you have not read, every offer has one.',
       'Letting Wren loose has a sound of its own now — a swell and a chime, not the warhorn — and so do digging up a cache and finding what is in it. After dark the music leaves more space between its phrases.',
       'There are three flat-topped hills out in the country now, and you can get up them \u2014 each has a ramp on the side facing home. Raiders will follow you up it, because it is the only way up for them too.',

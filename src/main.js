@@ -1127,6 +1127,7 @@ function runView() {
     road: () => game.showRoadView(),   // #180
     mesa: () => game.showMesaView(),   // #193
     camp: () => game.showCampView(),   // #218
+    trade: () => game.showTradeView(),   // #236
     // #223: `&n=` picks which one. Read the way every other flag in this file is read -- a regex on
     // `location.search` -- rather than pulling in URLSearchParams for one integer.
     plateau: () => game.showPlateauView(+((location.search.match(/[?&]n=(\d+)/) || [])[1] || 0)),

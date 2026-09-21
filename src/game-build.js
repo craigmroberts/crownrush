@@ -1580,7 +1580,7 @@ export const BuildMethods = {
         note,
         progress: total ? paidAll / total : 0,
       });
-    } else this.hud.hidePadTip();
+    } else if (!this.tradeTip()) this.hud.hidePadTip();   // #236
     for (const pad of this.pads) {
       // pop-in / settle animation
       const s = pad.mesh.scale.x;

@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-21T20:15:32.496Z",
+  "at": "2026-09-21T20:47:35.518Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -219,6 +219,20 @@
       "why": "#238. Three mechanics shipped with a borrowed sound each, and the way that happens again is a new verb written by copying a neighbour and moving two numbers. The first dig written for this ticket was a low thud under low-passed noise, which is the raider death note for note: 0.10 apart on this scale, and this check is what said so before anyone with ears could."
     },
     {
+      "id": "glut-levels-the-seams",
+      "area": "Economy",
+      "cost": "free",
+      "asserts": "Every material has a glut, and no material at three tranches of it is worth more than twice any other material fresh, in coin per second of swinging.",
+      "why": "#236. Coin per swing-second was a fixed ladder and diamond was 3.2x wood at the top of it, so once the east bridge stood the only reason to mine anything else was that the Keep had not opened it yet -- a schedule, not a decision. This is the arithmetic that keeps the ladder from being put back one price at a time."
+    },
+    {
+      "id": "glut-resets-at-dawn",
+      "area": "Economy",
+      "cost": "cheap",
+      "asserts": "Thirty diamond sold through the real trade post in one day pay 20, then 15, then 11 a unit; the first one after the dawn beat pays 20 again; and the panel at the post reads the list price and today's for a glutted material and one number for a fresh one.",
+      "why": "#236. The glut is a rule the player has to be able to see to plan a morning around, and a price that quietly compounds wrong -- or never resets -- makes a run too grindy or too easy without failing anything. Driven through updateTrade at its own rate rather than through sellPrice, because the count is kept by the sale."
+    },
+    {
       "id": "deck-rotates",
       "area": "Upgrades",
       "cost": "free",
@@ -322,8 +336,8 @@
     },
     "views-open": {
       "pass": true,
-      "note": "24 views, each with its panel up",
-      "at": "2026-09-21T18:59:38.093Z"
+      "note": "25 views, each with its panel up",
+      "at": "2026-09-21T20:34:59.713Z"
     },
     "opening-resolves": {
       "pass": true,
@@ -338,7 +352,7 @@
     "rebuild-after-fall": {
       "pass": true,
       "note": "empty plot, clear ledger, every mat on it buys",
-      "at": "2026-09-21T17:16:59.095Z"
+      "at": "2026-09-21T20:47:29.902Z"
     },
     "tokens-resolve": {
       "pass": true,
@@ -391,8 +405,8 @@
     },
     "relics-bite": {
       "pass": true,
-      "note": "dug in 3.6s for ledger; cards 3->4; cap 18->9999; column 40/0/0 -> 40/40/0",
-      "at": "2026-09-21T17:01:43.281Z"
+      "note": "dug in 3.6s for standard; cards 3->4; cap 18->9999; column 40/0/0 -> 40/40/0",
+      "at": "2026-09-21T20:35:20.447Z"
     },
     "legacy-is-a-head-start": {
       "pass": true,
@@ -438,6 +452,11 @@
       "pass": true,
       "note": "six offers at level 12 with one card unseen: the unseen card on every one, on the panel, and marked seen after",
       "at": "2026-09-21T20:15:29.552Z"
+    },
+    "glut-resets-at-dawn": {
+      "pass": true,
+      "note": "30 diamond paid 460 (20, then 15, then 11 a unit); dawn, and the next paid 20; the panel reads Stone 4 | Diamond 20 → 15 today",
+      "at": "2026-09-21T20:26:52.944Z"
     }
   }
 }

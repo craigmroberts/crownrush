@@ -919,7 +919,8 @@ export const ViewMethods = {
     const type = Object.keys(this.res).find((k) => this.res[k] > 0);
     if (!type) return;
     this.res[type]--;
-    const paid = CFG.materials[type].coin;
+    const paid = this.sellPrice(type);
+    this.soldToday[type] = (this.soldToday[type] || 0) + 1;
     this.coinsCarried += paid;
     this.coinsEarned += paid;
     this.addScore(CFG.score.material);
@@ -936,6 +937,41 @@ export const ViewMethods = {
     // number quietly changing. With the stack off it now takes the same flight to the counter that
     // a picked-up coin does, which is the behaviour the setting promises everywhere else.
     if (!this.stackOn) this.flyToCoins(tmp);
+  },
+
+  // #236: what one unit of `type` fetches right now. Rounded per unit rather than per tranche, so
+  // the popup over the post shows the number that was actually paid.
+  sellPrice(type) {
+    const m = CFG.materials[type];
+    const g = m.glut;
+    if (!g) return m.coin;
+    const tranche = Math.floor((this.soldToday[type] || 0) / g.every);
+    return Math.max(1, Math.round(m.coin * Math.pow(g.pay, tranche)));
+  },
+
+  // #236: THE PRICE, WHERE THE DECISION IS MADE. The trade mat is a mesh and not a pad, so it never
+  // had the costs panel the mats have; this gives it one when the King is near, with a chip per
+  // material in the bag: the list price, and today's if the glut has moved it. A material at full
+  // price is one chip with one number, because "20 -> 20" is a change that did not happen.
+  tradeTip() {
+    if (!this.tradeMat || !this.tradePos) return false;
+    const kp = this.king.mesh.position;
+    const d = Math.hypot(kp.x - this.tradePos[0], kp.z - this.tradePos[1]);
+    if (d > CFG.pile.showRadius) return false;
+    const chips = [];
+    for (const [type, n] of Object.entries(this.res)) {
+      if (n <= 0) continue;
+      const m = CFG.materials[type];
+      const now = this.sellPrice(type);
+      chips.push({ icon: type, text: now === m.coin ? `${m.name} ${m.coin}` : `${m.name} ${m.coin} \u2192 ${now} today`, state: now === m.coin ? 'ok' : '' });
+    }
+    const load = this.loadTotal();
+    this.hud.showPadTip({
+      icon: 'gold', name: 'Trade Post', sub: load ? `${load} to sell` : '',
+      desc: 'Sells what you carry, a unit at a time. The tenth of anything you sell in a day, and every tenth after, fetches less; dawn resets it.',
+      chips, note: !load ? 'Nothing in the bag' : d <= CFG.trade.radius ? 'Selling\u2026' : 'Walk on to sell', progress: 0,
+    });
+    return true;
   },
 
   makeNodeMesh(type) {
@@ -2008,6 +2044,26 @@ export const ViewMethods = {
   //
   // Outside `wakeRadius` (14) on purpose: this is the garrison asleep at its posts, which is what a
   // camp looks like when you come over the rise and have to decide. Awake it is just a fight.
+  // #236: the trade post with a bag to sell and the day's glut already on one price -- the frame
+  // the price chip is judged in. The King stands inside the tip's radius and outside the selling
+  // one, so the panel is up and nothing is being sold out from under it.
+  showTradeView() {
+    const def = PADS.find((d) => d.id === 'exchange');
+    if (!def) return;
+    if (!this.tradePost) this.buildStructure(def);
+    this.res.diamond = 6;
+    this.res.stone = 4;
+    this.soldToday.diamond = 10;
+    this.king.mesh.position.set(this.tradePos[0], 0, this.tradePos[1] + CFG.trade.radius + 1.5);
+    this.king.mesh.rotation.y = Math.PI;
+    this.queen.mesh.position.set(this.tradePos[0] - 1.8, 0, this.tradePos[1] + CFG.trade.radius + 2.6);
+    // the panel stands down while a notice is up (#132), and the morning's line is up: clear it, so
+    // the frame shows the panel and not the reason it is not there
+    this.hud.toastQueue = [];
+    this.hud.toastRest = null;
+    this.hud.nextToast();
+  },
+
   showCampView() {
     const c = (this.camps || [])[0];
     if (!c) return;
