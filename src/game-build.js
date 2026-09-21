@@ -2401,6 +2401,26 @@ export const BuildMethods = {
     // Already on the slope: aim at the middle of the top going up, or at open ground going down, so
     // the last step off the ramp is not back into the rock.
     if (r.on && r.t > use.top - 1) return theirs ? { x: use.x, z: use.z } : null;
+    // WALK ROUND THE DRUM, and this is the half I first left out. Aiming straight at the foot from
+    // the far side walks into the rock: `steerRoundSolid` bends along the rim, finds an equilibrium
+    // against the fence and stays there. Measured over 18 bearings a plateau, aiming at the foot:
+    // 13/18, 12/18, 13/18 found the way up, and every failure was a contiguous arc on the side
+    // OPPOSITE the ramp, stopped dead at d=9.0. Moving the aim point further out in front of the
+    // ramp bought two bearings on one plateau and nothing on the others -- because the problem was
+    // never where the mover was aiming, it was that the straight line went through a cliff.
+    //
+    // So when the way up is not in front of you, walk round to it: a point on a ring outside the
+    // fence, a step of up to 40 degrees around, in the shorter direction. Which is what a person
+    // does at the foot of a hill, and it needs no pathfinder because the obstacle is a circle.
+    const here = Math.atan2(p.z - use.z, p.x - use.x);
+    const rampAng = Math.atan2(use.uz, use.ux);
+    let rel = ((rampAng - here + Math.PI) % (Math.PI * 2)) - Math.PI;
+    if (rel < -Math.PI) rel += Math.PI * 2;
+    if (Math.abs(rel) > 0.35) {
+      const a = here + Math.sign(rel) * Math.min(Math.abs(rel), 0.7);
+      const ring = use.top + CFG.plateaus.fence + 2.4;
+      return { x: use.x + Math.cos(a) * ring, z: use.z + Math.sin(a) * ring };
+    }
     const foot = use.top + use.rampLen - 0.8;            // just inside the bottom of the slope
     return { x: use.x + use.ux * foot, z: use.z + use.uz * foot };
   },

@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-21T15:27:28.057Z",
+  "at": "2026-09-21T16:31:32.298Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -198,6 +198,13 @@
       "why": "#190. A browser allows a handful of live contexts and drops the OLDEST when the limit is hit, which is the game's own canvas: the world goes blank while the HUD keeps drawing. `releasePortraitRenderer` guards against it and nothing checked that it worked; the portraits are asserted alongside because a render that threw would leave one context, no pictures, and a green check."
     },
     {
+      "id": "high-ground-holds",
+      "area": "World",
+      "cost": "cheap",
+      "asserts": "A plateau is a floor on top and a wall on every side but one, the ramp raises you to exactly the top, and a raider at the rock face finds its way round to the ramp from every bearing.",
+      "why": "#223. It is the first thing in the game with a Y axis, and the failure this repo keeps recording is a character on a roof or inside something. The route matters most, and it has been wrong twice: with no waypoint, none of eight raiders reached a King on a plateau in ninety seconds; aimed straight at the ramp, 12-13 of 18 bearings made it and the rest stopped dead on the far side, because the line to the foot goes through a cliff. Walking round the drum is 18 of 18. A route that points at the right place and cannot be walked reads as correct from the outside, so this is driven rather than asserted on the waypoint."
+    },
+    {
       "id": "mats-do-not-multiply",
       "area": "Build",
       "cost": "cheap",
@@ -287,8 +294,8 @@
     },
     "views-open": {
       "pass": true,
-      "note": "23 views, each with its panel up",
-      "at": "2026-09-21T14:47:51.986Z"
+      "note": "24 views, each with its panel up",
+      "at": "2026-09-21T16:30:52.841Z"
     },
     "opening-resolves": {
       "pass": true,
@@ -318,7 +325,7 @@
     "bands-hooked": {
       "pass": true,
       "note": "ground, tufts and canopies banded; every lit world surface over 200 triangles with them",
-      "at": "2026-09-21T14:48:11.808Z"
+      "at": "2026-09-21T16:31:11.343Z"
     },
     "post-once": {
       "pass": true,
@@ -383,6 +390,11 @@
       "pass": true,
       "note": "22 mats, each down once, unchanged by 40 refreshes",
       "at": "2026-09-21T15:15:15.072Z"
+    },
+    "high-ground-holds": {
+      "pass": true,
+      "note": "3 plateaus: a floor on top, a wall on every side but one, and the ramp is the way up",
+      "at": "2026-09-21T16:31:31.288Z"
     }
   }
 }

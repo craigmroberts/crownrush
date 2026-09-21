@@ -179,8 +179,8 @@ export const CHECKS = [
   },
   {
     id: 'high-ground-holds', area: 'World', cost: 'cheap',
-    asserts: 'A plateau is a floor on top and a wall on every side but one, the ramp raises you to exactly the top, and a raider whose target is up there is routed to the foot of the ramp.',
-    why: '#223. It is the first thing in the game with a Y axis, and the failure this repo keeps recording is a character on a roof or inside something. The route matters most: before `rampWaypoint`, eight raiders sent at a King on a plateau over ninety seconds produced none on the top \u2014 a plateau with no way up is a square the player cannot be touched on, and nothing else in the suite would notice.',
+    asserts: 'A plateau is a floor on top and a wall on every side but one, the ramp raises you to exactly the top, and a raider at the rock face finds its way round to the ramp from every bearing.',
+    why: '#223. It is the first thing in the game with a Y axis, and the failure this repo keeps recording is a character on a roof or inside something. The route matters most, and it has been wrong twice: with no waypoint, none of eight raiders reached a King on a plateau in ninety seconds; aimed straight at the ramp, 12-13 of 18 bearings made it and the rest stopped dead on the far side, because the line to the foot goes through a cliff. Walking round the drum is 18 of 18. A route that points at the right place and cannot be walked reads as correct from the outside, so this is driven rather than asserted on the waypoint.',
   },
   {
     id: 'mats-do-not-multiply', area: 'Build', cost: 'cheap',

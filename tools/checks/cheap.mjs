@@ -1139,15 +1139,43 @@ export const CHEAP = {
           g.animateWalk(g.king, 1, 0.05);
         }
         if (kp.y !== p.h) bad.push(`plateau ${i}: walking up the ramp ended at y ${kp.y.toFixed(2)}, not ${p.h}`);
-        // and a raider told to go up there is sent to the foot of it
-        const fake = { mesh: { position: { x: p.x + p.ux * (p.top + 20), z: p.z + p.uz * (p.top + 20), y: 0 } } };
-        const wp = g.rampWaypoint(fake, { x: p.x, z: p.z });
-        if (!wp) bad.push(`plateau ${i}: a raider whose target is on the top gets no route to it`);
-        else {
-          const t = (wp.x - p.x) * p.ux + (wp.z - p.z) * p.uz;
-          const lat = Math.abs((wp.x - p.x) * -p.uz + (wp.z - p.z) * p.ux);
-          if (lat > p.rampHalf || t < p.top || t > p.top + p.rampLen) bad.push(`plateau ${i}: the route points at ${wp.x.toFixed(0)},${wp.z.toFixed(0)}, which is not the ramp`);
+        // AND A RAIDER GETS UP IT FROM ANYWHERE, which is the assertion that matters and the one
+        // that has already been false twice. Driven with the game's own `rampWaypoint` and its own
+        // `steerRoundSolid`, from twelve bearings, starting hard against the rock:
+        //
+        //   no waypoint at all        0/18 -- it grinds along the fence for ever
+        //   aimed straight at the ramp  12-13/18 -- and every failure is a contiguous arc on the
+        //                             far side, stopped dead at d=9.0, because the straight line
+        //                             to the foot goes through a cliff
+        //   walking round the drum    18/18
+        //
+        // The middle row is why this is driven rather than asserted on the waypoint: a route that
+        // points at the right place and cannot be walked reads as correct from the outside.
+        const failed = [];
+        for (let k = 0; k < 12; k++) {
+          const a = (k / 12) * Math.PI * 2;
+          const m = { mesh: { position: { x: p.x + Math.cos(a) * (p.top + 2.2), z: p.z + Math.sin(a) * (p.top + 2.2), y: 0 } }, radius: 0.45 };
+          let reached = false;
+          for (let step = 0; step < 400 && !reached; step++) {
+            const q = m.mesh.position;
+            const wp = g.rampWaypoint(m, { x: p.x, z: p.z }) || { x: p.x, z: p.z };
+            const dx = wp.x - q.x;
+            const dz = wp.z - q.z;
+            const d = Math.hypot(dx, dz);
+            if (d > 0.01) {
+              const v = { x: dx, z: dz, y: 0, set(vx, vy, vz) { this.x = vx; this.z = vz; return this; } };
+              g.steerRoundSolid(q, v, d, m.radius);
+              const vd = Math.hypot(v.x, v.z) || 1;
+              q.x += (v.x / vd) * 0.22;
+              q.z += (v.z / vd) * 0.22;
+            }
+            g.collideScenery(q, m.radius);
+            q.y = w.floorAt(q.x, q.z);
+            if (q.y >= p.h - 1e-6 && Math.hypot(q.x - p.x, q.z - p.z) < p.top) reached = true;
+          }
+          if (!reached) failed.push(`${((a * 180) / Math.PI) | 0}deg`);
         }
+        if (failed.length) bad.push(`plateau ${i}: a raider at the rock face never found the ramp from ${failed.join(', ')}`);
         out.push(`${i}: top ${p.h} at ${p.top} across`);
       }
       if (!(w.plateaus || []).length) bad.push('there are no plateaus at all');

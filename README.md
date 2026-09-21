@@ -2103,10 +2103,46 @@ game time. **None reached the top**; two ground against the rim and the rest wan
 bridge, a plateau is climbed at its ramp. The bridge wins when both apply, because a ramp on the far
 bank is no use until you are across. With it, a raider summits in about ten seconds.
 
-A plateau with no way up is not scenery — it is a square the player cannot be touched on.
-`high-ground-holds` is the guard, and its sabotage flattens `floorAt` so the rock becomes a picture.
+### What they cost
 
-**Known rough edge:** about one raider in six still mills at the rim instead of finding the ramp.
+Measured against `main` with the same flags (`probe --crowd 120`), so the only difference is the
+three platforms:
+
+| | main | with plateaus |
+| --- | --- | --- |
+| draw calls, phone peak | 1,005 | **1,012** |
+| draw calls, desktop peak | 1,330 | 1,331 |
+| triangles, phone | 1,312k | **1,327k** |
+| visible drawables | 543 | 555 |
+
+About **+7 draw calls and +1.1% triangles on the phone profile**. Both budgets were already over and
+waived under #52 before this — the crowd models are ~8.7k triangles against a ~5k budget — so this
+does not change what is owed, it adds about one per cent to it. The village frames in the budget
+table above do not move at all: the plateaus are 49–68 units out and are not in those shots.
+
+They cost one draw call each rather than three because they are built into the same group as the
+mesas and merged with them.
+
+### And it has to be walkable, not just correct
+
+Aiming at the foot of the ramp is not enough, and the first version did exactly that. Driven from
+eighteen bearings a plateau, starting hard against the rock:
+
+| route | found the way up |
+| --- | --- |
+| none at all | **0 / 18** — grinds along the fence for ever |
+| straight at the ramp | **12–13 / 18** |
+| round the drum, then the ramp | **18 / 18** |
+
+Every failure in the middle row was a contiguous arc on the side *opposite* the ramp, stopped dead at
+d = 9.0 — because the straight line to the foot goes through a cliff. So when the way up is not in
+front of you, the waypoint steps round a ring outside the fence, up to 40° at a time, in the shorter
+direction, until it is. Which is what a person does at the foot of a hill, and it needs no pathfinder
+because the obstacle is a circle.
+
+**A route that points at the right place and cannot be walked reads as correct from the outside**, so
+`high-ground-holds` drives it rather than asserting on the waypoint. Its sabotage flattens `floorAt`
+so the rock becomes a picture.
 
 ## Every check proves it can fail (#179)
 
