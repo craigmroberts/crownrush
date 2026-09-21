@@ -2048,6 +2048,66 @@ on the field so that a "fix" which simply stopped adding them would not read as 
 makes the mats on the field stop answering to what `config.js` asks for — wrapping `addPad` was tried
 and proved nothing, because it arms after boot has already put the mats down correctly.
 
+## Plateaus: the first thing in the game with a Y axis (#223)
+
+Three flat-topped platforms out in the country, with a ramp up one side. **Not terrain** — the ground
+is still one plane and everything still assumes y 0 except three comparisons. They are discrete raised
+regions, the same shape as the cliff box, except you can get on top of one.
+
+**What landed is the walkable half, and that is a deliberate scope.** The ticket's gameplay — "a
+watchtower built on one gets range" — is not reachable: `placeOk` confines every placeable building to
+`TIERS[tier].bounds` (±38), and `CFG.placeBuildings` is `false` because #152 parked the whole
+placeable-building system. The ticket was written believing #43's placeable towers were live.
+
+### Where they are was measured, and the measurement moved all three
+
+A grid of the built world was asked, every 2 units, whether a platform's whole footprint stands on
+ground clear of the village, the four roads, the river, the cliff box, the camps and the hand-placed
+seams — `world.free`, the same predicate the scatter uses:
+
+| top radius | legal spots | nearest to the castle |
+| --- | --- | --- |
+| 7.5 | 102 | **50** |
+| 6 | 169 | 49 |
+| 5 | 244 | 48 |
+| 4 | 315 | 41 |
+
+**The band from the rings at 38 out to about 48 is full** — that is where the seams, the roads and the
+river already are. So a plateau is a far-country feature at 49–68, and "a plateau near a gate is worth
+walking materials to" is not something this map can offer.
+
+My first three were hand-guessed. One had **three hand-placed seams inside its footprint**: at seed 0
+the nodes come from `NODES` in `config.js`, which predate plateaus, so the generator's own "keep off a
+plateau" rule never ran on them. Guessing a coordinate and checking it afterwards is how that happens.
+
+### How the Y axis is paid for
+
+`world.floorAt(x, z)` is the whole of it — the top inside the rim, the slope on the ramp, 0 everywhere
+else. Three comparisons, exact, and asked by **`animateWalk`**, which is the one line every walking
+thing in the game passes through each frame. One place to be right instead of eleven to forget. Only
+meshes parented to the root: a rider is a child of its horse and its position is local to the saddle.
+
+**The rim is a fence of solid circles with a gap at the ramp.** `collideScenery` pushes out of circles
+and `steerRoundSolid` bends round them, and both already run on every mover every frame — so a ring of
+overlapping circles is a wall the whole game already knows how to respect, for a few dozen entries in
+a grid that holds 415. Driven: the King is stopped on all eight non-ramp bearings at d≈9.5, y=0, and
+walks the ramp 0 → 3.20.
+
+### The ramp waypoint is not optional
+
+Before it existed, eight raiders were sent at a King standing on a plateau and given ninety seconds of
+game time. **None reached the top**; two ground against the rim and the rest wandered off.
+`steerRoundSolid` bends round *one* solid at a time and grazes a forty-circle fence for ever.
+
+`rampWaypoint` is the twin of `bridgeWaypoint` and reads exactly like it: a river is crossed at a
+bridge, a plateau is climbed at its ramp. The bridge wins when both apply, because a ramp on the far
+bank is no use until you are across. With it, a raider summits in about ten seconds.
+
+A plateau with no way up is not scenery — it is a square the player cannot be touched on.
+`high-ground-holds` is the guard, and its sabotage flattens `floorAt` so the rock becomes a picture.
+
+**Known rough edge:** about one raider in six still mills at the rim instead of finding the ramp.
+
 ## Every check proves it can fail (#179)
 
 `--prove` breaks the game the way each check exists to catch and expects the check to go **red**.

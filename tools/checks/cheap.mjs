@@ -74,7 +74,7 @@ export const CHEAP = {
       // `?view=camp` shipped with #218 and went two tickets before anybody noticed the count had not
       // moved. The number in the note is the tell; if it does not go up when a frame is added, the
       // frame is not being checked.
-      ['?view=camp', null], ['?view=picks', 'picks-screen'],
+      ['?view=camp', null], ['?view=picks', 'picks-screen'], ['?view=plateau', null],   // #223
       // #194: the same view at a pinned time of day, and its red twin. The third column is the phase
       // the URL asked for, because "the page loaded" is not the assertion that matters here -- a
       // `?phase=` that quietly did nothing would open the road at the morning and pass everything
@@ -1063,6 +1063,98 @@ export const CHEAP = {
     }
     return bad.length ? no(bad) : ok(`${r.after.length} mats, each down once, unchanged by 40 refreshes`);
   },
+  // #223: THE HIGH GROUND IS REAL, AND IT HAS EXACTLY ONE WAY UP.
+  //
+  // A plateau is the first thing in this game with a Y axis, and the failure CLAUDE.md keeps writing
+  // down is a character standing on a roof or inside something. Four things have to hold together or
+  // it is one of those:
+  //
+  //   the top is a floor          `floorAt` says the height inside the rim and 0 outside it
+  //   the rock face is a wall     walking at it from every non-ramp bearing stops you below
+  //   the ramp is a way up        walking up it raises you, smoothly, to exactly the top
+  //   and it is the ONLY way up   a raider whose target is up there is sent to the ramp foot
+  //
+  // The last one is not decoration. Driven before `rampWaypoint` existed: eight raiders sent at a
+  // King on a plateau over ninety seconds of game time, and NONE reached the top -- `steerRoundSolid`
+  // bends round one solid at a time and grazes a forty-circle fence for ever. A plateau without a
+  // route up is not scenery, it is a square the player cannot be touched on, and nothing else in the
+  // suite would have noticed.
+  //
+  // The fight itself is not driven here. Two fifty-second fights cost ten minutes of wall clock and
+  // came back muddy -- raiders are culled in the prologue, and out of it they pick their own targets.
+  // What is checked is the thing that decides the fight: that the route exists and points at the way
+  // up. The fight is a `judged` row's business.
+  async 'high-ground-holds'(page, url) {
+    await boot(page, url);
+    const r = await page.evaluate(() => {
+      const g = window.game;
+      const w = g.world;
+      const bad = [];
+      const out = [];
+      for (const [i, p] of (w.plateaus || []).entries()) {
+        // the top is a floor, and off it is not
+        if (w.floorAt(p.x, p.z) !== p.h) bad.push(`plateau ${i}: the middle of the top reads ${w.floorAt(p.x, p.z)}, not ${p.h}`);
+        if (w.floorAt(p.x + 40, p.z + 40) !== 0) bad.push(`plateau ${i}: open ground 40 away is not at 0`);
+        // the ramp rises to the top and never overshoots it
+        let last = 0;
+        for (let t = p.top + p.rampLen; t >= p.top; t -= 0.5) {
+          const y = w.floorAt(p.x + p.ux * t, p.z + p.uz * t);
+          if (y < last - 1e-6) bad.push(`plateau ${i}: the ramp drops at ${t.toFixed(1)} (${y} after ${last})`);
+          if (y > p.h + 1e-6) bad.push(`plateau ${i}: the ramp overshoots the top at ${t.toFixed(1)} (${y})`);
+          last = y;
+        }
+        // nothing the seed scatters may stand on one
+        const on = (list, name) => (list || []).filter((c) => Math.hypot((c.x ?? c.pos?.[0]) - p.x, (c.z ?? c.pos?.[1]) - p.z) < p.top + 1).length;
+        if (on(w.camps)) bad.push(`plateau ${i}: a camp is standing on it`);
+        if (on(w.caches)) bad.push(`plateau ${i}: a cache is buried on it`);
+        const nodes = (g.nodes || []).filter((n) => Math.hypot(n.mesh.position.x - p.x, n.mesh.position.z - p.z) < p.top + 1).length;
+        if (nodes) bad.push(`plateau ${i}: ${nodes} seam(s) on it, which cannot be mined from below`);
+        // the rock face is a wall: walk at it from every bearing that is not the ramp
+        const rampAng = Math.atan2(p.uz, p.ux);
+        let climbed = 0;
+        for (let k = 1; k <= 8; k++) {
+          const a = rampAng + (k * Math.PI * 2) / 9;
+          const kp = g.king.mesh.position;
+          kp.set(p.x + Math.cos(a) * (p.top + 6), 0, p.z + Math.sin(a) * (p.top + 6));
+          for (let step = 0; step < 80; step++) {
+            const dx = p.x - kp.x;
+            const dz = p.z - kp.z;
+            const d = Math.hypot(dx, dz);
+            if (d > 0.05) { kp.x += (dx / d) * 0.25; kp.z += (dz / d) * 0.25; }
+            g.collideScenery(kp, 0.5);
+            g.animateWalk(g.king, 1, 0.05);
+          }
+          if (kp.y > 0.01) climbed++;
+        }
+        if (climbed) bad.push(`plateau ${i}: the rock face was climbed from ${climbed} of 8 bearings`);
+        // and the ramp is a way up
+        const kp = g.king.mesh.position;
+        kp.set(p.x + p.ux * (p.top + p.rampLen + 1), 0, p.z + p.uz * (p.top + p.rampLen + 1));
+        for (let step = 0; step < 70; step++) {
+          const dx = p.x - kp.x;
+          const dz = p.z - kp.z;
+          const d = Math.hypot(dx, dz);
+          if (d > 0.05) { kp.x += (dx / d) * 0.25; kp.z += (dz / d) * 0.25; }
+          g.collideScenery(kp, 0.5);
+          g.animateWalk(g.king, 1, 0.05);
+        }
+        if (kp.y !== p.h) bad.push(`plateau ${i}: walking up the ramp ended at y ${kp.y.toFixed(2)}, not ${p.h}`);
+        // and a raider told to go up there is sent to the foot of it
+        const fake = { mesh: { position: { x: p.x + p.ux * (p.top + 20), z: p.z + p.uz * (p.top + 20), y: 0 } } };
+        const wp = g.rampWaypoint(fake, { x: p.x, z: p.z });
+        if (!wp) bad.push(`plateau ${i}: a raider whose target is on the top gets no route to it`);
+        else {
+          const t = (wp.x - p.x) * p.ux + (wp.z - p.z) * p.uz;
+          const lat = Math.abs((wp.x - p.x) * -p.uz + (wp.z - p.z) * p.ux);
+          if (lat > p.rampHalf || t < p.top || t > p.top + p.rampLen) bad.push(`plateau ${i}: the route points at ${wp.x.toFixed(0)},${wp.z.toFixed(0)}, which is not the ramp`);
+        }
+        out.push(`${i}: top ${p.h} at ${p.top} across`);
+      }
+      if (!(w.plateaus || []).length) bad.push('there are no plateaus at all');
+      return { bad, out, n: (w.plateaus || []).length };
+    });
+    return r.bad.length ? no(r.bad) : ok(`${r.n} plateaus: a floor on top, a wall on every side but one, and the ramp is the way up`);
+  },
 };
 
 // #179: the sabotage each check has to survive going red under. One per check, aimed at exactly the
@@ -1242,4 +1334,8 @@ export const PROVE = {
   'mats-do-not-multiply': () => {
     for (const p of window.game.pads) if (p.def.bridge) p.def = { ...p.def, id: `${p.def.id}#moved` };
   },
+  // #223: the plateau becomes a picture -- the rock is still drawn and the rim is still fenced, but
+  // the ground under a foot is flat everywhere. That is what this would look like if `floorAt` were
+  // ever bypassed, which is the one line the whole feature hangs off.
+  'high-ground-holds': () => { window.game.world.floorAt = () => 0; },
 };
