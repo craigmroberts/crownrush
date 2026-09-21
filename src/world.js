@@ -614,7 +614,19 @@ function seedCamps(seed, riverSamples, ok, homeSide) {
       if (!ok(x, z)) continue;
       if (riverSideOf(riverSamples, x, z) !== homeSide) continue;
       if (out.some((c) => Math.hypot(c.x - x, c.z - z) < C.apart)) continue;
-      placed = { id: `camp-${i}`, x, z };
+      // #218: `out.length`, NOT the sector index `i`, and the difference is a duplicate id.
+      //
+      // Found while measuring ground for something else: seed 0 had camps `camp-1`, `camp-2` and
+      // `camp-2`, with no `camp-0` at all. Sector 0 finds nowhere, sectors 1 and 2 place `camp-1` and
+      // `camp-2`, and then the sweep below places the missing third as `camp-${out.length}` -- which
+      // is 2, because two are down. Two camps answering to one id is not cosmetic: `campFor`,
+      // `campCleared`, the reoccupy timer and the save all key on it, so clearing one of them
+      // accounts for both -- the other reads as cleared without anybody going near it, and a save
+      // restores the pair as one.
+      //
+      // Numbering by placement order rather than by which slice happened to work also makes the ids
+      // say something true, and means there is always a `camp-0`.
+      placed = { id: `camp-${out.length}`, x, z };
     }
     if (placed) out.push(placed);
   }

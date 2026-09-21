@@ -32,6 +32,7 @@ export const RELEASES = [
     title: 'The river crossing',
     added: [],
     fixed: [
+      'Two raider camps could be the same camp as far as the game was concerned, so breaking one of them also counted the other as broken \u2014 a camp you had never been near went quiet, and a saved run brought the pair back as one.',
       'The game could run the phone out of memory and reload itself, and the likeliest moment for it was walking down to a bridge. A spare copy of each bridge mat was being laid every time anything on the field changed \u2014 a purchase, a Keep level, picking a run back up \u2014 and they stacked up unseen out at the river until you went there and the whole pile arrived at once.',
     ],
   },
