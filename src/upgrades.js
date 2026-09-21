@@ -97,18 +97,18 @@ export const POOL_NAME = {
 
 export const UPGRADES = [
   // ---- army ----
-  { id: 'keen-eye', pool: 'army', icon: 'arrows', name: 'Keen Eye', desc: 'Your archers hit much harder, and raiders drop sooner.', apply: mul('archerDamage', 1.3) },
+  { id: 'keen-eye', pool: 'army', icon: 'expand', name: 'Keen Eye', desc: 'Your archers hit much harder, and raiders drop sooner.', apply: mul('archerDamage', 1.3) },
   { id: 'hardened', pool: 'army', icon: 'archer', name: 'Hardened', desc: 'Your archers take far more punishment before they fall.', apply: mul('archerHp', 1.4) },
   { id: 'longbows', pool: 'army', icon: 'bow', name: 'Longbows', desc: 'Your archers open fire much sooner, before raiders can reach them.', apply: mul('archerRange', 1.3) },
   { id: 'volunteers', pool: 'army', icon: 'person', name: 'Volunteers', desc: 'Every recruit pad brings one extra soldier.', max: 3, apply: add('recruitBonus', 1) },
 
   // ---- towers ----
-  { id: 'fletchers', pool: 'towers', icon: 'tower', name: "Fletcher's Workshop", desc: 'Watchtowers cut raiders down far faster.', apply: mul('towerDamage', 1.5) },
+  { id: 'fletchers', pool: 'towers', icon: 'arrows', name: "Fletcher's Workshop", desc: 'Watchtowers cut raiders down far faster.', apply: mul('towerDamage', 1.5) },
   { id: 'spotters', pool: 'towers', icon: 'tower', name: 'Spotters', desc: 'Watchtowers cover much more ground and shoot raiders further out.', apply: mul('towerRange', 1.3) },
   { id: 'wider-decks', pool: 'towers', icon: 'shield', name: 'Wider Decks', desc: 'Every watchtower holds one more archer.', max: 2, apply: add('towerSlots', 1) },
 
   // ---- walls ----
-  { id: 'deep-footings', pool: 'walls', icon: 'wall', name: 'Deep Footings', desc: 'Your walls and gates hold out far longer.', apply: mul('wallHp', 1.4) },
+  { id: 'deep-footings', pool: 'walls', icon: 'brick', name: 'Deep Footings', desc: 'Your walls and gates hold out far longer.', apply: mul('wallHp', 1.4) },
   { id: 'spiked-walls', pool: 'walls', icon: 'wall', name: 'Spiked Walls', desc: 'Raiders hurt themselves attacking your walls.', max: 3, apply: add('wallThorns', 5) },
 
   // ---- economy ----
@@ -120,13 +120,13 @@ export const UPGRADES = [
   // card promises. It is a real cut to how much ground a stacked Lodestone sweeps, and it buys the
   // player an upgrade whose effect is on the screen rather than in a number nobody can see.
   { id: 'lodestone', pool: 'economy', icon: 'coin', name: 'Lodestone', desc: 'Coins are pulled to you from much further away.', max: 2, apply: mul('pickup', 1.35) },
-  { id: 'plunder', pool: 'economy', icon: 'coin', name: 'Plunder', desc: 'Every raider you kill drops an extra coin.', max: 3, apply: add('coinBonus', 1) },
+  { id: 'plunder', pool: 'economy', icon: 'gold', name: 'Plunder', desc: 'Every raider you kill drops an extra coin.', max: 3, apply: add('coinBonus', 1) },
   { id: 'sharp-tools', pool: 'economy', icon: 'hammer', name: 'Sharp Tools', desc: 'You mine far quicker, so a full bag takes less of the day.', max: 2, apply: mul('mineSpeed', 1.45) },
-  { id: 'packhorse', pool: 'economy', icon: 'horse', name: 'Packhorse', desc: 'Carry 8 more before you have to sell at the trade post.', max: 3, apply: add('carryBonus', 1) },
+  { id: 'packhorse', pool: 'economy', icon: 'sack', name: 'Packhorse', desc: 'Carry 8 more before you have to sell at the trade post.', max: 3, apply: add('carryBonus', 1) },
   // #169: the owner asked for the gleaner's speed to be an upgrade. x1.4 is "far" on the ladder above,
   // and twice takes him from 3.4 to 6.7 -- past a walking villager and nearly the mounted King --
   // which is the point: late in a run the field is wide and the coin lies far from the Keep.
-  { id: 'quick-feet', pool: 'economy', icon: 'person', name: 'Quick Feet', desc: 'The gleaner walks the field far quicker, so less coin lies long enough to fade.', max: 2, apply: mul('gleanerSpeed', 1.4) },
+  { id: 'quick-feet', pool: 'economy', icon: 'hourglass', name: 'Quick Feet', desc: 'The gleaner walks the field far quicker, so less coin lies long enough to fade.', max: 2, apply: mul('gleanerSpeed', 1.4) },
 
   // ---- the King ----
   { id: 'swift', pool: 'king', icon: 'horse', name: 'Swift', desc: 'The King covers more ground in a day, on foot and mounted.', max: 3, apply: mul('kingSpeed', 1.2) },
@@ -146,7 +146,7 @@ export const UPGRADES = [
   // one would drop off the "rewards you have taken" list AND read as untaken -- so a player mid-run
   // could take a maxed card twice more and finish with five arrows against the cap of three. The id
   // is never shown to anybody; the name is the part that had to change.
-  { id: 'split-shot', pool: 'king', icon: 'arrows', name: 'Volley', desc: 'The King fires an extra arrow at another raider, at full strength.', max: 2, rare: true, apply: add('kingArrows', 1) },
+  { id: 'split-shot', pool: 'king', icon: 'star', name: 'Volley', desc: 'The King fires an extra arrow at another raider, at full strength.', max: 2, rare: true, apply: add('kingArrows', 1) },
   { id: 'field-surgeon', pool: 'king', icon: 'crown', name: 'Field Surgeon', desc: 'Everyone recovers health twice as fast.', apply: mul('regen', 2) },
 ];
 

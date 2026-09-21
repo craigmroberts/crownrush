@@ -2144,6 +2144,38 @@ because the obstacle is a circle.
 `high-ground-holds` drives it rather than asserting on the waypoint. Its sabotage flattens `floorAt`
 so the rock becomes a picture.
 
+## A design review, measured (Wave 3)
+
+A six-discipline review of the whole game, run as three waves: critique, measure, fix. The rule was
+that every claim had to point at code, config or a frame, and the second wave existed to test the
+first — which it did. Four confident claims from the critique did not survive measurement:
+
+| claimed | measured | verdict |
+| --- | --- | --- |
+| `nearestEnemy` is O(n) from nine sites and severe | 118 calls, 13.7k tests, **0.65 ms** a frame at night 30 | retracted |
+| the sim step costs 2.5 s | `update()` includes the render; steady state **11 ms**, one program built in ten frames | SwiftShader artefact |
+| the deck is exhausted by level 8 | median run sees every card by 15; **55 % of offers reheated by level 10** | sharpened |
+| six of forty raiders queue at a plateau rim | stale build; on `main` **38 on top by 20 s, 0 at the rim** | withdrawn |
+
+**What was fixed, each driven:**
+
+- **Three pairs of reward cards shared an icon** (Packhorse/Swift both a horse). 17 cards, 17 icons
+  now — the icon is the first thing read in the seconds a paused raid gives you.
+- **Non-text HUD failed contrast on the boss-night sky.** Measured brightest-tenth against
+  darkest-tenth in each element's box: text passes everywhere (6:1 to 10:1, it sits on plaques); the
+  hearts read **2.8:1**, the reach ring **2.3:1**, the home arrow **1.3:1** — hue carried it, luminance
+  did not. An outline shadow on the hearts and the indicators, and a dark ring under the white one.
+  After: arrow **3.2:1** (passes), hearts 2.9, ring 2.7 — the last two are capped by the heart's own
+  red and by the white line's blend over red ground, and are an art call rather than a CSS one.
+- **The plateau cap** had no tufts against `makeCliff`'s 38, and read as a felt-topped table.
+- **A refused cross-map save was silent** — `console.warn` then `clearRun()`. It says so now.
+- **Keyboard hints** ("Press K or Esc") shown on touch screens are hidden under `pointer: coarse`.
+- **The reach ring is a group now** (line plus edge), so the upgrade that widens it rebuilds it whole
+  rather than reaching for a geometry it no longer has — driven: Lodestone 3.7 → 5.92, no error.
+
+**And one thing the review's own harness got wrong:** a family of probes pointed at a stale scratch
+build. Every number above was retaken against `dist` before it was written down.
+
 ## Every check proves it can fail (#179)
 
 `--prove` breaks the game the way each check exists to catch and expects the check to go **red**.

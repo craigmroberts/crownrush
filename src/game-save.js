@@ -284,6 +284,10 @@ export const SaveMethods = {
       console.warn(`the saved run is on map ${s.seed || 0} and this is map ${this.seed}; starting clean`);
       this.clearRun();
       this.reset();
+      // Wave 3: SAY SO. This used to be a console line and a deleted run -- the one failure mode a
+      // save system must not have is the silent one. Reachable only with a `?seed=` that disagrees
+      // with the save, since `mapSeed()` reads the save first; rare is not a reason to be quiet.
+      this.hud.toast(`Your saved run was on map ${s.seed || 0}, not this one, so it could not be picked up. *Starting a fresh run.*`, 7000);
       return false;
     }
     this.reset();

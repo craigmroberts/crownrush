@@ -6,8 +6,7 @@ import { audio } from './audio.js';
 import { makeRigged } from './rig.js';
 import {
   makeKing, makeKingFoot, makeQueen, makeArcher, makeSwordsman, makeArrow, makeHealthBar, setHealthBar,
-  makeRallyBanner,
-} from './models.js';
+  makeRallyBanner, makeRing } from './models.js';
 import { V3, tmp, tmp2, HAIR, rand } from './game-shared.js';
 
 const HURT = new THREE.Color(CFG.hurtFlash.colour);
@@ -322,8 +321,15 @@ export const UnitsMethods = {
     // what it is saying is the same thing either way.
     const rr = CFG.king.pickupRadius * this.mods.pickup;
     if (rr !== this.ringRadius) {
-      this.ring.geometry.dispose();
-      this.ring.geometry = new THREE.RingGeometry(rr - 0.08, rr, 48);
+      // Wave 3: `makeRing` returns a group of two rings (the white line and the dark edge under it),
+      // so it is replaced whole. `visible` and position carry over; the old geometries go.
+      const old = this.ring;
+      this.ring = makeRing(rr);
+      this.ring.visible = old.visible;
+      this.ring.position.copy(old.position);
+      this.root.remove(old);
+      old.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+      this.root.add(this.ring);
       this.ringRadius = rr;
     }
   },

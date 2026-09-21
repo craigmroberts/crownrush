@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-21T17:17:00.293Z",
+  "at": "2026-09-21T19:00:58.229Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -250,32 +250,32 @@
   "checks": {
     "pads-requires-exist": {
       "pass": true,
-      "at": "2026-09-21T16:31:57.401Z"
+      "at": "2026-09-21T18:45:13.430Z"
     },
     "pads-buildat-in-bounds": {
       "pass": true,
-      "at": "2026-09-21T16:31:57.402Z"
+      "at": "2026-09-21T18:45:13.430Z"
     },
     "pads-no-overlap": {
       "pass": true,
-      "at": "2026-09-21T16:31:57.408Z"
+      "at": "2026-09-21T18:45:13.433Z"
     },
     "opening-homes-legal": {
       "pass": true,
-      "at": "2026-09-21T16:31:57.408Z"
+      "at": "2026-09-21T18:45:13.433Z"
     },
     "icons-exist": {
       "pass": true,
-      "at": "2026-09-21T16:31:57.413Z"
+      "at": "2026-09-21T18:54:21.918Z"
     },
     "upgrade-mods-exist": {
       "pass": true,
       "note": "17 of 17 upgrades declare a mod key, all 27 resolve",
-      "at": "2026-09-21T16:31:57.413Z"
+      "at": "2026-09-21T18:45:13.440Z"
     },
     "footprints-cover-kinds": {
       "pass": true,
-      "at": "2026-09-21T16:31:57.414Z"
+      "at": "2026-09-21T18:45:13.441Z"
     },
     "walls-solid": {
       "pass": true,
@@ -295,7 +295,7 @@
     "views-open": {
       "pass": true,
       "note": "24 views, each with its panel up",
-      "at": "2026-09-21T16:37:22.675Z"
+      "at": "2026-09-21T18:59:38.093Z"
     },
     "opening-resolves": {
       "pass": true,
@@ -315,12 +315,12 @@
     "tokens-resolve": {
       "pass": true,
       "note": "no cycles; 3 tokens nothing reads -- --frame-hi, --frame-lo, --danger-edge (#135)",
-      "at": "2026-09-21T16:31:57.412Z"
+      "at": "2026-09-21T18:45:13.438Z"
     },
     "icons-unique": {
       "pass": true,
       "note": "54 icons, no key declared twice",
-      "at": "2026-09-21T16:31:57.412Z"
+      "at": "2026-09-21T18:45:13.438Z"
     },
     "bands-hooked": {
       "pass": true,
@@ -335,7 +335,7 @@
     "hud-quiet": {
       "pass": true,
       "note": "3 setters replayed 10x with no DOM write; 0 -> 200 runs 0 116 175 197 200 200 in 0.34s",
-      "at": "2026-09-21T16:38:04.479Z"
+      "at": "2026-09-21T19:00:01.957Z"
     },
     "mats-at-doors": {
       "pass": true,
@@ -344,7 +344,7 @@
     },
     "deck-seats-the-crew": {
       "pass": true,
-      "at": "2026-09-21T16:31:57.413Z"
+      "at": "2026-09-21T18:45:13.439Z"
     },
     "tower-crew-placed": {
       "pass": true,
@@ -354,7 +354,7 @@
     "release-greeting": {
       "pass": true,
       "note": "quiet for a new player, shown once to one behind, quiet after",
-      "at": "2026-09-21T17:00:21.357Z"
+      "at": "2026-09-21T19:00:39.187Z"
     },
     "post-walk-unblocked": {
       "pass": true,
@@ -369,7 +369,7 @@
     "legacy-is-a-head-start": {
       "pass": true,
       "note": "24 unlocks, 17 measured against their card and none stronger, 5 with no card to compare (purse->startCoins, armour->kingHp, stables->startMounted, firstguard->startArchers, standard->startCampsBroken)",
-      "at": "2026-09-21T16:31:57.414Z"
+      "at": "2026-09-21T18:45:13.441Z"
     },
     "one-live-context": {
       "pass": true,
@@ -384,7 +384,7 @@
     "churn-verdict-tells-a-step-from-a-leak": {
       "pass": true,
       "note": "6 measured series, each read as what it is",
-      "at": "2026-09-21T16:31:57.414Z"
+      "at": "2026-09-21T18:45:13.441Z"
     },
     "mats-do-not-multiply": {
       "pass": true,
@@ -394,7 +394,7 @@
     "high-ground-holds": {
       "pass": true,
       "note": "3 plateaus: a floor on top, a wall on every side but one, and the ramp is the way up",
-      "at": "2026-09-21T17:04:35.436Z"
+      "at": "2026-09-21T19:00:57.245Z"
     }
   }
 }

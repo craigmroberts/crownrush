@@ -2061,6 +2061,30 @@ export function makePlateau(top, h, rampWidth, rampLen) {
   cap.receiveShadow = true;
   cap.castShadow = true;
   g.add(cap);
+  // Wave 3: AND THE TUFTS, which the first version left off. Framed beside the mesas, a bare cap read
+  // as a felt-topped table rather than as ground -- `makeCliff`'s meadow carries 38 blades and
+  // flowers and this carried none, on a surface the player actually walks on. Kept inside 0.8 of
+  // the rim so nothing hangs over the edge the fence sits on, and small enough to read as texture
+  // from the valley floor. Count scales with area so a wide top is not sparser than a mesa's.
+  const FLOWER = [0xffffff, 0xf7d354, 0xef7fa8];
+  const n = Math.round(38 * (top * top) / 49);
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const rr = Math.sqrt(Math.random()) * 0.8 * top;
+    const x = Math.cos(a) * rr;
+    const z = Math.sin(a) * rr;
+    if (Math.random() < 0.72) {
+      const blade = new THREE.Mesh(new THREE.ConeGeometry(0.1 + Math.random() * 0.1, 0.28 + Math.random() * 0.3, 4), matFlat(Math.random() < 0.5 ? C.grass : C.leaf));
+      blade.position.set(x, h + 0.16, z);
+      blade.rotation.y = Math.random() * Math.PI;
+      blade.castShadow = true;
+      g.add(blade);
+    } else {
+      const f = new THREE.Mesh(new THREE.SphereGeometry(0.085, 4, 3), matFlat(FLOWER[(Math.random() * FLOWER.length) | 0]));
+      f.position.set(x, h + 0.1, z);
+      g.add(f);
+    }
+  }
 
   // the ramp: a prism whose sloped face runs from the rim at `h` out to the ground at `rampLen`
   const W = rampWidth / 2;
@@ -2583,9 +2607,18 @@ export function makePopup(text, color = '#ffffff') {
 
 export function makeRing(radius) {
   const geo = new THREE.RingGeometry(radius - 0.08, radius, 48);
-  const m = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, depthWrite: false });
+  // Wave 3: the white line read 2.3:1 against the boss-night ground. A wider, darker ring underneath
+  // gives it an edge on any colour of ground without changing what the circle means (#103).
+  const m = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1, depthWrite: false });
   const mesh = new THREE.Mesh(geo, m);
   mesh.rotation.x = -Math.PI / 2;
   mesh.position.y = 0.04;
-  return mesh;
+  const under = new THREE.Mesh(new THREE.RingGeometry(radius - 0.15, radius + 0.07, 48),
+    new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.65, depthWrite: false }));
+  under.rotation.x = -Math.PI / 2;
+  under.position.y = 0.03;
+  // A group, so the caller's `position` and `visible` still address one thing (#216 toggles it).
+  const g = new THREE.Group();
+  g.add(under, mesh);
+  return g;
 }

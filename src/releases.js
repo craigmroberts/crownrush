@@ -34,6 +34,10 @@ export const RELEASES = [
       'There are three flat-topped hills out in the country now, and you can get up them \u2014 each has a ramp on the side facing home. Raiders will follow you up it, because it is the only way up for them too.',
     ],
     fixed: [
+      'Three pairs of reward cards shared one picture \u2014 Packhorse and Swift were both a horse \u2014 so two cards side by side looked like the same card. Every card has its own now.',
+      'On a boss night the hearts, the circle round the King and the arrow that points home all faded into the red. They carry a dark edge now and read on any sky.',
+      'The hills\u2019 tops were a bare green disc. They have grass and flowers on them like the mesas.',
+      'A saved run from a different map used to vanish without a word if you opened the game with that map\u2019s number in the address. It says so now.',
       'Two raider camps could be the same camp as far as the game was concerned, so breaking one of them also counted the other as broken \u2014 a camp you had never been near went quiet, and a saved run brought the pair back as one.',
       'The game could run the phone out of memory and reload itself, and the likeliest moment for it was walking down to a bridge. A spare copy of each bridge mat was being laid every time anything on the field changed \u2014 a purchase, a Keep level, picking a run back up \u2014 and they stacked up unseen out at the river until you went there and the whole pile arrived at once.',
     ],
