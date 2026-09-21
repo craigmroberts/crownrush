@@ -29,6 +29,7 @@ export default [
         setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly',
         requestAnimationFrame: 'readonly', cancelAnimationFrame: 'readonly',
         Image: 'readonly', Audio: 'readonly', AudioContext: 'readonly', webkitAudioContext: 'readonly',
+        HTMLCanvasElement: 'readonly',   // #190: the context census hooks `getContext` on the prototype
         MessageChannel: 'readonly', MutationObserver: 'readonly', ResizeObserver: 'readonly',
         URL: 'readonly', Blob: 'readonly', FileReader: 'readonly', TextDecoder: 'readonly',
         caches: 'readonly', self: 'readonly', Request: 'readonly', Response: 'readonly',

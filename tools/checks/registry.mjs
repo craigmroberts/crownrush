@@ -163,6 +163,11 @@ export const CHECKS = [
     why: '"The flag is set" and "the arrow pierces" are different claims, and the difference cost a bug: the Splitting Shaft set its flag correctly and stopped working after a few shots because arrows come off a pool carrying the last flight\'s state. A check reading `mods.pierce` would have passed throughout.',
   },
   {
+    id: 'one-live-context', area: 'Render', cost: 'cheap',
+    asserts: 'The page holds exactly one live WebGL context once play starts \u2014 the game canvas \u2014 and the title portraits were drawn on the second one before it was handed back.',
+    why: '#190. A browser allows a handful of live contexts and drops the OLDEST when the limit is hit, which is the game\'s own canvas: the world goes blank while the HUD keeps drawing. `releasePortraitRenderer` guards against it and nothing checked that it worked; the portraits are asserted alongside because a render that threw would leave one context, no pictures, and a green check.',
+  },
+  {
     id: 'rebuild-after-fall', area: 'Opening', cost: 'cheap',
     asserts: 'After the fall the plot is empty, the ledger is clear, and the first mat can be bought.',
     why: 'The fall clears a lot of state by hand; anything it misses is unreachable progress.',

@@ -922,6 +922,61 @@ export const CHEAP = {
     });
     return r.bad.length ? no(r.bad) : ok('empty plot, clear ledger, every mat on it buys');
   },
+  // #190: ONE LIVE WebGL CONTEXT -- the title portraits are drawn on a second one, and it has to be
+  // handed back before play.
+  //
+  // `rig.js` already carries the paragraph on why: a browser allows a handful of live contexts per
+  // page, `dispose()` frees three.js's objects and leaves the context alive until the collector gets
+  // to it, and when the limit is hit the browser drops the OLDEST -- which is the game's own canvas.
+  // The HUD and the minimap are DOM and 2D canvas, so they keep drawing while the world goes blank:
+  // a white screen with a working interface. `releasePortraitRenderer` calls `forceContextLoss` for
+  // exactly that, and #190 asked for it to be CONFIRMED rather than read.
+  //
+  // It cannot be confirmed from the game's own objects: `portraitRenderer` is module state nothing
+  // exports, and a renderer that has been disposed looks the same either way from outside. So the
+  // census is taken one level down, on `HTMLCanvasElement.getContext` -- every WebGL context the page
+  // ever asks for, and `isContextLost()` on each at the end. That also means it counts a context
+  // NOBODY IN THIS REPO MADE, which is the shape of the thing worth catching: the bone textures three
+  // builds by itself (#190) were invisible for the same reason.
+  //
+  // The portraits are asserted alongside, because the vacuous pass here is a real one: if the render
+  // throws, main.js catches it, warns and carries on with one context and no pictures -- green, and
+  // the title screen showing two empty frames.
+  async 'one-live-context'(page, url) {
+    await page.addInitScript(() => {
+      window.__ctxs = [];
+      const real = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (type, ...rest) {
+        const c = real.call(this, type, ...rest);
+        if (c && /webgl/i.test(type)) window.__ctxs.push({ ctx: c, canvas: this, type });
+        return c;
+      };
+    });
+    await boot(page, url);
+    // Play, then resize. The resize is the half worth having: `setSize` on a lost context throws in
+    // some browsers and silently rebuilds in others, and a second renderer standing back up would
+    // most plausibly do it here rather than at load.
+    await page.evaluate(() => { const g = window.game; for (let t = 0; t < 4; t += 0.05) g.update(0.05); });
+    await page.setViewportSize({ width: 900, height: 640 });
+    await page.evaluate(() => new Promise((r) => { let i = 0; const t = () => (++i >= 6 ? r() : requestAnimationFrame(t)); requestAnimationFrame(t); }));
+    const r = await page.evaluate(() => ({
+      ctxs: window.__ctxs.map((e) => ({
+        type: e.type, lost: e.ctx.isContextLost(), inDom: document.contains(e.canvas),
+        id: e.canvas.id || null, size: `${e.canvas.width}x${e.canvas.height}`,
+      })),
+      king: (document.getElementById('hero-king') || {}).src || '',
+      queen: (document.getElementById('hero-queen') || {}).src || '',
+    }));
+    const bad = [];
+    const live = r.ctxs.filter((c) => !c.lost);
+    const say = (c) => `${c.type} ${c.size}${c.id ? ` #${c.id}` : ''}${c.inDom ? '' : ' (off-DOM)'}`;
+    if (live.length !== 1) bad.push(`${live.length} live WebGL contexts, not 1: ${live.map(say).join(', ')}`);
+    else if (!live[0].inDom || live[0].id !== 'game') bad.push(`the one live context is not the game canvas: ${say(live[0])}`);
+    for (const c of r.ctxs.filter((c) => c.lost && c.inDom)) bad.push(`a canvas on the page has lost its context: ${say(c)}`);
+    if (!r.king.startsWith('data:image')) bad.push('the King portrait was never drawn, so nothing here was measured');
+    if (!r.queen.startsWith('data:image')) bad.push('the Queen portrait was never drawn, so nothing here was measured');
+    return bad.length ? no(bad) : ok(`${r.ctxs.length} contexts made, ${r.ctxs.length - live.length} handed back, the game canvas left live; both portraits drawn`);
+  },
 };
 
 // #179: the sabotage each check has to survive going red under. One per check, aimed at exactly the
@@ -941,7 +996,11 @@ export const CHEAP = {
 //
 // So it arms at 0, before there is an opening to interrupt. Anything added here needs the same kind
 // of sentence: a number on its own is the thing this file exists not to have.
-export const PROVE_AT = { 'opening-resolves': 0 };
+// `one-live-context` is the other: its sabotage has to be in place BEFORE the portrait renderer is
+// made, and that happens in the load promise, before the game has drawn a single frame. Frame 5 is
+// not late in this one's life, it is after the end of it. At 0 the arm fires on the first animation
+// frame after `new Game`, which is before the rigs have finished downloading.
+export const PROVE_AT = { 'opening-resolves': 0, 'one-live-context': 0 };
 
 export const PROVE = {
   // one view is held shut, which is the failure the check was written after: a board frame showing
@@ -1059,6 +1118,21 @@ export const PROVE = {
       fire(...a);
       const last = g.arrows[g.arrows.length - 1];
       if (last) last.pierced = true;
+    };
+  },
+  // #190: `forceContextLoss` is `extensions.get('WEBGL_lose_context').loseContext()` and nothing else,
+  // so hiding that one extension is not a made-up failure -- it is precisely the bug rig.js's comment
+  // warns about, dispose() called and the context still alive. The portrait renderer is then released
+  // exactly as it is today and the context stays up, which is what the check has to notice.
+  'one-live-context': () => {
+    const real = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (type, ...rest) {
+      const c = real.call(this, type, ...rest);
+      if (c && /webgl/i.test(type)) {
+        const get = c.getExtension.bind(c);
+        c.getExtension = (n) => (n === 'WEBGL_lose_context' ? null : get(n));
+      }
+      return c;
     };
   },
 };
