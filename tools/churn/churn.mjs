@@ -18,6 +18,7 @@
 //
 // Chromium is launched with --js-flags=--expose-gc so the heap reading means something.
 import { chromium } from 'playwright';
+import { verdict } from './verdict.mjs';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, dirname, resolve } from 'node:path';
@@ -131,11 +132,24 @@ const read = () => page.evaluate(async () => {
     materials: c.materials ?? null, tags: c.tags ?? null, popups: c.popups ?? null,
     heapMB: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null,
     enemies: g.enemies.length, units: g.units.length, coins: g.coins.length,
-    // #190: AND WHERE THE RUN HAS GOT TO, which is not decoration. Every block drives a second of
-    // game time per round, so a long sweep walks the run forward -- and a wave arriving brings a
-    // raider type nobody has seen, which is a geometry, a texture and a program that were always
-    // going to be made once. That reads exactly like a leak at round seven of eight. Printed beside
-    // the counters so a step can be told from a climb instead of argued about.
+    // #190: AND WHERE THE RUN HAS GOT TO, which is not decoration -- it is the column that corrected
+    // me. A sweep drives a second of game time per round, so it walks the run into states it has not
+    // been in, and the first time it reaches one there is a program to compile and a texture to
+    // upload that were always going to be paid for once.
+    //
+    // I had written that down as "a wave arrives with a raider type nobody has seen". It cannot be:
+    // the harness loads `?tour`, which holds the opening morning open for ever and means NOBODY
+    // COMES. The columns said so the moment they existed -- wave 0 for every round of every block --
+    // and named the real thing instead:
+    //
+    //     raiders  geometries  221 -> 227 -> 227 -> 227 -> 227 -> 227 -> 227 -> 232 -> 232
+    //              popups        0 ->   0 ->   0 ->   0 ->   0 ->   0 ->   0 ->   2 ->   3
+    //              run      0/5/24/2 ->  ... -> 0/5/24/2 -> 0/5/31/2 -> ...
+    //
+    // Seven enemies arrive at round five. The block spawns its knights at (20..28, -20..-27) and a
+    // camp's `wakeRadius` is 14, so it wakes one; two rounds later the first blow lands, the popup
+    // cache fills for the first time, and a texture and two programs go with it. Once, then flat.
+    // The verdict line averaged that step into "+0.7/round" and called it a climb.
     wave: g.wave, night: !!g.night, level: g.baseLevel,
   };
 });
@@ -145,6 +159,7 @@ const KEYS = ['geometries', 'textures', 'programs', 'materials', 'tags', 'popups
 const STATE = ['wave', 'level', 'enemies', 'units'];
 let anyClimb = false;
 const heapClimbs = [];
+const steps = [];
 for (const name of names) {
   if (!BLOCKS[name]) { console.log(`no such block: ${name}`); continue; }
   const rows = [];
@@ -174,10 +189,14 @@ for (const name of names) {
     // The FIRST round is allowed to climb: that is a cache filling for the first time, which every
     // one of these does and none of which is a leak. What matters is round 2 against round 3.
     const settled = series.slice(1);
-    const climb = settled[settled.length - 1] - settled[0];
-    const perRound = settled.length > 1 ? climb / (settled.length - 1) : 0;
-    const bad = perRound > 0.5 && k !== 'heapMB';
+    // #190: a leak climbs in most rounds, a step climbs in one -- see `verdict.mjs`, which is where
+    // that lives and is pinned by `churn-verdict-tells-a-step-from-a-leak`. A step is not silent
+    // either: "it happened once, here" is an answer and a blank line is not.
+    const v = verdict(settled);
+    const bad = v.kind === 'climb' && k !== 'heapMB';
+    const step = v.kind === 'step' && k !== 'heapMB';
     if (bad) anyClimb = true;
+    if (step) steps.push(`${name}/${k}`);
     // #190: THE HEAP GETS A MARK OF ITS OWN, because leaving it out of the verdict nearly buried the
     // one thing this sweep found. `heapMB` is excluded from CLIMB on purpose -- it moves a megabyte
     // either way between reads and a red on that would cry wolf every run, which this repo has paid
@@ -185,16 +204,18 @@ for (const name of names) {
     // the line printing it said nothing at all while "Every counter flat" was one block away from
     // being the verdict. So a heap climb is MARKED and not counted: a different word, no bearing on
     // the pass, and the control block below it to say whether it belongs to the block or the run.
-    const heapy = k === 'heapMB' && perRound > 1 && settled[settled.length - 1] > settled[0];
+    const heapy = k === 'heapMB' && v.perRound > 1 && v.climb > 0;
     if (heapy) heapClimbs.push(name);
-    const mark = bad ? 'CLIMB ' : heapy ? 'HEAP  ' : '      ';
-    const tail = bad || heapy ? `   +${perRound.toFixed(1)}/round after the first` : '';
+    const mark = bad ? 'CLIMB ' : step ? 'STEP  ' : heapy ? 'HEAP  ' : '      ';
+    const tail = bad || heapy ? `   +${v.perRound.toFixed(1)}/round after the first`
+      : step ? `   +${v.climb} in one round of ${v.rounds}, flat either side` : '';
     console.log(`  ${mark}${k.padEnd(11)} ${series.join(' -> ')}${tail}`);
   }
   console.log(`  ${'run'.padEnd(11)} ${rows.map((x) => STATE.map((k) => x[k]).join('/')).join(' -> ')}   (${STATE.join('/')})`);
   console.log('');
 }
 console.log(anyClimb ? 'Something climbs per block -- see CLIMB above.' : 'Every counter flat after the first round.');
+if (steps.length) console.log(`Paid once, not per round: ${steps.join(', ')} -- see STEP above, and the run columns for what the game had just reached.`);
 if (heapClimbs.length) console.log(`The JS heap climbs in: ${heapClimbs.join(', ')} -- read each against \`nothing\`, which is the same measurement with no block in it.`);
 await browser.close();
 srv.close();

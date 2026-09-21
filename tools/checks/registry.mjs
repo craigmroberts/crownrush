@@ -86,6 +86,11 @@ export const CHECKS = [
     why: 'Twenty-four unlocks chosen three at a time is longevity; twenty-four that beat the cards they shadow is a run that starts past its own upgrade path. Both sides write to `mods`, so the rule is arithmetic rather than opinion.',
   },
   {
+    id: 'churn-verdict-tells-a-step-from-a-leak', area: 'Tooling', cost: 'free',
+    asserts: 'The churn harness calls a counter that climbs in most rounds a leak, and one that climbs once a step \u2014 held to six series it has actually printed.',
+    why: '#190. It reported "+0.7/round, CLIMB" about a camp waking and the first damage number being drawn, which is paid once. An instrument that cries wolf is worse than one that says nothing: the next real finding arrives beside it and gets the same shrug.',
+  },
+  {
     id: 'footprints-cover-kinds', area: 'Build', cost: 'free',
     asserts: 'Every structure kind a pad can build has a footprint.',
     why: '`placeOk` falls back to 3x3 for anything missing, which silently mis-sizes collisions.',

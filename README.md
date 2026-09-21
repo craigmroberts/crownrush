@@ -1967,9 +1967,36 @@ construction**. The materials stay per instance because their opacity is animate
 touch a map, so that stays safe.
 
 **Everything else in the churn is flat**: `rebuild`, `restore`, `popups` and `pads` do not move at
-all across three rounds. What is left is small and not yet explained — `rain` and `raiders` at about
-one geometry a round, and the `crowd` residual — small enough that it may be threshold noise rather
-than a leak, and not worth calling a finding until it is measured over more rounds.
+all across three rounds.
+
+### The residuals were measured over more rounds, and there were none
+
+Eight rounds a block instead of three. `rain` holds at **226** geometries, `rebuild` at **228**, and
+`restore` *gives geometry back* and settles at **221** — so the "about one a round" the last pass
+would not call either way was the first round of a cache filling, seen through too few rounds to tell.
+
+`raiders` was the interesting one, and it is where the harness was caught being confidently wrong:
+
+```
+raiders  geometries  221 -> 227 -> 227 -> 227 -> 227 -> 227 -> 227 -> 232 -> 232   +0.7/round
+         popups        0 ->   0 ->   0 ->   0 ->   0 ->   0 ->   0 ->   2 ->   3
+         run      0/5/24/2 -> ... -> 0/5/24/2 -> 0/5/31/2 -> ...   (wave/level/enemies/units)
+```
+
+Six rounds flat, then a step. **Seven enemies arrive at round five** — the block spawns its knights at
+(20…28, −20…−27) and a camp's `wakeRadius` is 14, so it wakes one — and two rounds later the first
+blow lands, the popup cache fills for the first time, and a canvas texture and two programs go with
+it. Paid once. The wave never moves, because the harness loads `?tour` and **nobody comes**.
+
+Two things came out of that. Each block now prints `wave/level/enemies/units` beside its counters,
+because the columns are what named it — I had written the step down as "a wave arriving with a raider
+type nobody has seen", which `?tour` makes impossible, and no amount of staring at the geometry row
+would have said so. And the verdict is no longer an average: **a leak climbs in most rounds, a step
+climbs in one**, which lives in `tools/churn/verdict.mjs` and is pinned by
+`churn-verdict-tells-a-step-from-a-leak` against six series the harness has actually printed. An
+instrument that cries wolf is worse than one that says nothing, because the next real finding arrives
+beside it and gets the same shrug — which is #179's lesson arriving through the tooling instead of the
+checks.
 
 ## Every check proves it can fail (#179)
 

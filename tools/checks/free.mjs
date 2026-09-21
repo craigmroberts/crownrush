@@ -2,6 +2,7 @@
 import { CFG, PADS, TIERS } from '../../src/config.js';
 import { MODS, UPGRADES } from '../../src/upgrades.js';
 import { ICONS } from '../../src/icons.js';
+import { verdict } from '../churn/verdict.mjs';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -206,6 +207,36 @@ export const FREE = {
   // An unlock with no equivalent card is not a failure and is not silently allowed either: it is
   // counted and named in the note, because "this one has nothing to measure it against" is a fact
   // somebody adding the twenty-fifth should have to read.
+  // #190: the churn harness's own verdict, held to the three shapes it has actually produced.
+  //
+  // It is here rather than left to a browser run because it is arithmetic, and because the harness
+  // was confidently wrong with it: `raiders` sat at 227 for six rounds, stepped to 232 when a camp
+  // woke and the first damage number was drawn, and the average reported "+0.7/round -- CLIMB". An
+  // instrument that cries wolf is worse than one that says nothing, because the next real finding
+  // arrives beside it and gets the same shrug (#179 is the ticket that bought that lesson).
+  //
+  // The series below are measured, not invented -- each one is a row this harness printed.
+  'churn-verdict-tells-a-step-from-a-leak'() {
+    const CASES = [
+      // block/counter                      the settled rounds (the first is dropped by the caller)
+      ['raiders/geometries, a camp waking', [227, 227, 227, 227, 227, 227, 232, 232], 'step'],
+      ['rain/geometries, nothing at all', [226, 226, 226, 226, 226, 226, 226, 226], 'flat'],
+      ['restore/geometries, handing it back', [223, 222, 222, 222, 222, 221, 221, 221], 'flat'],
+      // the leak this harness was built to find: nine geometries a spawn flourish
+      ['crowd/geometries, the spawn fx leak', [252, 795, 1338, 1881], 'climb'],
+      // and the one it nearly buried: three megabytes a round, every round
+      ['pads/heapMB', [82, 85, 88, 91, 94, 98, 101, 104], 'climb'],
+      // a slow leak is still a leak: half the intervals move and it must not read as a step
+      ['a leak that only moves every other round', [100, 101, 101, 102, 102, 103, 103, 104], 'climb'],
+    ];
+    const bad = [];
+    for (const [what, series, want] of CASES) {
+      const got = verdict(series).kind;
+      if (got !== want) bad.push(`${what}: read as "${got}", should be "${want}" -- ${series.join(' -> ')}`);
+    }
+    return bad.length ? no(bad) : { pass: true, note: `${CASES.length} measured series, each read as what it is` };
+  },
+
   'legacy-is-a-head-start'() {
     const card = {};
     for (const u of UPGRADES) {

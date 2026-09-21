@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-21T12:24:04.615Z",
+  "at": "2026-09-21T12:39:07.448Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -70,6 +70,13 @@
       "cost": "free",
       "asserts": "Every legacy unlock changes something, and no unlock is worth more than ONE buy of the upgrade card writing the same mod — plus the ladder rises in order and starts inside one finished short run.",
       "why": "Twenty-four unlocks chosen three at a time is longevity; twenty-four that beat the cards they shadow is a run that starts past its own upgrade path. Both sides write to `mods`, so the rule is arithmetic rather than opinion."
+    },
+    {
+      "id": "churn-verdict-tells-a-step-from-a-leak",
+      "area": "Tooling",
+      "cost": "free",
+      "asserts": "The churn harness calls a counter that climbs in most rounds a leak, and one that climbs once a step — held to six series it has actually printed.",
+      "why": "#190. It reported \"+0.7/round, CLIMB\" about a camp waking and the first damage number being drawn, which is paid once. An instrument that cries wolf is worse than one that says nothing: the next real finding arrives beside it and gets the same shrug."
     },
     {
       "id": "footprints-cover-kinds",
@@ -229,32 +236,32 @@
   "checks": {
     "pads-requires-exist": {
       "pass": true,
-      "at": "2026-09-21T11:32:25.912Z"
+      "at": "2026-09-21T12:38:55.239Z"
     },
     "pads-buildat-in-bounds": {
       "pass": true,
-      "at": "2026-09-21T11:32:25.912Z"
+      "at": "2026-09-21T12:38:55.239Z"
     },
     "pads-no-overlap": {
       "pass": true,
-      "at": "2026-09-21T11:32:25.914Z"
+      "at": "2026-09-21T12:38:55.256Z"
     },
     "opening-homes-legal": {
       "pass": true,
-      "at": "2026-09-21T11:32:25.915Z"
+      "at": "2026-09-21T12:38:55.257Z"
     },
     "icons-exist": {
       "pass": true,
-      "at": "2026-09-21T11:32:25.919Z"
+      "at": "2026-09-21T12:38:55.261Z"
     },
     "upgrade-mods-exist": {
       "pass": true,
       "note": "17 of 17 upgrades declare a mod key, all 27 resolve",
-      "at": "2026-09-21T11:32:25.919Z"
+      "at": "2026-09-21T12:38:55.261Z"
     },
     "footprints-cover-kinds": {
       "pass": true,
-      "at": "2026-09-21T11:32:25.920Z"
+      "at": "2026-09-21T12:38:55.263Z"
     },
     "walls-solid": {
       "pass": true,
@@ -294,12 +301,12 @@
     "tokens-resolve": {
       "pass": true,
       "note": "no cycles; 3 tokens nothing reads -- --frame-hi, --frame-lo, --danger-edge (#135)",
-      "at": "2026-09-21T11:32:25.918Z"
+      "at": "2026-09-21T12:38:55.260Z"
     },
     "icons-unique": {
       "pass": true,
       "note": "54 icons, no key declared twice",
-      "at": "2026-09-21T11:32:25.919Z"
+      "at": "2026-09-21T12:38:55.261Z"
     },
     "bands-hooked": {
       "pass": true,
@@ -323,7 +330,7 @@
     },
     "deck-seats-the-crew": {
       "pass": true,
-      "at": "2026-09-21T11:32:25.919Z"
+      "at": "2026-09-21T12:38:55.261Z"
     },
     "tower-crew-placed": {
       "pass": true,
@@ -348,7 +355,7 @@
     "legacy-is-a-head-start": {
       "pass": true,
       "note": "24 unlocks, 17 measured against their card and none stronger, 5 with no card to compare (purse->startCoins, armour->kingHp, stables->startMounted, firstguard->startArchers, standard->startCampsBroken)",
-      "at": "2026-09-21T11:32:25.920Z"
+      "at": "2026-09-21T12:38:55.262Z"
     },
     "one-live-context": {
       "pass": true,
@@ -359,6 +366,11 @@
       "pass": true,
       "note": "closed normally (after losing the context at 0m34s and carrying on) · 198 geometries carried over",
       "at": "2026-09-21T12:24:03.942Z"
+    },
+    "churn-verdict-tells-a-step-from-a-leak": {
+      "pass": true,
+      "note": "6 measured series, each read as what it is",
+      "at": "2026-09-21T12:39:07.447Z"
     }
   }
 }
