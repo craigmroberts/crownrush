@@ -770,6 +770,110 @@ export const CHEAP = {
     return r.length ? no(r) : ok('400 frames, including on the Keep doorstep');
   },
 
+  // #221: A RELIC HAS TO CHANGE A RULE, and "the flag is set" is not that claim.
+  //
+  // The ticket said so outright -- "each one verified in the game rather than asserted, since 'the
+  // flag is set' and 'the arrow pierces' are different claims" -- and it was right in a way that
+  // cost a bug: the Splitting Shaft set its flag correctly and still stopped working after a few
+  // shots, because arrows come off a pool and carried the last flight's `pierced` back with them.
+  // A check that read `g.mods.pierce` would have passed the whole time.
+  //
+  // So every assertion here is a BEHAVIOUR measured twice, once with the relic and once without,
+  // and the pierce is fired twice over so a pooled arrow has to do it again.
+  async 'relics-bite'(page, url) {
+    await boot(page, url);
+    const r = await page.evaluate(() => {
+      const g = window.game;
+      const bad = [];
+      g.hud.toast = () => {};
+
+      // 1. a cache is invisible until the fog reaches it, and digging it pays a relic
+      if (!g.caches || !g.caches.length) return { bad: ['no caches on the map'] };
+      if (g.caches.some((c) => c.mesh.visible)) bad.push('a cache was visible before it was found');
+      const c0 = g.caches[0];
+      g.king.mesh.position.set(c0.x, 0, c0.z + 30);
+      g.fogTimer = 0; g.lastFogPos.set(999, 0, 999); g.updateFog(0.3);
+      if (c0.found) bad.push('a cache was found from 30 units away, further than the fog lifts');
+      g.king.mesh.position.set(c0.x, 0, c0.z + 12);
+      g.fogTimer = 0; g.lastFogPos.set(999, 0, 999); g.updateFog(0.3);
+      if (!c0.found) bad.push('the fog came off a cache and it was not found');
+
+      g.king.mesh.position.set(c0.x, 0, c0.z);
+      let held = 0;
+      for (let i = 0; i < 200 && !c0.dug; i++) { if (g.updateDigging(0.05)) held += 0.05; }
+      if (!c0.dug) bad.push('standing on a cache never dug it out');
+      if (held < window.CFG.relics.digTime - 0.2) bad.push(`the dig took ${held.toFixed(1)}s, less than the ${window.CFG.relics.digTime}s it costs`);
+      if (!g.relics.length) bad.push('digging a cache paid no relic');
+
+      // 2. walking away from a half-dug hole banks nothing
+      const c1 = g.caches[1];
+      if (c1) {
+        c1.found = true; c1.dug = false; c1.dig = 0;
+        g.king.mesh.position.set(c1.x, 0, c1.z);
+        for (let i = 0; i < 10; i++) g.updateDigging(0.05);
+        const part = c1.dig;
+        g.king.mesh.position.set(c1.x + 40, 0, c1.z);
+        g.updateDigging(0.05);
+        if (!(part > 0)) bad.push('digging made no progress at all');
+        else if (c1.dig > 0) bad.push('walking away from a half-dug hole kept the progress');
+      }
+
+      // 3. the Quartermaster's Ledger -- count the cards the panel actually builds
+      const cards = () => { g.offerQueue = 1; g.offerLevel = g.baseLevel; g.showOffer(); return document.querySelectorAll('#offer-cards > *').length; };
+      g.mods.offerCards = 0; const three = cards();
+      g.mods.offerCards = 1; const four = cards();
+      g.hud.hideOffer();
+      if (three !== 3 || four !== 4) bad.push(`the Ledger gave ${three} cards without it and ${four} with it`);
+      // and a fourth card has to FIT: the panel opens mid-raid, and one the player must scroll to
+      // find is one most players never see
+      const panel = document.querySelector('#offer-screen .panel');
+      if (panel && four === 4 && panel.getBoundingClientRect().height > window.innerHeight) {
+        bad.push(`four cards make the panel ${Math.round(panel.getBoundingClientRect().height)} tall against a ${window.innerHeight} viewport`);
+      }
+      g.mods.offerCards = 0;
+
+      // 4. the Bottomless Sack
+      g.mods.noCap = false; const capOff = g.loadCap();
+      g.mods.noCap = true; const capOn = g.loadCap();
+      g.mods.noCap = false;
+      if (!(capOn > capOff * 10)) bad.push(`the Sack moved the carry cap ${capOff} -> ${capOn}`);
+
+      // 5. the Broken Standard -- a cleared camp comes back without it and stays broken with it
+      if (g.camps && g.camps.length) {
+        const cp = g.camps[0];
+        const clear = () => { cp.cleared = true; cp.clearedOn = 1; g.wave = 99; for (const e of g.enemies.filter((e) => e.campId === cp.id)) g.removeEnemy(e); };
+        g.mods.campsStay = false; clear(); g.reoccupyCamps();
+        if (cp.cleared) bad.push('a cleared camp never came back, with no relic taken');
+        g.mods.campsStay = true; clear(); g.reoccupyCamps();
+        if (!cp.cleared) bad.push('the Broken Standard did not stop a camp being reoccupied');
+        g.mods.campsStay = false;
+      }
+
+      // 6. the Splitting Shaft, fired down a column of three -- twice, so a POOLED arrow has to
+      //    pierce again. Health is pinned high so nobody dies and shortens the column.
+      const column = (pierce) => {
+        for (const e of [...g.enemies]) g.removeEnemy(e);
+        g.mods.pierce = pierce;
+        const col = [];
+        for (let i = 0; i < 3; i++) { const e = g.spawnEnemy('knight', 60, 60 + i * 2, 0); e.camp = false; e.hp = e.maxHp = 500; col.push(e); }
+        g.fireArrow({ x: 60, y: 1, z: 54 }, col[0], 40);
+        for (let i = 0; i < 40 && g.arrows.length; i++) g.updateArrows(0.02);
+        return col.map((e) => Math.round(e.maxHp - e.hp));
+      };
+      const off = column(false);
+      const on1 = column(true);
+      const on2 = column(true);
+      g.mods.pierce = false;
+      if (off[1] !== 0) bad.push(`without the relic one arrow hit two raiders: ${off.join('/')}`);
+      if (on1[0] !== 40 || on1[1] !== 40) bad.push(`the Shaft did not carry through: ${on1.join('/')}`);
+      if (on2[0] !== 40 || on2[1] !== 40) bad.push(`the Shaft stopped working on a reused arrow: ${on2.join('/')}`);
+      if (on1[2] !== 0) bad.push(`the Shaft chained past two raiders: ${on1.join('/')}`);
+
+      return { bad, note: `dug in ${held.toFixed(1)}s for ${g.relics[0]}; cards ${three}->${four}; cap ${capOff}->${capOn}; column ${off.join('/')} -> ${on1.join('/')}` };
+    });
+    return r.bad.length ? no(r.bad) : ok(r.note);
+  },
+
   async 'rebuild-after-fall'(page, url) {
     await page.goto(url, { waitUntil: 'load', timeout: 150000 });
     await page.waitForFunction(() => { const b = document.getElementById('start-btn'); return b && !b.disabled; }, null, { timeout: 150000 });
@@ -938,4 +1042,17 @@ export const PROVE = {
     requestAnimationFrame(pin);
   },
   'rebuild-after-fall': () => { window.game.buildStructure = () => {}; },
+  // #221: the exact bug this check was written after finding. Arrows come off a pool, and an arrow
+  // that has already pierced carries its flag back onto the shelf -- so the relic works for the
+  // first few shots of a run and then silently stops. Nothing breaks; the player just thinks they
+  // misremembered. Marking every arrow as spent-already reproduces it whole.
+  'relics-bite': () => {
+    const g = window.game;
+    const fire = g.fireArrow.bind(g);
+    g.fireArrow = (...a) => {
+      fire(...a);
+      const last = g.arrows[g.arrows.length - 1];
+      if (last) last.pierced = true;
+    };
+  },
 };

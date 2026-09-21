@@ -153,6 +153,11 @@ export const CHECKS = [
     why: 'Reported from a phone as "an archer just walking into the wall he seems stuck" (#208). He is picked for being nearest the King, so a post across a wall is ordinary; the walk was a straight line with no way round and no recovery, and he played his walk animation into the stone for the rest of the run.',
   },
   {
+    id: 'relics-bite', area: 'World', cost: 'cheap',
+    asserts: 'A cache stays hidden until the fog reaches it, costs a full dig to open, and every relic it pays out changes the rule it claims to \u2014 measured as behaviour, twice over for the pierce so a pooled arrow has to do it again.',
+    why: '"The flag is set" and "the arrow pierces" are different claims, and the difference cost a bug: the Splitting Shaft set its flag correctly and stopped working after a few shots because arrows come off a pool carrying the last flight\'s state. A check reading `mods.pierce` would have passed throughout.',
+  },
+  {
     id: 'rebuild-after-fall', area: 'Opening', cost: 'cheap',
     asserts: 'After the fall the plot is empty, the ledger is clear, and the first mat can be bought.',
     why: 'The fall clears a lot of state by hand; anything it misses is unreachable progress.',

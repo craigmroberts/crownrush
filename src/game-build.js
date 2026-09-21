@@ -1355,6 +1355,11 @@ export const BuildMethods = {
   },
 
   loadCap() {
+    // #221: the Bottomless Sack. A big finite number rather than Infinity, because `loadCap` is
+    // divided into and printed: the HUD draws `carried / cap` and a bar of `carried / cap`, and
+    // Infinity makes that bar NaN wide and the label read "8/Infinity". 9999 is past anything a run
+    // can mine and behaves like every other number on the way there.
+    if (this.mods.noCap) return 9999;
     return CFG.carry.base + CFG.carry.perUpgrade * (this.mods.carryBonus || 0);
   },
 
@@ -2450,7 +2455,7 @@ export const BuildMethods = {
 
   // Present one upgrade choice. Pauses the game; `takeUpgrade` resumes it or shows the next in the queue.
   showOffer() {
-    const list = this.over || this.won || this.offerQueue <= 0 ? [] : pickOffer(this.taken);
+    const list = this.over || this.won || this.offerQueue <= 0 ? [] : pickOffer(this.taken, 3 + (this.mods.offerCards || 0));   // #221
     // #25: nothing left to offer, which is where a long game ends up once every upgrade is maxed.
     // This used to return with the game still paused and no panel on screen: a permanent freeze.
     if (!list.length) {

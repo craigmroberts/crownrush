@@ -2152,6 +2152,120 @@ times — which is what proved the test rather than the code was wrong. Pinning 
 and the army before spawning made both arms agree. **A measurement that moves when the thing it
 measures is switched off is measuring something else.**
 
+## Treasure in the fog, and relics that change a rule (#221)
+
+> "maybe things like finding treasure in the rest of the world"
+
+**There was nothing to find.** The day was mine, carry, sell, build — four verbs, all known in
+advance — and the map outside the walls was a resource dispenser at memorised coordinates. Meanwhile
+the fog was hiding ground the player had already learned by heart, which is a promise the game was
+not keeping.
+
+Five caches are buried out past the walls now. A cache is invisible until the King walks close
+enough for the fog to lift off it; he stands on it and holds, the same stand-and-hold the mining
+already uses, and what comes out is a **relic**.
+
+### The reward is not coin, and that is the whole point
+
+Coin is what the game already gives you, in amounts it has been balanced to give you, so a chest of
+it is a slightly faster Tuesday. A rule change is what makes two runs with the same build order feel
+different. Every relic has to pass three tests, and the second is the one that takes discipline:
+
+1. **It must not be required.** Miss every cache and the run is exactly the run that ships.
+2. **It must not be a number.** The moment one reads "+30% damage" it is an upgrade card found in a
+   field. If it can be written as a multiplier it belongs in `upgrades.js`.
+3. **Digging must cost daylight** — 3.6 seconds of standing still against a 45-second day, on top of
+   the walk out.
+
+| relic | the rule it changes | where it lands |
+| --- | --- | --- |
+| **The Quartermaster's Ledger** | Every Keep level offers **four** rewards instead of three | `pickOffer` already took a count and was never asked |
+| **The Bottomless Sack** | The bag never fills | `loadCap` |
+| **The Splitting Shaft** | Every arrow carries on through the raider **behind** the one it hits | `updateArrows` |
+| **The Broken Standard** | A camp you break stays broken (#218) | `reoccupyCamps` |
+
+The Shaft is the clearest illustration of the rule against numbers. Volley (an upgrade card) adds an
+arrow; this changes what **one** arrow does when it lands. That is why one is a card and the other
+is in a hole in the ground.
+
+Once all four are found a cache still pays, in coin — a hole with nothing in it after a day's walk
+is a punishment for exploring.
+
+### "The flag is set" and "the arrow pierces" are different claims
+
+The ticket said so, and it was right in a way that cost a bug.
+
+**The Splitting Shaft set its flag correctly and still stopped working after a few shots.** Arrows
+come off `arrowPool`, and an arrow that had pierced carried its `pierced` flag back onto the shelf —
+so the relic worked for the opening of a run and then silently stopped. Nothing breaks; the player
+just thinks they misremembered. A check reading `g.mods.pierce` would have passed the whole time.
+
+So `relics-bite` measures **behaviour, twice over**. Driven down a column of three raiders, damage
+from one arrow:
+
+| | raider 1 | raider 2 | raider 3 |
+| --- | --- | --- | --- |
+| relic off | 40 | 0 | 0 |
+| relic on | 40 | **40** | 0 |
+| relic on, reusing a pooled arrow | 40 | **40** | 0 |
+
+The third column is the assertion that matters as much as the second: it carries **through**, once,
+rather than chaining down a column for ever. `pierceRange` is 5 — a little over two raiders' spacing
+in a walking column — so a lone raider with nobody behind him stops the arrow.
+
+The check's sabotage is the bug itself: every arrow is marked as having already pierced.
+
+### A fourth card does not fit on a phone
+
+Measured in the 390 × 844 frame, not reasoned about. Three cards make the panel **847** tall, which
+is already the whole screen. Four make it **995**.
+
+`.overlay` scrolls, so nothing was clipped — and that is *worse* than clipping. A reward the player
+has to scroll to find, on a panel that opens mid-raid and pauses the game, is a reward most players
+will never know was offered, and nothing looks wrong.
+
+**The first fix was wrong, and the breakdown said so.** Capping the "You gained" recap saved
+nothing: it renders 159px and the cap was 160. The height is in the cards — 138px each — and the
+part of a card that can go is `.ochange`, the pill spelling the effect out in figures ("Towers shoot
+from 14 → 18.2"). #107 settled that a card says what the player will *see* rather than what the
+multiplier is, and the description above already does that in words; #177 added the figures as a
+second opinion. With four cards competing for one screen, the words win and the arithmetic goes.
+Three cards keep it.
+
+**995 → 764 against a viewport of 844.**
+
+### Two more things looking at it caught
+
+**A tree was growing out of the first cache.** Caches are seeded before the scatter, but `free` did
+not know they existed — and trunks are solid since #215, so a tree on a cache is a chest you cannot
+stand on to dig, and a canopy over a small prop in tall grass is a chest you cannot see. `inCamp`
+covers a cache's patch of ground now, the way it covers a camp's clearing.
+
+**The chest was sized against itself rather than against the grass.** #191 put 13,000 tufts round
+the King, about 0.7 tall, so a 0.86 chest half sunk in a mound showed a lid and a gold band above
+the blades and read as litter. 1.24 across and a taller lid puts the whole thing above the grass
+line at the distance the fog gives it up at.
+
+### Where they go, and what they dodge
+
+Caches are seeded with the rest of the hinterland (#219) between 42 and 84 units out — just past the
+outer wall, reaching past the main camp. Unlike the camps there is **no sector rule**: a camp wants
+to be one per direction, a cache wants to be somewhere you were not going, so the only spacing is
+`apart`. They keep 4 units off a road rather than the seams' 2.5, because a chest beside a track is
+a chest you would have tripped over on the way to work, and the whole reason this exists is to give
+the player a reason to walk somewhere they did not plan to.
+
+A cache is kept **out of** a camp's stockade, which is not what the owner first asked for — *"small
+enemy camps that may be protecting it"* is the better game. A chest under a tent is a chest nobody
+can see to dig, and the fight and the dig would run into each other. Beside a camp is what this
+gives, and the camp is still the thing in the way.
+
+**A found cache is findable again**: an indicator arrow while it is off screen and a gold dot on the
+minimap, both only once it has been found, so a player who spots one at dusk and runs for the walls
+has not lost it. Positions are the map's; found-and-dug is the run's, saved by id. The relics
+themselves are saved as a **list of ids and replayed through each `apply`**, because a relic's effect
+is a one-way function — `campsStay = true` cannot be read back as "the Broken Standard was found".
+
 ## The raid comes from camps standing on the map (#218)
 
 > "i feel like its very singular decisions at the moment and you have to follow the story in a way

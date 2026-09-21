@@ -1796,6 +1796,45 @@ export function makeHayBale() {
   return bake(g);
 }
 
+// #221: a buried cache -- a chest, half out of the ground it was hidden in.
+//
+// HALF BURIED on purpose, and it is the one decision here worth writing down. A chest standing
+// proud on the grass reads as dropped, and the player looks for who dropped it; sunk to its waist in
+// a mound of turned earth it reads as something that was PUT there, which is the story the relic
+// inside it is telling. The lid stays shut until it is dug, so what is found is found after the
+// work rather than visible across the field.
+//
+// Baked like every other prop, so a handful of these cost the map one merged mesh per material
+// rather than five draw calls (`mergeGroup`).
+export function makeCache() {
+  const g = new THREE.Group();
+  // the mound: a low wide cone of turned earth, darker than the ground it is in
+  const mound = new THREE.Mesh(new THREE.ConeGeometry(1.5, 0.5, 9), mat(0x6d5233));
+  mound.position.y = 0.24;
+  mound.castShadow = true;
+  mound.receiveShadow = true;
+  // the chest, sunk to its waist and turned off-axis so it does not read as placed by a grid
+  // SIZED AGAINST THE GRASS, not against the chest it looks like on its own. #191 put 13,000 tufts
+  // round the King and they stand about 0.7 tall, so a 0.86 chest half sunk in a mound is a lid and
+  // a gold band showing above the blades -- which is what the first render looked like, and it read
+  // as litter. 1.24 across and a taller lid puts the whole thing above the grass line at the
+  // distance the fog gives it up at.
+  const body = box(1.24, 0.62, 0.86, C.leather, 0, 0.44, 0);
+  const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.43, 0.43, 1.24, 10, 1, false, 0, Math.PI), mat(0x6b432a));
+  lid.rotation.z = Math.PI / 2;
+  lid.position.y = 0.75;
+  lid.castShadow = true;
+  // one band and a clasp, in the gold the game already uses for coin, so it reads as treasure at
+  // the distance the fog gives it up at rather than as a crate
+  const band = box(1.3, 0.13, 0.9, 0xf5b800, 0, 0.6, 0);
+  const clasp = box(0.2, 0.24, 0.96, 0xf5b800, 0, 0.76, 0);
+  const chest = new THREE.Group();
+  chest.add(body, lid, band, clasp);
+  chest.rotation.y = 0.4;
+  g.add(mound, chest);
+  return bake(g);
+}
+
 export function makeWheatField(w, d) {
   const g = new THREE.Group();
   const soil = box(w, 0.1, d, 0xb8922e, 0, 0.05, 0);

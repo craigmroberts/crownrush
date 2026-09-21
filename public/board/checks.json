@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-20T22:05:11.663Z",
+  "at": "2026-09-21T01:22:10.621Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -163,6 +163,13 @@
       "why": "Reported from a phone as \"an archer just walking into the wall he seems stuck\" (#208). He is picked for being nearest the King, so a post across a wall is ordinary; the walk was a straight line with no way round and no recovery, and he played his walk animation into the stone for the rest of the run."
     },
     {
+      "id": "relics-bite",
+      "area": "World",
+      "cost": "cheap",
+      "asserts": "A cache stays hidden until the fog reaches it, costs a full dig to open, and every relic it pays out changes the rule it claims to — measured as behaviour, twice over for the pierce so a pooled arrow has to do it again.",
+      "why": "\"The flag is set\" and \"the arrow pierces\" are different claims, and the difference cost a bug: the Splitting Shaft set its flag correctly and stopped working after a few shots because arrows come off a pool carrying the last flight's state. A check reading `mods.pierce` would have passed throughout."
+    },
+    {
       "id": "rebuild-after-fall",
       "area": "Opening",
       "cost": "cheap",
@@ -201,116 +208,121 @@
   "checks": {
     "pads-requires-exist": {
       "pass": true,
-      "at": "2026-09-20T21:25:46.154Z"
+      "at": "2026-09-21T00:42:41.682Z"
     },
     "pads-buildat-in-bounds": {
       "pass": true,
-      "at": "2026-09-20T21:25:46.154Z"
+      "at": "2026-09-21T00:42:41.682Z"
     },
     "pads-no-overlap": {
       "pass": true,
-      "at": "2026-09-20T21:25:46.157Z"
+      "at": "2026-09-21T00:42:41.689Z"
     },
     "opening-homes-legal": {
       "pass": true,
-      "at": "2026-09-20T21:25:46.157Z"
+      "at": "2026-09-21T00:42:41.689Z"
     },
     "icons-exist": {
       "pass": true,
-      "at": "2026-09-20T21:25:46.161Z"
+      "at": "2026-09-21T00:42:41.694Z"
     },
     "upgrade-mods-exist": {
       "pass": true,
-      "note": "17 of 17 upgrades declare a mod key, all 17 resolve",
-      "at": "2026-09-20T21:25:46.162Z"
+      "note": "17 of 17 upgrades declare a mod key, all 21 resolve",
+      "at": "2026-09-21T00:42:41.694Z"
     },
     "footprints-cover-kinds": {
       "pass": true,
-      "at": "2026-09-20T21:25:46.162Z"
+      "at": "2026-09-21T00:42:41.694Z"
     },
     "walls-solid": {
       "pass": true,
       "note": "24 directions, held every time",
-      "at": "2026-09-20T21:32:19.193Z"
+      "at": "2026-09-21T00:49:28.405Z"
     },
     "gates-passable": {
       "pass": true,
       "note": "4 gates",
-      "at": "2026-09-20T21:32:37.054Z"
+      "at": "2026-09-21T00:49:49.549Z"
     },
     "wall-ring-unbroken": {
       "pass": true,
       "note": "360 samples",
-      "at": "2026-09-20T21:32:58.062Z"
+      "at": "2026-09-21T00:50:07.411Z"
     },
     "views-open": {
       "pass": true,
       "note": "21 views, each with its panel up",
-      "at": "2026-09-20T21:30:02.878Z"
+      "at": "2026-09-21T00:47:08.817Z"
     },
     "opening-resolves": {
       "pass": true,
-      "note": "taken after 790 frames of running",
-      "at": "2026-09-20T21:44:58.214Z"
+      "note": "taken after 794 frames of running",
+      "at": "2026-09-21T01:01:55.825Z"
     },
     "queen-visible": {
       "pass": true,
       "note": "400 frames, including on the Keep doorstep",
-      "at": "2026-09-20T21:51:23.105Z"
+      "at": "2026-09-21T01:08:15.963Z"
     },
     "rebuild-after-fall": {
       "pass": true,
       "note": "empty plot, clear ledger, every mat on it buys",
-      "at": "2026-09-20T22:05:08.794Z"
+      "at": "2026-09-21T01:22:08.760Z"
     },
     "tokens-resolve": {
       "pass": true,
       "note": "no cycles; 3 tokens nothing reads -- --frame-hi, --frame-lo, --danger-edge (#135)",
-      "at": "2026-09-20T21:25:46.161Z"
+      "at": "2026-09-21T00:42:41.693Z"
     },
     "icons-unique": {
       "pass": true,
       "note": "54 icons, no key declared twice",
-      "at": "2026-09-20T21:25:46.161Z"
+      "at": "2026-09-21T00:42:41.693Z"
     },
     "bands-hooked": {
       "pass": true,
       "note": "ground, tufts and canopies banded; every lit world surface over 200 triangles with them",
-      "at": "2026-09-20T21:30:19.719Z"
+      "at": "2026-09-21T00:47:27.125Z"
     },
     "post-once": {
       "pass": true,
-      "note": "one tone map (3.35 from ACES, 28.53 from none), 4x MSAA kept, toggle costs no programs",
-      "at": "2026-09-20T21:32:01.817Z"
+      "note": "one tone map (3.87 from ACES, 28.62 from none), 4x MSAA kept, toggle costs no programs",
+      "at": "2026-09-21T00:49:10.601Z"
     },
     "hud-quiet": {
       "pass": true,
       "note": "3 setters replayed 10x with no DOM write; 0 -> 200 runs 0 116 175 197 200 200 in 0.34s",
-      "at": "2026-09-20T21:30:41.346Z"
+      "at": "2026-09-21T00:47:50.349Z"
     },
     "mats-at-doors": {
       "pass": true,
       "note": "5 structure mats on their door's axis, 2 bridge mats on the road at the crossing",
-      "at": "2026-09-20T21:30:58.768Z"
+      "at": "2026-09-21T00:48:08.215Z"
     },
     "deck-seats-the-crew": {
       "pass": true,
-      "at": "2026-09-20T21:25:46.162Z"
+      "at": "2026-09-21T00:42:41.694Z"
     },
     "tower-crew-placed": {
       "pass": true,
       "note": "9 on one deck, each on the planking, and a replacement took the dead man's place",
-      "at": "2026-09-20T21:31:28.878Z"
+      "at": "2026-09-21T00:48:36.772Z"
     },
     "release-greeting": {
       "pass": true,
       "note": "quiet for a new player, shown once to one behind, quiet after",
-      "at": "2026-09-20T21:52:19.006Z"
+      "at": "2026-09-21T01:08:58.286Z"
     },
     "post-walk-unblocked": {
       "pass": true,
       "note": "across a wall and onto his post in 41 frames",
-      "at": "2026-09-20T21:53:15.543Z"
+      "at": "2026-09-21T01:09:56.943Z"
+    },
+    "relics-bite": {
+      "pass": true,
+      "note": "dug in 3.6s for standard; cards 3->4; cap 18->9999; column 40/0/0 -> 40/40/0",
+      "at": "2026-09-21T01:10:14.966Z"
     }
   }
 }

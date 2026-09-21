@@ -308,7 +308,8 @@ export const UnitsMethods = {
     }
     this.regen(k, dt);
     this.flashHurt(k);
-    this.updateMining(dt);
+    // #221: a King standing on a cache is digging, not mining -- and it costs the same daylight
+    if (!this.updateDigging(dt)) this.updateMining(dt);
     // #216: moved and rebuilt even while hidden. Cheaper than it looks -- a position write and a
     // radius compare -- and it means turning the ring back on shows it already in the right place at
     // the right size rather than a frame behind.
@@ -867,6 +868,11 @@ export const UnitsMethods = {
     a.dir.set(0, 0, 0);
     a.from.copy(from);
     a.hostile = hostile;
+    // #221: POOLED ARROWS CARRY THEIR LAST FLIGHT'S FLAGS. Without this, an arrow that pierced once
+    // comes back off `arrowPool` still marked as having done so and never pierces again -- the relic
+    // would work for the first few shots of a run and then quietly stop, which is the worst kind of
+    // bug to find because nothing breaks and the player just thinks they misremembered.
+    a.pierced = false;
     this.root.add(a.mesh);
     this.arrows.push(a);
   },
@@ -912,6 +918,22 @@ export const UnitsMethods = {
             if (t.isTurret) this.damageTurret(t, a.damage);
             else this.damageUnit(t, a.damage, a.from && a.from.mesh ? a.from.mesh.position : null);
           } else this.damageEnemy(t, a.damage, tmp, a.from);
+          // #221: the Splitting Shaft. The arrow does not stop at the first raider -- it looks for
+          // the next one BEYOND the one it just hit and carries on into him.
+          //
+          // `pierced` so it does this once rather than chaining down a column for ever, and the
+          // next target has to be in front: `nearestEnemy` would happily hand back somebody the
+          // arrow has already flown past, and an arrow that turns round is a homing missile rather
+          // than a shaft that went through. The dot product against the flight direction is what
+          // makes it the raider BEHIND the one it hit, which is what the relic promises.
+          if (!a.hostile && this.mods.pierce && !a.pierced) {
+            const next = this.nearestEnemy(a.mesh.position, CFG.arrow.pierceRange, t);
+            if (next && tmp2.subVectors(next.mesh.position, a.mesh.position).normalize().dot(a.dir) > 0.35) {
+              a.pierced = true;
+              a.target = next;
+              continue;
+            }
+          }
           this.retireArrow(i);
           continue;
         }

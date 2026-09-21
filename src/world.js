@@ -648,6 +648,40 @@ function seedCamps(seed, riverSamples, ok, homeSide) {
   return out;
 }
 
+// #221: WHERE THE CACHES ARE BURIED.
+//
+// Out past the walls, in the ground the fog is hiding. Anywhere legal -- unlike the camps, which
+// want one per direction, a cache wants to be somewhere you were not going, so there is no sector
+// rule here and the only spacing is `apart`, to stop two of them turning up on one walk.
+//
+// It asks the same `ok` the nodes and camps do, plus its own: off the roads. A cache on the castle
+// road is not found, it is commuted past -- and the whole reason this exists is to give the player a
+// reason to walk somewhere they did not plan to walk.
+function seedCaches(seed, ok, camps) {
+  const R = CFG.relics;
+  const rand = rng((((seed || R.seed) * 2654435761) >>> 0) + 913);
+  const out = [];
+  for (let i = 0; i < R.count; i++) {
+    let placed = null;
+    for (let k = 0; k < 200 && !placed; k++) {
+      const a = rand() * Math.PI * 2;
+      const d = R.dist[0] + rand() * (R.dist[1] - R.dist[0]);
+      const x = +(Math.cos(a) * d).toFixed(2);
+      const z = +(Math.sin(a) * d).toFixed(2);
+      if (!ok(x, z)) continue;
+      // Not inside a camp's stockade. A cache a camp is standing ON would be the better game -- the
+      // owner asked for exactly that, "small enemy camps that may be protecting it" -- but a chest
+      // under a tent is a chest nobody can see to dig, and the fight and the dig would run into each
+      // other. Beside a camp is what this gives, and the camp is still the thing in the way.
+      if (camps.some((c) => Math.hypot(c.x - x, c.z - z) < CFG.camps.radius + 4)) continue;
+      if (out.some((c) => Math.hypot(c.x - x, c.z - z) < R.apart)) continue;
+      placed = { id: `cache-${i}`, x, z };
+    }
+    if (placed) out.push(placed);
+  }
+  return out;
+}
+
 function hashType(t) {
   let h = 0;
   for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) >>> 0;
@@ -1055,7 +1089,13 @@ export function buildWorld(scene, soleShadows = false, seed = 0) {
   // has not been put yet, and the camps are placed against the nodes rather than the other way
   // round. By the time the scatter asks, the list is there.
   const inCamp = (x, z) => Math.hypot(x - CFG.finale.pos[0], z - CFG.finale.pos[1]) < CFG.finale.radius + 3
-    || (world.camps || []).some((c) => Math.hypot(x - c.x, z - c.z) < CFG.camps.radius + 3);
+    || (world.camps || []).some((c) => Math.hypot(x - c.x, z - c.z) < CFG.camps.radius + 3)
+    // #221: AND A CACHE'S PATCH OF GROUND. Caught by looking at one rather than by reasoning: the
+    // first cache rendered had a tree growing out of it. Trunks are solid since #215, so a tree on a
+    // cache is a chest you cannot stand on to dig -- and the chest is a small prop in tall grass, so
+    // a canopy over it is also a chest you cannot see. 4 is the dig radius plus the King's own room
+    // to stand.
+    || (world.caches || []).some((c) => Math.hypot(x - c.x, z - c.z) < 4);
   const free = (x, z, m = 1.5) => !inVillage(x, z) && !inCliffs(x, z) && !inCamp(x, z) && !nearRiver(x, z, m + 1.5) && !nearRoad(x, z, m) && !nearNode(x, z);
   world.free = free;
   // The citadel is the ring the Keep and the three service buildings stand in -- packed, paved and
@@ -1111,6 +1151,12 @@ export function buildWorld(scene, soleShadows = false, seed = 0) {
     return nodeOk(x, z);
   };
   world.camps = seedCamps(world.seed, riverSamples, campOk, riverSideOf(riverSamples, 0, 8));
+
+  // #221: and the caches, which want the same clear ground a node does plus a wider berth from the
+  // roads. `nearRoad` at 4 rather than `nodeOk`'s 2.5: a seam beside a track is a quarry you pass;
+  // a chest beside one is a chest you would have tripped over on your way to work.
+  const cacheOk = (x, z) => nodeOk(x, z) && !nearRoad(x, z, 4) && !inVillage(x, z);
+  world.caches = seedCaches(world.seed, cacheOk, world.camps);
 
   // GRASS GETS ITS OWN RULE, and the reason is that `free` was answering the wrong question for it.
   //

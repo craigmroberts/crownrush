@@ -1363,6 +1363,16 @@ export class Hud {
   // cards are the question that follows it.
   showOffer(list, level, queued, gains = []) {
     document.getElementById('offer-level').textContent = level;
+    // #221: the Quartermaster's Ledger puts a FOURTH card on this panel, and a fourth card does not
+    // fit on a phone. Measured in the 390 x 844 frame: three cards make the panel 847 tall, which is
+    // already the whole screen, and four make it 995. `.overlay` scrolls, so nothing was clipped --
+    // but a reward the player has to scroll to find, on a panel that opens mid-raid and pauses the
+    // game, is a reward most players will never know was offered. That is worse than clipping,
+    // because nothing looks wrong.
+    //
+    // What gives is the "You gained" recap, not the cards. The recap is what just happened and can
+    // be read in a glance or not at all; the cards are the decision the panel exists to ask.
+    document.getElementById('offer-screen').querySelector('.panel').classList.toggle('four-up', list.length > 3);
     const gv = document.getElementById('offer-gains');
     const gh = document.getElementById('offer-gave-h');
     if (gv) {
@@ -1548,7 +1558,7 @@ export class Hud {
       // during a raid, with an arrow for every direction enemies are coming from, that was a hundred
       // and more SVG parses a second landing on the busiest frames of the game. Only write when the
       // thing being shown actually changed.
-      const kind = it.alarm ? 'alert' : it.queen ? 'tiara' : it.home ? 'home' : it.camp ? 'swords'
+      const kind = it.alarm ? 'alert' : it.queen ? 'tiara' : it.home ? 'home' : it.cache ? 'sack' : it.camp ? 'swords'
         : it.boss ? 'skull' : it.thief ? 'coin' : '';
       const key = `${kind}|${kind ? '' : it.count > 1 ? it.count : ''}`;
       if (el.dataset.key === key) return;

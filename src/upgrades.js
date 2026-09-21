@@ -6,6 +6,14 @@
 
 export const MODS = {
   carryBonus: 0,
+  // #221: the relics' flags. Separate from the multipliers above because that is the whole rule a
+  // relic has to pass -- if it can be written as a number it is an upgrade card and belongs in
+  // `UPGRADES`, not in a hole in the ground.
+  offerCards: 0,     // extra cards on every Keep upgrade offer
+  noCap: false,      // the bag never fills
+  pierce: false,     // an arrow carries on through the raider behind the one it hits
+  campsStay: false,  // a camp you break is never reoccupied (#218)
+
   archerDamage: 1,
   archerHp: 1,
   archerRange: 1,
@@ -126,6 +134,66 @@ export const UPGRADES = [
   { id: 'split-shot', pool: 'king', icon: 'arrows', name: 'Volley', desc: 'The King fires an extra arrow at another raider, at full strength.', max: 2, rare: true, apply: add('kingArrows', 1) },
   { id: 'field-surgeon', pool: 'king', icon: 'crown', name: 'Field Surgeon', desc: 'Everyone recovers health twice as fast.', apply: mul('regen', 2) },
 ];
+
+// #221: RELICS -- what is in the caches out in the fog.
+//
+// A relic changes a RULE. Not a multiplier: the moment one reads "+30% damage" it is an upgrade card
+// found in a field, and the reason to walk out there instead of mining is gone. Every one of these
+// is a sentence that could not be written as a number, and each is one line against a flag that the
+// gameplay code already had a place for -- which is also the test of whether it is really a rule.
+//
+// They are NEVER REQUIRED. Miss every cache and the run is exactly the run that ships; nothing below
+// is balanced against, only varied by.
+//
+// Named and described the way the upgrade cards are (#115): the name is flavour and the description
+// carries all of the information, because a player reads one line in the two seconds after digging
+// something out of the ground.
+export const RELICS = [
+  {
+    id: 'ledger',
+    icon: 'star',
+    name: "The Quartermaster's Ledger",
+    // Not "better upgrades" -- the SAME upgrades, one more of them to choose between. The rule it
+    // changes is how many doors are open, which `pickOffer` has always been able to answer and was
+    // never asked.
+    desc: 'Every Keep level offers you four rewards to choose from instead of three.',
+    apply: (g) => { g.mods.offerCards += 1; },
+  },
+  {
+    id: 'sack',
+    icon: 'sack',
+    name: 'The Bottomless Sack',
+    // The carry cap is the reason a mining trip ends. Removing it does not make mining faster; it
+    // removes the walk back, which is a different shape of day rather than more of the same one.
+    desc: 'You can carry as much as you can mine. The bag never fills.',
+    apply: (g) => { g.mods.noCap = true; },
+  },
+  {
+    id: 'shaft',
+    icon: 'arrows',
+    name: 'The Splitting Shaft',
+    // Volley (upgrades.js) adds an arrow. This does not: it changes what ONE arrow does when it
+    // lands, which is why it is a relic and Volley is a card.
+    desc: 'Every arrow carries on through the raider behind the one it hits.',
+    apply: (g) => { g.mods.pierce = true; },
+  },
+  {
+    id: 'standard',
+    icon: 'swords',
+    name: 'The Broken Standard',
+    // #218 gave camps a reoccupation timer on purpose, so clearing is a habit rather than a
+    // one-time errand. This relic is the exception that proves it: the day you spend on a camp
+    // stops being rent and becomes a purchase.
+    desc: 'A raider camp you break stays broken. They do not move back in.',
+    apply: (g) => { g.mods.campsStay = true; },
+  },
+];
+
+// One relic the player has not already dug up, or null once they are all found.
+export function pickRelic(found) {
+  const left = RELICS.filter((r) => !found[r.id]);
+  return left.length ? left[Math.floor(Math.random() * left.length)] : null;
+}
 
 // Three upgrades the player has not exhausted, from three different pools where possible.
 export function pickOffer(taken, count = 3) {

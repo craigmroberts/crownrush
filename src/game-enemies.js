@@ -734,6 +734,7 @@ export const EnemiesMethods = {
   // Raiders move back in after `reoccupy` nights. Called at nightfall, so a camp broken today is
   // gone tonight -- which is the reward -- and comes back on a night the player can count.
   reoccupyCamps() {
+    if (this.mods.campsStay) return;   // #221: the Broken Standard -- they do not move back in
     for (const c of this.camps || []) {
       if (c.cleared && this.wave - c.clearedOn >= CFG.camps.reoccupy) this.standCamp(c);
     }

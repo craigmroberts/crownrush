@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { CFG, PADS, TIERS } from './config.js';
 import { audio } from './audio.js';
-import { UPGRADES } from './upgrades.js';
+import { UPGRADES, pickRelic } from './upgrades.js';
 import { readScores, readDiary } from './scores.js';
 import { RELEASES, unseenReleases, markSeen, newestRelease } from './releases.js';
 import {
@@ -137,6 +137,20 @@ export const ViewMethods = {
     if (kp.distanceTo(this.lastFogPos) > 1.5) {
       this.lastFogPos.copy(kp);
       this.revealFog(kp.x, kp.z, 17);
+      // #221: a cache is found when the fog comes off it, and this is the moment the fog comes off
+      // things. Asked here rather than by reading the fog canvas back: `getImageData` on a texture
+      // that was just written is a GPU sync, and `drawMinimap` already pays for one of those twice a
+      // second -- a second one four times a second, for five caches, is a stall bought for nothing.
+      // The reveal radius is the fog's own 17, passed once, so there is no second number to keep in
+      // step with it.
+      for (const c of this.caches || []) {
+        if (c.found || Math.hypot(c.x - kp.x, c.z - kp.z) > 17) continue;
+        c.found = true;
+        c.mesh.visible = true;
+        this.popIn(c.mesh);
+        this.hud.toast('Something is buried here. *Stand on it to dig.*', 3000, 'Wren');
+        audio.unlock();
+      }
     }
     if (CFG.minimap) {
       this.minimapTimer -= 0.25;
@@ -182,6 +196,18 @@ export const ViewMethods = {
     // A standing camp is filled, a broken one is a hollow ring: the difference between "that is
     // tonight's flank" and "that one is dealt with, for now" is the whole thing the player is
     // reading this map for.
+    // #221: and a found cache, until it is dug. Over the fog for the same reason the camps are: the
+    // King has stood next to this one, so the map is not telling him anything he does not know.
+    for (const c of this.caches || []) {
+      if (!c.found || c.dug) continue;
+      ctx.fillStyle = '#f5b800';
+      ctx.strokeStyle = '#1b1b24';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(tx(c.x), tz(c.z), 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
     for (const c of this.camps || []) {
       if (this.raidNight() < CFG.camps.fromWave + c.index * CFG.camps.everyWave) continue;
       ctx.beginPath();
@@ -535,6 +561,78 @@ export const ViewMethods = {
   },
 
   // The King gathers wood, stone and straw by standing next to a node.
+  // #221: DIGGING, which is the mining hold wearing a different hat.
+  //
+  // No new verb and no new control -- the screen has no room for one (#160 took the last spare
+  // gesture). Stand on it and hold still, the same thing the King already does at a seam, and the
+  // ring under him is the same ring. What is different is that it finishes: a seam runs out of
+  // stock, a cache runs out of ground.
+  //
+  // It returns true while it is digging, and `updateMining` is skipped for that frame. A cache is
+  // seeded off the roads and clear of the seams (`cacheOk`), so the two can only collide if a seed
+  // puts one just inside `CFG.mining.radius` of the other -- and if they ever do, the rarer thing
+  // wins, because mining a tree while standing on buried treasure is the wrong answer in a way that
+  // needs no measurement.
+  updateDigging(dt) {
+    const kp = this.king.mesh.position;
+    let on = null;
+    for (const c of this.caches || []) {
+      if (!c.found || c.dug) continue;
+      if (Math.hypot(c.x - kp.x, c.z - kp.z) < CFG.relics.radius) { on = c; break; }
+    }
+    // Anything the King walks away from goes back to nothing rather than banking progress. Digging
+    // half a hole and leaving is not a saving throw against the day it costs, which is the trade the
+    // ticket is built on.
+    for (const c of this.caches || []) if (c !== on && c.dig) c.dig = 0;
+    if (!on) {
+      this.digRing.visible = false;
+      return false;
+    }
+    on.dig += dt;
+    // the same ring the seams use, filling as the hole deepens
+    this.digRing.visible = true;
+    this.digRing.position.set(on.x, 0.05, on.z);
+    this.digRing.scale.setScalar(CFG.relics.radius * (0.55 + 0.45 * Math.min(1, on.dig / CFG.relics.digTime)));
+    this.faceTowards(this.king.mesh, tmp.set(on.x, 0, on.z), 1, 60);
+    // the swing, borrowed whole from mining: the tool, the animation and the chips
+    this.mineTimer -= dt;
+    if (this.mineTimer <= 0) {
+      this.mineTimer = CFG.mining.tick;
+      audio.mine('stone');
+      if (this.king.mesh.userData.rig) {
+        this.king.mesh.userData.rig.play('Attack', true);
+        this.king.rigOnce = this.time + 0.5;
+      }
+      this.throwChips('stone', tmp.set(on.x, 0, on.z), 4);
+    }
+    if (on.dig < CFG.relics.digTime) return true;
+    on.dug = true;
+    on.mesh.visible = false;
+    this.digRing.visible = false;
+    this.burstFx(tmp.set(on.x, 1.1, on.z), '#f5b800', 7, 0.5);
+    this.takeRelic();
+    return true;
+  },
+
+  // What was in it. `pickRelic` never repeats one, and returns null once all four are found -- at
+  // which point a cache still pays, in coin, because a hole with nothing in it after a day's walk is
+  // a punishment for exploring.
+  takeRelic() {
+    const r = pickRelic(this.relicsFound);
+    if (!r) {
+      const n = 24 + Math.floor(Math.random() * 16);
+      for (let i = 0; i < n; i++) this.dropCoin(tmp);
+      this.hud.toast(`Old coin, and plenty of it. *${n} pieces.*`, 3000, 'Wren');
+      return;
+    }
+    this.relicsFound[r.id] = true;
+    this.relics.push(r.id);
+    r.apply(this);
+    this.addScore(CFG.score.relic);
+    audio.levelUp ? audio.levelUp() : audio.wave(false);
+    this.hud.toast(`*${r.name}.* ${r.desc}`, 5200, 'Wren');
+  },
+
   updateMining(dt) {
     const kp = this.king.mesh.position;
     this.mineTimer -= dt;
@@ -1406,6 +1504,23 @@ export const ViewMethods = {
         const dy = Math.sin(ang);
         const t = Math.min((w * 0.5 - margin) / Math.max(1e-6, Math.abs(dx)), (h * 0.5 - margin) / Math.max(1e-6, Math.abs(dy)));
         list.push({ x: w * 0.5 + dx * t, y: h * 0.5 + dy * t, angle: ang, count: 0, camp: true });
+      }
+    }
+    // #221: a found cache is findable again. One spotted at dusk and abandoned for the walls would
+    // otherwise be gone -- the fog does not close, but the chest is one small prop in a wide field
+    // and nothing else on screen says where it was. Only FOUND ones: an arrow pointing at a cache
+    // the King has never been near would hand the player the whole map and take the walk out of it.
+    for (const c of this.caches || []) {
+      if (!c.found || c.dug) continue;
+      tmp.set(c.x, 1, c.z).project(this.camera);
+      const cx2 = tmp.x * w * 0.5;
+      const cy2 = -tmp.y * h * 0.5;
+      if (Math.abs(cx2) > w * 0.5 - 30 || Math.abs(cy2) > h * 0.5 - 30 || tmp.z >= 1) {
+        const ang = Math.atan2(cy2, cx2);
+        const dx = Math.cos(ang);
+        const dy = Math.sin(ang);
+        const t = Math.min((w * 0.5 - margin) / Math.max(1e-6, Math.abs(dx)), (h * 0.5 - margin) / Math.max(1e-6, Math.abs(dy)));
+        list.push({ x: w * 0.5 + dx * t, y: h * 0.5 + dy * t, angle: ang, count: 0, cache: true });
       }
     }
     if (this.queen.captive) {

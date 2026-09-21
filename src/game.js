@@ -7,7 +7,7 @@ import { MODS } from './upgrades.js';
 import { recordRun, readNumber, writeNumber, readLegacy, addLegacy, unlockDiary } from './scores.js';
 import { buildWorld, setupLights } from './world.js';
 import { Input } from './input.js';
-import { setHealthBar, HealthBars, CoinField, clearHealthBars, makeRing, makeCoinStack, makeCamp, makeTorchField, cacheSizes } from './models.js';
+import { setHealthBar, HealthBars, CoinField, clearHealthBars, makeRing, makeCoinStack, makeCamp, makeCache, makeTorchField, cacheSizes } from './models.js';
 import { V3, tmp, tmp2, rand } from './game-shared.js';
 import { BuildMethods } from './game-build.js';
 import { EnemiesMethods } from './game-enemies.js';
@@ -712,6 +712,11 @@ export class Game {
     this.nodeRing = makeRing(3.2);
     this.nodeRing.visible = false;
     this.root.add(this.nodeRing);
+    // #221: the same ring for a cache, kept separate so a King standing between a seam and a hole
+    // does not have one ring flickering between the two
+    this.digRing = makeRing(1);
+    this.digRing.visible = false;
+    this.root.add(this.digRing);
     // #19: the raider camp the raids come from. Its garrison sleeps until the King comes close.
     {
       const F = CFG.finale;
@@ -741,6 +746,17 @@ export class Game {
       id: c.id, x: c.x, z: c.z, index: i, cleared: false, clearedOn: -99, mesh: null,
     }));
     for (const c of this.camps) this.standCamp(c, true);
+    // #221: the caches. Hidden until the fog comes off them -- `found` is the run's, like everything
+    // else about a map feature that the run changes.
+    this.caches = (this.world.caches || []).map((c) => {
+      const mesh = makeCache();
+      mesh.position.set(c.x, 0, c.z);
+      mesh.visible = false;
+      this.root.add(mesh);
+      return { id: c.id, x: c.x, z: c.z, mesh, found: false, dug: false, dig: 0 };
+    });
+    this.relicsFound = {};
+    this.relics = [];
     this.resetFog();
     // #20: the starting purse is scattered along the road west, the way the pink arrow points, so the
     // first three seconds teach the pickup rule and the stack builds because of what you did.

@@ -34,6 +34,7 @@
 // behaviour state has to be stored at all. What is left is type, rank, hp and where it stood, which
 // `spawnEnemy` already takes.
 import { CFG, PADS, NODES } from './config.js';
+import { RELICS } from './upgrades.js';
 import { setHealthBar } from './models.js';
 
 // Exported because `mapSeed` in game.js has to read this before the save module exists to ask -- see
@@ -229,6 +230,15 @@ export const SaveMethods = {
       // map with a different number of them. Additive, no VERSION bump: a save from before this has
       // no `camps`, which reads as every camp standing -- exactly what those runs had.
       camps: (this.camps || []).filter((c) => c.cleared).map((c) => [c.id, c.clearedOn]),
+      // #221: the caches found and dug, and which relics came out of them. By id for the same reason
+      // the camps are -- the caches are seeded per map (#219) and a positional list quietly means
+      // something else on a map with a different number of them.
+      //
+      // `relics` is stored rather than recomputed from `mods`, because a relic's `apply` is a
+      // one-way function: `campsStay = true` cannot be read back as "the Broken Standard was found"
+      // once anything else could also have set it. The list is the record; `applyRun` replays it.
+      caches: (this.caches || []).filter((c) => c.found).map((c) => [c.id, c.dug ? 1 : 0]),
+      relics: [...(this.relics || [])],
       // what has been walked. The minimap is most of how the map is read, and starting a restored run
       // blind would undo a good part of what the player did.
       fog: this.fog ? this.fog.canvas.toDataURL('image/png') : null,
@@ -469,6 +479,24 @@ export const SaveMethods = {
       c.clearedOn = on;
       if (c.mesh) c.mesh.visible = false;
       for (const e of this.enemies.filter((x) => x.campId === id)) this.removeEnemy(e);
+    }
+    // #221: the caches, then the relics they paid out. Replayed through each relic's own `apply`
+    // rather than by restoring `mods` wholesale, so a relic whose effect changes later is restored
+    // as whatever it means NOW -- the same reason `rebuildVillage` replays the structural pads
+    // instead of storing meshes.
+    for (const [id, dug] of s.caches || []) {
+      const c = (this.caches || []).find((x) => x.id === id);
+      if (!c) continue;
+      c.found = true;
+      c.dug = !!dug;
+      c.mesh.visible = !dug;
+    }
+    for (const id of s.relics || []) {
+      const r = RELICS.find((x) => x.id === id);
+      if (!r) continue;             // a relic retired since the save was written: skip it, do not throw
+      this.relicsFound[id] = true;
+      this.relics.push(id);
+      r.apply(this);
     }
     if (s.fog) this.restoreFog(s.fog);
 

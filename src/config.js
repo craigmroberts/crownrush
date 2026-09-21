@@ -438,7 +438,7 @@ export const CFG = {
   // resource-payment path it belongs to is still whole and is what any future pad priced in
   // materials would use; said out loud here so nobody measures a balance change against it and
   // wonders why nothing moved. `material: 2` is untouched and still paid for every one mined.
-  score: { earlyWavePerSecond: 4, kill: { knight: 10, elite: 25, brute: 20, boss: 200, thief: 40, sapper: 15, archer: 20, shield: 30 }, coin: 1, material: 2, buildPerCoin: 2, buildPerMaterial: 3, soldierPerWave: 2, waveClear: 50, levelUp: 60, rescue: 150, recapture: 90, campClear: 120, finale: 1500 },
+  score: { earlyWavePerSecond: 4, kill: { knight: 10, elite: 25, brute: 20, boss: 200, thief: 40, sapper: 15, archer: 20, shield: 30 }, coin: 1, material: 2, buildPerCoin: 2, buildPerMaterial: 3, soldierPerWave: 2, waveClear: 50, levelUp: 60, rescue: 150, recapture: 90, campClear: 120, relic: 200, finale: 1500 },
 
   // #69: the army FOLLOWS the King rather than orbiting him. Each soldier still gets a slot on a
   // ring -- that is what keeps a hundred of them from standing in each other -- but the slot is a
@@ -833,6 +833,44 @@ export const CFG = {
     // generator uses when the map's own is 0, so `?view=`, `?tour` and the checks get the same three
     // camps in the same places every time.
     fixedSeed: 20218,
+  },
+
+
+  // #221: CACHES IN THE FOG, AND RELICS THAT CHANGE A RULE.
+  //
+  // "maybe things like finding treasure in the rest of the world". The hole it fills: there was
+  // nothing to FIND. The day was mine, carry, sell, build -- four verbs, all known in advance -- and
+  // the map outside the walls was a resource dispenser at memorised coordinates. Meanwhile the fog
+  // was hiding ground the player had already learned by heart, which is a promise the game was not
+  // keeping.
+  //
+  // `dist` starts at 42 -- just outside the outer wall at 38 by 32 -- and reaches 84, which is past
+  // the main camp. A cache inside the walls is not found, it is walked over.
+  //
+  // THE REWARD IS NOT COIN, and that is the whole point. Coin is what the game already gives you, in
+  // amounts it has been balanced to give you, so a chest of it is a slightly faster Tuesday. A rule
+  // change is what makes two runs with the same build order feel different. Every relic in `RELICS`
+  // has to pass three tests, and the second is the one that takes discipline:
+  //
+  //   1. It must not be REQUIRED. Miss every cache and the run is the run as it ships.
+  //   2. It must not be a NUMBER. The moment one reads "+30% damage" it is an upgrade card found in
+  //      a field. If it can be written as a multiplier it belongs in upgrades.js instead.
+  //   3. Digging must cost DAYLIGHT, so going to look is a real trade against mining and the camps.
+  //
+  // `digTime` is 3.6 seconds of standing still, against a 45-second day. Held, not tapped: it is the
+  // same stand-and-hold the mining already uses, which means no new verb and no new control on a
+  // screen that has no room for one.
+  relics: {
+    count: 5,
+    dist: [42, 84],
+    apart: 22,
+    radius: 2.4,        // how near the King has to stand to be digging
+    digTime: 3.6,
+    // A cache is invisible until the fog is off it. `updateFog` burns a radius of 17 around the King
+    // every quarter second, so this is not a second number to keep in step -- the cache asks the fog
+    // whether it has been reached. 17 is about three seconds' walk, which is far enough that one
+    // appears out of the dark rather than popping up underfoot.
+    seed: 22177,        // the fixed generator seed at map seed 0, the way the camps have one
   },
 
   // #58: two run lengths, because 30 nights at 75 seconds is ~37 minutes and that was the only one on
@@ -1392,7 +1430,11 @@ export const CFG = {
   // a purchase arriving while one is up replaces it with a fresh one.
   gainNotice: { ms: 5.5, openMs: 12 },
 
-  arrow: { speed: 30, life: 2.0 },
+  // #221: `pierceRange` is how far past the raider it just hit an arrow will look for the next one
+  // (the Splitting Shaft relic). 5 is a little over two raiders' spacing in a walking column -- the
+  // formation the relic is for -- and short enough that a lone raider with nobody behind him stops
+  // the arrow, which is what makes the relic read as carrying THROUGH rather than as seeking.
+  arrow: { speed: 30, life: 2.0, pierceRange: 5 },
 
   // #104: Wren's voice. `gap` is the least game time between two of her cries, on top of the alarm's
   // own six-second cooldown that they already sit inside. Fourteen because seven alarms can be raised

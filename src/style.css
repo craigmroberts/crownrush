@@ -1613,6 +1613,25 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
   /* the burst belongs to the number, and the number has moved into the left column */
   .panel.offer #offer-burst { left: 25%; width: 240px; }
 }
+/* #221: four cards instead of three (the Quartermaster's Ledger), which does not fit a phone on its
+   own -- see `showOffer` for why scrolling to it is worse than clipping it.
+
+   MEASURED, part by part, because the first guess was wrong. Capping the "You gained" recap saved
+   nothing at all: at 390 x 844 it renders 159px and the cap was 160. The height is in the CARDS --
+   138px each, four of them -- and the part of a card that can go is `.ochange`, the pill spelling
+   the effect out in figures ("Towers shoot from 14 -> 18.2").
+
+   It is the one thing on a card that is redundant. #107 settled that a card says what the player
+   will SEE rather than what the multiplier is, and the description above the pill already does that
+   in words; #177 added the figures underneath as a second opinion. With four cards competing for
+   one screen, the words win and the arithmetic goes. Three cards keep it.
+
+   944 -> 830 against a viewport of 844. */
+.panel.offer.four-up #offer-gains { max-height: 13vh; max-height: 13dvh; }
+.panel.offer.four-up #offer-cards { gap: 7px; }
+.panel.offer.four-up .offer-card { padding: 7px 12px; }
+.panel.offer.four-up .offer-card .ochange { display: none; }
+
 @media (max-width: 560px) {
   #offer-cards { flex-direction: column; }
   .panel.offer .offer-card { flex-direction: row; align-items: center; text-align: left; gap: 10px; padding: 9px 12px; }
