@@ -85,6 +85,14 @@ const BLOCKS = {
   // climbing. They are driven to their own expiry -- `updateEffects` is what removes the sprite and
   // disposes the CLONED material each one carries.
   popups: `for (let i = 0; i < 300; i++) { g.popup(String(1000 + i), g.king.mesh.position, '#fff', 0.1); } for (let t = 0; t < 2.5; t += 0.05) g.updateEffects(0.05);`,
+  // #190: THE CONTROL, and it is not padding. Every block gets a second of game time and three real
+  // frames after it, so a sweep walks the run forward -- and a block's numbers are only its own if
+  // the run standing still would have produced none of them. The `pads` block climbed the heap 3 MB
+  // a round over eight rounds, flat GPU-side, off a call that does nothing at all once every mat it
+  // can add is already down; it ran sixth, roughly 45 seconds of game time in. This block does
+  // nothing and is measured identically, so it sits immediately before `pads` in the sweep: whatever
+  // it climbs is the cost of the run being where it is, and only the difference belongs to the block.
+  nothing: ``,
   // Mats: `drawPad` makes a canvas and a texture per mat, and `disposePad` is meant to take them back.
   pads: `for (let i = 0; i < 20; i++) { g.refreshPads(); }`,
   // The crowd re-allocates its instance buffers when it grows, and disposes the old ones.
@@ -136,6 +144,7 @@ const names = ONLY ? [ONLY] : Object.keys(BLOCKS);
 const KEYS = ['geometries', 'textures', 'programs', 'materials', 'tags', 'popups', 'heapMB'];
 const STATE = ['wave', 'level', 'enemies', 'units'];
 let anyClimb = false;
+const heapClimbs = [];
 for (const name of names) {
   if (!BLOCKS[name]) { console.log(`no such block: ${name}`); continue; }
   const rows = [];
@@ -169,11 +178,23 @@ for (const name of names) {
     const perRound = settled.length > 1 ? climb / (settled.length - 1) : 0;
     const bad = perRound > 0.5 && k !== 'heapMB';
     if (bad) anyClimb = true;
-    console.log(`  ${bad ? 'CLIMB ' : '      '}${k.padEnd(11)} ${series.join(' -> ')}${bad ? `   +${perRound.toFixed(1)}/round after the first` : ''}`);
+    // #190: THE HEAP GETS A MARK OF ITS OWN, because leaving it out of the verdict nearly buried the
+    // one thing this sweep found. `heapMB` is excluded from CLIMB on purpose -- it moves a megabyte
+    // either way between reads and a red on that would cry wolf every run, which this repo has paid
+    // for once already. But `pads` went 79 -> 104 in eight rounds, three a round, every round, and
+    // the line printing it said nothing at all while "Every counter flat" was one block away from
+    // being the verdict. So a heap climb is MARKED and not counted: a different word, no bearing on
+    // the pass, and the control block below it to say whether it belongs to the block or the run.
+    const heapy = k === 'heapMB' && perRound > 1 && settled[settled.length - 1] > settled[0];
+    if (heapy) heapClimbs.push(name);
+    const mark = bad ? 'CLIMB ' : heapy ? 'HEAP  ' : '      ';
+    const tail = bad || heapy ? `   +${perRound.toFixed(1)}/round after the first` : '';
+    console.log(`  ${mark}${k.padEnd(11)} ${series.join(' -> ')}${tail}`);
   }
   console.log(`  ${'run'.padEnd(11)} ${rows.map((x) => STATE.map((k) => x[k]).join('/')).join(' -> ')}   (${STATE.join('/')})`);
   console.log('');
 }
 console.log(anyClimb ? 'Something climbs per block -- see CLIMB above.' : 'Every counter flat after the first round.');
+if (heapClimbs.length) console.log(`The JS heap climbs in: ${heapClimbs.join(', ')} -- read each against \`nothing\`, which is the same measurement with no block in it.`);
 await browser.close();
 srv.close();
