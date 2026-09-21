@@ -1015,7 +1015,12 @@ export const CHEAP = {
       // and the numbers have to have come with it, or the line is a label with nothing behind it
       if (!/\d+ geometries/.test(line)) bad.push('no GPU counts carried over: `' + line.replace(/^last session\s+/, '') + '`');
     }
-    return bad.length ? no(bad) : ok(line.replace(/^last session\s+/, '').slice(0, 120));
+    // The note is built from the parts rather than sliced off the line: the full sentence runs past
+    // what the board shows and a slice cuts it mid-word, which reads as a truncated bug rather than
+    // a deliberate summary.
+    const how = line.replace(/^last session\s+/, '').split(' · ')[0];
+    const geo = (line.match(/(\d+) geometries/) || [])[1];
+    return bad.length ? no(bad) : ok(`${how} · ${geo} geometries carried over`);
   },
 };
 

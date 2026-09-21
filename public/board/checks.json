@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-21T12:17:06.776Z",
+  "at": "2026-09-21T12:24:04.615Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -177,6 +177,13 @@
       "why": "\"The flag is set\" and \"the arrow pierces\" are different claims, and the difference cost a bug: the Splitting Shaft set its flag correctly and stopped working after a few shots because arrows come off a pool carrying the last flight's state. A check reading `mods.pierce` would have passed throughout."
     },
     {
+      "id": "black-box-outlives-the-tab",
+      "area": "Render",
+      "cost": "cheap",
+      "asserts": "A session that loses its WebGL context leaves a record of it that the NEXT page load can read, in the report a person would paste into an issue.",
+      "why": "#190 asks whether the crashes are an OS kill or a lost context, and the plan for answering it — copy the perf log at ten, twenty and thirty minutes — cannot, because the log is in the tab that died. The record is the answer, and it is worthless if the next ordinary thing a player does writes over it: the first version was erased by `pagehide` when the tab was closed."
+    },
+    {
       "id": "one-live-context",
       "area": "Render",
       "cost": "cheap",
@@ -346,7 +353,12 @@
     "one-live-context": {
       "pass": true,
       "note": "2 contexts made, 1 handed back, the game canvas left live; both portraits drawn",
-      "at": "2026-09-21T12:05:04.596Z"
+      "at": "2026-09-21T12:19:55.573Z"
+    },
+    "black-box-outlives-the-tab": {
+      "pass": true,
+      "note": "closed normally (after losing the context at 0m34s and carrying on) · 198 geometries carried over",
+      "at": "2026-09-21T12:24:03.942Z"
     }
   }
 }
