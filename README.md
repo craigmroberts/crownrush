@@ -706,6 +706,13 @@ the raids keep coming for a high score.
   offset east or west of the King, over `CFG.audio.panSpread` units to reach hard left or right.
   A cue at the King has no node made for it. The check `sounds-have-a-side` hits a real wall on
   each side of the ring and reads the direction back.
+  Wren's release, a dig and a relic have sounds of their own (#238): the release is a low fifth
+  swelling for 0.4s into a chime, the only cue in the game that swells rather than strikes; a dig
+  swing is a knock and a scrape that rise as the hole deepens; a relic is four notes up. Each had
+  been borrowing a neighbour (the warhorn, the stone chip, the raid horn), and
+  `cues-do-not-converge` renders every cue offline and holds the new ones at least 0.18 from the
+  rest on an envelope-and-spectrum scale, because the first dig written measured 0.10 from a raider
+  dying. After dark the lead line also rests every other bar, so the night has space in it.
 
 ## Run it locally
 

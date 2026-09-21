@@ -188,6 +188,11 @@ export const CHECKS = [
     why: '#239. The game already tells you WHEN a wall is hit and not WHERE, and on a phone the screen is too small to show every wall at once. A pan is the cheapest possible direction and the easiest to lose: one call site passing nothing sounds exactly like one passing the wrong thing, so this drives the real damage path rather than the audio function.',
   },
   {
+    id: 'cues-do-not-converge', area: 'Sound', cost: 'cheap',
+    asserts: 'Wren\'s release, the dig and the relic each render into an OfflineAudioContext as a sound of their own — at least 0.18 from every other cue on an envelope-and-spectrum scale, the dig rising through the hole — and all three fall silent under the sound toggle and the effects slider.',
+    why: '#238. Three mechanics shipped with a borrowed sound each, and the way that happens again is a new verb written by copying a neighbour and moving two numbers. The first dig written for this ticket was a low thud under low-passed noise, which is the raider death note for note: 0.10 apart on this scale, and this check is what said so before anyone with ears could.',
+  },
+  {
     id: 'mats-do-not-multiply', area: 'Build', cost: 'cheap',
     asserts: 'Refreshing the mats leaves the same mats on the field, once each \u2014 forty calls change nothing.',
     why: '#190. `refreshPads` runs on every purchase, level and restore, and it re-added the two bridge mats on each call because the pad on the field carries a moved COPY of its def and the test was object identity. Twelve duplicates were down at boot; the cost was invisible until the King reached the river, where 407 canvas textures uploaded in one frame.',

@@ -1224,6 +1224,97 @@ export const CHEAP = {
     if (r.nan.pan !== 0 || r.nan.node !== null) bad.push(`a cue with no position reads ${f(r.nan.pan)}, not the middle`);
     return bad.length ? no(bad) : ok(`east wall ${f(r.e.pan)}, west wall ${f(r.w.pan)}, the King's own cue down the middle, the far side clamped`);
   },
+  // #238: TWO CUES CANNOT QUIETLY BECOME ONE.
+  //
+  // Three mechanics shipped with a borrowed sound each: Wren's release played the warhorn beside it,
+  // digging a cache played the stone chip, and a relic played the raid horn. The synth vocabulary is
+  // twenty-six verbs of a dozen lines each, and the way that happens again is a new verb written by
+  // copying a neighbour and moving two numbers. So every cue is rendered into an OfflineAudioContext
+  // -- the real methods, the real bus chain, no browser gesture needed -- and reduced to a signature:
+  // a 20 ms envelope and 22 third-octave bands in decibels under the loudest, floored 50 dB down.
+  // The decibel scale is deliberate: a share of the energy weighs the loudest band and nothing else,
+  // and on that scale a scrape added to a thud moved it 0.004. The distance is the mean absolute
+  // difference of both halves.
+  //
+  // THE FLOOR IS 0.18. Measured on the day it was set: the closest pair among the new cues and the
+  // rest is the last dig swing against `confirm` at 0.205, the next the first swing against `banner`
+  // at 0.218; the closest pair in the vocabulary that was already there is `banner` against
+  // `enemyDie` at 0.154, which is why only pairs with a new cue in them are held to it. The first
+  // dig was a low sine under low-passed noise and measured 0.10 from `enemyDie` -- the same sound,
+  // and this check is what said so.
+  //
+  // The muted and volume-zero renders are the #174 criterion: the new cues go through the same bus
+  // chain as everything else, and that chain is rebuilt on the offline context the same way `init`
+  // builds it, so a cue that bypassed `sfx` would come out at full volume with the slider at zero.
+  async 'cues-do-not-converge'(page, url) {
+    await boot(page, url);
+    const r = await page.evaluate(async () => {
+      const a = window.audio;
+      const SR = 22050;
+      const LEN = 1.6;
+      const render = async (fn, tweak) => {
+        const off = new window.OfflineAudioContext(1, Math.round(SR * LEN), SR);
+        const saved = { ctx: a.ctx, sfx: a.sfx, master: a.master, sfxVolGain: a.sfxVolGain, muted: a.muted, noiseBuf: a.noiseBuf, lastHit: a.lastHit, sfxVol: a.sfxVol };
+        a.ctx = off; a.noiseBuf = null; a.lastHit = -1;
+        if (tweak) tweak(a);
+        a.master = off.createGain(); a.master.gain.value = a.muted ? 0 : 0.6; a.master.connect(off.destination);
+        a.sfxVolGain = off.createGain(); a.sfxVolGain.gain.value = a.sfxVol; a.sfxVolGain.connect(a.master);
+        a.sfx = off.createGain(); a.sfx.gain.value = 0.9; a.sfx.connect(a.sfxVolGain);
+        a.ready = () => !a.muted;   // an offline context reports `suspended` until it renders
+        try { fn(a); const buf = await off.startRendering(); return buf.getChannelData(0); }
+        finally { delete a.ready; Object.assign(a, saved); }
+      };
+      const sig = (d) => {
+        const W = Math.round(SR * 0.02); const n = Math.floor(d.length / W); const rms = [];
+        for (let w = 0; w < n; w++) { let s = 0; for (let i = w * W; i < (w + 1) * W; i++) s += d[i] * d[i]; rms.push(Math.sqrt(s / W)); }
+        const peak = Math.max(...rms); const env = rms.map((x) => (peak ? x / peak : 0));
+        const K = 1024; const N = d.length; const mag = new Float64Array(K);
+        for (let k = 1; k < K * 0.75; k++) { const w = 2 * Math.PI * k / (2 * K); let re = 0; let im = 0; for (let i = 0; i < N; i++) { re += d[i] * Math.cos(w * i); im -= d[i] * Math.sin(w * i); } mag[k] = re * re + im * im; }
+        const bands = [];
+        for (let b = 0; b < 22; b++) { const lo = 55 * Math.pow(2, b / 3); const hi = 55 * Math.pow(2, (b + 1) / 3); let e = 0; let c = 0; for (let k = 1; k < K * 0.75; k++) { const f = k * SR / (2 * K); if (f >= lo && f < hi) { e += mag[k]; c++; } } bands.push(c ? e / c : 0); }
+        const tot = bands.reduce((s, x) => s + x, 0) || 1; const emax = Math.max(...bands) || 1;
+        const spec = bands.map((x) => Math.max(0, 1 + Math.max(-50, 10 * Math.log10((x || 1e-30) / emax)) / 50));
+        let cen = 0; bands.forEach((e, b) => { cen += e / tot * 55 * Math.pow(2, (b + 0.5) / 3); });
+        return { env, spec, peak, centroid: Math.round(cen) };
+      };
+      const dist = (p, q) => { let e = 0; let s = 0; for (let i = 0; i < p.env.length; i++) e += Math.abs(p.env[i] - q.env[i]); for (let i = 0; i < 22; i++) s += Math.abs(p.spec[i] - q.spec[i]); return e / p.env.length + s / 22; };
+      const cues = {
+        wrenRelease: (x) => x.wrenRelease(), 'dig(0)': (x) => x.dig(0), 'dig(1)': (x) => x.dig(1), relic: (x) => x.relic(),
+        horn: (x) => x.horn(), "mine('stone')": (x) => x.mine('stone'), wave: (x) => x.wave(false), unlock: (x) => x.unlock(),
+        confirm: (x) => x.confirm(), banner: (x) => x.banner(), enemyDie: (x) => x.enemyDie(0), coin: (x) => x.coin(0), alarm: (x) => x.alarm(0),
+      };
+      const fresh = ['wrenRelease', 'dig(0)', 'dig(1)', 'relic'];
+      const sigs = {};
+      for (const [k, f] of Object.entries(cues)) sigs[k] = sig(await render(f));
+      const pairs = [];
+      const keys = Object.keys(cues);
+      for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++) if (fresh.includes(keys[i]) || fresh.includes(keys[j])) pairs.push([keys[i], keys[j], dist(sigs[keys[i]], sigs[keys[j]])]);
+      pairs.sort((p, q) => p[2] - q[2]);
+      const silent = {};
+      for (const k of fresh) {
+        silent[k] = {
+          muted: sig(await render(cues[k], (x) => { x.muted = true; })).peak,
+          vol0: sig(await render(cues[k], (x) => { x.sfxVol = 0; })).peak,
+        };
+      }
+      return {
+        pairs, peaks: Object.fromEntries(keys.map((k) => [k, sigs[k].peak])), centroids: Object.fromEntries(keys.map((k) => [k, sigs[k].centroid])), silent,
+        restored: a.ctx === (window.audio.ctx) && !Object.prototype.hasOwnProperty.call(a, 'ready') && a.sfxVol > 0 && !a.muted,
+      };
+    });
+    const FLOOR = 0.18;
+    const bad = [];
+    for (const k of ['wrenRelease', 'dig(0)', 'dig(1)', 'relic']) if (!(r.peaks[k] > 0.005)) bad.push(`${k} rendered silent (peak ${r.peaks[k]})`);
+    for (const [p, q, d] of r.pairs) if (d < FLOOR) bad.push(`${p} and ${q} are ${d.toFixed(3)} apart, under the ${FLOOR} floor: they are the same sound`);
+    if (!(r.centroids['dig(1)'] > r.centroids['dig(0)'] * 1.3)) bad.push(`the last dig swing (${r.centroids['dig(1)']} Hz) does not sit above the first (${r.centroids['dig(0)']} Hz)`);
+    for (const [k, v] of Object.entries(r.silent)) {
+      if (v.muted > 0) bad.push(`${k} plays with sound off (peak ${v.muted})`);
+      if (v.vol0 > 0) bad.push(`${k} plays with the effects slider at zero (peak ${v.vol0})`);
+    }
+    if (!r.restored) bad.push('the audio object was not put back the way it was found');
+    const near = r.pairs[0];
+    return bad.length ? no(bad) : ok(`${r.pairs.length} pairs measured, the closest ${near[0]} to ${near[1]} at ${near[2].toFixed(3)} (floor ${FLOOR}); the dig rises ${r.centroids['dig(0)']} to ${r.centroids['dig(1)']} Hz; all four silent when muted and at volume zero`);
+  },
 };
 
 // #179: the sabotage each check has to survive going red under. One per check, aimed at exactly the
@@ -1412,4 +1503,6 @@ export const PROVE = {
   // bring back. The panner code stays intact, so a check that only asked whether a node existed
   // when given a number would still be green.
   'sounds-have-a-side': () => { window.game.panAt = () => 0; },
+  // #238: the release becomes the horn again, which is exactly what it was before the ticket
+  'cues-do-not-converge': () => { window.audio.wrenRelease = window.audio.horn; },
 };

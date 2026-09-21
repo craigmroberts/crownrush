@@ -769,7 +769,7 @@ export const UnitsMethods = {
     q.charge = 0;
     q.charging = false;
     const p = q.mesh.position;
-    audio.horn();
+    audio.wrenRelease();
     this.spawnFx(p.x, p.z, 0x9ad0ff);
     this.burstFx(tmp.copy(p).setY(1.4), '#cfe8ff', 9, 0.6);
     let held = 0;

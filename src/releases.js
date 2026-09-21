@@ -32,6 +32,7 @@ export const RELEASES = [
     title: 'The river crossing',
     added: [
       'Sounds come from where they happen. A wall being hit on your right is in your right ear, a raider falling on your left is on your left, and the howl at nightfall comes from the side the raid does \u2014 with earbuds in, you can hear which wall to run to.',
+      'Letting Wren loose has a sound of its own now — a swell and a chime, not the warhorn — and so do digging up a cache and finding what is in it. After dark the music leaves more space between its phrases.',
       'There are three flat-topped hills out in the country now, and you can get up them \u2014 each has a ramp on the side facing home. Raiders will follow you up it, because it is the only way up for them too.',
     ],
     fixed: [

@@ -387,10 +387,15 @@ class Audio {
     for (const e of ev) e.set = 'day';
 
     // the night arrangement: same bars, thinner. The bright arpeggio halves in speed and drops an
-    // octave, and a drone sits under every other bar, which is most of where the dread comes from.
+    // octave, a drone sits under every other bar, which is most of where the dread comes from, and
+    // the lead sits out the bars between (#238).
     NIGHT_LEAD.forEach((bar, b) => {
       const toks = bar.split(' ');
       let cur = null;
+      // #238: and the lead rests every other bar. The night is the same tempo as the day -- it has
+      // to be, for the cross-fade -- so slower has to come from space: a phrase, then a bar with
+      // only the drone and the pad under it. The phrase openings (even bars) are the ones kept.
+      if (b % 2 === 1) toks.length = 0;
       toks.forEach((tok, i) => {
         const t = b * 4 * BEAT + i * BEAT * 0.5;
         if (tok === '.') {
@@ -758,6 +763,49 @@ class Audio {
       this.tone({ f: f * 0.94, t: t + at, dur, type: 'sawtooth', gain: 0.09, attack: 0.05, release: 0.25, lp: 1800, slideTo: f });
       this.tone({ f: f * 2 * 0.97, t: t + at, dur, type: 'square', gain: 0.03, attack: 0.05, release: 0.25, lp: 2400, slideTo: f * 2 });
     }
+  }
+  // #238: WREN LET LOOSE. It played `horn` -- the same sound as the button beside it -- and this
+  // is the biggest bet in the game: you took her into the night, the meter filled, and everything
+  // around her stops. So: a low fifth held and swelling for 0.4s, the breath before it, then a
+  // bright chime on top of the swell that rings on. Nothing else in the game swells; every other
+  // cue is struck. That is what makes it unmistakable rather than the notes.
+  wrenRelease() {
+    if (!this.ready()) return;
+    const t = this.now;
+    this.tone({ f: freq('A2'), t, dur: 0.8, type: 'triangle', gain: 0.16, attack: 0.4, release: 0.3, lp: 700 });
+    this.tone({ f: freq('E3'), t, dur: 0.8, type: 'triangle', gain: 0.12, attack: 0.4, release: 0.3, lp: 700 });
+    for (const [n, at, dur, gain] of [['E6', 0.4, 0.9, 0.09], ['B6', 0.43, 0.8, 0.06], ['E7', 0.46, 1.1, 0.05]]) {
+      this.tone({ f: freq(n), t: t + at, dur, type: 'sine', gain, attack: 0.004, release: 0.7 });
+    }
+    this.noise({ t: t + 0.4, dur: 0.25, gain: 0.05, type: 'highpass', f: 5000 });
+  }
+  // #238: one swing at a cache. `k` is how far through the dig this swing is, 0 to 1, and the
+  // knock rises with it -- the earth getting thinner under the spade -- so the last swing sounds
+  // like the last swing. It used `mine('stone')`, a bright chip, and a hole in the ground is not
+  // stone. The first version was a low sine thud under low-passed noise, which is `enemyDie` note
+  // for note: 0.10 apart on the scale `cues-do-not-converge` uses, and a raider falling over while
+  // you dig would be the same sound twice. So the blade is a short mid knock and the earth is a
+  // scrape after it, and nothing low at all: a 60 Hz thump underneath was tried and pulled the
+  // whole thing back down to 0.22 from `enemyDie` and 0.20 from `banner`, because the ear, and
+  // the scale, weigh the loudest band most.
+  dig(k = 0) {
+    if (!this.ready() || this.now - this.lastHit < 0.05) return;
+    this.lastHit = this.now;
+    const t = this.now;
+    const d = Math.max(0, Math.min(1, k));
+    this.tone({ f: 220 + 180 * d, slideTo: 130 + 110 * d, t, dur: 0.07, type: 'triangle', gain: 0.12, attack: 0.002, release: 0.05, lp: 1500 });
+    this.noise({ t: t + 0.02, dur: 0.16, gain: 0.09, type: 'bandpass', f: 700 + 700 * d, q: 0.7 });
+  }
+  // #238: a relic out of the ground. Four notes up, a fifth apart at the top, ringing: a find, not
+  // a fanfare. It used to play `wave`, which is the sawtooth that announces a RAID.
+  relic() {
+    if (!this.ready()) return;
+    const t = this.now;
+    ['C5', 'E5', 'G5', 'C6'].forEach((n, i) => {
+      const last = i === 3;
+      this.tone({ f: freq(n), t: t + i * 0.09, dur: last ? 0.6 : 0.16, type: 'sine', gain: 0.1, attack: 0.004, release: last ? 0.45 : 0.1 });
+    });
+    this.tone({ f: freq('G6'), t: t + 0.36, dur: 0.5, type: 'sine', gain: 0.04, attack: 0.02, release: 0.4 });
   }
   // #57: the banner going in. A low wooden knock and a short cloth snap -- the pole driven into the
   // ground, not a fanfare. The horn is the fanfare, and two of those a minute would fight.

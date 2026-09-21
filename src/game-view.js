@@ -598,7 +598,7 @@ export const ViewMethods = {
     this.mineTimer -= dt;
     if (this.mineTimer <= 0) {
       this.mineTimer = CFG.mining.tick;
-      audio.mine('stone');
+      audio.dig(on.dig / CFG.relics.digTime);
       if (this.king.mesh.userData.rig) {
         this.king.mesh.userData.rig.play('Attack', true);
         this.king.rigOnce = this.time + 0.5;
@@ -629,7 +629,7 @@ export const ViewMethods = {
     this.relics.push(r.id);
     r.apply(this);
     this.addScore(CFG.score.relic);
-    audio.levelUp ? audio.levelUp() : audio.wave(false);
+    audio.relic();
     this.hud.toast(`*${r.name}.* ${r.desc}`, 5200, 'Wren');
   },
 
