@@ -203,6 +203,7 @@ const PAGES = [
   { id: 'tools', label: 'Tools' },
   { id: 'tests', label: 'Tests' },
   { id: 'tickets', label: 'Tickets' },
+  { id: 'players', label: 'Players' },
 ];
 // Grouped, and the groups are a budget as much as a taxonomy. Every frame is a live WebGL context and
 // a browser keeps roughly sixteen before it starts dropping the oldest one it has; four at a time
@@ -270,15 +271,16 @@ const D = { tickets: null, checks: null, stats: null, brand: null, cast: null, w
 
 async function load() {
   const j = (u) => fetch(u).then((r) => r.ok ? r.json() : Promise.reject(r.status));
-  const [checks, stats, brand, cast, world, tools] = await Promise.all([
+  const [checks, stats, brand, cast, world, tools, players] = await Promise.all([
     j('./checks.json').catch(() => null),
     j('./stats.json').catch(() => null),
     j('./brand.json').catch(() => null),
     j('./cast.json').catch(() => null),
     j('./world.json').catch(() => null),
     j('./tools.json').catch(() => null),
+    j('./competitors.json').catch(() => null),
   ]);
-  D.checks = checks; D.stats = stats; D.brand = brand; D.cast = cast; D.world = world; D.tools = tools;
+  D.checks = checks; D.stats = stats; D.brand = brand; D.cast = cast; D.world = world; D.tools = tools; D.players = players;
   render();
   // GitHub second: it is the only part that can be rate-limited, and the page is useful without it
   try {
@@ -317,7 +319,7 @@ function render() {
   const p = page();
   document.getElementById('mainnav').innerHTML = PAGES
     .map((x) => `<a href="#/${x.id}" class="${x.id === p ? 'on' : ''}">${x.label}</a>`).join('');
-  ({ home: renderHome, ui: renderUI, brand: renderBrand, cast: renderCast, world: renderWorld, tools: renderTools, tests: renderTests, tickets: renderTickets }[p] || renderHome)();
+  ({ home: renderHome, ui: renderUI, brand: renderBrand, cast: renderCast, world: renderWorld, tools: renderTools, tests: renderTests, tickets: renderTickets, players: renderPlayers }[p] || renderHome)();
 }
 function side(title, items) {
   document.getElementById('sidetitle').textContent = title;
@@ -747,6 +749,37 @@ function renderTools() {
           ${want && x.code.length > 1 ? `<span class="why">${x.code.map((f) => `<code>${esc(f)}</code>`).join(' ')}</span>` : ''}</td>
       </tr>`).join('')}
     </table>`;
+}
+
+// The one page here that is about somebody else's game. `docs/competitors.md` is a reading of the
+// App Store reviews of the ten games nearest this one, and it is on the board for the same reason
+// `docs/brand.md` is: the doc is the only copy, so the page cannot disagree with it.
+//
+// Split by its own `##` headings rather than shown whole. The complaints section alone runs to nine
+// themes, and a wall of prose on an admin page is a wall nobody reaches the bottom of.
+function renderPlayers() {
+  const p = D.players;
+  if (!p || !p.prose) {
+    side('Players', [{ label: 'Everything', href: '#/players', on: true }]);
+    document.getElementById('main').innerHTML = '<h1>Players</h1><p class="lede">'
+      + (p ? '<code>docs/competitors.md</code> has not been written.' : 'Not carried across yet — <code>npm run board</code>.') + '</p>';
+    return;
+  }
+  // The title line is the page's own heading, so it is taken off whichever slice is shown.
+  const body = p.prose.replace(/^#\s+.*\n/, '');
+  const parts = body.split(/\n(?=##\s)/).filter((s) => s.trim());
+  const lede = /^##\s/.test(parts[0]) ? '' : parts.shift();
+  const name = (s) => ((/^##\s+(.*)$/m.exec(s) || [])[1] || '').trim();
+  const slug = (s) => name(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const want = sub();
+  const one = parts.find((s) => slug(s) === want);
+  side('Players', [{ label: 'Everything', href: '#/players', on: !one, count: parts.length }]
+    .concat(parts.map((s) => ({ label: name(s), href: `#/players/${slug(s)}`, on: s === one }))));
+  document.getElementById('main').innerHTML = `<h1>${one ? esc(name(one)) : 'What players say'}</h1>
+    <p class="lede">A reading of the reviews of the games nearest this one — what their players praise and what they
+      resent. Written, not measured, and quoted second-hand: <code>docs/competitors.md</code> says how it was gathered
+      and when, and it is the only copy.</p>
+    <div class="prose">${md(one ? one.replace(/^##\s+.*\n/, '') : (lede ? lede + '\n' + parts.join('\n') : parts.join('\n')))}</div>`;
 }
 
 function renderTests() {
