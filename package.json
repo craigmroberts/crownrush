@@ -14,6 +14,7 @@
     "models": "node tools/models/compress.mjs",
     "icons": "node tools/icons/make-app-icons.mjs",
     "check": "node tools/checks/checks.mjs",
+  "churn": "node tools/churn/churn.mjs",
     "seeds": "node tools/seeds/seeds.mjs",
     "raids": "node tools/raids/raids.mjs",
     "triage": "node tools/triage/refine.mjs",

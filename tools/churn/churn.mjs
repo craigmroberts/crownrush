@@ -14,6 +14,7 @@
 //     node tools/churn/churn.mjs               # every block, 3 rounds
 //     node tools/churn/churn.mjs --rounds 5
 //     node tools/churn/churn.mjs --block rain  # one block
+//     node tools/churn/churn.mjs --query '&crowd=0'  # the un-instanced path, which safe mode uses
 //
 // Chromium is launched with --js-flags=--expose-gc so the heap reading means something.
 import { chromium } from 'playwright';
@@ -29,6 +30,14 @@ const flag = (n, d = null) => { const i = argv.indexOf(`--${n}`); return i < 0 ?
 const ROUNDS = Number(flag('rounds', 3));
 const ONLY = flag('block', null);
 const PORT = Number(flag('port', 8211));
+// #190: WHICH PATH IS BEING CHURNED, because there is more than one and they leak differently.
+// By default a character is a row in the crowd's instanced mesh. `?crowd=0` -- which safe mode turns
+// on by itself, on exactly the phones this ticket is about -- makes every one of them a real
+// SkinnedMesh with its own geometry and its own skeleton. A harness that only ever loads the default
+// has an opinion about half the game.
+//
+//     node tools/churn/churn.mjs --block raiders --query '&crowd=0'
+const QUERY = flag('query', '') || '';
 
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css',
   '.json': 'application/json', '.png': 'image/png', '.webmanifest': 'application/manifest+json',
@@ -52,10 +61,10 @@ const page = await browser.newPage({ viewport: { width: 900, height: 640 } });
 page.on('pageerror', (e) => console.log('  PAGEERROR', e.message));
 
 // `?quality=2` is the cheapest tier, because the point is the churn and not the frame.
-await page.goto(`http://localhost:${PORT}/?tour&quality=2`, { waitUntil: 'load', timeout: 200000 });
+await page.goto(`http://localhost:${PORT}/?tour&quality=2${QUERY}`, { waitUntil: 'load', timeout: 200000 });
 await page.waitForFunction(() => window.game && window.game.king && window.game.walls, null, { timeout: 200000 });
 await page.waitForFunction(() => (window.game.frames || 0) > 12, null, { timeout: 200000, polling: 'raf' });
-console.log('world up\n');
+console.log(`world up${QUERY ? `  (${QUERY.replace(/^&/, '')})` : ''}\n`);
 
 // Each block is a string of JS run in the page. They are written to leave the game in the state they
 // found it -- a block that leaves 3,000 raiders standing would report its own mess as a leak.
@@ -114,11 +123,18 @@ const read = () => page.evaluate(async () => {
     materials: c.materials ?? null, tags: c.tags ?? null, popups: c.popups ?? null,
     heapMB: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null,
     enemies: g.enemies.length, units: g.units.length, coins: g.coins.length,
+    // #190: AND WHERE THE RUN HAS GOT TO, which is not decoration. Every block drives a second of
+    // game time per round, so a long sweep walks the run forward -- and a wave arriving brings a
+    // raider type nobody has seen, which is a geometry, a texture and a program that were always
+    // going to be made once. That reads exactly like a leak at round seven of eight. Printed beside
+    // the counters so a step can be told from a climb instead of argued about.
+    wave: g.wave, night: !!g.night, level: g.baseLevel,
   };
 });
 
 const names = ONLY ? [ONLY] : Object.keys(BLOCKS);
 const KEYS = ['geometries', 'textures', 'programs', 'materials', 'tags', 'popups', 'heapMB'];
+const STATE = ['wave', 'level', 'enemies', 'units'];
 let anyClimb = false;
 for (const name of names) {
   if (!BLOCKS[name]) { console.log(`no such block: ${name}`); continue; }
@@ -155,6 +171,7 @@ for (const name of names) {
     if (bad) anyClimb = true;
     console.log(`  ${bad ? 'CLIMB ' : '      '}${k.padEnd(11)} ${series.join(' -> ')}${bad ? `   +${perRound.toFixed(1)}/round after the first` : ''}`);
   }
+  console.log(`  ${'run'.padEnd(11)} ${rows.map((x) => STATE.map((k) => x[k]).join('/')).join(' -> ')}   (${STATE.join('/')})`);
   console.log('');
 }
 console.log(anyClimb ? 'Something climbs per block -- see CLIMB above.' : 'Every counter flat after the first round.');
