@@ -153,6 +153,7 @@ The board has two kinds of content and they live in different places on purpose.
 | Every structure, its ages and footprints | `public/board/world.json` | `npm run board` |
 | Test results | `public/board/checks.json` | `npm run check` |
 | Brand direction and decisions | `docs/brand.md` | a person |
+| What players say about the games next door | `docs/competitors.md` | a person |
 | How each model reads against the story | `docs/cast-review.md` | a person |
 
 The prose files are the ONLY copy of what they say — the board renders them, it does not hold its

@@ -3148,12 +3148,13 @@ src/characters.js smooth toy-figure characters with painted faces (army, raiders
 src/rig.js        loads rigged GLB characters and plays their animations
 src/crowd.js      draws the crowd as one instanced mesh per model, skinned on the GPU
 public/board/     the admin page at /board/ -- dashboard, UI (incl. a phone view and the element
-                  sheet), brand, cast, world, tools, tests, tickets. Check UI work at
+                  sheet), brand, cast, world, tools, tests, tickets, players. Check UI work at
                   /board/#/ui/<group>/phone before calling it done; see CLAUDE.md
 tools/board/      measures dist/, the palette, the cast and the structures (npm run board)
 docs/brand.md     the brand decisions and what is still open (the board renders it)
 docs/cast-review.md  every character model against the story and the art pass
 docs/art-pass.md  the art-direction brief for the world, and what of it landed
+docs/competitors.md  what players say about the games nearest this one (/board/#/players)
 tools/checks/     the check registry and its two runners, free and headless (npm run check)
 tools/blender/    Blender script that builds and exports rigged characters (public/models/*.glb)
 tools/fit/        fits a character to a reference image, locally, with no AI in the loop

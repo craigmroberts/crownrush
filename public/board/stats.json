@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-21T01:23:07.875Z",
+  "at": "2026-09-21T01:23:44.091Z",
   "enforced": [
     {
       "key": "wireKbToPlay",
@@ -17,12 +17,12 @@
       "waived": "#52 -- same cause"
     }
   ],
-  "total": 7270373,
-  "files": 43,
+  "total": 7284901,
+  "files": 44,
   "groups": [
     {
       "name": "JavaScript",
-      "bytes": 1289034,
+      "bytes": 1289062,
       "files": 3
     },
     {
