@@ -183,6 +183,11 @@ export const CHECKS = [
     why: '#223. It is the first thing in the game with a Y axis, and the failure this repo keeps recording is a character on a roof or inside something. The route matters most, and it has been wrong twice: with no waypoint, none of eight raiders reached a King on a plateau in ninety seconds; aimed straight at the ramp, 12-13 of 18 bearings made it and the rest stopped dead on the far side, because the line to the foot goes through a cliff. Walking round the drum is 18 of 18. A route that points at the right place and cannot be walked reads as correct from the outside, so this is driven rather than asserted on the waypoint.',
   },
   {
+    id: 'sounds-have-a-side', area: 'Sound', cost: 'cheap',
+    asserts: 'A wall hit east of the King is heard on the right and one west of him on the left, through the game\'s own damage path; a cue at the King is down the middle with no panner made for it, and a position off the map or missing clamps rather than throws.',
+    why: '#239. The game already tells you WHEN a wall is hit and not WHERE, and on a phone the screen is too small to show every wall at once. A pan is the cheapest possible direction and the easiest to lose: one call site passing nothing sounds exactly like one passing the wrong thing, so this drives the real damage path rather than the audio function.',
+  },
+  {
     id: 'mats-do-not-multiply', area: 'Build', cost: 'cheap',
     asserts: 'Refreshing the mats leaves the same mats on the field, once each \u2014 forty calls change nothing.',
     why: '#190. `refreshPads` runs on every purchase, level and restore, and it re-added the two bridge mats on each call because the pad on the field carries a moved COPY of its def and the test was object identity. Twelve duplicates were down at boot; the cost was invisible until the King reached the river, where 407 canvas textures uploaded in one frame.',

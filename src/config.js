@@ -14,6 +14,12 @@ export const CFG = {
   world: { size: 190, edge: 90 },
   // the grey mesas in the north-west; nothing spawns or walks here
   cliffs: { x: -14, z: -33 },
+  // #239: how far to the King's side a sound has to happen to sit fully in one ear. The camera
+  // shows about 35 units across at phone width, so 20 puts the edge of the screen most of the way
+  // to one side and anything off-screen hard against it -- which is the case that matters, because
+  // a wall hit you cannot see is the one you need a direction for. Only cues with a place use it;
+  // the coin, the horn and every button stay in the middle.
+  audio: { panSpread: 20 },
 
   // #103: `pickupRadius` is now also the radius of the ring drawn under the King -- the circle means
   // his reach, which is what a circle under a character has always meant to everyone who has ever

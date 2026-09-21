@@ -267,7 +267,7 @@ export const EnemiesMethods = {
       if (this.openT >= O.calm - 3 && !this.openWarned) {
         this.openWarned = true;
         this.hud.toast('Riders on the north road.', 2600, 'Wren');
-        audio.alarm();
+        audio.alarm(this.panAt(0));   // #239: the north road is straight ahead
       }
       return;
     }
@@ -796,7 +796,7 @@ export const EnemiesMethods = {
       this.spawnEnemy(i === 0 ? 'shield' : 'knight', F.pos[0] + Math.cos(a) * F.radius * 0.8, F.pos[1] + Math.sin(a) * F.radius * 0.8, top);
     }
     this.hud.toast('The Warlord calls his men from the tents!', 2200, 'Raid');
-    audio.alarm();
+    audio.alarm(this.panAt(F.pos[0]));
   },
 
   // #35: send a thief when the King is carrying something worth stealing, asked repeatedly through
@@ -892,7 +892,7 @@ export const EnemiesMethods = {
     this.root.remove(e.mesh);
     this.disposeEntity(e.mesh);
     this.hud.toast(`The thief escaped with ${e.carrying} coins.`, 2600, 'Raid');
-    audio.wallHit();
+    audio.wallHit(this.panAt(e.mesh.position.x));
   },
 
   // #212: put a flame in the hand of everyone carrying one, in one pass and one draw call.
@@ -1142,7 +1142,11 @@ export const EnemiesMethods = {
       // always under a blood moon: a sound that arrives on schedule forever stops being ominous.
       audio.setNight(true);
       const n = this.wave;
-      if (n <= 3 || n % 3 === 0 || (n > 0 && n % CFG.waves.bossEvery === 0)) audio.howl();
+      // #239: from the side the night is coming from -- the mean of the queue's bearings, which is
+      // what the player will be turning towards a few seconds later
+      const q = this.spawnQueue;
+      const from = q.length ? q.reduce((s, e) => s + e.x, 0) / q.length : this.king.mesh.position.x;
+      if (n <= 3 || n % 3 === 0 || (n > 0 && n % CFG.waves.bossEvery === 0)) audio.howl(this.panAt(from));
     }
     if (this.night && crossed(prev, this.dayPhase, cy.dawn)) {
       this.night = false;
@@ -1225,7 +1229,7 @@ export const EnemiesMethods = {
       this.queenHop = 1;
       tmp.copy(p).setY(2.5);
       this.heartFx(tmp, 1, 0.05);
-      audio.alarm();
+      audio.alarm(this.panAt(p.x));
     }
     if (this.rescueSpotted && this.alertT > 0) {
       this.alertT -= dt;
@@ -1629,7 +1633,7 @@ export const EnemiesMethods = {
       if (e.flash > 0) e.mesh.scale.setScalar(e.scale);
       e.flash = 0;
     } else e.flash = 0.12;
-    audio.hit();
+    audio.hit(this.panAt(hitPos.x));
     this.burstFx(hitPos, '#dff4ff', 0.9, 0.18);
     setHealthBar(e.bar, Math.max(0, e.hp / e.maxHp));
     this.popup(`-${Math.round(dmg)}`, hitPos, e.type === 'boss' ? '#ffffff' : '#ffe27a', e.type === 'boss' ? 2.6 : 1.4, e, dmg);
@@ -1654,7 +1658,7 @@ export const EnemiesMethods = {
     const mult = e.type === 'boss' ? 4 : e.type === 'brute' || e.type === 'elite' || e.type === 'shield' ? 2 : 1;
     const n = randInt(rk.coins[0], rk.coins[1]) * mult + this.mods.coinBonus;
     for (let i = 0; i < n; i++) this.dropCoin(e.mesh.position);
-    audio.enemyDie();
+    audio.enemyDie(this.panAt(e.mesh.position.x));
     this.addScore(CFG.score.kill[e.type] || 10);
     if (e.campId) this.campCleared(e.campId);   // #218: was that the last of that garrison?
     if (e.chief) {

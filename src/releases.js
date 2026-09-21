@@ -31,6 +31,7 @@ export const RELEASES = [
     date: '2026-09-21',
     title: 'The river crossing',
     added: [
+      'Sounds come from where they happen. A wall being hit on your right is in your right ear, a raider falling on your left is on your left, and the howl at nightfall comes from the side the raid does \u2014 with earbuds in, you can hear which wall to run to.',
       'There are three flat-topped hills out in the country now, and you can get up them \u2014 each has a ramp on the side facing home. Raiders will follow you up it, because it is the only way up for them too.',
     ],
     fixed: [

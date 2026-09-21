@@ -1183,6 +1183,47 @@ export const CHEAP = {
     });
     return r.bad.length ? no(r.bad) : ok(`${r.n} plateaus: a floor on top, a wall on every side but one, and the ramp is the way up`);
   },
+  // #239: THE BREACH HAS A SIDE.
+  //
+  // Every placed cue -- a wall hit, an arrow landing, a raider dying, the alarm, the howl, Wren's
+  // voice -- goes through `audio.placed(pan)`, which records the direction before it asks whether
+  // the context is ready, so it can be read back on a suspended context. This damages a real wall
+  // on the east of the ring and one on the west through `damageWall`, the game's own path, and
+  // reads which way each went; then a cue at the King himself, which must be down the middle with
+  // no panner node made for it. The far cases are clamped rather than left to the node, because a
+  // StereoPannerNode given 3 throws in some browsers and clamps silently in others.
+  async 'sounds-have-a-side'(page, url) {
+    await boot(page, url);
+    const r = await page.evaluate(() => {
+      const g = window.game;
+      const a = window.audio;
+      a.init();
+      const kx = g.king.mesh.position.x;
+      const built = g.walls.filter((w) => w.state === 'built' && w.mesh);
+      const east = built.filter((w) => w.mesh.position.x > kx + 4).sort((p, q) => q.mesh.position.x - p.mesh.position.x)[0];
+      const west = built.filter((w) => w.mesh.position.x < kx - 4).sort((p, q) => p.mesh.position.x - q.mesh.position.x)[0];
+      if (!east || !west) return { walls: built.length };
+      const read = () => ({ pan: a.lastPan, node: a.lastPanner ? a.lastPanner.pan.value : null });
+      g.damageWall(east, 1); const e = { x: east.mesh.position.x - kx, ...read() };
+      g.damageWall(west, 1); const w = { x: west.mesh.position.x - kx, ...read() };
+      a.wallHit(g.panAt(kx)); const c = read();
+      a.enemyDie(g.panAt(kx + 400)); const far = read();
+      a.alarm(NaN); const nan = read();
+      return { ctx: !!a.ctx, walls: built.length, e, w, c, far, nan };
+    });
+    if (r.walls !== undefined && !r.e) return no(`no built wall four units east and west of the King to hit (${r.walls} built)`);
+    if (!r.ctx) return no('audio.init() made no AudioContext, so nothing here was routed');
+    const bad = [];
+    const f = (n) => (n === null ? 'none' : n.toFixed(2));
+    if (!(r.e.pan > 0.5)) bad.push(`a wall ${r.e.x.toFixed(1)} east of the King panned ${f(r.e.pan)}, not to the right`);
+    if (!(r.w.pan < -0.5)) bad.push(`a wall ${(-r.w.x).toFixed(1)} west of the King panned ${f(r.w.pan)}, not to the left`);
+    if (r.e.node === null || Math.abs(r.e.node - r.e.pan) > 0.01) bad.push(`the east hit's panner node carries ${f(r.e.node)}, not the ${f(r.e.pan)} it was given`);
+    if (r.w.node === null || Math.abs(r.w.node - r.w.pan) > 0.01) bad.push(`the west hit's panner node carries ${f(r.w.node)}, not the ${f(r.w.pan)} it was given`);
+    if (r.c.pan !== 0 || r.c.node !== null) bad.push(`a cue at the King panned ${f(r.c.pan)} through ${r.c.node === null ? 'no node' : 'a node'}; the middle should be the bus itself`);
+    if (r.far.pan !== 1 || r.far.node !== 1) bad.push(`a cue 400 east reads ${f(r.far.pan)} / node ${f(r.far.node)}, not clamped to 1`);
+    if (r.nan.pan !== 0 || r.nan.node !== null) bad.push(`a cue with no position reads ${f(r.nan.pan)}, not the middle`);
+    return bad.length ? no(bad) : ok(`east wall ${f(r.e.pan)}, west wall ${f(r.w.pan)}, the King's own cue down the middle, the far side clamped`);
+  },
 };
 
 // #179: the sabotage each check has to survive going red under. One per check, aimed at exactly the
@@ -1366,4 +1407,9 @@ export const PROVE = {
   // the ground under a foot is flat everywhere. That is what this would look like if `floorAt` were
   // ever bypassed, which is the one line the whole feature hangs off.
   'high-ground-holds': () => { window.game.world.floorAt = () => 0; },
+  // #239: the direction lost at its source -- every cue is told it happened at the King, which is
+  // what the game sounded like before the ticket and what a refactor of a call site would quietly
+  // bring back. The panner code stays intact, so a check that only asked whether a node existed
+  // when given a number would still be green.
+  'sounds-have-a-side': () => { window.game.panAt = () => 0; },
 };

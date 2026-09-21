@@ -701,6 +701,11 @@ the raids keep coming for a high score.
   the one being carried off. `speechSynthesis` would have said real words and was rejected: the voice
   is whatever the device ships, iOS will not speak without a gesture, and it does not go through the
   audio graph, so it would have been the only sound in the game the mute button could not reach.
+  Since #239 a sound comes from where it happened: a wall hit, an arrow landing, a raider dying,
+  the alarm, the howl and Wren's voice each go through a `StereoPannerNode` set from the sound's
+  offset east or west of the King, over `CFG.audio.panSpread` units to reach hard left or right.
+  A cue at the King has no node made for it. The check `sounds-have-a-side` hits a real wall on
+  each side of the ring and reads the direction back.
 
 ## Run it locally
 

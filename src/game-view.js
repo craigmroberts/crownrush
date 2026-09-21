@@ -1039,6 +1039,11 @@ export const ViewMethods = {
     return Math.min(this.coinsCarried, this.stack.length);
   },
 
+  // #239: where a sound is, as a pan from -1 to 1 -- the King's ear is the middle of the screen.
+  panAt(x) {
+    return (x - this.king.mesh.position.x) / CFG.audio.panSpread;
+  },
+
   // Where the first coin sits: just clear of the King's crown. On a horse that crown is most of a
   // body higher, and the old fixed 2.4 put the bottom of the stack inside his head once he mounted.
   // Same two heights the health bar uses in spawnUnit.
@@ -1573,7 +1578,7 @@ export const ViewMethods = {
       audio.alarm();
       if (voice && this.time - (this.lastCry || -99) > CFG.voice.gap) {
         this.lastCry = this.time;
-        audio.cry(voice);
+        audio.cry(voice, this.panAt(this.queen.mesh.position.x));
       }
     }
   },

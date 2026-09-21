@@ -313,7 +313,26 @@ class Audio {
     return this.noiseBuf;
   }
 
-  noise({ t, dur, gain = 0.2, type = 'bandpass', f = 1000, q = 1 }) {
+  // #239: A SOUND WITH A PLACE. `pan` is -1 (hard left) to 1, already scaled by the caller from the
+  // world (`game.panAt`). One StereoPannerNode per cue, between the cue and the SFX bus, let go after
+  // the longest cue it could carry -- the same reason `tone` says when its nodes die (#61). Every
+  // placed cue records `lastPan` and keeps `lastPanner` BEFORE it asks `ready()`, so a check can
+  // read the direction back on a context that is suspended, which in headless Chromium it always is.
+  // Panning is off the main thread; the cost is a node, not a frame.
+  placed(pan = 0) {
+    const p = Math.max(-1, Math.min(1, Number.isFinite(pan) ? pan : 0));
+    this.lastPan = p;
+    if (!this.ctx) return null;
+    if (p === 0 || !this.ctx.createStereoPanner) { this.lastPanner = null; return this.sfx; }
+    const node = this.ctx.createStereoPanner();
+    node.pan.value = p;
+    node.connect(this.sfx);
+    this.lastPanner = node;
+    setTimeout(() => node.disconnect(), 3000);
+    return node;
+  }
+
+  noise({ t, dur, gain = 0.2, type = 'bandpass', f = 1000, q = 1, bus }) {
     const ctx = this.ctx;
     const src = ctx.createBufferSource();
     src.buffer = this.noiseBuffer();
@@ -326,7 +345,7 @@ class Audio {
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     src.connect(filt);
     filt.connect(g);
-    g.connect(this.sfx);
+    g.connect(bus || this.sfx);
     src.start(t);
     src.stop(t + dur + 0.02);
     src.onended = () => {                       // #61, as in tone()
@@ -458,7 +477,8 @@ class Audio {
 
   // #32: the wolf. A sawtooth swept up and held before it falls away, with a slow vibrato, the
   // filter opening as it climbs, and a breath of noise beneath: nightfall you can hear coming.
-  howl() {
+  howl(pan = 0) {
+    const bus = this.placed(pan);
     if (!this.ready()) return;
     const ctx = this.ctx;
     const t = ctx.currentTime + 0.03;
@@ -487,7 +507,7 @@ class Audio {
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.45);
     o.connect(lp);
     lp.connect(g);
-    g.connect(this.sfx);
+    g.connect(bus || this.sfx);
     o.start(t);
     o.stop(t + dur + 0.5);
     lfo.start(t);
@@ -615,7 +635,8 @@ class Audio {
   //
   // `kind` is which of her two moments this is. 'call' is her shouting across the village for help,
   // open and rising before it falls; 'fear' is her being taken -- higher, tighter and dropping away.
-  cry(kind = 'call') {
+  cry(kind = 'call', pan = 0) {
+    const bus = this.placed(pan);
     if (!this.ready()) return;
     const ctx = this.ctx;
     const t = ctx.currentTime + 0.02;
@@ -659,7 +680,7 @@ class Audio {
     g.gain.setValueAtTime(call ? 0.26 : 0.3, t + dur * 0.55);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.12);
     mix.connect(g);
-    g.connect(this.sfx);
+    g.connect(bus || this.sfx);
     o.start(t);
     o.stop(t + dur + 0.16);
     lfo.start(t);
@@ -683,19 +704,21 @@ class Audio {
   ready() {
     return this.ctx && this.ctx.state === 'running' && !this.muted;
   }
-  hit() {
+  hit(pan = 0) {
+    const bus = this.placed(pan);
     if (!this.ready() || this.now - this.lastHit < 0.05) return;
     this.lastHit = this.now;
     const t = this.now;
-    this.noise({ t, dur: 0.07, gain: 0.22, f: 1400, q: 0.8 });
-    this.tone({ f: 220, slideTo: 70, t, dur: 0.09, type: 'sine', gain: 0.22, attack: 0.002, release: 0.06 });
+    this.noise({ t, dur: 0.07, gain: 0.22, f: 1400, q: 0.8, bus });
+    this.tone({ f: 220, slideTo: 70, t, dur: 0.09, type: 'sine', gain: 0.22, attack: 0.002, release: 0.06, bus });
   }
-  wallHit() {
+  wallHit(pan = 0) {
+    const bus = this.placed(pan);
     if (!this.ready() || this.now - this.lastHit < 0.08) return;
     this.lastHit = this.now;
     const t = this.now;
-    this.noise({ t, dur: 0.12, gain: 0.2, type: 'lowpass', f: 500 });
-    this.tone({ f: 110, slideTo: 50, t, dur: 0.12, type: 'triangle', gain: 0.2, attack: 0.002, release: 0.08 });
+    this.noise({ t, dur: 0.12, gain: 0.2, type: 'lowpass', f: 500, bus });
+    this.tone({ f: 110, slideTo: 50, t, dur: 0.12, type: 'triangle', gain: 0.2, attack: 0.002, release: 0.08, bus });
   }
   coin(combo = 0) {
     if (!this.ready()) return;
@@ -750,11 +773,12 @@ class Audio {
     this.tone({ f: freq('E6'), t, dur: 0.12, type: 'sine', gain: 0.12, attack: 0.004, release: 0.08 });
     this.tone({ f: freq('G6'), t: t + 0.1, dur: 0.2, type: 'sine', gain: 0.12, attack: 0.004, release: 0.15 });
   }
-  enemyDie() {
+  enemyDie(pan = 0) {
+    const bus = this.placed(pan);
     if (!this.ready()) return;
     const t = this.now;
-    this.noise({ t, dur: 0.16, gain: 0.18, type: 'lowpass', f: 700 });
-    this.tone({ f: 160, slideTo: 40, t, dur: 0.16, type: 'sine', gain: 0.18, attack: 0.002, release: 0.1 });
+    this.noise({ t, dur: 0.16, gain: 0.18, type: 'lowpass', f: 700, bus });
+    this.tone({ f: 160, slideTo: 40, t, dur: 0.16, type: 'sine', gain: 0.18, attack: 0.002, release: 0.1, bus });
   }
   wave(boss = false) {
     if (!this.ready()) return;
@@ -762,12 +786,13 @@ class Audio {
     const notes = boss ? ['D3', 'D3', 'A3'] : ['G3', 'C4'];
     notes.forEach((n, i) => this.tone({ f: freq(n), t: t + i * 0.22, dur: i === notes.length - 1 ? 0.5 : 0.2, type: 'sawtooth', gain: 0.12, attack: 0.02, release: 0.12, lp: 1200 }));
   }
-  alarm() {
+  alarm(pan = 0) {
+    const bus = this.placed(pan);
     if (!this.ready()) return;
     const t = this.now;
     for (let i = 0; i < 3; i++) {
-      this.tone({ f: 660, t: t + i * 0.22, dur: 0.12, type: 'square', gain: 0.1, attack: 0.005, release: 0.06, lp: 1800 });
-      this.tone({ f: 520, t: t + i * 0.22 + 0.11, dur: 0.1, type: 'square', gain: 0.1, attack: 0.005, release: 0.06, lp: 1800 });
+      this.tone({ f: 660, t: t + i * 0.22, dur: 0.12, type: 'square', gain: 0.1, attack: 0.005, release: 0.06, lp: 1800, bus });
+      this.tone({ f: 520, t: t + i * 0.22 + 0.11, dur: 0.1, type: 'square', gain: 0.1, attack: 0.005, release: 0.06, lp: 1800, bus });
     }
   }
   hurt() {

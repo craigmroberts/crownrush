@@ -2435,14 +2435,14 @@ export const BuildMethods = {
       w.hp -= dmg;
       setHealthBar(w.bar, Math.max(0, w.hp / w.maxHp));
       w.mesh.position.y = 0.06;
-      audio.wallHit();
+      audio.wallHit(this.panAt(w.mesh.position.x));
       if (w.hp <= 0) this.breakKeep(w);
       return;
     }
     w.hp -= dmg;
     setHealthBar(w.bar, Math.max(0, w.hp / w.maxHp));
     w.mesh.position.y = 0.06;
-    audio.wallHit();
+    audio.wallHit(this.panAt(w.mesh.position.x));
     if (w.hp > 0) return;
     if (w.level > 0) {
       // a battered wall degrades to the previous material before it finally falls
