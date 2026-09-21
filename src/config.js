@@ -980,12 +980,85 @@ export const CFG = {
   // They are deliberately gentle. The ticket's third rule is that a first-time player's run is
   // unchanged, and nothing here is required to win -- every one of them is a head start on something
   // the run already gives you.
+  // #220: THE LEGACY TREE. #56 built exactly the right mechanism and then put four things in it.
+  //
+  // Four unlocks, all automatic and all passive, means the start of run 9 is identical to the start
+  // of run 8 and there is nothing at the title screen that is a decision. Twenty-five automatic
+  // unlocks would not fix that -- it would be a bigger drip, a difficulty slide that makes the game
+  // easier every week and never more interesting.
+  //
+  // SO YOU PICK THREE. That is the half of this ticket doing the work: twenty-four of these, of
+  // which a run carries three, is a different run every time somebody sits down, chosen by them
+  // before the first mat -- and it makes the build order they have optimised over four runs wrong
+  // again, on purpose.
+  //
+  // THE FOUR RULES IT MUST NOT BREAK, all of them #56's and all still right:
+  //
+  //   * A first-time player's run is UNCHANGED. Nothing here is required and nothing is on the
+  //     field before the first unlock is earned.
+  //   * Nothing trivialises a run. Every one of these is a head start on something the run already
+  //     gives you -- almost all of them are an upgrade card or a pad the player could buy anyway,
+  //     handed over at minute zero. Three stacked must still lose to a bad night 20.
+  //   * `applyLegacy` stays the only gameplay code this touches. It is what has kept the system
+  //     cheap, and it is still true at twenty-four: every unlock below carries its own `apply`, and
+  //     `applyLegacy` is a loop over the three that were chosen.
+  //   * The thresholds stay gentle.
+  //
+  // WHERE THE THRESHOLDS COME FROM. #56 did this arithmetic and it still holds: a finished short run
+  // clears about 13,000 before a single kill is counted, a long one about 30,000. So:
+  //
+  //     the first three   by 6,000     -- inside a player's FIRST short run, because the choosing is
+  //                                       the feature and a feature nobody reaches is not one
+  //     eighteen of 24    by 100,000   -- about seven or eight finished runs
+  //     the last six      to 215,000   -- long tail, and deliberately the head starts
+  //
+  // Front-loaded on purpose. The interesting thing is not owning twenty-four, it is choosing three,
+  // and that starts the moment there are four to choose from.
+  //
+  // `pool` groups the chooser into five short rows rather than one long list -- the same five the
+  // upgrade cards use (`POOL_NAME`), so a player who knows what "Your walls" means on a level-up
+  // card knows what it means here. `head` marks the ones that are a head START rather than a
+  // modifier: they are the expensive end of the ladder and they read differently, because beginning
+  // with the Trade Post standing is a different kind of promise from archers who shoot harder.
   legacy: [
-    { id: 'purse', at: 4000, icon: 'coin', name: 'A fuller purse', desc: 'Start with 25 coins on the road instead of 10.' },
-    { id: 'volunteers', at: 14000, icon: 'person', name: 'Word has spread', desc: 'Every recruit mat brings one extra soldier, all run.' },
-    { id: 'packs', at: 34000, icon: 'sack', name: 'Packhorses', desc: 'Carry 8 more before you have to sell.' },
-    { id: 'stables', at: 70000, icon: 'horse', name: 'The stables stand', desc: 'Begin every run already mounted.' },
+    // ---- the first three, inside one finished short run ----
+    { id: 'purse', at: 1500, pool: 'economy', icon: 'coin', name: 'A fuller purse', desc: 'Start with 25 coins on the road instead of 10.', apply: (g) => { g.mods.startCoins += 15; } },
+    { id: 'keen', at: 3500, pool: 'army', icon: 'arrows', name: 'Sharpened heads', desc: 'Your archers hit harder from the first night.', apply: (g) => { g.mods.archerDamage *= 1.2; } },
+    { id: 'tools', at: 6000, pool: 'economy', icon: 'hammer', name: 'Good tools', desc: 'You mine quicker all run.', apply: (g) => { g.mods.mineSpeed *= 1.3; } },
+
+    // ---- the body of the ladder ----
+    { id: 'volunteers', at: 9000, pool: 'army', icon: 'person', name: 'Word has spread', desc: 'Every recruit mat brings one extra soldier.', apply: (g) => { g.mods.recruitBonus += 1; } },
+    { id: 'footings', at: 13000, pool: 'walls', icon: 'wall', name: 'Deeper footings', desc: 'Your walls and gates hold out longer.', apply: (g) => { g.mods.wallHp *= 1.25; } },
+    { id: 'lodestone', at: 17000, pool: 'economy', icon: 'coin', name: 'A lodestone', desc: 'Coins are pulled to you from further away.', apply: (g) => { g.mods.pickup *= 1.25; } },
+    { id: 'hardened', at: 21000, pool: 'army', icon: 'archer', name: 'Hardened', desc: 'Your archers take more punishment before they fall.', apply: (g) => { g.mods.archerHp *= 1.25; } },
+    { id: 'fletchers', at: 26000, pool: 'towers', icon: 'tower', name: "A fletcher's eye", desc: 'Watchtowers cut raiders down faster.', apply: (g) => { g.mods.towerDamage *= 1.3; } },
+    { id: 'packs', at: 31000, pool: 'economy', icon: 'sack', name: 'Packhorses', desc: 'Carry 8 more before you have to sell.', apply: (g) => { g.mods.carryBonus += 1; } },
+    { id: 'boots', at: 36000, pool: 'king', icon: 'crown', name: 'Good boots', desc: 'The King covers ground faster on foot.', apply: (g) => { g.mods.kingSpeed *= 1.15; } },
+    { id: 'spikes', at: 42000, pool: 'walls', icon: 'wall', name: 'Spiked walls', desc: 'Raiders hurt themselves attacking your walls.', apply: (g) => { g.mods.wallThorns += 4; } },
+    { id: 'longbows', at: 48000, pool: 'army', icon: 'bow', name: 'Longbows', desc: 'Your archers open fire sooner, before raiders reach them.', apply: (g) => { g.mods.archerRange *= 1.2; } },
+    { id: 'plunder', at: 55000, pool: 'economy', icon: 'coin', name: 'Plunder', desc: 'Every raider you kill drops an extra coin.', apply: (g) => { g.mods.coinBonus += 1; } },
+    { id: 'spotters', at: 62000, pool: 'towers', icon: 'tower', name: 'Spotters', desc: 'Watchtowers cover more ground.', apply: (g) => { g.mods.towerRange *= 1.2; } },
+    { id: 'surgeon', at: 70000, pool: 'king', icon: 'heart', name: 'A field surgeon', desc: 'Everyone recovers health faster.', apply: (g) => { g.mods.regen *= 1.6; } },
+    { id: 'gleaner', at: 79000, pool: 'economy', icon: 'person', name: 'A quick gleaner', desc: 'The gleaner walks faster, so less coin is left lying.', apply: (g) => { g.mods.gleanerSpeed *= 1.3; } },
+    { id: 'decks', at: 89000, pool: 'towers', icon: 'shield', name: 'Wider decks', desc: 'Every watchtower holds one more archer.', apply: (g) => { g.mods.towerSlots += 1; } },
+    { id: 'armour', at: 100000, pool: 'king', icon: 'crown', name: 'Royal armour', desc: 'The King begins with more health.', apply: (g) => { g.mods.kingHp += 60; } },
+
+    // ---- the long tail: the head starts ----
+    // A head start hands the player a thing they would otherwise have bought, at minute zero. That
+    // is deliberately the expensive end: it is the only kind of unlock that changes the SHAPE of an
+    // opening rather than a number inside it, and it is the one most able to trivialise a run if it
+    // arrives early.
+    { id: 'stables', at: 112000, pool: 'king', head: true, icon: 'horse', name: 'The stables stand', desc: 'Begin every run already mounted.', apply: (g) => { g.mods.startMounted = true; } },
+    { id: 'volley', at: 125000, pool: 'king', icon: 'arrows', name: 'Volley', desc: 'The King fires an extra arrow at another raider.', apply: (g) => { g.mods.kingArrows += 1; } },
+    { id: 'firstguard', at: 140000, pool: 'army', head: true, icon: 'archer', name: 'Two who stayed', desc: 'Two archers are already with you when the run begins.', apply: (g) => { g.mods.startArchers += 2; } },
+    { id: 'tradepost', at: 160000, pool: 'economy', head: true, icon: 'gold', name: 'The trade post stands', desc: 'Begin with the Trade Post already built.', apply: (g) => { g.mods.startBuilt.push('exchange'); } },
+    { id: 'palisade', at: 185000, pool: 'walls', head: true, icon: 'wall', name: 'The palisade stands', desc: 'Begin with the wooden wall already up around the plot.', apply: (g) => { g.mods.startBuilt.push('palisade'); } },
+    { id: 'standard', at: 215000, pool: 'towers', head: true, icon: 'swords', name: 'A standard taken', desc: 'One raider camp is already broken when the run begins (#218).', apply: (g) => { g.mods.startCampsBroken += 1; } },
   ],
+  // #220: how many of the unlocked ones a run carries. Three is the ticket's number and it is the
+  // right one: two is a preference rather than a build, and four of twenty-four starts to be most of
+  // what there is to have.
+  legacyPicks: 3,
 
   // #18: the King's one ability. The warhorn pulls the army to him and drives them for a few
   // seconds, and the blast shoves nearby raiders back and stuns them: an answer to a breach.

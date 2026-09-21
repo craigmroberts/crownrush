@@ -192,6 +192,64 @@ export const FREE = {
       : { pass: true, note: `${declared} of ${UPGRADES.length} upgrades declare a mod key, all ${keys.size} resolve` };
   },
 
+  // #220: A LEGACY UNLOCK IS A HEAD START, NOT A SHORTCUT.
+  //
+  // The ticket's second rule, and the one that decides whether the tree is longevity or a difficulty
+  // slide: "each unlock is a head start on something the run already gives you, not a thing the run
+  // cannot otherwise have." Twenty-four of these are chosen three at a time before the first mat, so
+  // one that is stronger than the card it shadows is a run that starts past its own upgrade path.
+  //
+  // The rule is checkable because both sides write to the same `mods` key: an unlock may be worth AT
+  // MOST one buy of the equivalent upgrade card. Not the card's stacked maximum -- one buy. A player
+  // with three picks has had a head start on three cards, and can still go and buy all three.
+  //
+  // An unlock with no equivalent card is not a failure and is not silently allowed either: it is
+  // counted and named in the note, because "this one has nothing to measure it against" is a fact
+  // somebody adding the twenty-fifth should have to read.
+  'legacy-is-a-head-start'() {
+    const card = {};
+    for (const u of UPGRADES) {
+      const a = u.apply;
+      if (!a || a.key === undefined) continue;
+      // the strongest single buy of any card writing this key
+      if (!card[a.key] || a.by > card[a.key].by) card[a.key] = { by: a.by, op: a.op, name: u.name };
+    }
+    const bad = [];
+    const unmatched = [];
+    let compared = 0;
+    for (const u of CFG.legacy) {
+      if (typeof u.apply !== 'function') { bad.push(`${u.id}: no apply`); continue; }
+      if (typeof u.at !== 'number' || u.at <= 0) bad.push(`${u.id}: threshold is ${u.at}`);
+      if (!u.pool) bad.push(`${u.id} (${u.name}) has no pool, so the chooser cannot group it`);
+      // Run the unlock against a fresh copy of MODS and see what moved. Reading the source would be
+      // guessing at it; this is what the game will actually do.
+      const before = { ...MODS, startBuilt: [] };
+      const after = { ...MODS, startBuilt: [] };
+      try { u.apply({ mods: after }); } catch (e) { bad.push(`${u.id}: apply threw -- ${e.message}`); continue; }
+      const moved = Object.keys(after).filter((k) => !Array.isArray(after[k]) && after[k] !== before[k]);
+      const grew = after.startBuilt.length > 0;
+      if (!moved.length && !grew) { bad.push(`${u.id} (${u.name}) changes nothing`); continue; }
+      for (const key of moved) {
+        const c = card[key];
+        if (!c) { unmatched.push(`${u.id}->${key}`); continue; }
+        compared++;
+        const by = c.op === 'mul' ? after[key] / before[key] : after[key] - before[key];
+        if (by > c.by + 1e-9) {
+          bad.push(`${u.id} (${u.name}) moves \`${key}\` by ${by.toFixed(2)}, more than one ${c.name} card at ${c.by}`);
+        }
+      }
+    }
+    const ids = CFG.legacy.map((u) => u.id);
+    if (new Set(ids).size !== ids.length) bad.push('two unlocks share an id, so the chooser cannot tell them apart');
+    const rising = CFG.legacy.every((u, i) => i === 0 || u.at >= CFG.legacy[i - 1].at);
+    if (!rising) bad.push('the thresholds do not rise in order, so the ladder reads out of sequence');
+    if (CFG.legacy.filter((u) => u.at <= 13000).length < CFG.legacyPicks + 1)
+      bad.push('fewer than four unlocks inside one finished short run, so the choosing does not start in run one');
+    return bad.length ? no(bad)
+      : { pass: true, note: `${CFG.legacy.length} unlocks, ${compared} measured against their card and none stronger`
+        + `${unmatched.length ? `, ${unmatched.length} with no card to compare (${unmatched.join(', ')})` : ''}` };
+  },
+
   'footprints-cover-kinds'() {
     const kinds = new Set(structurePads().map((d) => d.structure));
     const bad = [...kinds].filter((k) => !foot(k)).map((k) => `no footprint for "${k}"`);

@@ -4,7 +4,7 @@ import { audio } from './audio.js';
 import { preloadRigs, renderPortrait, renderFace, releasePortraitRenderer } from './rig.js';
 import { preloadProps, usePropRenderer, releasePropTranscoder } from './props.js';
 import { preloadIcons, mountIcons, iconSvg } from './icons.js';
-import { readScores, readDiary } from './scores.js';
+import { readScores, readDiary, writePicks } from './scores.js';
 import { SAVE_VERSION, readLength, writeLength } from './game-save.js';
 import { CFG, PADS } from './config.js';
 import { sampleFrame, bugReport, reportWithLog } from './report.js';
@@ -33,7 +33,24 @@ const refreshStart = () => {
   // #56: and what previous runs have earned. `legacyProgress` is read fresh rather than cached,
   // because the run that just ended is what changed it.
   hud.showStart(readScores(len)[0] || null, game.savedRun(), len, game.legacyProgress());
+  // #220: the chooser button is drawn INSIDE the legacy block, so its listener has to be re-bound
+  // every time that block is redrawn -- `renderLegacy` replaces the markup wholesale, which takes
+  // any listener on it with it. Same reason `refreshStart` re-binds nothing else: everything else on
+  // the title screen is static markup that outlives the redraw.
+  const pick = document.getElementById('legacy-pick');
+  if (pick) pick.addEventListener('click', openPicks);
 };
+// #220: the chooser. Reads the progress fresh on open rather than closing over it, because a run
+// finishing between one open and the next is exactly what changes it.
+function openPicks() {
+  const p = game.legacyProgress();
+  hud.showPicks(p, (ids) => {
+    writePicks(ids);
+    // Redraw the title behind it so the three badges are right the moment the sheet closes. It costs
+    // a `showStart` per tap on a paused screen with nothing else running.
+    refreshStart();
+  });
+}
 refreshStart();
 const startBtn = document.getElementById('start-btn');
 startBtn.disabled = true;
@@ -226,6 +243,11 @@ document.getElementById('continue-run-btn').addEventListener('click', () => {
   hud.hideStart();
   game.resumeRun(saved);
 });
+// #220: closing the chooser. Both routes land in the same place -- the picks are already written on
+// every tap, so Done and the X are the same action and neither can lose a choice.
+for (const id of ['picks-x', 'picks-done']) {
+  document.getElementById(id).addEventListener('click', () => hud.hidePicks());
+}
 document.getElementById('restart-btn').addEventListener('click', () => game.start());
 document.getElementById('continue-btn').addEventListener('click', () => game.resume());
 document.getElementById('victory-restart').addEventListener('click', () => game.start());
@@ -1041,6 +1063,10 @@ function runView() {
     // here would be the board eating a real player's greeting.
     releases: () => game.showReleases('title', false, false),
     whatsnew: () => game.showReleases('title', true, false),
+    // #220: the chooser, with a lifetime score high enough that the whole ladder is open and the
+    // locked state is still visible on the long tail. A frame of a panel nobody has unlocked
+    // anything in is a frame of an empty panel.
+    picks: () => { game.legacy = 150000; openPicks(); },
     pause: () => game.hud.showPause(),
     report: () => takeReport(),   // #182
     levelup: () => { game.offerQueue = 1; game.offerLevel = game.baseLevel; game.showOffer(); },

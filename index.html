@@ -387,6 +387,21 @@
       </div>
     </div>
     <!-- #23: one sheet for sound, pause and how to play -->
+    <!-- #220: THE LEGACY CHOOSER. Twenty-four unlocks, of which a run carries three.
+         A sheet rather than anything on the title screen itself: #58's complaint was that two run
+         length pills were already too much noise there, and this is twenty-four rows. The title
+         shows the three chosen and a button; everything else is behind the button, which is what
+         lets a player who does not care press Play and never see a decision. -->
+    <div id="picks-screen" class="overlay hidden">
+      <div class="panel sheet">
+        <button class="panel-x" id="picks-x" aria-label="Close" title="Close">&times;</button>
+        <h1>What you carry</h1>
+        <p class="hint" id="picks-sub"></p>
+        <div id="picks-body"></div>
+        <button class="primary" id="picks-done">Done</button>
+      </div>
+    </div>
+
     <div id="settings-screen" class="overlay hidden">
       <!-- #174: the reference's settings -- a gear badge, four tabs, rows of controls. Every row the
            sheet had is still here, sorted into the tab it belongs to; the reference's "Controls" tab

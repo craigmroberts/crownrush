@@ -87,6 +87,33 @@ export function addLegacy(score) {
   return total;
 }
 
+// #220: WHICH THREE UNLOCKS THE PLAYER IS TAKING INTO A RUN.
+//
+// Its own key beside the legacy total, for the reason the diary gives below: a save format change is
+// no reason to take somebody's choices back, and `game-save.js` throws a run away when VERSION
+// moves. This is a preference about the NEXT run rather than state inside one.
+//
+// Stored as ids and never validated on write. What the player chose is a fact about them; whether it
+// is still a legal choice is a question about the build, and `game.picks()` answers it fresh every
+// run -- so an unlock renamed or retired between builds costs somebody one pick rather than stopping
+// the game from starting.
+const PICKS_KEY = 'crownrush-picks';
+
+export function readPicks() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PICKS_KEY) || '[]');
+    return Array.isArray(raw) ? raw.filter((x) => typeof x === 'string') : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+export function writePicks(ids) {
+  try {
+    localStorage.setItem(PICKS_KEY, JSON.stringify(ids));
+  } catch (e) { /* private mode or a full quota: this run still plays, it is just not remembered */ }
+}
+
 // #154: which of Wren's diary entries have been unlocked. Its own key beside the board and the
 // legacy total, for exactly the reason given above: a save format change is no reason to take
 // somebody's unlocks back, and `game-save.js` throws a run away when VERSION moves.

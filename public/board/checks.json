@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-21T01:24:25.646Z",
+  "at": "2026-09-21T08:05:38.254Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -63,6 +63,13 @@
       "cost": "free",
       "asserts": "Every upgrade writes a mod that exists in MODS.",
       "why": "An upgrade onto a misspelled key is a reward that does nothing, and nothing says so."
+    },
+    {
+      "id": "legacy-is-a-head-start",
+      "area": "Build",
+      "cost": "free",
+      "asserts": "Every legacy unlock changes something, and no unlock is worth more than ONE buy of the upgrade card writing the same mod — plus the ladder rises in order and starts inside one finished short run.",
+      "why": "Twenty-four unlocks chosen three at a time is longevity; twenty-four that beat the cards they shadow is a run that starts past its own upgrade path. Both sides write to `mods`, so the rule is arithmetic rather than opinion."
     },
     {
       "id": "footprints-cover-kinds",
@@ -208,121 +215,126 @@
   "checks": {
     "pads-requires-exist": {
       "pass": true,
-      "at": "2026-09-21T00:42:41.682Z"
+      "at": "2026-09-21T07:25:43.272Z"
     },
     "pads-buildat-in-bounds": {
       "pass": true,
-      "at": "2026-09-21T00:42:41.682Z"
+      "at": "2026-09-21T07:25:43.272Z"
     },
     "pads-no-overlap": {
       "pass": true,
-      "at": "2026-09-21T00:42:41.689Z"
+      "at": "2026-09-21T07:25:43.279Z"
     },
     "opening-homes-legal": {
       "pass": true,
-      "at": "2026-09-21T00:42:41.689Z"
+      "at": "2026-09-21T07:25:43.279Z"
     },
     "icons-exist": {
       "pass": true,
-      "at": "2026-09-21T00:42:41.694Z"
+      "at": "2026-09-21T07:25:43.283Z"
     },
     "upgrade-mods-exist": {
       "pass": true,
-      "note": "17 of 17 upgrades declare a mod key, all 21 resolve",
-      "at": "2026-09-21T00:42:41.694Z"
+      "note": "17 of 17 upgrades declare a mod key, all 27 resolve",
+      "at": "2026-09-21T07:25:43.283Z"
     },
     "footprints-cover-kinds": {
       "pass": true,
-      "at": "2026-09-21T00:42:41.694Z"
+      "at": "2026-09-21T07:25:43.284Z"
     },
     "walls-solid": {
       "pass": true,
       "note": "24 directions, held every time",
-      "at": "2026-09-21T00:49:28.405Z"
+      "at": "2026-09-21T07:32:56.521Z"
     },
     "gates-passable": {
       "pass": true,
       "note": "4 gates",
-      "at": "2026-09-21T00:49:49.549Z"
+      "at": "2026-09-21T07:33:13.058Z"
     },
     "wall-ring-unbroken": {
       "pass": true,
       "note": "360 samples",
-      "at": "2026-09-21T00:50:07.411Z"
+      "at": "2026-09-21T07:33:31.126Z"
     },
     "views-open": {
       "pass": true,
-      "note": "21 views, each with its panel up",
-      "at": "2026-09-21T00:47:08.817Z"
+      "note": "23 views, each with its panel up",
+      "at": "2026-09-21T07:30:34.565Z"
     },
     "opening-resolves": {
       "pass": true,
-      "note": "taken after 794 frames of running",
-      "at": "2026-09-21T01:01:55.825Z"
+      "note": "taken after 789 frames of running",
+      "at": "2026-09-21T07:45:45.869Z"
     },
     "queen-visible": {
       "pass": true,
       "note": "400 frames, including on the Keep doorstep",
-      "at": "2026-09-21T01:08:15.963Z"
+      "at": "2026-09-21T07:52:16.283Z"
     },
     "rebuild-after-fall": {
       "pass": true,
       "note": "empty plot, clear ledger, every mat on it buys",
-      "at": "2026-09-21T01:22:08.760Z"
+      "at": "2026-09-21T08:05:34.716Z"
     },
     "tokens-resolve": {
       "pass": true,
       "note": "no cycles; 3 tokens nothing reads -- --frame-hi, --frame-lo, --danger-edge (#135)",
-      "at": "2026-09-21T00:42:41.693Z"
+      "at": "2026-09-21T07:25:43.283Z"
     },
     "icons-unique": {
       "pass": true,
       "note": "54 icons, no key declared twice",
-      "at": "2026-09-21T00:42:41.693Z"
+      "at": "2026-09-21T07:25:43.283Z"
     },
     "bands-hooked": {
       "pass": true,
       "note": "ground, tufts and canopies banded; every lit world surface over 200 triangles with them",
-      "at": "2026-09-21T00:47:27.125Z"
+      "at": "2026-09-21T07:30:52.091Z"
     },
     "post-once": {
       "pass": true,
-      "note": "one tone map (3.87 from ACES, 28.62 from none), 4x MSAA kept, toggle costs no programs",
-      "at": "2026-09-21T00:49:10.601Z"
+      "note": "one tone map (3.49 from ACES, 28.5 from none), 4x MSAA kept, toggle costs no programs",
+      "at": "2026-09-21T07:32:35.297Z"
     },
     "hud-quiet": {
       "pass": true,
       "note": "3 setters replayed 10x with no DOM write; 0 -> 200 runs 0 116 175 197 200 200 in 0.34s",
-      "at": "2026-09-21T00:47:50.349Z"
+      "at": "2026-09-21T07:31:14.365Z"
     },
     "mats-at-doors": {
       "pass": true,
       "note": "5 structure mats on their door's axis, 2 bridge mats on the road at the crossing",
-      "at": "2026-09-21T00:48:08.215Z"
+      "at": "2026-09-21T07:31:32.622Z"
     },
     "deck-seats-the-crew": {
       "pass": true,
-      "at": "2026-09-21T00:42:41.694Z"
+      "at": "2026-09-21T07:25:43.283Z"
     },
     "tower-crew-placed": {
       "pass": true,
       "note": "9 on one deck, each on the planking, and a replacement took the dead man's place",
-      "at": "2026-09-21T00:48:36.772Z"
+      "at": "2026-09-21T07:32:00.558Z"
     },
     "release-greeting": {
       "pass": true,
       "note": "quiet for a new player, shown once to one behind, quiet after",
-      "at": "2026-09-21T01:08:58.286Z"
+      "at": "2026-09-21T07:52:58.058Z"
     },
     "post-walk-unblocked": {
       "pass": true,
-      "note": "across a wall and onto his post in 41 frames",
-      "at": "2026-09-21T01:09:56.943Z"
+      "note": "across a wall and onto his post in 40 frames",
+      "at": "2026-09-21T07:53:54.360Z"
     },
     "relics-bite": {
       "pass": true,
-      "note": "dug in 3.6s for ledger; cards 3->4; cap 18->9999; column 40/0/0 -> 40/40/0",
-      "at": "2026-09-21T01:24:24.683Z"
+      "note": "dug in 3.6s for sack; cards 3->4; cap 18->9999; column 40/0/0 -> 40/40/0",
+      "at": "2026-09-21T07:54:12.809Z"
+    },
+    "legacy-is-a-head-start": {
+      "pass": true,
+      "note": "24 unlocks, 17 measured against their card and none stronger, 5 with no card to compare (purse->startCoins, armour->kingHp, stables->startMounted, firstguard->startArchers, standard->startCampsBroken)",
+      "at": "2026-09-21T07:25:43.284Z"
     }
   }
 }

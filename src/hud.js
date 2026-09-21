@@ -712,8 +712,18 @@ export class Hud {
       out.push(`<div class="lg-line"><b>Unlocked for every run from now on</b></div>`);
       out.push(`<div class="lg-row">${p.just.map((u) => badge(u, 'new')).join('')}</div>`);
       out.push(`<div class="lg-line">${p.just.map((u) => esc(u.desc)).join(' ')}</div>`);
+    } else if (mode === 'title') {
+      // #220: WHAT YOU ARE CARRYING, not everything you own. This used to list every unlock, which
+      // was right at four and is twenty-four rows of badge at twenty-four -- on the screen #58
+      // already called noisy. The three chosen are the interesting fact; the rest is behind the
+      // button under them.
+      out.push(p.picked.length
+        ? `<div class="lg-row">${p.picked.map((u) => badge(u, 'on')).join('')}</div>`
+        : '<div class="lg-line">Nothing chosen \u2014 pick three to carry into the run</div>');
+      out.push(`<button id="legacy-pick" class="lg-pick">${iconSvg('star', 15)}<span>Choose your three</span>`
+        + `<em>${p.unlocked.length} of ${p.of} unlocked</em></button>`);
     } else if (p.unlocked.length) {
-      out.push(`<div class="lg-row">${p.unlocked.map((u) => badge(u, 'on')).join('')}</div>`);
+      out.push(`<div class="lg-row">${p.unlocked.slice(-4).map((u) => badge(u, 'on')).join('')}</div>`);
     }
     if (p.next) {
       // The bar measures the gap between the unlock just passed and the next one, not 0 to next --
@@ -728,6 +738,72 @@ export class Hud {
       out.push(`<div class="lg-line">Every unlock earned \u2014 <b>${p.total.toLocaleString()}</b> lifetime</div>`);
     }
     el.innerHTML = out.join('');
+  }
+
+  // #220: THE CHOOSER. Twenty-four unlocks grouped into the five pools the upgrade cards use, so it
+  // is five short lists rather than one long one -- and a player who knows what "Your walls" means
+  // on a level-up card knows what it means here.
+  //
+  // LOCKED ONES ARE SHOWN, greyed, with what they cost. The ladder is the motivation: a list that
+  // hid them would be a list that gets longer for no visible reason, and the one question this panel
+  // has to answer for somebody four runs in is "what am I working toward".
+  //
+  // `onChange` is called with the ids whenever they change, so the title screen behind can redraw
+  // its three badges without this panel knowing anything about it.
+  showPicks(p, onChange) {
+    this.picksState = { chosen: [...p.picked.map((u) => u.id)], total: p.total, onChange };
+    this.renderPicks(p);
+    document.getElementById('picks-screen').classList.remove('hidden');
+  }
+
+  renderPicks(p) {
+    const st = this.picksState;
+    const max = CFG.legacyPicks;
+    const body = document.getElementById('picks-body');
+    const sub = document.getElementById('picks-sub');
+    sub.innerHTML = `<b>${st.chosen.length} of ${max}</b> chosen \u00b7 ${p.unlocked.length} of ${p.of} unlocked`
+      + ` \u00b7 <b>${p.total.toLocaleString()}</b> lifetime`;
+    const out = [];
+    for (const [pool, name] of Object.entries(POOL_NAME)) {
+      const rows = CFG.legacy.filter((u) => u.pool === pool);
+      if (!rows.length) continue;
+      out.push(`<h2 class="pk-h">${esc(name)}</h2>`);
+      for (const u of rows) {
+        const open = p.total >= u.at;
+        const on = st.chosen.includes(u.id);
+        // A locked row is not a button: `disabled` rather than a click handler that says no, so a
+        // screen reader and a thumb get the same answer.
+        out.push(`<button class="pk-row${on ? ' on' : ''}${open ? '' : ' locked'}" data-id="${esc(u.id)}"${open ? '' : ' disabled'}>`
+          + `<span class="pk-icon">${iconSvg(u.icon, 22)}</span>`
+          + `<span class="pk-text"><b>${esc(u.name)}${u.head ? ' <em class="pk-head">head start</em>' : ''}</b>`
+          + `<span>${open ? esc(u.desc) : `Locked \u2014 <b>${u.at.toLocaleString()}</b> lifetime score`}</span></span>`
+          + `<span class="pk-state">${on ? iconSvg('check', 20) : ''}</span></button>`);
+      }
+    }
+    body.innerHTML = out.join('');
+    for (const el of body.querySelectorAll('.pk-row:not(.locked)')) {
+      el.addEventListener('click', () => this.togglePick(el.dataset.id, p));
+    }
+  }
+
+  togglePick(id, p) {
+    const st = this.picksState;
+    const i = st.chosen.indexOf(id);
+    if (i >= 0) st.chosen.splice(i, 1);
+    // FULL MEANS THE OLDEST GOES, rather than refusing the tap. A chooser that does nothing when you
+    // press it is a chooser people press twice and then give up on -- and with three slots the
+    // player's intent when they tap a fourth is obvious. The one they picked first is the one they
+    // have thought about least recently.
+    else {
+      if (st.chosen.length >= CFG.legacyPicks) st.chosen.shift();
+      st.chosen.push(id);
+    }
+    st.onChange(st.chosen);
+    this.renderPicks(p);
+  }
+
+  hidePicks() {
+    document.getElementById('picks-screen').classList.add('hidden');
   }
 
   // `len` is the length the next run will be played at, which is also the board `best` was read from.
@@ -1348,6 +1424,7 @@ export class Hud {
     this.hideCast();
     this.hideCredits();
     this.hideReleases();
+    this.hidePicks();   // #220
     this.hidePause();
   }
   setScoreCount(n) {

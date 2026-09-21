@@ -2152,6 +2152,134 @@ times — which is what proved the test rather than the code was wrong. Pinning 
 and the army before spawning made both arms agree. **A measurement that moves when the thing it
 measures is switched off is measuring something else.**
 
+## The legacy tree: twenty-four unlocks, of which you carry three (#220)
+
+#56 built exactly the right mechanism and then put four things in it. Four unlocks, all automatic and
+all passive, means **the start of run 9 is identical to the start of run 8** and there is nothing on
+the title screen that is a decision.
+
+Twenty-four automatic unlocks would not have fixed that — it would be a bigger drip, a difficulty
+slide that makes the game easier every week and never more interesting. **So you pick three.** That
+is the half of the ticket doing the work: it is a different run every time somebody sits down, chosen
+by them before the first mat, and it makes the build order they have optimised over four runs wrong
+again on purpose.
+
+### Owning is no longer carrying, and that is the change
+
+`applyLegacy` used to apply everything the player had earned. It now applies `picks()` — what they
+chose, filtered by what they have earned. Driven, with `purse`/`tools`/`volunteers` chosen out of
+twenty-one unlocked:
+
+```
+mineSpeed     1 -> 1.3     recruitBonus  0 -> 1      start coins  10 -> 25
+archerDamage  1            wallHp        1           startMounted false
+```
+
+The second row is the assertion that matters: those are unlocks the player **owns** and did not pick,
+and they stay at their defaults.
+
+**A first-time player's run is untouched**, which is #56's rule and was checked rather than assumed:
+a fresh profile reads `legacy=0`, the title block is `hidden`, `picks()` is empty and nothing is on
+the field.
+
+### Nothing trivialises a run, and it is arithmetic rather than opinion
+
+The ticket's second rule — *"each unlock is a head start on something the run already gives you"* —
+is checkable, because a legacy unlock and an upgrade card write to the **same `mods` key**. So
+`legacy-is-a-head-start` runs every unlock's `apply` against a fresh `MODS`, sees what moved, and
+holds it to **at most one buy** of the card that shadows it:
+
+| | legacy | one card | |
+| --- | --- | --- | --- |
+| `archerDamage` | ×1.2 | ×1.3 (Keen Eye) | |
+| `archerHp` | ×1.25 | ×1.4 (Hardened) | |
+| `towerDamage` | ×1.3 | ×1.5 (Fletcher's Workshop) | |
+| `wallHp` | ×1.25 | ×1.4 (Deep Footings) | |
+| `mineSpeed` | ×1.3 | ×1.45 (Sharp Tools) | |
+| `regen` | ×1.6 | ×2 (Field Surgeon) | |
+| `kingSpeed` | ×1.15 | ×1.2 (Swift) | |
+| the `+1`s | +1 | +1, max 2–3 | one buy of three |
+
+**17 of 24 measured against their card, none stronger.** A player with three picks has had a head
+start on three cards and can still go and buy all three. The other seven have no card to compare
+against — the five head starts, plus `purse` and `armour` — and the check *names* them in its note
+rather than skipping them silently, because "this one has nothing to measure it against" is a fact
+whoever adds the twenty-fifth should have to read.
+
+Proved it can fail: making one unlock ×1.9 gives `keen (Sharpened heads) moves archerDamage by 1.90,
+more than one Keen Eye card at 1.3`, exit 1. (Free checks bypass the `--prove` path, which only
+sabotages browser checks, so this one is proved by hand the way `tools/layout/check.mjs` is.)
+
+The check also holds the ladder itself: ids unique, thresholds rising in order, and **at least four
+unlocks inside one finished short run** — because the choosing is the feature, and a feature nobody
+reaches is not one.
+
+### Where the thresholds come from
+
+#56's arithmetic still holds: a finished short run clears about 13,000 before a single kill is
+counted, a long one about 30,000.
+
+| | |
+| --- | --- |
+| the first three | by 6,000 — **inside a first short run** |
+| eighteen of 24 | by 100,000 — about seven or eight finished runs |
+| the last six | to 215,000 — long tail, and deliberately the head starts |
+
+Front-loaded on purpose. The interesting thing is not owning twenty-four, it is choosing three, and
+that starts the moment there are four to choose from. The head starts are the expensive end because
+they are the only kind that changes the **shape** of an opening rather than a number inside it —
+beginning with the palisade up is a different promise from archers who shoot harder.
+
+### The panel was the risk, and it is a sheet
+
+A pick-three-of-twenty-four chooser on a 390-wide screen, on a title screen whose whole complaint in
+#58 was that two run-length pills were already too much noise.
+
+So the title screen shows only **what you are carrying** — three badges — and a quiet row under them:
+`Choose your three · 21 of 24 unlocked`. Everything else is behind it, which is what lets a player
+who does not care press Play and never see a decision. The old block listed every unlock, which was
+right at four and is twenty-four rows of badge at twenty-four.
+
+The chooser is a sheet, grouped into the five pools the upgrade cards use, so a player who knows what
+"Your walls" means on a level-up card knows what it means here. Measured at 390 × 844: **712 tall
+against an 844 viewport**, 24 rows, 5 group headers, scrolling inside.
+
+**It scrolls, and that is fine here where it was not fine on the level-up panel** (#221). This one is
+opened on purpose, from a paused title screen, by somebody who came to read it; that one opens itself
+mid-raid. Twenty-four rows always overflow at every phone size, so the bottom fade is unconditional
+rather than a `.more` class toggled on measurement — there is no state in which this list fits, and a
+row cut off by a hard edge reads as a layout bug where the same row under a fade reads as *there is
+more*.
+
+**Locked rows are shown, greyed, carrying their own threshold.** The ladder is the motivation, and
+"what am I working toward" is the question this panel answers for somebody four runs in.
+
+**Tapping a fourth drops the oldest** rather than refusing the tap. A chooser that does nothing when
+you press it is one people press twice and then give up on; with three slots the intent behind a
+fourth tap is obvious, and the pick chosen first is the one thought about least recently. Driven:
+`keen,volunteers,hardened` → tap a fourth → `volunteers,hardened,fletchers`.
+
+### And one thing this found in the checks themselves
+
+`views-open`'s list of frames is **hand-written**, and that is its one weakness: a `?view=` added to
+the game and to the board is not covered until somebody adds it here too, and nothing says so.
+`?view=camp` shipped with #218 and went two tickets before the count not moving gave it away. Both
+it and `?view=picks` are covered now — **21 views → 23** — and the number in the note is the tell:
+if it does not go up when a frame is added, the frame is not being checked.
+
+### What it cost the rest of the code
+
+Still one place. `applyLegacy` is a loop over three `apply` functions, every one of which writes to
+`mods` — the door `upgrades.js` already uses — so the twenty-fourth unlock cost what the fourth did.
+The head starts that need a *field* (a mounted King, archers to recruit, a Trade Post to stand up)
+set a flag there and are cashed in `applyHeadStarts` after `standOpeningVillage`, because a Trade
+Post stood up before it would be a second Trade Post once it ran. That split is #56's; there are just
+more of them than `purse` and `stables` now.
+
+One trap worth naming: `mods.startBuilt` is an **array**, so `{ ...MODS }` would share one list
+across every run in the session and the second run would open with the first run's head starts still
+in it. It is copied fresh.
+
 ## Treasure in the fog, and relics that change a rule (#221)
 
 > "maybe things like finding treasure in the rest of the world"

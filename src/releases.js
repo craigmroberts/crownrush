@@ -31,6 +31,7 @@ export const RELEASES = [
     date: '2026-09-20',
     title: 'Three things that were broken',
     added: [
+      'What past runs have earned is now a choice. There are twenty-four unlocks instead of four, and you take three of them into each run \u2014 picked on the title screen, remembered between runs. Sharper archers, deeper walls, a fuller purse, or a head start like beginning with the palisade already up. The first three come inside your first finished run.',
       'There is treasure buried out in the fog. Walk close enough and a chest shows itself; stand on it and dig, and what comes out changes a rule for the rest of the run \u2014 four rewards to choose from at every Keep level instead of three, a bag that never fills, arrows that carry through the raider behind, or a camp you break staying broken. Miss every one and the run is the run it has always been.',
       'Raider camps stand out in the country now, and part of every night\u2019s raid marches from each one. Break a camp in daylight and that party does not come \u2014 fewer of them, from fewer directions. Raiders move back in after a couple of nights, and the main camp always sends its share, so a quiet night has to be earned again.',
       'The country around the village is different every time you open the game. The woods, the boulder fields and every seam of wood, stone, iron and diamond are somewhere new \u2014 so the walk is a new walk, while the village, the roads, the river and the bridges are exactly where you left them.',

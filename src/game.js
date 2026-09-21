@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { CFG, TIERS, NODES } from './config.js';
+import { CFG, TIERS, NODES, PADS } from './config.js';
 import { makePost } from './post.js';
 import { audio } from './audio.js';
 import { setRigShadows, enableCrowd, updateCrowd, clearCrowd, crowdStats } from './rig.js';
 import { MODS } from './upgrades.js';
-import { recordRun, readNumber, writeNumber, readLegacy, addLegacy, unlockDiary } from './scores.js';
+import { recordRun, readNumber, writeNumber, readLegacy, addLegacy, unlockDiary, readPicks } from './scores.js';
 import { buildWorld, setupLights } from './world.js';
 import { Input } from './input.js';
 import { setHealthBar, HealthBars, CoinField, clearHealthBars, makeRing, makeCoinStack, makeCamp, makeCache, makeTorchField, cacheSizes } from './models.js';
@@ -599,7 +599,9 @@ export class Game {
     this.fogTimer = 0;
     this.lastFogPos = new V3(999, 0, 999);
     this.damageMul = 1;
-    this.mods = { ...MODS };
+    // #220: `startBuilt` is an array, so a shallow spread would share ONE list across every run in
+    // the session and the second run would open with the first run's head starts still in it.
+    this.mods = { ...MODS, startBuilt: [] };
     // #56: and then whatever previous runs have earned, through the same door an in-run upgrade uses.
     // Read fresh every reset rather than cached, so a run that ends and unlocks something hands the
     // next one the benefit without a reload.
@@ -901,6 +903,18 @@ export class Game {
     return CFG.legacy.filter((u) => this.legacy >= u.at);
   }
 
+  // #220: the three the player is taking into this run -- whatever they chose, filtered by what they
+  // have actually earned.
+  //
+  // FILTERED EVERY TIME rather than validated on write, because the stored list outlives the table:
+  // an unlock renamed or retired between builds leaves an id in somebody's localStorage that means
+  // nothing, and a run that threw on it would be a run that will not start. An unknown id is simply
+  // not in `CFG.legacy`, so it drops out here and the player is three-minus-one rather than stuck.
+  picks() {
+    const want = readPicks();
+    return CFG.legacy.filter((u) => want.includes(u.id) && this.legacy >= u.at).slice(0, CFG.legacyPicks);
+  }
+
   // The next one to come, or null once they are all in hand.
   nextUnlock() {
     return CFG.legacy.find((u) => this.legacy < u.at) || null;
@@ -911,11 +925,58 @@ export class Game {
     return !!u && this.legacy >= u.at;
   }
 
+  // #220: still the only gameplay code the meta-progression touches, and now a loop. Every unlock
+  // carries its own `apply` (config.js) and every one of them writes to `mods`, which is the door
+  // `upgrades.js` already uses -- so the twenty-fourth unlock costs the same as the fourth did.
+  //
+  // The head starts that need a FIELD -- a mounted King, archers to recruit, a Trade Post to stand
+  // up -- set a flag here and are read in `start()`, because this runs from `reset()` before any of
+  // it exists. Same split `purse` and `stables` always had; there are just more of them.
   applyLegacy() {
-    if (this.has('volunteers')) this.mods.recruitBonus += 1;
-    if (this.has('packs')) this.mods.carryBonus += 1;
-    // `purse` is read where the coins are scattered, and `stables` in `start()` -- `mountKing` needs
-    // a King to mount, and this runs from `reset()` before the field exists.
+    for (const u of this.picks()) u.apply(this);
+  }
+
+  // #220: the half of a head start that needs a field to put it on.
+  //
+  // `applyLegacy` runs from `reset()`, before there is a King to mount, an army to join or a plot to
+  // build on -- so the unlocks that hand the player a THING set a flag there and are cashed here,
+  // after `standOpeningVillage`. The split is #56's and has not changed; there are just more of them
+  // than `purse` and `stables` now.
+  //
+  // AFTER the opening village on purpose: `standOpeningVillage` replays the morning's buildings from
+  // `CFG.opening`, and a Trade Post stood up before it would be a second Trade Post once it ran.
+  applyHeadStarts() {
+    for (const id of this.mods.startBuilt) {
+      const def = PADS.find((p) => p.id === id);
+      // Already standing because the opening morning includes it -- fine, and not worth a word to
+      // the player. The unlock is "begin with it built"; the opening already having built it is the
+      // same promise kept by somebody else.
+      if (!def || this.built[id]) continue;
+      this.built[id] = true;
+      if (def.structure && def.buildAt) this.buildStructure(def);
+      if (def.wall) this.buildWall(def.wall.tier, def.wall.side);
+    }
+    for (let i = 0; i < this.mods.startArchers; i++) {
+      const a = (i / Math.max(1, this.mods.startArchers)) * Math.PI * 2;
+      this.spawnUnit('archer', Math.cos(a) * 3.4, Math.sin(a) * 3.4 + 4, false);
+    }
+    // #218: a camp already broken. The nearest one, because "a standard taken" is a thing that
+    // happened before the run rather than a die roll inside it -- and the nearest camp is the one
+    // the player would most plausibly have reached.
+    if (this.mods.startCampsBroken && this.camps && this.camps.length) {
+      const near = [...this.camps].sort((a, b) => Math.hypot(a.x, a.z) - Math.hypot(b.x, b.z));
+      for (const c of near.slice(0, this.mods.startCampsBroken)) {
+        c.cleared = true;
+        c.clearedOn = 0;
+        if (c.mesh) c.mesh.visible = false;
+        for (const e of this.enemies.filter((x) => x.campId === c.id)) this.removeEnemy(e);
+      }
+    }
+    if (this.mods.kingHp && this.king) {
+      this.king.maxHp += this.mods.kingHp;
+      this.king.hp = this.king.maxHp;
+    }
+    this.refreshPads();
   }
 
   // #56: what to say at the end of a run. `gained` is this run's contribution, `next` what is coming
@@ -930,13 +991,15 @@ export class Game {
       next,
       toGo: next ? Math.max(0, next.at - this.legacy) : 0,
       unlocked: this.unlocked(),
+      picked: this.picks(),   // #220: the three being carried, not everything owned
       of: CFG.legacy.length,
     };
   }
 
-  // How many coins lie on the road at the start. #56's first unlock, and its only reader.
+  // How many coins lie on the road at the start. #220: read off `mods` like everything else now,
+  // rather than asking `has('purse')` -- an unlock that is owned but not CHOSEN must not pay out.
   startCoins() {
-    return CFG.coins.start + (this.has('purse') ? 15 : 0);
+    return CFG.coins.start + this.mods.startCoins;
   }
 
   start() {
@@ -956,11 +1019,12 @@ export class Game {
     this.hud.hideGain();
     // #56: the last unlock is a horse in the stable before the run begins. After `reset()`, because
     // `mountKing` swaps a mesh that has to exist first.
-    if (this.has('stables')) this.mountKing();
+    if (this.mods.startMounted) this.mountKing();   // #220: chosen, not merely owned
     // #152: the kingdom he has this morning. In `start` and not in `reset`, because `resumeRun` calls
     // `reset` too and a restored run is a village that already exists -- standing this one up under it
     // would put a second Keep on the field.
     this.standOpeningVillage();
+    this.applyHeadStarts();
     this.hud.toast('A quiet morning. *Wren walks with you.*', 3600, 'Wren');
     audio.init();
     audio.setActive(true);

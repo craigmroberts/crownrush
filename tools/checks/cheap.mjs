@@ -69,6 +69,12 @@ export const CHEAP = {
     // length is the second half of it: an overlay can be visible and empty.
     const VIEWS = [
       ['?tour', null], ['?view=map', null], ['?view=stable', null], ['?view=road', null], ['?view=mesa', null], ['?view=elements', 'elements-sheet'],
+      // #218 and #220. THIS LIST IS HAND-WRITTEN AND THAT IS ITS ONE WEAKNESS: a `?view=` added to
+      // the game and to the board is not covered until it is added here too, and nothing says so --
+      // `?view=camp` shipped with #218 and went two tickets before anybody noticed the count had not
+      // moved. The number in the note is the tell; if it does not go up when a frame is added, the
+      // frame is not being checked.
+      ['?view=camp', null], ['?view=picks', 'picks-screen'],
       // #194: the same view at a pinned time of day, and its red twin. The third column is the phase
       // the URL asked for, because "the page loaded" is not the assertion that matters here -- a
       // `?phase=` that quietly did nothing would open the road at the morning and pass everything

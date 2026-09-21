@@ -81,6 +81,11 @@ export const CHECKS = [
     why: 'An upgrade onto a misspelled key is a reward that does nothing, and nothing says so.',
   },
   {
+    id: 'legacy-is-a-head-start', area: 'Build', cost: 'free',
+    asserts: 'Every legacy unlock changes something, and no unlock is worth more than ONE buy of the upgrade card writing the same mod \u2014 plus the ladder rises in order and starts inside one finished short run.',
+    why: 'Twenty-four unlocks chosen three at a time is longevity; twenty-four that beat the cards they shadow is a run that starts past its own upgrade path. Both sides write to `mods`, so the rule is arithmetic rather than opinion.',
+  },
+  {
     id: 'footprints-cover-kinds', area: 'Build', cost: 'free',
     asserts: 'Every structure kind a pad can build has a footprint.',
     why: '`placeOk` falls back to 3x3 for anything missing, which silently mis-sizes collisions.',

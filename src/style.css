@@ -599,6 +599,65 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
   font-size: 12px; font-weight: 800; color: var(--ink-dim); text-shadow: none;
 }
 .legacy .lg-badge.on { border-color: var(--frame-mid); color: var(--btn-ink); background: linear-gradient(180deg, rgba(58,44,14,0.85), rgba(30,22,8,0.9)); }
+
+/* #220: the button under the three badges on the title screen. Dressed as a row rather than as a
+   call to action -- Play is the call to action on that screen and a second gold button beside it
+   would be two. It says what it opens and what is behind it, because "3 of 24 unlocked" is the
+   number that makes somebody press it. */
+.legacy .lg-pick {
+  display: flex; align-items: center; gap: 8px; width: auto; margin: 2px auto 0;
+  padding: 8px 14px; border-radius: 11px; font-family: inherit; font-size: 13.5px; font-weight: 800;
+  color: var(--ink); background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.13);
+  box-shadow: none; text-shadow: none; -webkit-text-stroke: 0; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.legacy .lg-pick:active { background: rgba(255,255,255,0.12); }
+.legacy .lg-pick em { font-style: normal; font-weight: 700; font-size: 12px; color: var(--ink-dim); }
+
+/* #220: THE CHOOSER. Twenty-four rows on a 390-wide screen, so the sheet scrolls -- which is fine
+   here and was not fine on the level-up panel (#221): this one is opened on purpose, from a paused
+   title screen, by somebody who came to read it. The level-up panel opens itself mid-raid.
+
+   Rows rather than cards. A card carries a colour and a shape and is worth it when three of them are
+   a decision on one screen; twenty-four of them is a wall. `.sheet-row` next door is the same
+   reasoning and this borrows its fill so the two sheets feel like one game. */
+/* Twenty-four rows ALWAYS overflow, at every phone size, so the fade is unconditional rather than
+   the `.more` class `#offer-gains` toggles -- there is no state in which this list fits. A row cut
+   off by a hard edge reads as a layout bug; the same row under a fade reads as "there is more". */
+#picks-body {
+  max-height: 56vh; max-height: 56dvh; overflow-y: auto; text-align: left; margin: 10px 0 14px;
+  -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 26px), transparent 100%);
+  mask-image: linear-gradient(180deg, #000 calc(100% - 26px), transparent 100%);
+}
+#picks-body .pk-h {
+  font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-dim);
+  margin: 14px 2px 6px; font-weight: 800;
+}
+#picks-body .pk-h:first-child { margin-top: 2px; }
+#picks-body .pk-row {
+  display: flex; align-items: center; gap: 10px; width: 100%; margin: 0 0 6px;
+  padding: 9px 11px; border-radius: 12px; text-align: left; font-family: inherit;
+  background: rgba(255,255,255,0.07); border: 1px solid transparent; box-shadow: none;
+  text-shadow: none; -webkit-text-stroke: 0; color: var(--ink); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#picks-body .pk-row .pk-icon { flex: 0 0 22px; display: grid; place-items: center; opacity: 0.9; }
+#picks-body .pk-row .pk-text { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; }
+#picks-body .pk-row .pk-text b { font-size: 14px; font-weight: 800; color: #fff; }
+#picks-body .pk-row .pk-text span { font-size: 12.5px; line-height: 1.3; color: var(--ink-dim); }
+#picks-body .pk-row .pk-state { flex: 0 0 22px; display: grid; place-items: center; }
+/* chosen is the gold the rest of the game uses for "this one" */
+#picks-body .pk-row.on { background: linear-gradient(180deg, rgba(58,44,14,0.9), rgba(30,22,8,0.92)); border-color: var(--frame-mid); }
+#picks-body .pk-row.on .pk-text b { color: var(--btn-ink); }
+#picks-body .pk-row:not(.locked):active { background: rgba(255,255,255,0.12); }
+/* locked says what it costs rather than disappearing: the ladder is the motivation, and "what am I
+   working toward" is the question this panel answers for somebody four runs in */
+#picks-body .pk-row.locked { opacity: 0.42; cursor: default; }
+#picks-body .pk-row .pk-head {
+  font-style: normal; font-size: 10.5px; font-weight: 800; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--btn-ink); background: rgba(245,184,0,0.18);
+  border-radius: 999px; padding: 1px 6px; margin-left: 5px; vertical-align: 1px;
+}
 .legacy .lg-badge.new { border-color: #7ad17a; color: #d8ffd0; background: linear-gradient(180deg, rgba(22,58,24,0.9), rgba(12,32,14,0.92)); }
 .legacy .lg-badge .icon { flex: 0 0 auto; }
 .legacy .lg-line { font-size: 12.5px; color: var(--ink-dim); line-height: 1.35; text-align: center; }

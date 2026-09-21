@@ -30,6 +30,21 @@ export const MODS = {
   kingArrows: 1,
   regen: 1,
   gleanerSpeed: 1,   // #169: the gleaner's walk, multiplied by Quick Feet
+
+  // #220: what the legacy tree seeds. They live here rather than on the game because `applyLegacy`
+  // going through the same door as an upgrade card is the whole reason the meta-progression has
+  // stayed cheap -- `mods` is reset from this object at the top of every run, so a legacy unlock
+  // cannot leak from one run into the next by forgetting to clear something.
+  //
+  // `startBuilt` is an ARRAY and so gets a fresh copy per run; `{ ...MODS }` would share the one
+  // declared here between every run in the session, and the second run would begin with the first
+  // run's head starts still in it. `applyLegacy` copies it.
+  startCoins: 0,      // extra coins scattered on the road
+  startMounted: false,
+  startArchers: 0,
+  startBuilt: [],     // pad ids already standing when the run opens
+  startCampsBroken: 0,
+  kingHp: 0,          // added to the King's starting and maximum health
 };
 
 // #177: the key and the amount are hung on the function itself, so a card can be asked what it
