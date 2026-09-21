@@ -178,6 +178,11 @@ export const CHECKS = [
     why: '#190. A browser allows a handful of live contexts and drops the OLDEST when the limit is hit, which is the game\'s own canvas: the world goes blank while the HUD keeps drawing. `releasePortraitRenderer` guards against it and nothing checked that it worked; the portraits are asserted alongside because a render that threw would leave one context, no pictures, and a green check.',
   },
   {
+    id: 'mats-do-not-multiply', area: 'Build', cost: 'cheap',
+    asserts: 'Refreshing the mats leaves the same mats on the field, once each \u2014 forty calls change nothing.',
+    why: '#190. `refreshPads` runs on every purchase, level and restore, and it re-added the two bridge mats on each call because the pad on the field carries a moved COPY of its def and the test was object identity. Twelve duplicates were down at boot; the cost was invisible until the King reached the river, where 407 canvas textures uploaded in one frame.',
+  },
+  {
     id: 'rebuild-after-fall', area: 'Opening', cost: 'cheap',
     asserts: 'After the fall the plot is empty, the ledger is clear, and the first mat can be bought.',
     why: 'The fall clears a lot of state by hand; anything it misses is unreachable progress.',

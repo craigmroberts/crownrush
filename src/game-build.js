@@ -25,7 +25,29 @@ export const BuildMethods = {
   refreshPads() {
     let added = 0;
     for (const def of [...PADS, ...this.dynamicPads]) {
-      if (this.pads.find((p) => p.def === def)) continue;
+      // #190: BY ID, NOT BY OBJECT. `addPad` hands a bridge def to `bridgeMatPos`, which returns a
+      // `{ ...def, pos }` so the mat lands where the road actually crosses -- so the pad on the field
+      // carries a COPY, `p.def === def` never matched, and this added the mat again. Every call, and
+      // this runs on every purchase, every level and every restore. Measured: `game.pads` 34 -> 234
+      // -> 434 -> 634 -> 834 over four hundred calls, two a call, one per bridge that is unlocked and
+      // not yet bought -- which for at least one of the two is usually the whole run.
+      //
+      // It hid for the same reason it was expensive. The mats are AT THE RIVER, `renderer.info`
+      // counts what has been UPLOADED, and nothing off-camera is -- so every GPU counter stayed flat
+      // and only the JS heap moved. Then the King walks to the bridge:
+      //
+      //     at the village   pads 34    geo  214   tex  49   heap  95 MB
+      //     800 mats later   pads 834   geo  219   tex  49   heap 137 MB
+      //     at the bridge    pads 834   geo 1065   tex 456   heap 149 MB
+      //
+      // 407 canvas textures at 256x256x4 is about a hundred megabytes of GPU memory, asked for in the
+      // frame you cross the river, on a phone, having shown no sign of itself until then.
+      //
+      // Ids are unique across `PADS` (53, checked) and the dynamic ones are already treated as unique
+      // -- `towerPadOpen` matches them by id two hundred lines down. `removePadDef` still compares by
+      // object and is safe where it stands, because it is only ever handed a dynamic def and those
+      // are not copied; it is the copying that breaks identity, and only bridges copy.
+      if (this.pads.some((p) => p.def.id === def.id)) continue;
       if (!def.repeatable && this.built[def.id]) continue;
       if (def.tier !== undefined && def.tier > this.tier) continue;
       const okReq = (def.requires || []).every((id) => this.built[id]);
@@ -203,6 +225,9 @@ export const BuildMethods = {
       pos = [+x.toFixed(2), +z.toFixed(2)];
       if (near >= want) break;
     }
+    // #190: NOTE THAT THIS IS A COPY. The mat the player walks onto carries THIS def, not the one
+    // `config.js` holds, so anything asking "is this mat already down?" by object identity is asking
+    // the wrong question -- see `refreshPads`, where that cost a hundred megabytes.
     return { ...def, pos };
   },
 

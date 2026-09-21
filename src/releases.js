@@ -27,6 +27,15 @@
 // LENGTH: one line each, and the line says what is different to play, not what was done to the code.
 export const RELEASES = [
   {
+    id: 6,
+    date: '2026-09-21',
+    title: 'The river crossing',
+    added: [],
+    fixed: [
+      'The game could run the phone out of memory and reload itself, and the likeliest moment for it was walking down to a bridge. A spare copy of each bridge mat was being laid every time anything on the field changed \u2014 a purchase, a Keep level, picking a run back up \u2014 and they stacked up unseen out at the river until you went there and the whole pile arrived at once.',
+    ],
+  },
+  {
     id: 5,
     date: '2026-09-20',
     title: 'Three things that were broken',

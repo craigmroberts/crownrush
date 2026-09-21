@@ -1022,6 +1022,47 @@ export const CHEAP = {
     const geo = (line.match(/(\d+) geometries/) || [])[1];
     return bad.length ? no(bad) : ok(`${how} · ${geo} geometries carried over`);
   },
+  // #190: A MAT THAT IS ALREADY DOWN IS NOT PUT DOWN AGAIN.
+  //
+  // `refreshPads` runs on every purchase, every level and every restore, and it used to add the two
+  // bridge mats on each call for ever. `addPad` hands a bridge def to `bridgeMatPos`, which returns
+  // `{ ...def, pos }` so the mat lands where the road actually crosses -- so the pad on the field
+  // carries a COPY, and the `p.def === def` test compared it against the object `config.js` holds and
+  // never matched. Boot alone left twelve duplicates on the field before the player touched anything.
+  //
+  // It cost a hundred megabytes and showed nothing, because the mats are AT THE RIVER and
+  // `renderer.info` counts what has been uploaded: every GPU counter stayed flat until the King
+  // walked to the bridge, and then 407 canvas textures went up in one frame.
+  //
+  // So the assertion is on the FIELD and not on the counters: the same mats, once each, after forty
+  // calls. A count on its own would pass a run that had swapped one mat for another, hence the ids.
+  async 'mats-do-not-multiply'(page, url) {
+    await boot(page, url);
+    const r = await page.evaluate(() => {
+      const g = window.game;
+      const ids = () => g.pads.map((p) => p.def.id);
+      const before = ids();
+      for (let i = 0; i < 40; i++) g.refreshPads();
+      const after = ids();
+      return {
+        before, after,
+        dupes: [...new Set(after.filter((x, i) => after.indexOf(x) !== i))],
+        gone: before.filter((x) => !after.includes(x)),
+      };
+    });
+    const bad = [];
+    if (r.after.length !== r.before.length) {
+      bad.push(`40 calls to refreshPads took the field from ${r.before.length} mats to ${r.after.length}`);
+    }
+    if (r.dupes.length) bad.push(`the same mat is down more than once: ${r.dupes.join(', ')}`);
+    if (r.gone.length) bad.push(`mats vanished: ${r.gone.join(', ')}`);
+    // and the two it was actually about have to still be there, or a fix that simply stopped adding
+    // them would read as green
+    for (const id of ['bridge-south', 'bridge-east']) {
+      if (!r.after.includes(id)) bad.push(`${id} is not on the field at all`);
+    }
+    return bad.length ? no(bad) : ok(`${r.after.length} mats, each down once, unchanged by 40 refreshes`);
+  },
 };
 
 // #179: the sabotage each check has to survive going red under. One per check, aimed at exactly the
@@ -1188,5 +1229,17 @@ export const PROVE = {
   'black-box-outlives-the-tab': () => {
     const real = localStorage.setItem.bind(localStorage);
     localStorage.setItem = (k, v) => { if (k !== 'crownrush-blackbox') real(k, v); };
+  },
+  // #190: the mat ON THE FIELD stops answering to what `config.js` asks for, which is the bug exactly
+  // -- one property along. Historically it was `pos` that differed while the test was object
+  // identity; the test is the id now, so the sabotage differs the id. Wrapping `addPad` instead was
+  // tried and proved nothing: it arms after boot has already put the mats down with the right ids,
+  // so nothing is ever re-added and the check stays green about a game that is fine.
+  //
+  // The two bridge mats, because those are the two the bug was about. Everything else still works --
+  // they are built, drawn and placed as they always were -- and the only thing broken is the question
+  // "is this one already down?"
+  'mats-do-not-multiply': () => {
+    for (const p of window.game.pads) if (p.def.bridge) p.def = { ...p.def, id: `${p.def.id}#moved` };
   },
 };

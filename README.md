@@ -1998,6 +1998,56 @@ instrument that cries wolf is worse than one that says nothing, because the next
 beside it and gets the same shrug — which is #179's lesson arriving through the tooling instead of the
 checks.
 
+## A spare bridge mat, laid every time anything changed (#190)
+
+**The biggest thing the churn harness has found, and it was hiding behind the instrument.**
+
+`refreshPads` runs on every purchase, every Keep level and every restore. It asks whether a mat is
+already down with `this.pads.find((p) => p.def === def)` — **object identity** — and `addPad` hands a
+bridge def to `bridgeMatPos`, which returns `{ ...def, pos }` so the mat lands where the road actually
+crosses the river. So the pad on the field carries a *copy*, the test compared it against the object
+`config.js` holds, and it never matched. Another mat, every call, for as long as a bridge is unlocked
+and unbought — which for at least one of the two is usually the whole run.
+
+```
+after 100 calls   pads 234   addPad 200   drawPad 200   disposePad 0
+after 400 calls   pads 834   addPad 800   drawPad 1400  disposePad 0
+```
+
+**Twelve duplicates were already down at boot**, before the player touched anything.
+
+### Why nothing saw it
+
+`renderer.info.memory` counts what has been **uploaded**, and the bridge mats are at the river. While
+the King is in the village they are off-camera, so every GPU counter this ticket has ever read stayed
+flat and only the JS heap moved — 3.3 MB per twenty calls, which is what the churn harness finally
+caught, and only because the heap got a mark of its own. Then he walks to the bridge:
+
+| | pads | geometries | textures | heap |
+| --- | --- | --- | --- | --- |
+| at the village | 34 | 214 | 49 | 95 MB |
+| 800 mats later | 834 | 219 | 49 | 137 MB |
+| **at the bridge** | 834 | **1,065** | **456** | 149 MB |
+
+407 canvas textures at 256×256×4 is **about a hundred megabytes of GPU memory, asked for in the frame
+you cross the river**, on a phone, having shown no sign of itself until then. That is the shape of the
+out-of-memory kill #190 has been looking for. After the fix the same walk costs **+1 texture**.
+
+### The fix, and what it is not
+
+`refreshPads` matches **by id**. Ids are unique across `PADS` (53, checked) and the dynamic ones are
+already treated as unique. Memoising `bridgeMatPos` was tried first and does nothing: making the copy
+stable does not help a test that compares against the original, which is worth writing down because it
+looks like the obvious fix.
+
+`removePadDef` still compares by object and is safe where it stands — it is only ever handed a dynamic
+def, and those are not copied. It is the copying that breaks identity, and only bridges copy.
+
+`mats-do-not-multiply` holds it: forty refreshes, the same mats, once each, with both bridge mats still
+on the field so that a "fix" which simply stopped adding them would not read as green. Its sabotage
+makes the mats on the field stop answering to what `config.js` asks for — wrapping `addPad` was tried
+and proved nothing, because it arms after boot has already put the mats down correctly.
+
 ## Every check proves it can fail (#179)
 
 `--prove` breaks the game the way each check exists to catch and expects the check to go **red**.
