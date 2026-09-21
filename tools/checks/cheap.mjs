@@ -977,6 +977,46 @@ export const CHEAP = {
     if (!r.queen.startsWith('data:image')) bad.push('the Queen portrait was never drawn, so nothing here was measured');
     return bad.length ? no(bad) : ok(`${r.ctxs.length} contexts made, ${r.ctxs.length - live.length} handed back, the game canvas left live; both portraits drawn`);
   },
+  // #190: THE BLACK BOX SURVIVES THE SESSION IT DESCRIBES.
+  //
+  // The ticket's first question is whether the crashes are an out-of-memory kill or a lost WebGL
+  // context, and its plan -- copy `?perf=1` at ten, twenty and thirty minutes -- cannot answer it,
+  // because the log is in the tab that died. A dozen fields go to localStorage every five seconds
+  // instead, and the next load reads them before writing its own.
+  //
+  // So this is two loads. The first loses the context the way a driver reset does and then navigates
+  // away, which is the ordinary thing a player does next; the second opens `?view=report` and reads
+  // the line off the real report, the same string a person would paste into an issue.
+  //
+  // The navigation is the half worth having. Driven in a browser, the first version of this recorded
+  // the loss correctly and then `pagehide` wrote 'closed' straight over the top of it -- the one fact
+  // the ticket is trying to establish, erased by closing the tab. The loss is sticky now and the
+  // assertion is on the sticky part, so that regression cannot come back quietly.
+  async 'black-box-outlives-the-tab'(page, url) {
+    await boot(page, url);
+    const before = await page.evaluate(() => {
+      const gl = window.game.renderer.getContext();
+      const ext = gl.getExtension('WEBGL_lose_context');
+      if (!ext) return 'no WEBGL_lose_context on this browser';
+      ext.loseContext();
+      return null;
+    });
+    if (before) return no(before);
+    await page.waitForFunction(() => window.game.contextLost, null, { timeout: 60000, polling: 'raf' });
+    // and then away, which is what a player does with a game that has just gone blank
+    await boot(page, url, '?view=report');
+    const body = await page.textContent('#report-body');
+    const line = (body || '').split('\n').find((l) => l.startsWith('last session')) || '';
+    const bad = [];
+    if (!line) bad.push('the report has no `last session` line at all');
+    else {
+      if (/no record of a previous session/.test(line)) bad.push('the previous session left no record: `last session   ' + line.replace(/^last session\s+/, '') + '`');
+      else if (!/losing the context|lost its WebGL context/.test(line)) bad.push('the context loss is not in the record: `' + line.replace(/^last session\s+/, '') + '`');
+      // and the numbers have to have come with it, or the line is a label with nothing behind it
+      if (!/\d+ geometries/.test(line)) bad.push('no GPU counts carried over: `' + line.replace(/^last session\s+/, '') + '`');
+    }
+    return bad.length ? no(bad) : ok(line.replace(/^last session\s+/, '').slice(0, 120));
+  },
 };
 
 // #179: the sabotage each check has to survive going red under. One per check, aimed at exactly the
@@ -1000,7 +1040,9 @@ export const CHEAP = {
 // made, and that happens in the load promise, before the game has drawn a single frame. Frame 5 is
 // not late in this one's life, it is after the end of it. At 0 the arm fires on the first animation
 // frame after `new Game`, which is before the rigs have finished downloading.
-export const PROVE_AT = { 'opening-resolves': 0, 'one-live-context': 0 };
+// `black-box-outlives-the-tab` arms at 0 for the same kind of reason: the record is written on the
+// first frames of the loop, so a sabotage that blocks the write has to be underneath the first one.
+export const PROVE_AT = { 'opening-resolves': 0, 'one-live-context': 0, 'black-box-outlives-the-tab': 0 };
 
 export const PROVE = {
   // one view is held shut, which is the failure the check was written after: a board frame showing
@@ -1134,5 +1176,12 @@ export const PROVE = {
       }
       return c;
     };
+  },
+  // #190: the record never lands -- which is a private window, a full quota, or a writer that stopped
+  // writing. Not "make the page throw": everything else about the session still works, and the only
+  // thing missing is the one measurement the next load was going to be told by.
+  'black-box-outlives-the-tab': () => {
+    const real = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = (k, v) => { if (k !== 'crownrush-blackbox') real(k, v); };
   },
 };

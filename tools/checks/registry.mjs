@@ -163,6 +163,11 @@ export const CHECKS = [
     why: '"The flag is set" and "the arrow pierces" are different claims, and the difference cost a bug: the Splitting Shaft set its flag correctly and stopped working after a few shots because arrows come off a pool carrying the last flight\'s state. A check reading `mods.pierce` would have passed throughout.',
   },
   {
+    id: 'black-box-outlives-the-tab', area: 'Render', cost: 'cheap',
+    asserts: 'A session that loses its WebGL context leaves a record of it that the NEXT page load can read, in the report a person would paste into an issue.',
+    why: '#190 asks whether the crashes are an OS kill or a lost context, and the plan for answering it \u2014 copy the perf log at ten, twenty and thirty minutes \u2014 cannot, because the log is in the tab that died. The record is the answer, and it is worthless if the next ordinary thing a player does writes over it: the first version was erased by `pagehide` when the tab was closed.',
+  },
+  {
     id: 'one-live-context', area: 'Render', cost: 'cheap',
     asserts: 'The page holds exactly one live WebGL context once play starts \u2014 the game canvas \u2014 and the title portraits were drawn on the second one before it was handed back.',
     why: '#190. A browser allows a handful of live contexts and drops the OLDEST when the limit is hit, which is the game\'s own canvas: the world goes blank while the HUD keeps drawing. `releasePortraitRenderer` guards against it and nothing checked that it worked; the portraits are asserted alongside because a render that threw would leave one context, no pictures, and a green check.',

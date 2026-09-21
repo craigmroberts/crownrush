@@ -4,7 +4,7 @@
 //     npm run check -- --free       only the ones that need nothing but the source (milliseconds)
 //     npm run check -- --area Walls run one area
 //     npm run check -- --list       what exists, what it costs, when it last ran
-//     npm run check -- --id walls-solid
+//     npm run check -- --id walls-solid           (or --id a,b,c)
 //
 // Results are written to `public/board/checks.json`, which is what the board's Tests page fetches. A
 // run only ever UPDATES the checks it ran, so running one area does not blank the timestamps of
@@ -49,8 +49,20 @@ function selected() {
   if (flag('cheap')) list = list.filter((c) => c.cost === 'cheap');
   const area = flag('area');
   if (typeof area === 'string') list = list.filter((c) => c.area.toLowerCase() === area.toLowerCase());
+  // Several, comma-separated: two new checks are usually two halves of one change, and running them
+  // one at a time costs a cold SwiftShader load each. A name that matches nothing is an ERROR rather
+  // than an empty run -- a typo used to filter the list down to zero and print "0 of 0 passed", which
+  // reads exactly like success.
   const id = flag('id');
-  if (typeof id === 'string') list = list.filter((c) => c.id === id);
+  if (typeof id === 'string') {
+    const want = id.split(',').map((x) => x.trim()).filter(Boolean);
+    const missing = want.filter((w) => !CHECKS.some((c) => c.id === w));
+    if (missing.length) {
+      console.log(`no such check: ${missing.join(', ')}\n  try: npm run check -- --list`);
+      process.exit(2);
+    }
+    list = list.filter((c) => want.includes(c.id));
+  }
   return list;
 }
 

@@ -40,6 +40,103 @@ export function sampleFrame(ms, game, input) {
   if (filled < N) filled++;
 }
 
+// #190: THE BLACK BOX -- the one measurement a crash cannot take with it.
+//
+// The ring above is the last stretch of play and it lives in memory, so a tab the OS kills takes it
+// along. That is exactly the case this is for. #190's two candidates are an out-of-memory kill (iOS
+// reloads the tab, which looks like a crash) and a lost WebGL context (the game's own `watchContext`
+// path), and they want completely different fixes -- but from the next page load they look identical,
+// because nothing survives to say which one happened. The ticket's plan is to copy `?perf=1` at ten,
+// twenty and thirty minutes, and that plan cannot catch the crash: the log is in the tab that died.
+//
+// So a dozen fields go to localStorage every five seconds, and the next load reads them BEFORE it
+// writes its own. `ended` is the field the question turns on:
+//
+//   'context-lost'  `webglcontextlost` fired. The page was alive and the GPU went away.
+//   'closed'        `pagehide` without bfcache. Navigated away, or the tab was closed.
+//   'frozen'        `pagehide` WITH bfcache -- backgrounded, not closed. A kill after this is still
+//                   a kill, so it is not the same answer as 'closed' and is not recorded as one.
+//   null            the page came back (`pageshow` clears it), or it is still running.
+//   absent          none of the above ever fired. The tab stopped between one five-second write and
+//                   the next, which is what an OS kill looks like from the inside.
+//
+// Five seconds because the cost is a ~200-byte synchronous write and the resolution only has to be
+// finer than the thing being measured: #203's phone report was 410 geometries at 4m14s, and a crash
+// that arrives at twelve minutes does not need a one-second stamp. Everything is wrapped, because
+// localStorage throws outright in a private window rather than returning null.
+const clock = (t) => `${Math.floor(t / 60)}m${String(Math.round(t % 60)).padStart(2, '0')}s`;
+
+const BOX = 'crownrush-blackbox';
+const BOX_EVERY = 5000;
+let boxAt = 0;
+// #190: STICKY, because `ended` is how the session STOPPED and that is not the same question as
+// whether the context ever went away. Driven in a browser: lose the context, then close the tab the
+// way a player would, and `pagehide` writes 'closed' straight over the top of 'context-lost' -- the
+// one fact the ticket is trying to establish, erased by the most ordinary thing that can follow it.
+// The game recovers from a loss and says so, so "it happened at 4m10s and play carried on" is a real
+// and different answer from either ending. It survives every later write, including `pageshow`.
+let lostAt = null;
+
+// Read ONCE, here, before this session's first write lands on top of it. A getter would read whatever
+// the current session had just written and report the crash as a clean run.
+export const previousSession = (() => {
+  try {
+    const raw = localStorage.getItem(BOX);
+    const v = raw ? JSON.parse(raw) : null;
+    return v && typeof v === 'object' ? v : null;
+  } catch { return null; }
+})();
+
+function writeBox(game, ended) {
+  const s = game.perfSample ? game.perfSample() : {};
+  try {
+    localStorage.setItem(BOX, JSON.stringify({
+      v: 1, at: Date.now(), up: Math.round(performance.now() / 1000),
+      t: Math.round(game.time || 0), wave: game.wave, level: game.baseLevel,
+      geo: s.geometries, tex: s.textures, prog: s.programs, heap: s.heap,
+      chars: game.crowdStats ? game.crowdStats().characters : null,
+      lost: lostAt,
+      // the tier, not the whole sentence: `qualityLabel` reads out every setting it implies, and
+      // seventy characters of grass percentages in a one-line record is the line nobody finishes
+      q: game.qualityLabel ? game.qualityLabel().replace(/^quality\s+/, '').split(':')[0].trim() : null,
+      safe: !!game.safe, ended: ended || null,
+    }));
+  } catch { /* private window, or the quota is full: neither is worth a frame's error */ }
+}
+
+// Every frame, and it writes on five-second wall clock rather than on game time -- a crash is a
+// wall-clock event and the frame this is called from may be the last one there is.
+export function noteSession(game) {
+  const now = Date.now();
+  if (now - boxAt < BOX_EVERY) return;
+  boxAt = now;
+  writeBox(game, null);
+}
+
+// The events that get to say how it ended, written immediately rather than on the next tick: by the
+// time a tick comes round there may be no page left to run it.
+export function endSession(game, how) {
+  if (how === 'context-lost' && lostAt == null) lostAt = Math.round(performance.now() / 1000);
+  boxAt = Date.now();
+  writeBox(game, how);
+}
+
+// What the last session looked like when it stopped, for the report. `null` from a first-ever load is
+// not the same as a session with no `ended` -- the first is "nothing to say", the second is a finding.
+export function lastSessionLine(prev = previousSession) {
+  if (!prev) return 'no record of a previous session';
+  const how = prev.ended === 'context-lost' ? 'lost its WebGL context'
+    : prev.ended === 'closed' ? 'closed normally'
+      : prev.ended === 'frozen' ? 'was backgrounded and never came back'
+        : 'STOPPED WITHOUT WARNING -- no pagehide, no context loss, which is what an OS kill looks like';
+  const ago = Math.max(0, Math.round((Date.now() - (prev.at || 0)) / 1000));
+  // and whether the context went away at all, which outlives however it ended
+  const lost = prev.lost != null && prev.ended !== 'context-lost' ? ` (after losing the context at ${clock(prev.lost)} and carrying on)` : '';
+  return `${how}${lost} · ${clock(prev.t || 0)} into the run, ${clock(prev.up || 0)} on the page, ${ago}s ago`
+    + ` · night ${prev.wave} · ${prev.geo} geometries · ${prev.tex} textures · heap ${prev.heap == null ? 'n/a' : `${prev.heap} MB`}`
+    + `${prev.safe ? ' · safe mode' : ''}${prev.q ? ` · ${prev.q}` : ''}`;
+}
+
 // Oldest first, so "the last ten frames" reads left to right the way time does.
 function ordered() {
   const out = [];
@@ -74,7 +171,6 @@ export function frameStats(want = 120) {
 // own value -- `while playing17 frames`, which is exactly the kind of thing that makes a box nobody
 // can read in the screenshot it exists to be read in.
 const pad = (s, n = 14) => String(s).padEnd(n);
-const clock = (t) => `${Math.floor(t / 60)}m${String(Math.round(t % 60)).padStart(2, '0')}s`;
 
 // `extra` is everything that lives in main.js rather than on the game -- the device report, the
 // build the service worker is answering with, and the errors the update loop swallowed. Passed in
@@ -120,6 +216,9 @@ export function bugReport(game, input, extra = {}) {
   L.push('');
   L.push(pad('device') + (extra.size || 'n/a'));
   L.push(pad('gl') + (extra.gl || 'n/a'));
+  // #190: AND HOW THE LAST ONE ENDED, which is the whole of the crash question and cannot be asked
+  // of this session -- a report is written by a page that is still alive.
+  L.push(pad('last session') + lastSessionLine());
   L.push(pad('agent') + navigator.userAgent);
   return L.join('\n');
 }

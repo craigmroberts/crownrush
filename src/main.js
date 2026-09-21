@@ -7,7 +7,7 @@ import { preloadIcons, mountIcons, iconSvg } from './icons.js';
 import { readScores, readDiary, writePicks } from './scores.js';
 import { SAVE_VERSION, readLength, writeLength } from './game-save.js';
 import { CFG, PADS } from './config.js';
-import { sampleFrame, bugReport, reportWithLog } from './report.js';
+import { sampleFrame, bugReport, reportWithLog, noteSession, endSession } from './report.js';
 import { newestRelease, unseenReleases, hasNews, readSeen, markSeen } from './releases.js';
 
 const canvas = document.getElementById('game');
@@ -1279,6 +1279,9 @@ function frame(now) {
   // happens on somebody else's phone with no flag on it, and a recorder that has to be switched on
   // beforehand records nothing the first time. Two typed-array writes; see report.js on the cost.
   sampleFrame(raw * 1000, game, game.input);
+  // #190: and a dozen of those numbers to storage every five seconds, so the next load can say how
+  // this one ended. Throttled inside; see report.js for why a crash cannot be measured any other way.
+  noteSession(game);
   if (perf) {
     perfMs += performance.now() - t0;
     perfFrames++;
@@ -1498,6 +1501,13 @@ function askVersion() {
 // is when to look. Throttled hard: an app is foregrounded dozens of times a session and this is a
 // network request. The row is still worth having on top of it -- it is the thing somebody can be
 // TOLD to press when their phone is being stubborn.
+// #190: how this session ended, for the next one to read. `pagehide` rather than `unload`, which iOS
+// does not reliably fire at all -- and `persisted` matters: a page going into the back/forward cache
+// was BACKGROUNDED, not closed, and a kill while it is frozen there is still a kill. Recording that
+// as a clean close would hide exactly the event this is looking for.
+window.addEventListener('pagehide', (e) => endSession(game, e.persisted ? 'frozen' : 'closed'));
+window.addEventListener('pageshow', () => endSession(game, null));
+
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || !swState.reg) return;
   if (Date.now() - swState.lastCheck < 15 * 60 * 1000) return;

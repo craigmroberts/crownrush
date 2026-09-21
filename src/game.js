@@ -17,6 +17,7 @@ import { VillagerMethods } from './game-villagers.js';
 import { HorseMethods } from './game-horses.js';
 import { SaveMethods, readLength, RUN_KEY } from './game-save.js';
 import { QualityMethods } from './game-quality.js';
+import { endSession } from './report.js';
 
 // #174: a stored on/off, defaulting on when nothing is stored
 // #222: the system's own motion preference. Wrapped because `matchMedia` is absent in some embeds
@@ -267,6 +268,10 @@ export class Game {
     canvas.addEventListener('webglcontextlost', (e) => {
       e.preventDefault();   // without this the browser will not restore the context, ever
       this.contextLost = true;
+      // #190: WRITE IT DOWN BEFORE ANYTHING ELSE. This is one of the ticket's two candidates and the
+      // only one that leaves the page alive to say so; if the tab dies later the record is already on
+      // disk, and if it does not, the next load still learns the context went away at all.
+      endSession(this, 'context-lost');
       this.pause(true);
       this.hud.toast('Lost the graphics card for a moment. Restoring…', 4000);
       this.waitForContext();

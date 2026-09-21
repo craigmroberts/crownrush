@@ -3353,6 +3353,48 @@ It also answers the open question in #183: the `build` line is the hash the serv
 *answering* with, so "am I even running the build I think I am" stops being unanswerable from a
 screenshot.
 
+### And a black box, because a crash takes the ring with it (#190)
+
+The ring above is in memory. #190 asks whether the crashes are an **out-of-memory kill** by the OS —
+which reloads the tab and looks like a crash — or a **lost WebGL context**, which is the game's own
+`watchContext` path; they have completely different fixes, and from the next page load they look
+identical. The ticket's plan for telling them apart is to copy `?perf=1` at ten, twenty and thirty
+minutes, and **that plan cannot catch the thing it is aimed at**: the log is in the tab that died.
+
+So a dozen fields go to `localStorage` every five seconds, and the next load reads them *before* it
+writes its own. The field the question turns on is `ended`:
+
+| | |
+| --- | --- |
+| `context-lost` | `webglcontextlost` fired. The page was alive and the GPU went away |
+| `closed` | `pagehide` without bfcache — navigated away, or the tab was closed |
+| `frozen` | `pagehide` **with** bfcache — backgrounded, not closed. A kill after this is still a kill |
+| absent | none of those ever fired: the tab stopped between one five-second write and the next |
+
+Driven in a browser, all three, read back through `?view=report` the way a person would:
+
+```
+last session  STOPPED WITHOUT WARNING -- no pagehide, no context loss, which is what an OS
+              kill looks like · 0m01s into the run, 0m18s on the page · night 7 · 181
+              geometries · 42 textures · heap 95.5 MB
+```
+
+The renderer was killed outright (`chrome://crash`) and **the record survived it**, with the run's
+state intact — which is the whole premise, and was not obvious beforehand.
+
+**The loss is sticky, and that is the bug this found.** The first version recorded `context-lost`
+correctly and then `pagehide` wrote `closed` straight over the top of it when the tab was closed — the
+one fact the ticket is trying to establish, erased by the most ordinary thing a player does next. The
+game *recovers* from a loss and says so, so "it happened at 4m10s and play carried on" is a real and
+separate answer from either ending, and it now outlives every later write.
+
+Five seconds because the cost is a ~200-byte synchronous write and the resolution only has to be
+finer than the thing being measured. Every access is wrapped: `localStorage` throws outright in a
+private window rather than returning null.
+
+`black-box-outlives-the-tab` holds it (`npm run check`): lose the context, navigate away the way a
+player would, and read the line off the real report. Its sabotage is the record never landing.
+
 ## And then the report is rewritten as a ticket (#207)
 
 The report above is the right shape for the person sending it and the wrong shape for the person
