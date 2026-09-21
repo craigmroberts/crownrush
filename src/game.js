@@ -661,6 +661,10 @@ export class Game {
     // way -- so it lives here rather than on every unit spawnUnit makes.
     this.queen.seize = 0;
     this.queen.held = false;
+    // #234: how much of her power is charged, 0 to 1. Beside `seize` because they are the two halves
+    // of the same bet -- one fills by being near raiders and the other by being reached by them.
+    this.queen.charge = 0;
+    this.queen.charging = false;
     // #152: the opening clock. `openT` counts the calm out; `snatched` is what the rest of the game
     // reads to know the premise has happened -- the day does not start until it has.
     this.openT = 0;
@@ -695,6 +699,7 @@ export class Game {
     this.openWave = 0;
     this.openRetryT = 0;
     this.campsTaught = false;   // #218: the one-time explanation, per run
+    this.wrenOutOnce = false;   // #234: her one line, per run
     const hc = TIERS[0].bounds;
     this.homeSide = this.world.riverInfo((hc.x0 + hc.x1) / 2, (hc.z0 + hc.z1) / 2).side;
 
@@ -1485,6 +1490,20 @@ export class Game {
       // horse is and should not learn.
       this.hud.setMount(verbs && this.hasHorse(),
         this.mounted ? 'dismount' : this.royalHorseDist() <= CFG.horse.royal.mountAt ? 'mount' : 'call');
+      // #234: and Wren's, which stands down with the rest of them (`verbs`) for the same reason.
+      //
+      // Her mode is derived HERE rather than in the HUD, the way the mount's is: the HUD does not
+      // know whether there is a Keep to put her in and should not learn. The button is shown once
+      // the run has started and she is not in somebody's hands -- before a Keep is built she is out
+      // by default, and the meter still fills, which is where a first run meets this at all.
+      const q = this.queen;
+      const wrenMode = q.charge >= 1 ? 'hold' : q.inKeep ? 'out' : 'in';
+      const canShelter = !!this.keep && this.keep.state === 'built';
+      this.hud.setWren(verbs && !q.captive && (canShelter || q.charge > 0), wrenMode, q.charge,
+        // STALLED is out, at night, and nothing near enough to charge her. Not simply "not
+        // charging": in the Keep or in daylight the ring is meant to be still, and dressing those as
+        // a stall would cry wolf for two thirds of a run.
+        !q.inKeep && this.night && !q.charging && q.charge < 1);
       this.hud.setCoinTier(this.coinTier());
       // #119: with one number on the HUD instead of two, the one case it could lie about is a player
       // falling behind -- the raid is fought at `raidLevel()`, which runs ahead of the Keep when the

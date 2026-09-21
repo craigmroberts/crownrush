@@ -1072,6 +1072,44 @@ export class Hud {
     b.classList.toggle('ready', mode !== 'call');
   }
 
+  // #234: Wren's button. Four things change on it and `Hud.set` runs EVERY FRAME, so every one of
+  // them is compared before it is written -- the rule that exists because a charge ring writing a
+  // percent sixty times a second is exactly what it was written to stop.
+  //
+  // The percent is rounded before the compare, so a meter filling over twelve seconds writes the
+  // style property about a hundred times in a night rather than seven hundred.
+  setWren(show, mode, frac, stalled) {
+    const b = this.wrenBtn || (this.wrenBtn = document.getElementById('wren-btn'));
+    if (show !== this.wrenShown) {
+      this.wrenShown = show;
+      b.classList.toggle('hidden', !show);
+    }
+    if (!show) return;
+    const pct = Math.round(frac * 100);
+    if (pct !== this.wrenPct) {
+      this.wrenPct = pct;
+      b.style.setProperty('--cd', `${pct}%`);
+    }
+    // `ready` is the pulse, and it is only ever full. #57's rule, which this inherits: the horn
+    // pulses because it is worth waiting for, and a second thing pulsing at the corner of the eye
+    // for most of a run is a tic rather than a cue.
+    const ready = mode === 'hold';
+    if (ready !== this.wrenReady) {
+      this.wrenReady = ready;
+      b.classList.toggle('ready', ready);
+    }
+    if (stalled !== this.wrenStalled) {
+      this.wrenStalled = stalled;
+      b.classList.toggle('stalled', stalled);
+    }
+    if (mode !== this.wrenMode) {
+      this.wrenMode = mode;
+      const word = mode === 'hold' ? 'Hold' : mode === 'out' ? 'Out' : 'In';
+      (this.wrenLbl || (this.wrenLbl = document.getElementById('wren-lbl'))).textContent = word;
+      b.title = mode === 'hold' ? 'Let Wren loose (Q)' : mode === 'out' ? 'Bring Wren out (Q)' : 'Send Wren back to the Keep (Q)';
+    }
+  }
+
   // #57: the banner button. Same shape as the horn's above, plus `flying` -- whether one is actually
   // standing, which the ring cannot say because it is filling both while the banner is up and for
   // the ten seconds after it falls. Dirty-checked like the rest: this runs every frame.

@@ -1327,6 +1327,53 @@ export const EnemiesMethods = {
   //
   // Returns true if they got her, because the rest of updateQueen would then be walking a Queen who
   // is already halfway to the map edge.
+  // #234: THE CHARGE. Being out at night, with something to be out AMONG, is what fills it.
+  //
+  // Two gates, and the second is the one that makes this a bet rather than a chore:
+  //
+  //   NIGHT ONLY   -- charging in daylight would make the safe hours the profitable ones. You would
+  //                   walk her out at dawn, park her somewhere empty and the night decision would
+  //                   evaporate.
+  //   IN DANGER    -- a living raider inside `danger`. Without it the optimal play is to walk her to
+  //                   an empty corner and farm the meter in safety, which turns the bet back into
+  //                   the chore this ticket exists to delete.
+  //
+  // A STATE, NOT A GRADIENT. It charges at one rate or not at all. A gradient is unreadable at a
+  // glance on a phone and untunable; a binary explains itself, because a stalled ring says why by
+  // standing still.
+  //
+  // The control cost of the danger rule is ZERO, which is what makes it work: she follows the King,
+  // so taking her toward danger is the player going toward danger, which he is doing anyway. There
+  // is no second thing to drive.
+  updateWrenCharge(dt) {
+    const q = this.queen;
+    const W = CFG.wren;
+    if (q.inKeep || q.captive || this.inPrologue()) { q.charging = false; return; }
+    // #234: SEIZED LOSES IT. `held` is hands actually on her (#83), not merely being targeted --
+    // raiders walk at her all night and that is the game working. It keeps the bet honest and it is
+    // one sentence to explain.
+    if (q.held && q.charge > 0) {
+      q.charge = 0;
+      q.charging = false;
+      this.hud.toast('They have her, and the moment is gone.', 2000, 'Wren');
+      return;
+    }
+    if (!this.night || q.charge >= 1) { q.charging = false; return; }
+    const p = q.mesh.position;
+    let near = false;
+    for (const e of this.enemies) {
+      if (e.camp || e.captor || e.hp <= 0) continue;   // a sleeping garrison is not danger
+      if (e.mesh.position.distanceToSquared(p) < W.danger * W.danger) { near = true; break; }
+    }
+    q.charging = near;
+    if (!near) return;
+    q.charge = Math.min(1, q.charge + dt / W.charge);
+    if (q.charge >= 1) {
+      audio.levelUp ? audio.levelUp() : audio.wave(false);
+      this.hud.toast('*Wren has it.* Let her loose when they are close.', 2600, 'Wren');
+    }
+  },
+
   updateSeize(dt) {
     const q = this.queen;
     const S = CFG.queen.seize;
@@ -1476,6 +1523,10 @@ export const EnemiesMethods = {
     }
     if (q.captive) return this.updateCaptive(dt);
     if (this.updateSeize(dt)) return;
+    // #234: AFTER `updateSeize`, so `held` is this frame's answer rather than last frame's -- the
+    // charge is a bet against exactly that flag, and reading it one frame stale would let a grab and
+    // a fill happen on the same tick.
+    this.updateWrenCharge(dt);
     const k = this.king.mesh;
     const p = q.mesh.position;
     // #181: THE POINT SHE FOLLOWS ORBITS HIM, it does not jump across him.

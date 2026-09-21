@@ -1087,6 +1087,51 @@ export const CFG = {
   // seconds, and the blast shoves nearby raiders back and stuns them: an answer to a breach.
   horn: { cooldown: 22, duration: 6, radius: 7.5, push: 3.4, stun: 1.3, speed: 1.6, damage: 1.5, rallySpeed: 2.2 },
 
+  // #234: WREN COMES OUT OF THE KEEP, and being out is what charges her.
+  //
+  // She was pure liability and never a resource. Her health bar is not health -- it is how much of
+  // her the raiders have got (#83) -- and nothing she did made a night go better, only worse. So
+  // sheltering her was always right, which meant the Keep was not a decision, it was a chore with a
+  // lid on it. In Kingdom, the game this one is nearest, the horse and the crown and the coin in
+  // your hand are each a cost AND a capability; she was only ever the cost.
+  //
+  // THE RISK AND THE REWARD ARE THE SAME DIAL. Walk her into the night and a meter fills -- and
+  // while it fills, raiders can reach her, grab her and carry her off, which is still 2 of the 3
+  // ways a run ends.
+  //
+  // A HOLD, NOT A BLAST, and not a second fighter. A second fighter is damage per second, and damage
+  // per second is not a decision -- you would simply always take her out. Three further reasons a
+  // hold beats damage: a damage number has to be balanced against four ranks across two run lengths
+  // and a hold does not; a hold rewards WHERE YOU WERE STANDING, which is what an escort is about;
+  // and a hold opens a window the player fills with their own army, which makes the army feel good
+  // instead of replacing it.
+  //
+  // `hold` is 2.6 against the warhorn's `stun` of 1.3 -- twice, because the horn is a button on a
+  // 22-second cooldown and this is one earned moment a night. `radius` is 9 against the horn's 7.5
+  // for the same reason. It reuses the horn's own line (`e.cooldown = max(e.cooldown, stun)`), which
+  // is a proven way to stop a raider without inventing a second one.
+  //
+  // WHERE THE NUMBERS COME FROM, and the one that matters is `charge`:
+  //
+  //   a night is `cycle.length * (1 - nightStart)` = 30 seconds
+  //   she only charges while a raider is inside `danger`, which over a night is roughly half of it
+  //   so 12 seconds of QUALIFYING time is about one release per night, bought by committing to it
+  //
+  // `danger` 9 against a grab at about 2.4 (`e.radius + seize.grip`, 1.2 + 1.2 for a knight) is the
+  // whole bet: there is a band between 2.4 and 9 where she is charging and not yet held. Playing it
+  // well is keeping her in that band. `danger` much below 5 would put charging and being grabbed at
+  // the same distance and the bet would vanish.
+  //
+  // IT CHARGES AT NIGHT ONLY. Charging in daylight would make the safe hours the profitable ones:
+  // you would walk her out at dawn, park her, and the night decision would evaporate. Night-only
+  // puts the decision in the breather -- is she coming out tonight? -- and the payoff in the night.
+  //
+  // IT DOES NOT SCALE WITH THE KEEP. The Keep level is already the story clock (#154) and the age
+  // ladder, and a third meaning on one number is how a dial stops being legible. If this should
+  // grow it grows through `src/upgrades.js`, where a mod costs one line by design and the player
+  // CHOSE it -- and #220's legacy tree hooks the same door.
+  wren: { charge: 12, danger: 9, hold: 2.6, radius: 9 },
+
   // #57: the rally banner, and the only one of the King's verbs that is a decision about a
   // PLACE rather than a moment. The horn says "to me"; this says "hold here", and then lets him
   // leave.

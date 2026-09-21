@@ -2152,6 +2152,124 @@ times — which is what proved the test rather than the code was wrong. Pinning 
 and the army before spawning made both arms agree. **A measurement that moves when the thing it
 measures is switched off is measuring something else.**
 
+## Wren comes out of the Keep (#234)
+
+**She was pure liability and never a resource.** Her health bar is not health — it is how much of her
+the raiders have got (#83) — and nothing she did made a night go better, only worse. So sheltering
+her was always right, which meant the Keep was not a decision, it was a chore with a lid on it. In
+Kingdom, the game this one is nearest, the horse and the crown and the coin in your hand are each a
+cost *and* a capability; she was only ever the cost.
+
+Now she can be brought **out**, and being out is what charges her. **The risk and the reward are the
+same dial.**
+
+### A hold, not a blast, and not a second fighter
+
+A second fighter is damage per second, and damage per second is not a decision — you would simply
+always take her out, and the old problem would be inverted rather than fixed. Three reasons a hold
+beats damage: a damage number has to be balanced against four ranks across two run lengths and a hold
+does not; a hold rewards **where you were standing**, which is what an escort is about; and a hold
+opens a window the player fills with their own army, which makes the army feel good instead of
+replacing it.
+
+It reuses the warhorn's own line — `e.cooldown = Math.max(e.cooldown, hold)` — because that is a
+proven way to stop a raider rather than a second one invented. No push: the horn shoves them off the
+King, and this holds them where they are so the army can reach them.
+
+| | horn | Wren |
+| --- | --- | --- |
+| stop | 1.3 s | **2.6 s** |
+| radius | 7.5 | **9** |
+| paid for by | a 22 s cooldown | one night of committing to it |
+
+### Two gates, and the second is what makes it a bet
+
+| | |
+| --- | --- |
+| **night only** | Charging in daylight would make the safe hours the profitable ones — walk her out at dawn, park her, and the night decision evaporates. |
+| **in danger** | A living raider inside `danger`. Without it the optimal play is an empty corner and a farmed meter, which is the chore this ticket exists to delete. |
+
+**A state, not a gradient.** It charges at one rate or not at all. A gradient is unreadable at a
+glance on a phone and untunable; a binary explains itself, because a stalled ring says why by
+standing still — and the button dims to say the stall is not a fault.
+
+The control cost of the danger rule is **zero**, which is what makes it work: she follows the King,
+so taking her toward danger is the player going toward danger, which he is doing anyway.
+
+`danger` is 9 against a grab at about **2.4** (`e.radius + seize.grip`). That gap is the whole bet:
+there is a band between the two where she is charging and not yet held, and playing it well is
+keeping her in it. `charge` is 12 seconds of *qualifying* time against a 30-second night — roughly
+one release a night, bought by committing to it.
+
+### Driven, because the ticket said the verification is the hard part
+
+```
+daylight, a raider 4 away:      charge 0.00  charging=false
+night, nearest raider 60 away:  charge 0.00  charging=false     <- the ring stalls
+night, a raider 6 away, 3s:     charge 0.25                     <- 3/12, the config's own rate
+...and filled:                  charge 1.00  mode 'hold'
+release: 4 within 9, 1 at 40 -> held 4/4, the far one held=false
+         the meter is spent:    charge 0.00
+targeted but not held:          charge 0.81  ->  once HELD: 0.00
+sheltered, a raider 1 away:     charge 0.00  charging=false
+night, only a SLEEPING camp:    charge 0.00  charging=false
+```
+
+The last two are the ones worth having. Sheltering gives nothing however good the position looks, and
+a camp's sleeping garrison (#218) is **not** danger — without that, parking her beside a camp in the
+small hours would have been a free meter.
+
+**Seized loses it** — `held`, hands actually on her (#83), not merely being targeted. Raiders walk at
+her all night and that is the game working.
+
+### What taking her out does to the raiders, which was already true
+
+The ticket flags `queen.inKeep` as the sharp edge, and it is — but the behaviour needed no change.
+`updateEnemy` already skips units with `inKeep`, weights her at `CFG.queen.targetWeight` **0.55**, and
+only considers the Keep a target *while she is in it*. So taking her out already pulls raiders onto
+her and off the Keep. That is the trade the mechanic wants, it was there all along, and what it needed
+was to be understood rather than written.
+
+### The corner, measured rather than guessed
+
+The ticket's own arithmetic, confirmed in a 390 × 844 frame:
+
+| | size | right |
+| --- | --- | --- |
+| Horn | 64 | 12 |
+| Banner | 56 | 84 |
+| Mount (#217) | 50 | 146 |
+| **Wren** | **50** | **206** |
+
+All four stand down during a placement, which was checked rather than assumed. The ring is **blue,
+not gold**: gold at that corner has meant *"ready again"* for the whole game, and a third gold ring
+meaning *"filling up"* would be a third meaning on one colour. It obeys `#banner-btn`'s rule verbatim
+— **no pulse while filling**, which is most of a night; the pulse is earned and starts only at full.
+
+`setWren` dirty-checks all four of the things that change on it, because `Hud.set` runs every frame
+and a charge ring writing a percent sixty times a second is exactly what that rule exists to stop.
+
+**Q, not W.** The first draft bound W — which walks the King, since `input.js` reads it for WASD and
+the title screen tells the player so. It would have sent her in and out of the Keep every time
+somebody walked north.
+
+### And the element sheet was already one button behind
+
+`?view=elements` builds its specimen list by hand, and **#217's mount button had never been added to
+it** — the same gap `views-open` had for `?view=camp`. The corner is a four-button hierarchy and the
+sheet was answering *"what does a tap target look like"* with three quarters of it. Both are in it
+now.
+
+### What is not here
+
+**It does not scale with the Keep**, deliberately: the Keep level is already the story clock (#154)
+and the age ladder, and a third meaning on one number is how a dial stops being legible. If this
+should grow it grows through `src/upgrades.js`, where a mod costs one line and the player *chose* it
+— and #220's legacy tree hooks the same door.
+
+**Two lines, not a set.** One the first time she comes out in a run, one on release. Nothing per
+night: a line that fires every night is a line players learn to stop hearing.
+
 ## The prologue gets a name, and the escort gets a flag (#232, #233)
 
 `queen.captive` was being read at **29 sites across 6 files**, and most of them were not asking about

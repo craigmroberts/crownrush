@@ -169,6 +169,13 @@
            end of the row. The label and the icon change with where the horse is, which is why both
            carry an id: `Hud.set` runs every frame and writes neither unless it moved. -->
       <button data-sfx="off" id="mount-btn" class="hidden" title="Dismount (H)"><i data-icon="horse" data-size="26" id="mount-ic"></i><b id="mount-lbl">Off</b></button>
+      <!-- #234: Wren. Fourth and furthest left, at the mount's 50px tier -- the quiet end of the row,
+           because sending her out is a decision made in the breather rather than a verb used in a
+           fight. It carries a ring like the horn and the banner do, but the ring is a CHARGE rather
+           than a cooldown: it fills while she is out in the dark with raiders near her.
+           The ready-pulse rule `#banner-btn` was given holds here too -- silent while filling, which
+           is most of a night, and pulsing only once it is full and worth spending. -->
+      <button data-sfx="off" id="wren-btn" class="hidden" title="Wren (Q)"><span class="ring"></span><i data-icon="tiara" data-size="24" id="wren-ic"></i><b id="wren-lbl">Out</b></button>
       <!-- #43: put the building down where the King is standing. It takes the horn's own corner while
            a placement is in progress, because it is the only thing the player should be doing. -->
       <!-- #137: a tick, not a hammer. The hammer said "build", which is right for a new watchtower and

@@ -393,6 +393,12 @@ document.getElementById('mount-btn').addEventListener('pointerdown', (e) => {
   e.stopPropagation();
   game.toggleMount();
 });
+// #234: Wren's, and `stopPropagation` for the same reason the other three have it.
+document.getElementById('wren-btn').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  game.useWren();
+});
 // #57: `stopPropagation` for the same reason the horn has it -- the canvas under these buttons
 // listens for the drag that moves the King, and a press that reaches it would start walking him at
 // the same time (#128 is what that bug looks like from the player's side).
@@ -875,6 +881,11 @@ window.addEventListener('keydown', (e) => {
   if ((e.key === 'b' || e.key === 'B') && !e.repeat) return game.plantBanner();
   // #217: H, because Space, B, Enter, Esc and M are the warhorn, the banner, place, cancel and move.
   if ((e.key === 'h' || e.key === 'H') && !e.repeat) return game.toggleMount();
+  // #234: Q for Wren, NOT W. W walks the King -- `input.js` reads it for WASD, and the title screen
+  // tells the player so -- which the first draft of this line missed entirely: it would have sent
+  // her in and out of the Keep every time somebody walked north. Q is beside it, unused, and reads
+  // as the Queen. `e.repeat` like the rest.
+  if ((e.key === 'q' || e.key === 'Q') && !e.repeat) return game.useWren();
   if (e.key === 'Enter' && game.placing) return game.confirmPlacing();   // #43
   if ((e.key === 'm' || e.key === 'M') && !e.repeat && game.movable) return game.beginMoving(game.movable);
   if (e.key === 'i' || e.key === 'I') game.toggleInfo();

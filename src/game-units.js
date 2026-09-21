@@ -727,6 +727,61 @@ export const UnitsMethods = {
     this.hud.toast('To me!', 900, 'The King');
   },
 
+  // #234: WREN'S ONE BUTTON, doing all three jobs -- send her out, call her in, or let her loose.
+  //
+  // One control because the corner has room for one more at 50px and no more (#217's mount is the
+  // tier this matches), and because the three are never ambiguous: a full meter means the only
+  // thing worth doing is spending it, and an empty one means the only question is whether she is
+  // out. The panic case needs no second gesture -- release is instant, so `release, then tap again`
+  // takes her in.
+  useWren() {
+    const q = this.queen;
+    if (!this.running || this.inPrologue() || q.captive) return;
+    if (q.charge >= 1) return this.loosenWren();
+    if (q.inKeep) {
+      this.queenLeaveKeep();
+      // #234: ONE LINE THE FIRST TIME, and none after. A line every night is a line players learn to
+      // stop hearing, the same way a window reporting four bug fixes teaches people to dismiss
+      // windows. Her own "Get me home -- then we settle this" already licenses this direction.
+      if (!this.wrenOutOnce) {
+        this.wrenOutOnce = true;
+        this.hud.toast('*Then we settle this.* Keep me near them and I will find it.', 4000, 'Wren');
+      }
+      return;
+    }
+    this.queenEnterKeep();
+  },
+
+  // The release. It spends the WHOLE meter: not a rhythm of small ones, because repetition is what
+  // ends games in this genre -- "the game becomes very repetitive very fast" is what held Bad North's
+  // user score down despite near-universal praise for its art (docs/competitors.md). One earned
+  // moment a night is a memory; a power used every few seconds is more sameness.
+  loosenWren() {
+    const q = this.queen;
+    const W = CFG.wren;
+    if (q.charge < 1 || q.inKeep || q.captive) return;
+    q.charge = 0;
+    q.charging = false;
+    const p = q.mesh.position;
+    audio.horn();
+    this.spawnFx(p.x, p.z, 0x9ad0ff);
+    this.burstFx(tmp.copy(p).setY(1.4), '#cfe8ff', 9, 0.6);
+    let held = 0;
+    for (const e of this.enemies) {
+      if (e.captor || e.camp) continue;
+      if (e.mesh.position.distanceToSquared(p) > W.radius * W.radius) continue;
+      // The warhorn's own line, and deliberately: `cooldown` is what `updateEnemy` reads before it
+      // does anything, so raising it is a proven way to stop a raider without inventing a second
+      // one. No push -- the horn shoves them off the King, and this holds them where they are so the
+      // army can reach them.
+      e.cooldown = Math.max(e.cooldown, W.hold);
+      e.retarget = Math.max(e.retarget, W.hold);
+      e.flash = Math.max(e.flash || 0, 0.3);
+      held++;
+    }
+    this.hud.toast(held ? `*Wren holds them.* ${held} caught fast.` : '*Wren holds them* \u2014 but nobody was near.', 2400, 'Wren');
+  },
+
   rallied() {
     return this.time < this.rallyUntil;
   },
