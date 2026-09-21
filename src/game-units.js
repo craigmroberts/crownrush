@@ -703,7 +703,7 @@ export const UnitsMethods = {
   // #18: the warhorn. Rallies the army to the King and drives them for a few seconds, and the blast
   // shoves nearby raiders back and stuns them. One button, used well or badly.
   useHorn() {
-    if (!this.running || this.hornT > 0 || this.queen.captive && !this.queen.taken) return;
+    if (!this.running || this.hornT > 0 || this.inPrologue() && !this.queen.taken) return;   // #232
     const H = CFG.horn;
     this.hornT = H.cooldown;
     this.rallyUntil = this.time + H.duration;
@@ -734,7 +734,7 @@ export const UnitsMethods = {
   // #57: the rally banner. Planted at the King's feet -- see CFG.banner for why it is not aimed --
   // and from then on the army forms up on it rather than on him, until it falls.
   plantBanner() {
-    if (!this.running || this.bannerT > 0 || this.queen.captive && !this.queen.taken) return;
+    if (!this.running || this.bannerT > 0 || this.inPrologue() && !this.queen.taken) return;   // #232
     const B = CFG.banner;
     const kp = this.king.mesh.position;
     this.clearBanner();

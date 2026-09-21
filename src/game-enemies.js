@@ -339,6 +339,11 @@ export const EnemiesMethods = {
 
   captureQueen() {
     const q = this.queen;
+    // #233: with the escort parked she is never taken, which is what takes BOTH of her endings off
+    // the board in one line -- `gameOver('queen')` is four lines below, and `gameOver('taken')` is
+    // reached from `updateTaken` only after this has run. Guarding the entrance rather than the two
+    // exits is why the flag does not fork anything.
+    if (!this.escort) return;
     // #152: the opening snatch is the premise and not a mistake, so it does not spend one of the two
     // chances a run gets. `recaptures` is what ends a run when she is lost for the third time; taking
     // her in the first two minutes must not start the player one short of everybody who played before
@@ -806,7 +811,7 @@ export const EnemiesMethods = {
     // clock. `fromWave: 2` is not a difficulty ramp -- it is "not on the player's first night", a
     // grace that reads the same at either length. On the raid's clock a short run would have thieves
     // from night 1, which is the first night anybody ever plays, since short is the default.
-    if (!this.night || this.wave < th.fromWave || this.queen.captive || this.over || this.won) return;
+    if (!this.night || this.wave < th.fromWave || this.inPrologue() || this.queen.captive || this.over || this.won) return;
     if (this.coinsCarried < th.minCoins) return;
     const out = this.enemies.filter((e) => e.type === 'thief').length + this.spawnQueue.filter((s) => s.type === 'thief').length;
     if (out >= th.max || Math.random() > th.chance) return;
@@ -1178,7 +1183,7 @@ export const EnemiesMethods = {
 
   // "Bring on the night": skip the rest of the daylight for points
   callWave() {
-    if (!this.running || this.night || this.waveTimer <= 0 || this.queen.captive) return;
+    if (!this.running || this.night || this.waveTimer <= 0 || this.inPrologue() || this.queen.captive) return;
     const bonus = Math.floor(this.waveTimer) * CFG.score.earlyWavePerSecond;
     if (bonus > 0) {
       this.addScore(bonus);
@@ -1292,6 +1297,7 @@ export const EnemiesMethods = {
   freeQueen() {
     const q = this.queen;
     q.captive = false;
+    this.beginRun();   // #232: the prologue is over, and this is the only thing that says so
     this.refreshPads();          // pads held back until the rescue can appear now
     q.seize = 0;
     q.held = false;

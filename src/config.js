@@ -946,6 +946,29 @@ export const CFG = {
   // It also stops a 2D canvas being redrawn every half second all run. Not a budget item -- the probe
   // counts draw calls and triangles and this is neither -- but it is real CPU that stops.
   minimap: false,
+  // #233: THE ESCORT, ON A FLAG, SO IT CAN BE PLAYED WITHOUT.
+  //
+  // Whether Wren earns her coupling has been an argument, and it does not have to be. She is the most
+  // entangled thing in the game and she is also the only mechanic here that nothing in the genre next
+  // door has -- `docs/competitors.md`: Kingdom, Bad North, Brotato, Northgard, not one of them has an
+  // escort. Those two facts pull opposite ways and neither settles anything, because **nobody has
+  // played the game without her.**
+  //
+  // OFF RATHER THAN DELETED, exactly the shape `minimap` above has. Nothing is removed: not the
+  // collector branch, not the seize bar, not one of her lines. `?escort=off` starts a run with her
+  // already home and the prologue skipped, and that is the whole of it.
+  //
+  // WHAT IT IS FOR, and it is not "is it easier": play three full short runs with it off and answer
+  // whether a night is THINNER without her -- fewer things to think about at once. The loudest
+  // complaint in the reviews of the nearest games is not difficulty, it is sameness ("each level
+  // plays out in virtually the same way" is what held Bad North's user score down despite
+  // near-universal praise for its art). If a night without her is indistinguishable from a night
+  // with her, that is the finding, and it is worth knowing before anyone spends a week on #234.
+  //
+  // It has to be PLAYED. Wall clock is not game time under SwiftShader, so this one cannot be driven
+  // headless -- it is a judgement, not an assertion. What is checked here is only that the flag puts
+  // the game in the state it claims to.
+  escort: true,
   // Which one a player who has never chosen gets, when they are given the choice at all. Short,
   // because that is the whole point of the ticket: the long run is the thing you graduate to, not the
   // entry fee.

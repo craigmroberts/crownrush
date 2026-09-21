@@ -33,7 +33,7 @@ export const BuildMethods = {
       if (def.minLevel && this.baseLevel < def.minLevel) continue;
       // some pads have nothing to say until the Queen is home: showing them shut from the first
       // frame teaches nothing and adds a mat to walk over
-      if (def.afterRescue && this.queen.captive) continue;
+      if (def.afterRescue && this.inPrologue()) continue;   // #232: the phase, not where she is
       if (def.maxBuys && (this.buyCount[def.id] || 0) >= def.maxBuys) continue;
       // #82: the Warhorse mat has nothing to sell a King who is already riding -- the legacy that
       // starts a run mounted, or a save from when the horse was a mat of its own with this id.
@@ -1515,7 +1515,7 @@ export const BuildMethods = {
       const chips = [];
       const def = nearest.def;
       const locked = this.padLocked(def);
-      if (this.queen.captive) chips.push({ icon: 'tiara', text: 'Free Wren first', state: 'short' });
+      if (this.inPrologue()) chips.push({ icon: 'tiara', text: 'Free Wren first', state: 'short' });   // #232
       if (def.crew) {
         const free = this.units.filter((u) => u.type === 'archer' && !u.assign).length;
         chips.push({ icon: 'person', text: plural(nearest.cost - nearest.paid, 'archer'), state: free > 0 ? 'ok' : 'short' });
@@ -1540,7 +1540,7 @@ export const BuildMethods = {
       // moving to pay". It goes above the blockers because it is the newest thing to have happened.
       const note = nearest.boughtT > 0 ? 'Bought — step off, or wait to buy another'
         : this.keep && this.keep.state !== 'built' && def.repairKeep ? 'It has to stand again before it can be raised'
-        : this.queen.captive ? (this.queen.taken ? 'Cut off the escort and bring her back' : 'Rescue Wren first') : locked === 'noguard' ? 'Recruit soldiers before promoting any' : locked === 'nohorse' ? 'Buy a horse for the yard first' : locked === 'norider' ? 'Recruit swordsmen first' : locked ? 'Feed the Keep to raise the limit' : this.king.moving && (nearest.holdT || 0) < CFG.spend.walkHold ? 'Stop moving to pay' : def.feed ? `Pouring in coin…` : def.crew ? 'Sending archers…' : 'Paying…';
+        : this.inPrologue() ? (this.queen.taken ? 'Cut off the escort and bring her back' : 'Rescue Wren first') : locked === 'noguard' ? 'Recruit soldiers before promoting any' : locked === 'nohorse' ? 'Buy a horse for the yard first' : locked === 'norider' ? 'Recruit swordsmen first' : locked ? 'Feed the Keep to raise the limit' : this.king.moving && (nearest.holdT || 0) < CFG.spend.walkHold ? 'Stop moving to pay' : def.feed ? `Pouring in coin…` : def.crew ? 'Sending archers…' : 'Paying…';
       const total = nearest.cost + nearest.res.reduce((a, r) => a + r.need, 0);
       const paidAll = nearest.paid + nearest.res.reduce((a, r) => a + r.paid, 0);
       this.hud.showPadTip({
@@ -1590,7 +1590,7 @@ export const BuildMethods = {
       const inside = dist < CFG.spend.padRadius;
       // #9: no pad can be paid until the Queen is free. They stay visible so the player can see what
       // the village will offer, but they are plainly shut.
-      const locked = this.queen.captive ? 'rescue' : this.padLocked(pad.def);
+      const locked = this.inPrologue() ? 'rescue' : this.padLocked(pad.def);   // #232
       // #122: the hold is a third thing the mat's face depends on, and it is edge-triggered like the
       // other two. `drawPad` repaints a canvas texture, so it runs when something CHANGES and never
       // per frame; a fresh mat arrives with `held` undefined against a true hold, so the first frame
@@ -2359,7 +2359,7 @@ export const BuildMethods = {
     if (w.isKeep) {
       // #104: her home, and her voice -- but not while she is the one being carried off. A woman
       // shouting about the masonry from the back of a raider's cart is not the moment.
-      this.raiseAlarm('The Keep is under attack!', this.queen.captive ? null : 'call');
+      this.raiseAlarm('The Keep is under attack!', this.inPrologue() ? null : 'call');   // #232
       w.hp -= dmg;
       setHealthBar(w.bar, Math.max(0, w.hp / w.maxHp));
       w.mesh.position.y = 0.06;

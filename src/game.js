@@ -54,6 +54,13 @@ function mapSeed() {
   return (Math.floor(Math.random() * 0xffffff) + 1) >>> 0;
 }
 
+// #233: `?escort=off` for a run, matching how `?shadows=` and `?seed=` already work. `CFG.escort` is
+// the default and the URL is the override, so a phone can be handed the comparison without a build.
+function escortOn() {
+  const asked = (/[?&]escort=(on|off)/.exec(location.search) || [])[1];
+  return asked ? asked === 'on' : CFG.escort;
+}
+
 function prefersReducedMotion() {
   try {
     return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -155,6 +162,8 @@ export class Game {
     //
     // What a player actually gets today: a different map every time the game is opened, the same one
     // for as long as that tab lives, and the number on the ending screen to ask for either again.
+    // #233: read once. It cannot change mid-session, and `game-enemies.js` needs the same answer.
+    this.escort = escortOn();
     this.seed = mapSeed();
     this.world = buildWorld(this.scene, this.shadowProfile === 'off', this.seed);
     // #165 / #166: how big the for-ever caches in models.js are, for the perf overlay and for tests.
@@ -658,6 +667,28 @@ export class Game {
     this.snatched = false;
     this.openWarned = false;
     this.openingDone = false;
+    // #232: WHICH PHASE THE RUN IS IN, as a thing with a name.
+    //
+    // `queen.captive` was standing in for this at two dozen sites, and most of them were not asking
+    // about Wren at all -- they were asking whether the run proper had started. The cost was
+    // flexibility: every change to the opening had to be routed through the King's wife, because the
+    // state machine had no word for "the prologue is over".
+    //
+    // READING THE SITES RATHER THAN SWEEPING THEM turned up a three-way split, not the two-way one
+    // the ticket expected, and the third kind is why `captive` survives:
+    //
+    //   the PHASE        -- pads, the diary, the King's verbs, the alarm's call. These asked
+    //                       `captive` and meant `inPrologue()`. Converted.
+    //   HELD HOSTAGE     -- the day clock, the rain, the waves, the thieves. These stop while
+    //                       raiders have her AT ANY POINT IN THE RUN, not only in the prologue: #12
+    //                       says "the raids ARE the enemy coming for her", so a recapture on night
+    //                       12 stands the clock still too. A phase flag would have broken that
+    //                       silently, which is the expensive kind of wrong.
+    //   HER OWN STATE    -- the indicator arrow, the grass she parts, `updateQueen`, the save gate.
+    //                       These always meant her and still do.
+    //
+    // So `phase` is not a rename of `captive`. It is the name the third of those never had.
+    this.phase = 'prologue';
     // #224: which collecting party is on the road, and how long the road has been empty. A run that
     // goes the way the story expects never touches either -- they matter only when the player wins a
     // fight he was not meant to be able to win.
@@ -903,6 +934,26 @@ export class Game {
     return CFG.legacy.filter((u) => this.legacy >= u.at);
   }
 
+  // #232: THE ONE PLACE THE RUN PROPER BEGINS.
+  //
+  // Three things reach this: the rescue that ends the opening, a restored save, and #233's escort
+  // flag. Before this they all set `snatched` and `openingDone` by hand -- the restore path did it
+  // in `applyRun` with a paragraph explaining why -- and a second hand-derivation is how two of
+  // them drift apart. One method, called from all three.
+  //
+  // IT DOES NOT GO BACK. A recapture mid-run stands the clock still (see `phase` in reset) but it is
+  // not a return to the prologue: the pads stay bought, the diary stays open and the King keeps his
+  // verbs. "The prologue happened" is a fact about the run, not about where Wren is standing.
+  beginRun() {
+    this.phase = 'run';
+    this.snatched = true;
+    this.openingDone = true;
+  }
+
+  inPrologue() {
+    return this.phase === 'prologue';
+  }
+
   // #220: the three the player is taking into this run -- whatever they chose, filtered by what they
   // have actually earned.
   //
@@ -1025,6 +1076,15 @@ export class Game {
     // would put a second Keep on the field.
     this.standOpeningVillage();
     this.applyHeadStarts();
+    // #233: the escort, parked. She is home, the prologue never runs, and `beginRun` is the same
+    // call the rescue and a restore make -- which is the whole reason this is five lines and not a
+    // second path through `updateQueen`. The ticket's own stopping rule: if turning it off needed a
+    // fork, it had grown into a rewrite and should stop.
+    if (!this.escort) {
+      this.beginRun();
+      this.queenEnterKeep();
+      this.hud.toast('*Wren is home.* The escort is off for this run.', 3200, 'Wren');
+    }
     this.hud.toast('A quiet morning. *Wren walks with you.*', 3600, 'Wren');
     audio.init();
     audio.setActive(true);
@@ -1318,7 +1378,7 @@ export class Game {
   // OWED, not lost: it lands the moment she is back, which costs one condition and pays for itself
   // as storytelling.
   tickDiary() {
-    if (!this.diaryDue || this.queen.captive) return;
+    if (!this.diaryDue || this.inPrologue()) return;   // #232
     const lv = this.diaryDue;
     this.diaryDue = 0;
     // `unlockDiary` answers whether it was new: a second run past the same level says nothing,
@@ -1387,14 +1447,14 @@ export class Game {
       const army = this.countFollowers();
       // One pass answers both questions: how much raid is left, and whether there is any at all.
       const raid = this.raidRemaining(this._raid || (this._raid = { hp: 0, count: 0 }));
-      const between = raid.count === 0 && !this.queen.captive;
+      const between = raid.count === 0 && !this.inPrologue() && !this.queen.captive;   // #232
       // The meter is read against the most the night ever held, so it only ever falls -- except when
       // the Warlord calls more men in, which is the one time it SHOULD climb, because that is exactly
       // what is happening. It resets when the field goes quiet, so each night is measured against its
       // own size rather than against the biggest night so far.
       if (raid.hp > this.raidPeak) this.raidPeak = raid.hp;
       if (raid.count === 0) this.raidPeak = 0;
-      this.hud.setRaid(this.raidPeak > 0 ? raid.hp / this.raidPeak : 0, raid.count, this.wave, raid.boss, this.queen.captive);
+      this.hud.setRaid(this.raidPeak > 0 ? raid.hp / this.raidPeak : 0, raid.count, this.wave, raid.boss, this.inPrologue());   // #232
       // #19: the march on the camp opens at a Keep level or a night, whichever comes first
       if (!this.finaleOpen && (this.baseLevel >= CFG.finale.level || this.wave >= this.finaleNight())) {
         this.finaleOpen = true;
@@ -1413,7 +1473,7 @@ export class Game {
       // horn's own corner, and choosing between a warhorn and a tick is not a choice anyone should be
       // offered mid-placement. #137: the cross takes the slot beside it for the same reason, which is
       // why both of these have to stand down and not only the horn.
-      const verbs = (!this.queen.captive || this.queen.taken) && !this.placing;
+      const verbs = (!this.inPrologue() || this.queen.taken) && !this.placing;   // #232
       this.hud.setHorn(verbs, this.hornT / CFG.horn.cooldown, this.hornT);
       // #57: and the banner, which has a life of its own as well as a cooldown -- it is taken down
       // the frame it runs out rather than being left standing for the army to ignore.
@@ -1549,6 +1609,7 @@ export class Game {
     const q = this.queen;
     q.taken = false;
     q.captive = false;
+    this.beginRun();   // #232: the other way the prologue can end
     q.escort = null;
     // #83: she has no wounds to come back with, so the cost of a rescue is that they still half have
     // her -- the bar comes back down and climbs out of it over the next couple of seconds. The Keep

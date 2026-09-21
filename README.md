@@ -2152,6 +2152,83 @@ times — which is what proved the test rather than the code was wrong. Pinning 
 and the army before spawning made both arms agree. **A measurement that moves when the thing it
 measures is switched off is measuring something else.**
 
+## The prologue gets a name, and the escort gets a flag (#232, #233)
+
+`queen.captive` was being read at **29 sites across 6 files**, and most of them were not asking about
+Wren. They were asking *has the prologue ended?* — the day/night clock, the rain, the diary, wave
+spawning, which pads are offered, the King's verbs. None of that is a fact about a character. It is
+the run's opening phase, spelled as a fact about the King's wife, and the cost was flexibility: every
+change to the opening had to be routed through her.
+
+### Reading the sites turned up three kinds, not two
+
+The ticket expected a two-way split — the phase, and her. **Reading them rather than sweeping them
+found a third, and it is the one that would have broken silently.**
+
+| | | |
+| --- | --- | --- |
+| **the phase** | pads, the diary, the King's verbs, the alarm's call, the raid HUD, the wave timer, thieves | converted to `inPrologue()` |
+| **held hostage** | the day clock, the rain | **left on `captive`** |
+| **her own state** | the indicator arrow, the grass she parts, `updateQueen`, the save gate, the opening's own snatch | left on `captive` |
+
+The middle row is the catch. Those stop while raiders have her **at any point in the run**, not only
+in the prologue — #12's reasoning is that *"the raids ARE the enemy coming for her"*, so a recapture
+on night 12 stands the clock still too. A phase flag would have quietly resumed the clock during a
+mid-run recapture, and nothing on screen would have said so.
+
+So `phase` is not a rename of `captive`. It is the name the first row never had. **14 sites
+converted; the rest were right as they were.**
+
+### One method, because two places were already deriving it by hand
+
+`beginRun()` sets `phase`, `snatched` and `openingDone` together, and three things call it: the
+rescue, the rescue-after-she-is-carried-off, and a restored save. That last one had been doing it
+inline in `applyRun` with a paragraph explaining why — and a second hand-derivation is exactly how
+two of them drift. A restored run and a rescued one are now in the same state because they went
+through the same door, rather than because two places agree.
+
+It does not go back. A recapture stands the clock still but is not a return to the prologue: the pads
+stay bought, the diary stays open, the King keeps his verbs. *"The prologue happened"* is a fact about
+the run, not about where Wren is standing.
+
+### The escort, on a flag (#233)
+
+`?escort=off` starts a run with Wren already home and the prologue skipped. **Nothing is deleted** —
+not the collector branch, not the seize bar, not one of her lines. The ticket's own stopping rule was
+that if turning it off needed a second path through `updateQueen`, it had grown into a rewrite and
+should stop. It did not: `beginRun()` already existed by then, so the flag is five lines.
+
+**Both of her endings come off the board with one guard.** `captureQueen` is the single entrance to
+both — `gameOver('queen')` is inside it, and `gameOver('taken')` is only reachable from `updateTaken`
+after it has run. Guarding the entrance rather than the two exits is why nothing forks.
+
+Driven, with a control, because an assertion with no control proves nothing:
+
+| | escort on | escort off |
+| --- | --- | --- |
+| phase | `prologue` | `run` |
+| she is | beside the King | in the Keep |
+| the clock, over 50 frames | **frozen** (0) | advancing (0.0333) |
+| the King's verbs | blocked | available |
+| two `captureQueen` calls | **ends the run**, `lost: queen` | `over: false` |
+
+**The control had to be fixed before it proved anything.** Calling `captureQueen` once and seeing no
+ending looked like success and was not: the first capture of a run is the premise (#152) and
+deliberately costs nothing, so the escort-on control was reporting "no ending" because it had just
+spent its free snatch. Twice is the honest test.
+
+### What this is for, and it is not "is it easier"
+
+Play three full short runs with it off and answer whether a night is **thinner** without her — fewer
+things to think about at once. She is the only mechanic here that nothing in the genre next door has
+(`docs/competitors.md`: Kingdom, Bad North, Brotato, Northgard — not one has an escort), and she is
+also the most entangled thing in the game. Those two facts pull opposite ways and neither settles
+anything, because nobody has played the game without her.
+
+**It has to be played.** Wall clock is not game time under SwiftShader, so this cannot be driven
+headless — it is a judgement, not an assertion. What is checked here is only that the flag puts the
+game in the state it claims to.
+
 ## The legacy tree: twenty-four unlocks, of which you carry three (#220)
 
 #56 built exactly the right mechanism and then put four things in it. Four unlocks, all automatic and

@@ -370,8 +370,11 @@ export const SaveMethods = {
     // taken during the calm -- the field is quiet and she is not captive, which is all
     // `quietEnoughToSave` asks -- and coming back with `snatched` false would hold the day clock for
     // ever and then snatch her a second time out of a village that has already been rebuilt.
-    this.snatched = true;
-    this.openingDone = true;
+    // #232: `beginRun` is what these two lines were. It sets both, plus the phase that did not
+    // exist when this was written -- and being the same call the rescue makes is the point: a
+    // restored run and a rescued one are now in the same state because they went through the same
+    // door, rather than because two places agree.
+    this.beginRun();
 
     const q = this.queen;
     q.captive = false;   // a run is never saved with her taken: dawn cannot arrive while she is, and
