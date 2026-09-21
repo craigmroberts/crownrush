@@ -1086,6 +1086,9 @@ function runView() {
     road: () => game.showRoadView(),   // #180
     mesa: () => game.showMesaView(),   // #193
     camp: () => game.showCampView(),   // #218
+    // #223: `&n=` picks which one. Read the way every other flag in this file is read -- a regex on
+    // `location.search` -- rather than pulling in URLSearchParams for one integer.
+    plateau: () => game.showPlateauView(+((location.search.match(/[?&]n=(\d+)/) || [])[1] || 0)),
     // The two endings. `gameOver`/`victory` are not called: they clear the run, write a score row and
     // record a run, and a board frame that quietly adds a defeat to the player's own scoreboard every
     // time it loads is a view with a side effect. These open the same panels off live state instead.

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CFG, MAP, TIERS, NODES, NODE_BANDS, PADS } from './config.js';
 import {
-  mat, matFlat, swayMaterial, setSwayUniform, setFeetUniform, FEET_SLOTS, makeTree, makeBush, makeRock, makeSpikes, makeCliff, makePeak, makeBridge, makeHayBale, makeWheatField, makeLantern, mergeGroup,
+  mat, matFlat, swayMaterial, setSwayUniform, setFeetUniform, FEET_SLOTS, makeTree, makeBush, makeRock, makeSpikes, makeCliff, makePlateau, makePeak, makeBridge, makeHayBale, makeWheatField, makeLantern, mergeGroup,
   band,
 } from './models.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -1089,6 +1089,63 @@ export function buildWorld(scene, soleShadows = false, seed = 0) {
   }
   scene.add(cliffs);
 
+  // ---- #223: plateaus, the high ground you can actually get on to ----
+  //
+  // Built into the same group as the mesas so they merge with them and cost no extra draw call, and
+  // placed before the placement helpers below because everything the seed scatters -- nodes, trees,
+  // rocks, camps, caches -- has to avoid them. They are part of the fixed skeleton, like the village
+  // and the roads (#219): the seed works around them, never the other way round.
+  //
+  // `floorAt` is the whole of the Y axis this game has. A discrete lookup rather than a sampled
+  // surface is the entire argument for this shape over terrain: it is exact, it is three comparisons,
+  // and it can be asked by anything that needs to know how high the ground is under a foot.
+  world.plateaus = CFG.plateaus.list.map((d) => {
+    const th = (d.ramp * Math.PI) / 180;
+    const p = {
+      x: d.x, z: d.z, top: d.top, h: CFG.plateaus.height,
+      ux: Math.cos(th), uz: Math.sin(th), rampLen: d.rampLen, rampHalf: CFG.plateaus.rampWidth / 2,
+    };
+    const g = makePlateau(d.top, p.h, CFG.plateaus.rampWidth, d.rampLen);
+    g.position.set(d.x, 0, d.z);
+    // three.js turns local +X to (cos f, -sin f), so -theta aims the ramp along (cos t, sin t)
+    g.rotation.y = -th;
+    cliffs.add(g);
+    return p;
+  });
+  // How high the ground is at (x, z): the plateau top inside the rim, the slope on the ramp, 0
+  // everywhere else. The rim is a hard step on purpose -- the rock face is a wall you walk round,
+  // and the fence of solids further down is what stops anything walking through it.
+  // Which plateau's TOP a point is on, or null for the valley floor. The ramp is deliberately not a
+  // "top": something on the slope is between floors and still has to finish climbing, which is what
+  // `rampWaypoint` reads this for.
+  world.plateauAt = (x, z) => {
+    for (const p of world.plateaus) if (Math.hypot(x - p.x, z - p.z) <= p.top) return p;
+    return null;
+  };
+  // Where the way up starts, and how far along it something is. `t` is the distance from the centre
+  // along the ramp axis; `on` is whether it is inside the corridor at all.
+  world.rampAt = (p, x, z) => {
+    const dx = x - p.x;
+    const dz = z - p.z;
+    const t = dx * p.ux + dz * p.uz;
+    const lat = Math.abs(dx * -p.uz + dz * p.ux);
+    return { t, lat, on: lat <= p.rampHalf + 0.8 && t > 0 && t < p.top + p.rampLen + 2 };
+  };
+  world.floorAt = (x, z) => {
+    for (const p of world.plateaus) {
+      const dx = x - p.x;
+      const dz = z - p.z;
+      if (Math.hypot(dx, dz) <= p.top) return p.h;
+      const t = dx * p.ux + dz * p.uz;                 // along the ramp, out from the centre
+      if (t <= p.top) continue;
+      if (Math.abs(dx * -p.uz + dz * p.ux) > p.rampHalf) continue;
+      const k = (t - p.top) / p.rampLen;
+      if (k > 1) continue;
+      return p.h * (1 - k);
+    }
+    return 0;
+  };
+
   // ---- placement helpers ----
   const inVillage = (x, z) => x > VILLAGE.x0 && x < VILLAGE.x1 && z > VILLAGE.z0 && z < VILLAGE.z1;
   const inCliffs = (x, z) => x < CFG.cliffs.x && z < CFG.cliffs.z;
@@ -1108,7 +1165,17 @@ export function buildWorld(scene, soleShadows = false, seed = 0) {
     // a canopy over it is also a chest you cannot see. 4 is the dig radius plus the King's own room
     // to stand.
     || (world.caches || []).some((c) => Math.hypot(x - c.x, z - c.z) < 4);
-  const free = (x, z, m = 1.5) => !inVillage(x, z) && !inCliffs(x, z) && !inCamp(x, z) && !nearRiver(x, z, m + 1.5) && !nearRoad(x, z, m) && !nearNode(x, z);
+  // #223: and off a plateau and its ramp. A tree at the foot of the only way up is the way up gone,
+  // and a rock ON one is a rock nobody can walk round because the top is 15 units across.
+  const nearPlateau = (x, z, m = 2.5) => world.plateaus.some((p) => {
+    const dx = x - p.x;
+    const dz = z - p.z;
+    if (Math.hypot(dx, dz) < p.top + m) return true;
+    const t = dx * p.ux + dz * p.uz;
+    return t > 0 && t < p.top + p.rampLen + m && Math.abs(dx * -p.uz + dz * p.ux) < p.rampHalf + m;
+  });
+  world.nearPlateau = nearPlateau;
+  const free = (x, z, m = 1.5) => !inVillage(x, z) && !inCliffs(x, z) && !inCamp(x, z) && !nearRiver(x, z, m + 1.5) && !nearRoad(x, z, m) && !nearNode(x, z) && !nearPlateau(x, z);
   world.free = free;
   // The citadel is the ring the Keep and the three service buildings stand in -- packed, paved and
   // walked over all game. Grass is kept out of it (see below) and so is a seam: a node that spawned
@@ -1144,7 +1211,7 @@ export function buildWorld(scene, soleShadows = false, seed = 0) {
   // has to read and tap. The shipped wood sits 2.5 from the `crown` pad and does overlap it; that is
   // a fact about the hand-placed layout, not a licence for the generator to repeat it.
   const padClear = (x, z) => !PADS.some((p) => Math.abs(p.pos[0] - x) < 3.7 && Math.abs(p.pos[1] - z) < 3.7);
-  const nodeOk = (x, z) => !inCliffs(x, z) && !inCamp(x, z) && !nearRiver(x, z, 3)
+  const nodeOk = (x, z) => !inCliffs(x, z) && !inCamp(x, z) && !nearPlateau(x, z, 3) && !nearRiver(x, z, 3)
     && !nearRoad(x, z, 2.5) && padClear(x, z) && !inCitadel(x, z);
   // Which materials this seed actually generated, and which kept their hand-placed nodes. On the
   // world object because a fallback that leaves no trace is one nobody ever notices has become the
@@ -1932,6 +1999,32 @@ export function buildWorld(scene, soleShadows = false, seed = 0) {
   // and the cover meshes are a window a hundred units across -- they were only ever skipped because
   // that is wider than the 2.6 it will draw, which is an accident to depend on.
   for (const c of COVER) scenery.add(c.mesh);
+
+  // #223: THE RIM IS A FENCE OF SOLIDS, not a box.
+  //
+  // `collideScenery` pushes out of circles and `steerRoundSolid` bends round them, and both already
+  // run on every mover every frame. A ring of overlapping circles round the rim is therefore a wall
+  // the whole game already knows how to respect, for the price of a few dozen entries in a grid that
+  // holds 415 -- against a rectangle test that nothing in the movement code could consume. The gap at
+  // the ramp is the way up, and it is the only one.
+  //
+  // The circles sit a little INSIDE the rim (`top + fence * 0.6`, so their centres are under the edge
+  // rather than out in the air) which costs about a metre of standing room at the edge and buys the
+  // thing worth having: a character cannot be pushed off the top by a scrum.
+  for (const p of world.plateaus) {
+    const fr = CFG.plateaus.fence;
+    const ringR = p.top + fr * 0.6;
+    const n = Math.max(16, Math.round((2 * Math.PI * ringR) / fr));
+    const rampAng = Math.atan2(p.uz, p.ux);
+    const skip = Math.asin(Math.min(1, (p.rampHalf + 0.6) / ringR));
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      let rel = ((a - rampAng + Math.PI) % (Math.PI * 2)) - Math.PI;
+      if (rel < -Math.PI) rel += Math.PI * 2;
+      if (Math.abs(rel) < skip) continue;              // the way up
+      solids.push({ x: p.x + Math.cos(a) * ringR, z: p.z + Math.sin(a) * ringR, r: fr });
+    }
+  }
 
   // #215: bucket the solids before the objects they describe are merged away.
   //

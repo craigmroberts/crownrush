@@ -2378,6 +2378,33 @@ export const BuildMethods = {
     return { x: best.x + best.dx * 5 * near, z: best.z + best.dz * 5 * near };
   },
 
+  // #223: the twin of `bridgeWaypoint`, for the other thing in this world that has exactly one way
+  // through it. A river is crossed at a bridge; a plateau is climbed at its ramp.
+  //
+  // IT IS NOT OPTIONAL AND THAT IS THE MEASUREMENT. Eight raiders were sent at a King standing on a
+  // plateau and given ninety seconds of game time: none reached the top, two ground against the rim
+  // and the rest wandered off. `steerRoundSolid` bends round ONE solid at a time, and the rim is a
+  // fence of forty of them -- it grazes along the rock for ever and never finds the gap. A plateau
+  // without this is not scenery, it is a square the player cannot be touched on.
+  //
+  // Same contract as the bridge: `{x, z}` or null, recomputed five times a second by the caller. The
+  // bridge goes first when both apply, because a ramp on the far bank is no use until you are across.
+  rampWaypoint(e, targetPos) {
+    const w = this.world;
+    if (!w.plateaus || !w.plateaus.length) return null;
+    const p = e.mesh.position;
+    const mine = w.plateauAt(p.x, p.z);
+    const theirs = w.plateauAt(targetPos.x, targetPos.z);
+    if (mine === theirs) return null;                    // same floor, and usually both the valley
+    const use = theirs || mine;                          // the one being climbed, or the one being left
+    const r = w.rampAt(use, p.x, p.z);
+    // Already on the slope: aim at the middle of the top going up, or at open ground going down, so
+    // the last step off the ramp is not back into the rock.
+    if (r.on && r.t > use.top - 1) return theirs ? { x: use.x, z: use.z } : null;
+    const foot = use.top + use.rampLen - 0.8;            // just inside the bottom of the slope
+    return { x: use.x + use.ux * foot, z: use.z + use.uz * foot };
+  },
+
   damageWall(w, dmg, attacker = null) {
     if (w.state !== 'built') return;
     if (attacker && this.mods.wallThorns) this.damageEnemy(attacker, this.mods.wallThorns, attacker.mesh.position);

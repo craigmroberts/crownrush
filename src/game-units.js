@@ -313,7 +313,7 @@ export const UnitsMethods = {
     // #216: moved and rebuilt even while hidden. Cheaper than it looks -- a position write and a
     // radius compare -- and it means turning the ring back on shows it already in the right place at
     // the right size rather than a frame behind.
-    this.ring.position.set(p.x, 0.04, p.z);
+    this.ring.position.set(p.x, p.y + 0.04, p.z);   // #223: on the floor he is standing on
     // #103: one number for the circle and for the reach. `ringRadius` is what coins are tested
     // against (game-view.js) and what the ring is drawn at, so they cannot drift apart again.
     // #103: the radius only moves when an upgrade lands, so rebuild rather than scale. Scaling the
@@ -884,6 +884,18 @@ export const UnitsMethods = {
 
   // ---------- small helpers ----------
   animateWalk(ent, moving, dt) {
+    // #223: AND THE FLOOR UNDER THE FEET, because this is the one line every walking thing in the
+    // game goes through every frame -- the King, every unit, every raider, Wren. Putting the Y here
+    // rather than in each of their movement blocks is the difference between one place to be right
+    // and eleven places to forget, and the failure this repo keeps writing down is a character
+    // standing on a roof or inside something.
+    //
+    // ONLY MESHES PARENTED TO THE ROOT. A rider is a child of its horse and its `position` is local
+    // to the saddle; grounding that would put the man through the animal. `floorAt` is 0 everywhere
+    // except the three plateaus, and it is three comparisons, so this costs nothing on flat ground.
+    if (ent.mesh.parent === this.root && this.world && this.world.floorAt) {
+      ent.mesh.position.y = this.world.floorAt(ent.mesh.position.x, ent.mesh.position.z);
+    }
     const legs = ent.mesh.userData.legs;
     ent.walkT = (ent.walkT || 0) + dt * (moving ? 12 : 0);
     const amp = moving ? 0.6 * Math.min(1, moving) : 0;

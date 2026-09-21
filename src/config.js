@@ -814,6 +814,62 @@ export const CFG = {
   // at all, which turns the whole mechanic off for the players who need it most.
   //
   // `wakeRadius` and `leash` are tighter than the finale's 20 and 38: these are small camps and a
+  // #223: PLATEAUS -- the ten per cent of "hills you can go up" that is ninety per cent of hills.
+  //
+  // Not terrain. The ground is one plane (`world.js`) and every system in the game assumes y 0 --
+  // movement, steering, placement, the contact discs, the grass window, the fog plane. A heightfield
+  // touches all of them and hands the player no new decision, only the old ones on bumpier ground.
+  // These are discrete raised platforms instead: the same shape as the cliff box, which is already a
+  // region the world knows about, except you can get on top of one.
+  //
+  // `height` 3.2 is measured against the King, who stands 1.8 with his crown. Below about 2.5 the
+  // platform reads as a step rather than as high ground; above 4 it hides him from the camera at its
+  // own south edge, which #222's yaw can ease but not fix. 3.2 clears his head and nothing else.
+  //
+  // `top` is the flat radius and `ramp` is where you get up. The ramp bearings face the village --
+  // you should be able to see the way up from the road rather than having to walk the whole rim --
+  // and `rampWidth` 4.4 is two Kings abreast, because a raid climbing behind you must not be a queue
+  // you can hold with one body. That would be a chokepoint mechanic nobody asked for.
+  //
+  // WHERE THEY ARE is hand-placed and fixed at every seed, like the village and the roads (#219), so
+  // the seeded scatter and the camps have to avoid them rather than the other way round. Each is
+  // clear of the roads, the river, the cliff box and the finale's march north to (-4, -74): a
+  // platform across a route raiders take piles them against its side, because steering has no idea
+  // how to go round something this big.
+  plateaus: {
+    height: 3.2,
+    fence: 1.0,          // the solid circles round the rim; see `world.js` for why a fence and not a box
+    towerRange: 1.35,    // what a watchtower on one is worth -- the whole point of the ticket
+    rampWidth: 4.4,
+    // WHERE THEY FIT IS MEASURED, and the measurement moved all three of them off where I first put
+    // them. A grid of the built world was asked, at every 2 units, whether a platform's whole
+    // footprint stands on ground that is clear of the village, the roads, the river, the cliff box,
+    // the camps and the hand-placed seams -- `world.free`, the same predicate the scatter uses:
+    //
+    //     top 7.5 -> 102 spots, none closer than 50      top 5 -> 244 spots, nearest 48
+    //     top 6   -> 169 spots, nearest 49               top 4 -> 315 spots, nearest 41
+    //
+    // THE INNER COUNTRYSIDE IS FULL. Between the rings at 38 and about 48 there is no ground a
+    // platform fits on at any size worth having, because that band is where the seams, the four
+    // roads and the river already are. So a plateau is a far-country feature at 49 to 68, which is
+    // out among the camps -- "high ground overlooking a camp" rather than "high ground by the gate".
+    // That is not what the ticket pictured and it is what the map allows; moving a seam to make room
+    // would be moving the economy to suit the scenery.
+    //
+    // My first three were hand-guessed at (-45, 30), (38, -30) and (30, -55). The first had THREE
+    // hand-placed seams inside its footprint: at seed 0 the nodes come from `NODES` here in config,
+    // which predate plateaus, so the generator's own "keep off a plateau" rule never ran on them.
+    // Guessing a coordinate and checking it later is how that happens; these are the closest legal
+    // spot in each of three bearing sectors, each at least 16 from a camp.
+    //
+    // The ramps face the village so the way up is the side you arrive on.
+    list: [
+      { x: 26, z: -42, top: 7, ramp: 122, rampLen: 6.5 },   // north-east, the closest legal ground there is
+      { x: -52, z: -6, top: 7, ramp: 7, rampLen: 6.5 },   // west
+      { x: 44, z: 52, top: 7, ramp: 230, rampLen: 6.5 },   // south-east
+    ],
+  },
+
   // leash of 38 on something 46 units out would chase the King most of the way home.
   camps: {
     count: 3,

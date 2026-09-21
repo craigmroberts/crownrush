@@ -1043,7 +1043,10 @@ export const ViewMethods = {
   // body higher, and the old fixed 2.4 put the bottom of the stack inside his head once he mounted.
   // Same two heights the health bar uses in spawnUnit.
   stackBase() {
-    return this.mounted ? 3.2 : 2.4;
+    // #223: above HIS feet, not above the ground. The number is a clearance over the King's crown,
+    // and on a plateau the ground under him is 3.2 up -- without this the coins he is carrying stay
+    // down in the valley while he stands on the hill.
+    return (this.king ? this.king.mesh.position.y : 0) + (this.mounted ? 3.2 : 2.4);
   },
 
   updateCoins(dt) {
@@ -1968,6 +1971,26 @@ export const ViewMethods = {
     this.king.mesh.position.set(-20, 0, -26);
     this.king.mesh.rotation.y = Math.PI * 0.25;
     this.queen.mesh.position.set(-22, 0, -24.5);
+  },
+
+  // #223: a plateau, from the foot of its ramp -- which is the frame the whole ticket is judged in.
+  //
+  // At the bottom looking up, because the two questions are "can I see that there is a way up" and
+  // "does it read as high ground rather than as a big rock". Standing on top answers neither: from up
+  // there every plateau looks like flat grass. Wren is put on the top so there is a figure for scale
+  // at the height the King will be, which is the only way to tell 3.2 from 6 in a still frame.
+  //
+  // `?view=plateau&n=1` frames the second one. They are hand-placed and fixed at every seed, so no
+  // seed argument is needed -- unlike the camp, which moves with the map.
+  showPlateauView(n = 0) {
+    const p = (this.world.plateaus || [])[n];
+    if (!p) return;
+    const foot = p.top + p.rampLen + 4;
+    this.king.mesh.position.set(p.x + p.ux * foot, 0, p.z + p.uz * foot);
+    this.king.mesh.rotation.y = Math.atan2(-p.ux, -p.uz);
+    this.queen.mesh.position.set(p.x - p.ux * 1.5, p.h, p.z - p.uz * 1.5);
+    this.camLock = 26;
+    this.camDist = 26;
   },
 
   // #218: a raider camp, from the distance the King meets one at. The board has to be able to show

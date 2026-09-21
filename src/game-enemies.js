@@ -1001,7 +1001,8 @@ export const EnemiesMethods = {
       // if the target is across the river, walk to the nearest bridge first
       // (recomputed 5x a second, not every frame: it searches the whole river polyline)
       if (e.wpTarget !== t || this.time >= e.wpT) {
-        e.wp = this.bridgeWaypoint(e, t.mesh.position);
+        // #223: the bridge first -- a ramp on the far bank is no use until you are across
+        e.wp = this.bridgeWaypoint(e, t.mesh.position) || this.rampWaypoint(e, t.mesh.position);
         e.wpT = this.time + 0.2;
         e.wpTarget = t;
       }

@@ -2008,6 +2008,92 @@ export function makeCliff(w, h, d) {
   return bake(g);
 }
 
+// #223: A PLATEAU -- a mesa you can get on top of.
+//
+// `makeCliff`'s sibling, and deliberately so: the rock body and the meadow cap are the same idea, so
+// a plateau reads as part of the same country as the north-west mesas rather than as a game object
+// somebody dropped on the map. Three things differ, and each one is the ticket:
+//
+//   THE TOP EDGE IS A CLEAN CIRCLE. A mesa's silhouette is cragged at every ring, which is what stops
+//   it looking like a cake. The top ring here is left at exactly `top`, because `world.floorAt` says
+//   a character is standing on the plateau inside that radius and a rim that wanders in and out of
+//   its own floor is a character hovering over a notch or buried in a bulge. The rings below still
+//   crag, and only outward -- an inward bite would undercut the rim and show daylight under the edge.
+//
+//   THERE IS A WAY UP. A triangular prism from the rim out to `rampLen`, `rampWidth` across, rising
+//   the full height. Six vertices and no subdivision: it is a ramp, and the one thing it must be is
+//   the same shape as the arithmetic that decides how high a foot is on it.
+//
+//   IT DOES NOT SPIN. `makeCliff` ends with a random `rotation.y` because one mesa is as good as
+//   another turned round; here the ramp has to point where the caller says it points.
+//
+// Local +X is the ramp direction. The caller turns the group to aim it.
+export function makePlateau(top, h, rampWidth, rampLen) {
+  const g = new THREE.Group();
+  const SEG = 11;
+  const RINGS = 3;
+  const body = new THREE.CylinderGeometry(top, top * 1.14, h, SEG, RINGS);
+  const pos = body.attributes.position;
+  const seed = Math.floor(Math.random() * 1000);
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    const r = Math.hypot(x, z);
+    if (r < 1e-4) continue;
+    if (y > h / 2 - 1e-3) continue;                 // the rim stays where `floorAt` says it is
+    const col = Math.round((Math.atan2(z, x) / (Math.PI * 2)) * SEG);
+    const ring = Math.round(((y + h / 2) / h) * RINGS);
+    const push = 1 + crag(col + seed, ring) * 0.16;  // outward only: an inward bite undercuts the rim
+    pos.setX(i, x * push);
+    pos.setZ(i, z * push);
+  }
+  body.computeVertexNormals();
+  const rock = new THREE.Mesh(body, matFlat(C.cliff, { banded: true }));
+  rock.position.y = h / 2 - 0.05;
+  rock.castShadow = true;
+  rock.receiveShadow = true;
+  g.add(rock);
+
+  // the meadow, its top face at exactly `h` so the grass IS the floor
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(top, top, 0.4, SEG, 1), matFlat(C.grass));
+  cap.position.y = h - 0.2;
+  cap.receiveShadow = true;
+  cap.castShadow = true;
+  g.add(cap);
+
+  // the ramp: a prism whose sloped face runs from the rim at `h` out to the ground at `rampLen`
+  const W = rampWidth / 2;
+  const L = rampLen;
+  const x0 = top - 0.6;                              // started just inside the rim so there is no seam
+  const v = [];
+  const tri = (a, b, c) => v.push(...a, ...b, ...c);
+  const A = [x0, h, -W], B = [x0 + L, 0.02, -W], Cc = [x0, 0.02, -W];
+  const D = [x0, h, W], E = [x0 + L, 0.02, W], F = [x0, 0.02, W];
+  tri(A, B, D); tri(D, B, E);                        // the slope you walk on
+  tri(A, Cc, B); tri(D, E, F);                       // the two sides
+  tri(Cc, F, B); tri(B, F, E);                       // and the underside, so it is solid from below
+  const ramp = new THREE.BufferGeometry();
+  ramp.setAttribute('position', new THREE.BufferAttribute(new Float32Array(v), 3));
+  ramp.computeVertexNormals();
+  const rampMesh = new THREE.Mesh(ramp, matFlat(C.rock, { banded: true }));
+  rampMesh.castShadow = true;
+  rampMesh.receiveShadow = true;
+  g.add(rampMesh);
+
+  // rubble where the rock meets the grass, the same trick `makeCliff` uses to hide a hard join
+  for (let i = 0; i < 7; i++) {
+    const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.28 + Math.random() * 0.4, 0), matFlat(i % 3 ? C.rock : C.cliffDark));
+    const a = Math.random() * Math.PI * 2;
+    r.position.set(Math.cos(a) * (top + 0.5), 0.2, Math.sin(a) * (top + 0.5));
+    r.rotation.set(Math.random(), Math.random(), Math.random());
+    r.scale.y = 0.6;
+    r.castShadow = true;
+    g.add(r);
+  }
+  return bake(g);
+}
+
 // ---- build pad (canvas-textured plane) ----
 export function makePadTexture() {
   const canvas = document.createElement('canvas');
