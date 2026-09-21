@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-21T01:22:10.621Z",
+  "at": "2026-09-21T01:24:25.646Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -321,8 +321,8 @@
     },
     "relics-bite": {
       "pass": true,
-      "note": "dug in 3.6s for standard; cards 3->4; cap 18->9999; column 40/0/0 -> 40/40/0",
-      "at": "2026-09-21T01:10:14.966Z"
+      "note": "dug in 3.6s for ledger; cards 3->4; cap 18->9999; column 40/0/0 -> 40/40/0",
+      "at": "2026-09-21T01:24:24.683Z"
     }
   }
 }
