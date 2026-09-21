@@ -2458,7 +2458,17 @@ The ticket's own arithmetic, confirmed in a 390 × 844 frame:
 | Horn | 64 | 12 |
 | Banner | 56 | 84 |
 | Mount (#217) | 50 | 146 |
-| **Wren** | **50** | **206** |
+| **Wren** | **50** | **146, sharing the mount's slot (#240)** |
+
+**#240 put mount and Wren in one slot.** Four buttons were 244 of a phone's 390 px along the bottom
+edge, with the joystick a `pointerdown` anywhere on the canvas underneath them. Both elements stay
+and both sit at `right: 146`; `game.js` shows one at a time, so the row is three buttons (184 px) and
+the third changes its icon, never its place. Not the ticket's literal rule -- "Wren's whenever her
+button would show" is the whole run once a Keep stands, and would have taken the horse off the phone
+for good. Wren has the slot while she has a job on it (her meter is full, she is out, or she is
+sheltered and it is night, when taking her out is the point); sheltered by day is the horse's, if
+there is one. Whether a thumb can start a drag at the bottom-right quarter is the ticket's open
+criterion, and only a phone answers it.
 
 All four stand down during a placement, which was checked rather than assumed. The ring is **blue,
 not gold**: gold at that corner has meant *"ready again"* for the whole game, and a third gold ring

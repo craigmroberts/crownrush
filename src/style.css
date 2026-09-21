@@ -1784,9 +1784,11 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 
    It obeys `#banner-btn`'s rule verbatim -- no pulse while filling, which is most of a night. The
    pulse is earned: it starts only at full, when there is something to spend. */
+/* #240: the same `right` as #mount-btn, on purpose -- the two share one slot and game.js shows one
+   at a time, so the third button of the row changes its icon and never its place. */
 #wren-btn {
   position: fixed; bottom: max(16px, calc(4px + env(safe-area-inset-bottom)));
-  right: max(206px, calc(194px + env(safe-area-inset-right)));
+  right: max(146px, calc(134px + env(safe-area-inset-right)));
   width: 50px; height: 50px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; pointer-events: auto;
   background: rgba(20, 38, 30, 0.86); box-shadow: var(--wood-ring), 0 6px 16px rgba(0,0,0,0.35); z-index: 5;
   display: grid; place-items: center; touch-action: manipulation; -webkit-tap-highlight-color: transparent;

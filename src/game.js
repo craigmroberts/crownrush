@@ -1493,14 +1493,6 @@ export class Game {
       this.bannerT = Math.max(0, this.bannerT - dt);
       if (this.banner && this.time >= this.banner.until) this.clearBanner();
       this.hud.setBanner(verbs, this.bannerT / CFG.banner.cooldown, this.bannerT, !!this.bannerStanding());
-      // #217: and the mount button, which stands down with the other two for the same reason. Its
-      // mode is derived here rather than in the HUD, because the HUD does not know how far away a
-      // horse is and should not learn.
-      // #217: and the mount button, which stands down with the other two for the same reason. Its
-      // mode is derived here rather than in the HUD, because the HUD does not know how far away a
-      // horse is and should not learn.
-      this.hud.setMount(verbs && this.hasHorse(),
-        this.mounted ? 'dismount' : this.royalHorseDist() <= CFG.horse.royal.mountAt ? 'mount' : 'call');
       // #234: and Wren's, which stands down with the rest of them (`verbs`) for the same reason.
       //
       // Her mode is derived HERE rather than in the HUD, the way the mount's is: the HUD does not
@@ -1510,11 +1502,31 @@ export class Game {
       const q = this.queen;
       const wrenMode = q.charge >= 1 ? 'hold' : q.inKeep ? 'out' : 'in';
       const canShelter = !!this.keep && this.keep.state === 'built';
-      this.hud.setWren(verbs && !q.captive && (canShelter || q.charge > 0), wrenMode, q.charge,
+      const wrenShow = verbs && !q.captive && (canShelter || q.charge > 0);
+      // #240: MOUNT AND WREN SHARE ONE SLOT. Four buttons along the bottom edge were 244 of a
+      // phone's 390 px, and the joystick is a pointerdown anywhere on the canvas UNDER them -- a
+      // thumb resting where thumbs rest landed on a button before it could start a drag. Both
+      // elements stay (the element sheet shows both) and both sit at the same `right`, so the slot
+      // changes its icon and never its place.
+      //
+      // NOT the ticket's literal rule, which was "Wren's whenever her button would show, else the
+      // horse". Her button shows for the whole of a run once a Keep stands, so that rule would have
+      // taken the horse off the phone for good. Wren has the slot while she has a job on it: her
+      // meter is full, she is out, or she is sheltered and it is night, which is when taking her
+      // out is the point (the meter fills while raiders are near her). Sheltered by day is the
+      // horse's time -- the mining trip -- and it takes the slot then, if there is a horse to take
+      // it; without one her Out stays. So every verb is reachable by touch at the moment it is for.
+      const wrenSlot = wrenShow && (wrenMode !== 'out' || this.night || !this.hasHorse());
+      this.hud.setWren(wrenSlot, wrenMode, q.charge,
         // STALLED is out, at night, and nothing near enough to charge her. Not simply "not
         // charging": in the Keep or in daylight the ring is meant to be still, and dressing those as
         // a stall would cry wolf for two thirds of a run.
         !q.inKeep && this.night && !q.charging && q.charge < 1);
+      // #217: the mount button, which stands down with the other two for the same reason. Its
+      // mode is derived here rather than in the HUD, because the HUD does not know how far away a
+      // horse is and should not learn.
+      this.hud.setMount(verbs && this.hasHorse() && !wrenSlot,
+        this.mounted ? 'dismount' : this.royalHorseDist() <= CFG.horse.royal.mountAt ? 'mount' : 'call');
       this.hud.setCoinTier(this.coinTier());
       // #119: with one number on the HUD instead of two, the one case it could lie about is a player
       // falling behind -- the raid is fought at `raidLevel()`, which runs ahead of the Keep when the

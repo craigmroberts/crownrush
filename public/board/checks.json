@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-21T20:47:35.518Z",
+  "at": "2026-09-21T20:49:02.044Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -377,7 +377,7 @@
     "hud-quiet": {
       "pass": true,
       "note": "3 setters replayed 10x with no DOM write; 0 -> 200 runs 0 116 175 197 200 200 in 0.34s",
-      "at": "2026-09-21T19:00:01.957Z"
+      "at": "2026-09-21T20:49:01.528Z"
     },
     "mats-at-doors": {
       "pass": true,
