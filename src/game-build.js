@@ -2479,6 +2479,36 @@ export const BuildMethods = {
     this.rebuildWall(w, this.wallLevel);
   },
 
+  // #235: Fresh Mortar. Walls mend by day at a fraction of their own health a second, so a wall the
+  // raid left at a quarter is whole again a third of the way through the morning (`CFG.mortar`),
+  // and a wall the raid broke is not touched -- broken is broken, and the repair mat is the answer
+  // to that. Not at night: mending under attack would be a second health bar the raiders have to
+  // beat, which is a number, and this card is a rule about the day.
+  mendWalls(dt) {
+    if (!this.mods.wallsMend || this.night) return;
+    const rate = CFG.mortar.perSecond * dt;
+    for (const w of this.walls) {
+      if (w.state !== 'built' || w.hp >= w.maxHp) continue;
+      w.hp = Math.min(w.maxHp, w.hp + w.maxHp * rate);
+      setHealthBar(w.bar, w.hp / w.maxHp);
+    }
+  },
+
+  // #235: The Portcullis. A broken gate stands again at dawn, and the repair mat that appeared in
+  // the gap goes with it, because a mat offering to sell you what you already have is the bug
+  // `refreshPads` exists to avoid. Gates only: a wall is the player's to rebuild.
+  raiseGates() {
+    let n = 0;
+    for (const w of this.walls) {
+      if (!w.gate || w.state !== 'broken') continue;
+      this.restoreWall(w);
+      this.dynamicPads = this.dynamicPads.filter((d) => d.repair !== w);
+      n++;
+    }
+    if (n) this.refreshPads();
+    return n;
+  },
+
   // #177: what a card changes, as the number the player can already point at -- "arrows hit for
   // 10 -> 13", not "x1.3". The multiplier is resolved against the stat it scales, read off the game
   // as it stands (`mods`, the archers' training, the wall level), so Volley reads 1 -> 2 the first
@@ -2527,7 +2557,8 @@ export const BuildMethods = {
 
   // Present one upgrade choice. Pauses the game; `takeUpgrade` resumes it or shows the next in the queue.
   showOffer() {
-    const list = this.over || this.won || this.offerQueue <= 0 ? [] : pickOffer(this.taken, 3 + (this.mods.offerCards || 0));   // #221
+    const list = this.over || this.won || this.offerQueue <= 0 ? [] : pickOffer(this.taken, 3 + (this.mods.offerCards || 0), this.seen);   // #221, #235
+    for (const u of list) this.seen[u.id] = true;   // #235: shown is seen, taken or not
     // #25: nothing left to offer, which is where a long game ends up once every upgrade is maxed.
     // This used to return with the game still paused and no panel on screen: a permanent freeze.
     if (!list.length) {

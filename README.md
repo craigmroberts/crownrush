@@ -3372,6 +3372,26 @@ this screen than on any other. `levelGains` returns `{icon, text, now, was}`; th
 info screen compose it through one `gainBody` in `hud.js`, which wraps markup around escaped text so
 a config string can never become an HTML channel.
 
+**The deck rotates (#235).** `game.seen` is every card a run has put on screen, and `pickOffer` never
+returns an offer of three cards the player has already read while an unread one is left: it swaps
+the last card for an unseen one. Measured over 2000 simulated runs (`tools/deck/reheat.mjs`): offers
+with nothing new on them at level 10 went from 30% to 0% and at 12 from 46% to 4%. The ticket also
+asked for unseen cards to be weighted x3 in the draw; that was written, measured and removed, because
+a weighting front-loads the deck -- at x3 every card has been shown by level 11 and two thirds of the
+offers at 12 are stale. Twenty-three cards over fifteen offers of three run out under any draw, so
+level 15 is not held to a number; `deck-rotates` holds the rule itself (zero stale offers with a card
+left) and that an offer is rarely the same three cards twice.
+
+**Six of the cards are rules, not numbers**: the Muster (archers who fall are back at the Keep by
+dawn), Fire Arrows (a tower's arrow leaves a raider burning, a quarter of the arrow every half second
+for three seconds, restarted not stacked), Fresh Mortar (walls mend by day at 4% a second, never at
+night and never a broken one), the Portcullis (a broken gate stands again at dawn and its repair mat
+goes), the Tithe (every coin on the field at dawn is credited outright -- not flown, because a field
+of two hundred coins is two hundred DOM flights) and the Huntsman (the King's own bow targets a raider
+carrying Wren, whom `nearestEnemy` skips on purpose so the army does not shoot into him). Each is a
+flag on `mods` read in exactly one place, the same shape as a relic, and wears a "Rule" badge where a
+rare card wears "Rare". `dawnRules` in `game-enemies.js` is where the three that happen at dawn happen.
+
 On the level-up panel the same four fields are a **tile** rather than a sentence (`gainTile`, the same
 escaping rule). A sentence puts the label, the figure and the old figure on one line, so the eye has
 to read the line to find the number; a tile puts them on three, in three sizes, with a green arrow

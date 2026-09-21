@@ -275,7 +275,18 @@ export const UnitsMethods = {
     this.animateWalk(k, inp.mag, dt);
     // king fires his own bow
     k.cooldown -= dt;
-    const target = this.nearestEnemy(p, k.stats.range);
+    // #235: The Huntsman. `nearestEnemy` skips a raider carrying Wren so the army does not shoot
+    // into him; with the card the King's own bow goes for him first, within his ordinary range.
+    let target = null;
+    if (this.mods.kingHunts) {
+      let bd = k.stats.range * k.stats.range;
+      for (const e of this.enemies) {
+        if (!e.captor || e.hp <= 0) continue;
+        const d = p.distanceToSquared(e.mesh.position);
+        if (d < bd) { bd = d; target = e; }
+      }
+    }
+    if (!target) target = this.nearestEnemy(p, k.stats.range);
     if (target) {
       this.faceTowards(k.mesh, target.mesh.position, dt, 14);
       if (k.cooldown <= 0) {
@@ -627,7 +638,7 @@ export const UnitsMethods = {
         this.faceTowards(t.mesh, target.mesh.position, dt, 10);
         if (t.cooldown <= 0) {
           t.cooldown = 1 / (CFG.tower.fireRate * this.fireMul());
-          this.fireArrow(t.pos, target, CFG.tower.damage * lv.damage * this.damageMul * this.mods.towerDamage);
+          this.fireArrow(t.pos, target, CFG.tower.damage * lv.damage * this.damageMul * this.mods.towerDamage, false, this.mods.towerFire ? CFG.fire.duration : 0);   // #235
           this.attackAnim(t);
         }
       }
@@ -658,6 +669,8 @@ export const UnitsMethods = {
       // `gameOver` runs BEFORE the splice: it records the run, and the army it records is
       // `units.length - 1` on the understanding that the King is one of them.
       if (u.type === 'king') this.gameOver(u.type);
+      // #235: The Muster counts him, and dawn brings him back (`musterFallen`)
+      if (u.type === 'archer' && this.mods.fallenRise) this.fallen = (this.fallen || 0) + 1;
       this.units.splice(this.units.indexOf(u), 1);
       u.bar.visible = false;
       // #117: a rider comes off and falls where he sat; the horse is a horse again and goes home
@@ -932,7 +945,7 @@ export const UnitsMethods = {
   // #164: pooled. An arrow is three meshes, a Group, two vectors and a record, and archers make one
   // every shot for a 37-minute run. The record is what gets reused -- its vectors and its mesh come
   // back with it -- so a fired arrow allocates nothing once the pool has warmed to the raid's peak.
-  fireArrow(from, target, damage, hostile = false) {
+  fireArrow(from, target, damage, hostile = false, burn = 0) {
     const a = this.arrowPool.pop() || { mesh: makeArrow(), dir: new V3(), from: new V3() };
     a.mesh.position.copy(from);
     a.target = target;
@@ -946,6 +959,7 @@ export const UnitsMethods = {
     // would work for the first few shots of a run and then quietly stop, which is the worst kind of
     // bug to find because nothing breaks and the player just thinks they misremembered.
     a.pierced = false;
+    a.burn = burn;   // #235: seconds the raider it lands in will burn, 0 for an ordinary arrow
     this.root.add(a.mesh);
     this.arrows.push(a);
   },
@@ -990,7 +1004,13 @@ export const UnitsMethods = {
           if (a.hostile) {
             if (t.isTurret) this.damageTurret(t, a.damage);
             else this.damageUnit(t, a.damage, a.from && a.from.mesh ? a.from.mesh.position : null);
-          } else this.damageEnemy(t, a.damage, tmp, a.from);
+          } else {
+            this.damageEnemy(t, a.damage, tmp, a.from);
+            // #235: Fire Arrows. The burn is a share of the arrow that lit it, ticked in
+            // `burnEnemies`; a second hit restarts the clock rather than stacking, so a tower
+            // crew cannot turn one raider into a bonfire.
+            if (a.burn && t.hp > 0) { t.burn = a.burn; t.burnDmg = a.damage * CFG.fire.share; }
+          }
           // #221: the Splitting Shaft. The arrow does not stop at the first raider -- it looks for
           // the next one BEYOND the one it just hit and carries on into him.
           //

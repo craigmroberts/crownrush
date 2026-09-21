@@ -1224,6 +1224,44 @@ export const CHEAP = {
     if (r.nan.pan !== 0 || r.nan.node !== null) bad.push(`a cue with no position reads ${f(r.nan.pan)}, not the middle`);
     return bad.length ? no(bad) : ok(`east wall ${f(r.e.pan)}, west wall ${f(r.w.pan)}, the King's own cue down the middle, the far side clamped`);
   },
+  // #235: AN OFFER ALWAYS HAS A CARD YOU HAVE NOT READ, while one is left. Driven on the real level-up
+  // panel rather than on `pickOffer`, because the seen set is the game's to keep: a `showOffer` that
+  // forgot to pass it, or to add the offer to it, would leave `pickOffer` correct and the panel wrong.
+  //
+  // Six offers at level 12, each with every card but one already seen. Under the rule the one card
+  // left is on every offer, and on the screen; without it the chance one random offer of three
+  // happens to hold it is 3 in 23, and six in a row is one in a hundred thousand -- which is what
+  // makes the sabotage (the game's `seen` always empty) a red rather than a coin toss.
+  async 'unseen-card-on-offer'(page, url) {
+    await boot(page, url);
+    const r = await page.evaluate(() => {
+      const g = window.game;
+      const all = window.UPGRADES.map((u) => u.id);
+      const out = [];
+      g.baseLevel = 12;
+      for (let i = 0; i < 6; i++) {
+        const left = all[(i * 7) % all.length];
+        g.seen = Object.fromEntries(all.filter((id) => id !== left).map((id) => [id, true]));
+        g.taken = {};
+        g.offer = null;
+        g.offerQueue = 1;
+        g.showOffer();
+        const ids = (g.offer || []).map((u) => u.id);
+        const onScreen = [...document.querySelectorAll('#offer-cards .offer-card')].map((b) => b.dataset.id);
+        out.push({ left, ids, onScreen, seenAfter: !!g.seen[left] });
+        g.hud.hideOffer();
+      }
+      return out;
+    });
+    const bad = [];
+    for (const o of r) {
+      if (!o.ids.includes(o.left)) bad.push(`with only ${o.left} unseen, the offer was ${o.ids.join(', ')}`);
+      else if (!o.onScreen.includes(o.left)) bad.push(`${o.left} was in the offer and not on the panel (${o.onScreen.join(', ')})`);
+      if (!o.seenAfter) bad.push(`${o.left} was offered and not recorded as seen`);
+    }
+    return bad.length ? no(bad) : ok(`six offers at level 12 with one card unseen: the unseen card on every one, on the panel, and marked seen after`);
+  },
+
   // #238: TWO CUES CANNOT QUIETLY BECOME ONE.
   //
   // Three mechanics shipped with a borrowed sound each: Wren's release played the warhorn beside it,
@@ -1505,4 +1543,6 @@ export const PROVE = {
   'sounds-have-a-side': () => { window.game.panAt = () => 0; },
   // #238: the release becomes the horn again, which is exactly what it was before the ticket
   'cues-do-not-converge': () => { window.audio.wrenRelease = window.audio.horn; },
+  // #235: the game forgets what it has shown -- `seen` reads empty and writes go nowhere
+  'unseen-card-on-offer': () => { Object.defineProperty(window.game, 'seen', { get: () => ({}), set() {}, configurable: true }); },
 };

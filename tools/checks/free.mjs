@@ -3,6 +3,7 @@ import { CFG, PADS, TIERS } from '../../src/config.js';
 import { MODS, UPGRADES } from '../../src/upgrades.js';
 import { ICONS } from '../../src/icons.js';
 import { verdict } from '../churn/verdict.mjs';
+import { simulate } from '../deck/reheat.mjs';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -142,6 +143,19 @@ export const FREE = {
     return dupes.length
       ? no(dupes.map((k) => `ICONS.${k} is declared twice -- the later one silently wins`))
       : { pass: true, note: `${keys.length} icons, no key declared twice` };
+  },
+
+  // #235: THE DECK ROTATES. See `tools/deck/reheat.mjs` for what is measured and `pickOffer` for
+  // why level 15 is not held to a number: fifteen offers of three from twenty-three cards run out
+  // under any draw, and the honest measure there is whether the same three cards come round again.
+  'deck-rotates'() {
+    const r = simulate(2000, 15, true);
+    const bad = [];
+    if (r.broken > 0) bad.push(`${r.broken} offers were all cards already shown while an unseen card was available -- the rule pickOffer exists for`);
+    if (r.reheated[10] > 0.2) bad.push(`${(r.reheated[10] * 100).toFixed(0)}% of level-10 offers had nothing new on them (limit 20%)`);
+    if (r.reheated[12] > 0.2) bad.push(`${(r.reheated[12] * 100).toFixed(0)}% of level-12 offers had nothing new on them (limit 20%)`);
+    if (r.identical[15] > 0.1) bad.push(`${(r.identical[15] * 100).toFixed(0)}% of level-15 offers were the same three cards as an earlier offer (limit 10%)`);
+    return bad.length ? no(bad) : { pass: true, note: `2000 runs: nothing new at level 10 ${(r.reheated[10] * 100).toFixed(0)}%, at 12 ${(r.reheated[12] * 100).toFixed(0)}%, at 15 ${(r.reheated[15] * 100).toFixed(0)}% (the deck runs out by level ${r.allSeenBy}); an offer repeated whole at 15: ${(r.identical[15] * 100).toFixed(0)}%` };
   },
 
   'icons-exist'() {

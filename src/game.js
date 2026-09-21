@@ -622,6 +622,7 @@ export class Game {
     this.legacy = readLegacy();
     this.applyLegacy();
     this.taken = {};
+    this.seen = {};   // #235: every card this run has shown, so the deck rotates
     this.offerQueue = 0;
     this.offerLevels = [];      // #99: which level each waiting offer belongs to
     this.offerLevel = 0;
@@ -1434,6 +1435,7 @@ export class Game {
       this.updatePlayer(dt);
       this.updateArmy(dt);
       this.updateTurrets(dt);
+      this.mendWalls(dt);   // #235
       this.updateEnemies(dt);
       this.updateTorches();   // #212: after they have moved, so a flame is in the hand and not behind it
       this.updateArrows(dt);

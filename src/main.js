@@ -1,3 +1,4 @@
+import { UPGRADES } from './upgrades.js';
 import { Game } from './game.js';
 import { Hud, SPEAKERS } from './hud.js';
 import { audio } from './audio.js';
@@ -1376,6 +1377,7 @@ window.game = game;
 window.CFG = CFG;
 window.PADS = PADS;   // #202: a separate export, and the checks need to read it
 window.audio = audio;
+window.UPGRADES = UPGRADES;   // #235: the checks drive the level-up panel against the deck
 
 // Add to Home Screen. The service worker holds the whole game — the bundle, the models and the
 // fonts — so once it has been opened with a connection it opens again without one.

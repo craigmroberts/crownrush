@@ -13,6 +13,14 @@ export const MODS = {
   noCap: false,      // the bag never fills
   pierce: false,     // an arrow carries on through the raider behind the one it hits
   campsStay: false,  // a camp you break is never reoccupied (#218)
+  // #235: the rule cards' flags. Same test as the relics: each is a sentence that could not be
+  // written as a number, and each is read in exactly one place in the gameplay code.
+  fallenRise: false,   // archers who fall in the night are back at the Keep by dawn
+  towerFire: false,    // a tower's arrow leaves a raider burning
+  wallsMend: false,    // walls mend themselves while the sun is up
+  gatesRise: false,    // a broken gate stands again at dawn
+  dawnTithe: false,    // every coin still lying on the field at dawn is yours
+  kingHunts: false,    // the King's arrows go for a raider carrying Wren first
 
   archerDamage: 1,
   archerHp: 1,
@@ -52,6 +60,10 @@ export const MODS = {
 // drift from the first. The closure is unchanged; it just carries its own facts.
 const mul = (key, by) => Object.assign((g) => { g.mods[key] *= by; }, { key, by, op: 'mul' });
 const add = (key, by) => Object.assign((g) => { g.mods[key] += by; }, { key, by, op: 'add' });
+// #235: a rule card sets a flag. It carries `key` like the others so `upgrade-mods-exist` can see
+// that the flag it writes is one the game reads; there is no figure to show, so `upgradeChange`
+// has no row for it and the card wears a badge instead.
+const rule = (key) => Object.assign((g) => { g.mods[key] = true; }, { key, by: 1, op: 'set' });
 
 // #107: a card says what the player will SEE, not what the multiplier is. "30% more damage" is an
 // arithmetic instruction against `CFG.archer.damage`, a number that is on no screen in the game, in
@@ -101,15 +113,24 @@ export const UPGRADES = [
   { id: 'hardened', pool: 'army', icon: 'archer', name: 'Hardened', desc: 'Your archers take far more punishment before they fall.', apply: mul('archerHp', 1.4) },
   { id: 'longbows', pool: 'army', icon: 'bow', name: 'Longbows', desc: 'Your archers open fire much sooner, before raiders can reach them.', apply: mul('archerRange', 1.3) },
   { id: 'volunteers', pool: 'army', icon: 'person', name: 'Volunteers', desc: 'Every recruit pad brings one extra soldier.', max: 3, apply: add('recruitBonus', 1) },
+  // #235: RULE CARDS, one or two per pool. The deck was seventeen multipliers, and 500 simulated
+  // runs said 55% of offers by level 10 had nothing in them the player had not already read. The
+  // relics showed the shape of a card that is not a number -- "arrows carry through the raider
+  // behind" -- and each of these is one of those: a sentence, a flag, and one place that reads it.
+  { id: 'muster', pool: 'army', icon: 'restart', rule: true, name: 'The Muster', desc: 'Archers who fall in the night are back on their feet at the Keep by dawn.', apply: rule('fallenRise') },
 
   // ---- towers ----
   { id: 'fletchers', pool: 'towers', icon: 'arrows', name: "Fletcher's Workshop", desc: 'Watchtowers cut raiders down far faster.', apply: mul('towerDamage', 1.5) },
   { id: 'spotters', pool: 'towers', icon: 'tower', name: 'Spotters', desc: 'Watchtowers cover much more ground and shoot raiders further out.', apply: mul('towerRange', 1.3) },
   { id: 'wider-decks', pool: 'towers', icon: 'shield', name: 'Wider Decks', desc: 'Every watchtower holds one more archer.', max: 2, apply: add('towerSlots', 1) },
+  { id: 'fire-arrows', pool: 'towers', icon: 'flame', rule: true, name: 'Fire Arrows', desc: 'A raider hit by a watchtower keeps burning after the arrow lands.', apply: rule('towerFire') },
 
   // ---- walls ----
   { id: 'deep-footings', pool: 'walls', icon: 'brick', name: 'Deep Footings', desc: 'Your walls and gates hold out far longer.', apply: mul('wallHp', 1.4) },
   { id: 'spiked-walls', pool: 'walls', icon: 'wall', name: 'Spiked Walls', desc: 'Raiders hurt themselves attacking your walls.', max: 3, apply: add('wallThorns', 5) },
+  // two here, because the walls pool had two cards and the other four pools had three to five
+  { id: 'mortar', pool: 'walls', icon: 'stonewall', rule: true, name: 'Fresh Mortar', desc: 'Your walls mend themselves while the sun is up.', apply: rule('wallsMend') },
+  { id: 'portcullis', pool: 'walls', icon: 'door', rule: true, name: 'The Portcullis', desc: 'A gate the raiders break stands again at dawn, for nothing.', apply: rule('gatesRise') },
 
   // ---- economy ----
   // #103: 1.35, down from 1.8. The pickup radius is now the circle drawn under the King, so it has to
@@ -127,6 +148,7 @@ export const UPGRADES = [
   // and twice takes him from 3.4 to 6.7 -- past a walking villager and nearly the mounted King --
   // which is the point: late in a run the field is wide and the coin lies far from the Keep.
   { id: 'quick-feet', pool: 'economy', icon: 'hourglass', name: 'Quick Feet', desc: 'The gleaner walks the field far quicker, so less coin lies long enough to fade.', max: 2, apply: mul('gleanerSpeed', 1.4) },
+  { id: 'tithe', pool: 'economy', icon: 'home', rule: true, name: 'The Tithe', desc: 'Every coin still lying on the field at dawn is yours, wherever it fell.', apply: rule('dawnTithe') },
 
   // ---- the King ----
   { id: 'swift', pool: 'king', icon: 'horse', name: 'Swift', desc: 'The King covers more ground in a day, on foot and mounted.', max: 3, apply: mul('kingSpeed', 1.2) },
@@ -148,6 +170,10 @@ export const UPGRADES = [
   // is never shown to anybody; the name is the part that had to change.
   { id: 'split-shot', pool: 'king', icon: 'star', name: 'Volley', desc: 'The King fires an extra arrow at another raider, at full strength.', max: 2, rare: true, apply: add('kingArrows', 1) },
   { id: 'field-surgeon', pool: 'king', icon: 'crown', name: 'Field Surgeon', desc: 'Everyone recovers health twice as fast.', apply: mul('regen', 2) },
+  // `nearestEnemy` skips a raider carrying Wren on purpose -- so that the army does not shoot into
+  // the man holding her -- which means today the King's bow will not shoot him either. This is the
+  // card that says the King, and only the King, does.
+  { id: 'huntsman', pool: 'king', icon: 'skull', rule: true, name: 'The Huntsman', desc: 'The King\'s arrows go first for any raider carrying Wren away.', apply: rule('kingHunts') },
 ];
 
 // #221: RELICS -- what is in the caches out in the fog.
@@ -211,13 +237,29 @@ export function pickRelic(found) {
 }
 
 // Three upgrades the player has not exhausted, from three different pools where possible.
-export function pickOffer(taken, count = 3) {
+//
+// #235: AND THE DECK ROTATES. `seen` is every card this run has put on screen, offered or taken,
+// and an offer is never all cards the player has already read while an unseen one is left: if the
+// draw comes up that way, the last card is swapped for an unseen one. That is the whole rule.
+//
+// The ticket asked for unseen cards to be WEIGHTED x3 in the draw as well, and it was written and
+// measured (`tools/deck/reheat.mjs`, 2000 runs, a random pick a level) and taken out again. A
+// weighting front-loads the deck: at x3 every card has been shown by level 11 and two thirds of
+// the offers at 12 have nothing new in them; the swap alone shows the last new card at level 14
+// and reheats 0% at 10 and 4% at 12. Twenty-three cards over fifteen offers of three run out
+// whatever the draw does -- level 15 is 80% reheated under any rule and 100% under the weighting --
+// and a bigger deck is the only answer to that. Before the ticket it was 30% at 10 and 46% at 12,
+// and the random deck's better number at 15 (64%) is cards it simply never showed.
+//
+// `seen` is per run and not saved: a restored run starts fresh, and the worst that does is show a
+// card twice.
+export function pickOffer(taken, count = 3, seen = {}) {
   const available = UPGRADES.filter((u) => (taken[u.id] || 0) < (u.max || 1));
   const offer = [];
   const pools = new Set();
+  const draw = (list) => list.slice().sort(() => Math.random() - 0.5);
   const pass = (allowRepeatPool) => {
-    const shuffled = available.filter((u) => !offer.includes(u)).sort(() => Math.random() - 0.5);
-    for (const u of shuffled) {
+    for (const u of draw(available.filter((u) => !offer.includes(u)))) {
       if (offer.length >= count) return;
       if (!allowRepeatPool && pools.has(u.pool)) continue;
       offer.push(u);
@@ -226,5 +268,14 @@ export function pickOffer(taken, count = 3) {
   };
   pass(false); // one per pool first, so an offer is never three flavours of the same idea
   pass(true); // then fill if the pools ran dry
+  if (offer.length && offer.every((u) => seen[u.id])) {
+    const unseen = available.filter((u) => !seen[u.id] && !offer.includes(u));
+    if (unseen.length) {
+      // prefer one from a pool the offer does not already show, so the swap keeps the one-per-pool shape
+      const kept = new Set(offer.slice(0, -1).map((u) => u.pool));
+      const fresh = draw(unseen.filter((u) => !kept.has(u.pool)))[0] || draw(unseen)[0];
+      offer[offer.length - 1] = fresh;
+    }
+  }
   return offer;
 }

@@ -926,7 +926,24 @@ export const EnemiesMethods = {
     if (n) t.instanceMatrix.needsUpdate = true;
   },
 
+  // #235: Fire Arrows, burning down. Its own loop, backwards, because `damageEnemy` kills and
+  // `killEnemy` splices -- doing this inside the walk below would skip the raider after every death.
+  burnEnemies(dt) {
+    for (let i = this.enemies.length - 1; i >= 0; i--) {
+      const e = this.enemies[i];
+      if (!(e.burn > 0)) continue;
+      e.burn -= dt;
+      e.burnTick = (e.burnTick || 0) - dt;
+      if (e.burnTick > 0) continue;
+      e.burnTick = CFG.fire.tick;
+      tmp.copy(e.mesh.position).setY(e.type === 'boss' ? 2.2 : 1.1);
+      this.burstFx(tmp, '#ff8a2a', 1.6, 0.22);
+      this.damageEnemy(e, e.burnDmg || 0, tmp);
+    }
+  },
+
   updateEnemies(dt) {
+    this.burnEnemies(dt);
     // bucket enemies into cells so separation only checks neighbours (was O(n^2));
     // the cell must be at least two boss radii so a boss pair is never missed
     const cell = 4.5;
@@ -1162,6 +1179,7 @@ export const EnemiesMethods = {
   dawnBreaks(cleared) {
     this.dawnHolding = false;
     if (this.wave <= 0) return;
+    this.dawnRules(cleared);   // #235
     // #50: the run is written down here, on the one beat where there is nothing in flight to write.
     this.saveRun();
     if (cleared) {
@@ -1184,6 +1202,50 @@ export const EnemiesMethods = {
       this.diaryNew = 0;
       if (b) this.hud.toast(`I've written up ${b.title.toLowerCase()}. It's in the diary if you want it.`, 3600, 'Wren');
     }
+  },
+
+  // #235: THE RULE CARDS THAT HAPPEN AT DAWN, in one place, after the night is written down and
+  // before it is announced -- so the muster's archers are on the field when "You held night N"
+  // lands, not after it. Each is one line the player can see happen: the men stand up at the Keep,
+  // the gate goes back up, the coins come in.
+  dawnRules(cleared) {
+    const M = this.mods;
+    if (M.fallenRise && this.fallen > 0) {
+      let n = 0;
+      const k = this.keep;
+      const r = CFG.keep.radius + 1.2;
+      while (this.fallen > 0 && this.unitCount('archer') < this.unitCap('archer')) {
+        this.spawnUnit('archer', k.x + rand(-2, 2), k.z + r + rand(0, 1.5));
+        this.fallen--;
+        n++;
+      }
+      this.fallen = 0;   // the cap took the rest; they do not queue for a morning that never comes
+      if (n) this.hud.toast(`${n} archer${n > 1 ? 's' : ''} back on ${n > 1 ? 'their' : 'his'} feet.`, 2800, 'Raid');
+    }
+    if (M.gatesRise) {
+      const n = this.raiseGates();
+      if (n) this.hud.toast(n > 1 ? 'The gates stand again.' : 'The gate stands again.', 2400, 'Keep');
+    }
+    if (M.dawnTithe) {
+      // credited outright rather than flown: a field of two hundred coins is two hundred DOM
+      // flights, and `claimCoin` plays a note a coin -- one note and one line say the same thing
+      let n = 0;
+      for (let i = this.coins.length - 1; i >= 0; i--) {
+        const c = this.coins[i];
+        if (c.state !== 'ground' || c.resType) continue;
+        this.coinsCarried++;
+        this.coinsEarned++;
+        this.addScore(this.coinValue());
+        this.root.remove(c.mesh);
+        this.coins.splice(i, 1);
+        n++;
+      }
+      if (n) {
+        audio.coin(0);
+        this.hud.toast(`The tithe: *${n} coin${n > 1 ? 's' : ''}* off the field.`, 2800, 'Wren');
+      }
+    }
+    return cleared;
   },
 
   // "Bring on the night": skip the rest of the daylight for points

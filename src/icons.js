@@ -66,6 +66,7 @@ export const ICONS = {
   pause: `<rect x="6" y="5" width="4.5" height="14" rx="1.5" fill="#fff" ${S}/><rect x="13.5" y="5" width="4.5" height="14" rx="1.5" fill="#fff" ${S}/>`,
   home: `<path d="M5 21V10h14v11z" fill="#fff" ${S}/><path d="M5 10V7h2.5v2h3V7h3v2h3V7H19v3" fill="#fff" ${S}/><rect x="10" y="15" width="4" height="6" rx="2" fill="#2f6fd6"/>`,
   alert: `<path d="M12 3l10 17H2z" fill="#ffd23f" ${S}/><path d="M12 9v5" stroke="${O}" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="17" r="1.4" fill="${O}"/>`,
+  flame: `<path d="M12 2.5c.6 3.6 5.5 5.2 5.5 10.2a5.5 5.5 0 0 1-11 0c0-2.2 1.1-3.6 2.3-4.9.2 2 1.2 3.1 2.4 3.4-.4-3.2.6-6.2.8-8.7z" fill="#ff8a2a" ${S}/><path d="M12 11c.3 1.8 2.6 2.6 2.6 5a2.6 2.6 0 0 1-5.2 0c0-1.3.7-2.2 1.3-2.8.1 1 .6 1.5 1.1 1.6-.2-1.5.1-2.8.2-3.8z" fill="#ffd23f"/>`,
   skull: `<path d="M12 3a8 8 0 0 0-8 8c0 3 2 5 4 6v3h8v-3c2-1 4-3 4-6a8 8 0 0 0-8-8z" fill="#fff" ${S}/><circle cx="9" cy="11" r="2" fill="${O}"/><circle cx="15" cy="11" r="2" fill="${O}"/><path d="M10.5 17v2M13.5 17v2" stroke="${O}" stroke-width="1.6"/>`,
   next: `<path d="M5 5l10 10M19 5L9 15" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><path d="M13 15l3 3M11 15l-3 3" stroke="#ffd23f" stroke-width="2.4" stroke-linecap="round"/>`,
   person: `<circle cx="12" cy="7" r="4" fill="#f6cfae" ${S}/><path d="M5 21c0-5 3-8 7-8s7 3 7 8z" fill="#2f6fd6" ${S}/>`,

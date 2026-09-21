@@ -18,6 +18,7 @@
     "seeds": "node tools/seeds/seeds.mjs",
     "raids": "node tools/raids/raids.mjs",
     "triage": "node tools/triage/refine.mjs",
+    "reheat": "node tools/deck/reheat.mjs",
     "board": "node tools/board/stats.mjs && node tools/board/brand.mjs && node tools/board/cast.mjs && node tools/board/world.mjs && node tools/board/tools.mjs && node tools/board/competitors.mjs"
   },
   "dependencies": {

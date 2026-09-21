@@ -1525,7 +1525,7 @@ export class Hud {
     // underneath is coloured.
     document.getElementById('offer-cards').innerHTML = list.map((u) => `
       <button class="offer-card p-${esc(u.pool)}${u.rare ? ' rare' : ''}" data-id="${esc(u.id)}">
-        ${u.rare ? '<em class="orare">Rare</em>' : ''}
+        ${u.rare ? '<em class="orare">Rare</em>' : u.rule ? '<em class="orare">Rule</em>' : ''}
         <div class="oicon">${iconSvg(u.icon, 34)}</div>
         <div class="otext">
           <em class="opool">${esc(POOL_NAME[u.pool] || '')}</em>

@@ -193,6 +193,16 @@ export const CHECKS = [
     why: '#238. Three mechanics shipped with a borrowed sound each, and the way that happens again is a new verb written by copying a neighbour and moving two numbers. The first dig written for this ticket was a low thud under low-passed noise, which is the raider death note for note: 0.10 apart on this scale, and this check is what said so before anyone with ears could.',
   },
   {
+    id: 'deck-rotates', area: 'Upgrades', cost: 'free',
+    asserts: 'Over 2000 simulated runs no offer is three cards the player has already read while an unread card is left; level 10 and 12 offers with nothing new on them stay under 20%; an offer repeated whole at level 15 stays under 10%.',
+    why: '#235. Seventeen multipliers and three a level meant 55% of offers by level 10 had nothing on them the player had not seen, on the best-designed panel in the game. Level 15 is not held to a number because fifteen offers of three from twenty-three cards run out under any draw; a x3 weighting was measured to make that worse and is not in the code.',
+  },
+  {
+    id: 'unseen-card-on-offer', area: 'Upgrades', cost: 'cheap',
+    asserts: 'On the real level-up panel at level 12, with every card but one already seen, the one unseen card is on the offer and on the screen, six times over, and is recorded as seen afterwards.',
+    why: '#235. The seen set is the game\'s to keep, not pickOffer\'s: a showOffer that forgot to pass it or to add the offer to it leaves the function correct and the panel reheated. Six in a row is what makes the sabotage a red rather than a 3-in-23 coin toss.',
+  },
+  {
     id: 'mats-do-not-multiply', area: 'Build', cost: 'cheap',
     asserts: 'Refreshing the mats leaves the same mats on the field, once each \u2014 forty calls change nothing.',
     why: '#190. `refreshPads` runs on every purchase, level and restore, and it re-added the two bridge mats on each call because the pad on the field carries a moved COPY of its def and the test was object identity. Twelve duplicates were down at boot; the cost was invisible until the King reached the river, where 407 canvas textures uploaded in one frame.',

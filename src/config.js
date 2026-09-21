@@ -20,6 +20,15 @@ export const CFG = {
   // a wall hit you cannot see is the one you need a direction for. Only cues with a place use it;
   // the coin, the horn and every button stay in the middle.
   audio: { panSpread: 20 },
+  // #235: Fire Arrows. `share` of the arrow that lit him, every `tick`, for `duration`: six ticks
+  // at a quarter is one and a half arrows more, spread over the three seconds it takes a raider to
+  // cross a tower's range -- enough that a tower with the card visibly kills faster, not enough that
+  // the burn is the damage and the arrow the formality. A hit restarts the clock, never stacks.
+  fire: { duration: 3, tick: 0.5, share: 0.25 },
+  // #235: Fresh Mortar. A wall regains this fraction of its health a second by day: 0.04 puts a
+  // wall left at a quarter back to whole in 19s, under half of the 45s of daylight (`cycle`), so
+  // the card reads as "the walls are whole by the time the raid is back" rather than as instant.
+  mortar: { perSecond: 0.04 },
 
   // #103: `pickupRadius` is now also the radius of the ring drawn under the King -- the circle means
   // his reach, which is what a circle under a character has always meant to everyone who has ever
