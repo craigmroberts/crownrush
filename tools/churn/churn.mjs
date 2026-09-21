@@ -161,7 +161,11 @@ let anyClimb = false;
 const heapClimbs = [];
 const steps = [];
 for (const name of names) {
-  if (!BLOCKS[name]) { console.log(`no such block: ${name}`); continue; }
+  // `in`, not truthiness: the control block is an EMPTY STRING and an empty string is falsy, so the
+  // first sweep that was supposed to include it printed "no such block: nothing" and carried on --
+  // in the middle of a fifty-minute run nobody was watching. The block that exists to say whether a
+  // number belongs to the block or the run is exactly the one a truthiness test throws away.
+  if (!(name in BLOCKS)) { console.log(`no such block: ${name}\n  have: ${Object.keys(BLOCKS).join(', ')}`); continue; }
   const rows = [];
   rows.push(await read());
   for (let r = 0; r < ROUNDS; r++) {
