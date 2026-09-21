@@ -1428,6 +1428,23 @@ export const CFG = {
     // someone well behind that pace. Whether it should lean that hard on a player who is struggling
     // rather than stalling is the open question, and it is this one number: raise it and the game
     // is gentler on a slow run but a turtling one meets less; lower it and the reverse.
+    // #237: WHAT THIS FLOOR IS WORTH TO A PLAYER WHO NEVER FEEDS THE KEEP -- measured, same assembler,
+    // nine-run means, the only difference `baseLevel` (fed on the normal curve, or 0):
+    //
+    //     night   fed keep                 keep never fed
+    //       9     44 raiders, rank 2       28, rank 1
+    //      12     58, rank 3               47, rank 1
+    //      15     76, rank 3               64, rank 1
+    //      20     99, rank 3               99, rank 2
+    //      30     143, rank 3              143, rank 3
+    //
+    // So a turtle faces about two-thirds of the fed raid's weight from night 9 to 15, is caught by
+    // 20 and sees the same night 30. THE DECISION IS TO KEEP 2.6. Lowering it (2.2 catches the fed
+    // curve by 15) raises the floor for everyone whose Keep lags for any reason -- a run that lost
+    // a trade post, a player learning -- not only the one turtling on purpose, and the discount is
+    // bounded on both ends by design: the ramp above and the catch-up below. The table is here so
+    // nobody re-discovers it and calls it a bug; `tools/raids/raids.mjs` with `baseLevel` pinned
+    // to 0 reproduces it.
     rankFloor: 2.6,
   },
 

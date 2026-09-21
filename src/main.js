@@ -1,7 +1,8 @@
 import { Game } from './game.js';
 import { Hud, SPEAKERS } from './hud.js';
 import { audio } from './audio.js';
-import { preloadRigs, renderPortrait, renderFace, releasePortraitRenderer } from './rig.js';
+import { preloadRigs, renderPortrait, renderFace, releasePortraitRenderer, makeRigged } from './rig.js';
+import { makePopup, makeSpawnFx, makeBurst, makeHeart } from './models.js';
 import { preloadProps, usePropRenderer, releasePropTranscoder } from './props.js';
 import { preloadIcons, mountIcons, iconSvg } from './icons.js';
 import { readScores, readDiary, writePicks } from './scores.js';
@@ -67,6 +68,44 @@ setLoad(0.05, 'Loading…');
 // the raider and the brute for her captors, the archer and swordsman for the crowd bake, and the
 // three buildings the first few pads put up.
 const RIGS = ['king', 'queen', 'archer', 'swordsman', 'raider', 'elite', 'brute', 'boss'];
+// #242: THE TWO PROGRAMS A RUN COMPILES MID-RAID, compiled here instead. Measured through a run:
+// 48 programs after the title's first frames, 49 once every raider type has been drawn, 50 after
+// the first damage number -- and three.js reads the compile log on a program's first use, which
+// blocks until the shader is built. On a phone that is a hitch of tens of milliseconds, landing at
+// first contact and at the first hit, once each.
+//
+// AGAINST THE REAL SCENE, not a throwaway one: a program's cache key includes the lights and the
+// shadow setup, so a scene of its own would compile different programs and warm nothing. The
+// specimens go into `game.root` for one `compileAsync`, then come straight back out and are freed
+// through the same path a dead raider takes. Nothing is drawn.
+async function warmShaders() {
+  const r = game.renderer;
+  const specimens = [];
+  try {
+    for (const name of ['raider', 'elite', 'brute', 'boss']) {
+      const rig = makeRigged(name);
+      if (rig) specimens.push(rig.mesh);
+    }
+    // Every sprite the game draws is its own program variant: the damage number, the burst a kill
+    // leaves, the heart a villager gives. One of each.
+    for (const make of [() => makePopup('0'), () => makeSpawnFx(), () => makeBurst(), () => makeHeart()]) {
+      try { const m = make(); if (m) specimens.push(m); } catch (e) { /* a builder that wants arguments this does not have: skip it */ }
+    }
+    // ONE REAL FRAME, not `compileAsync`. Measured: `compileAsync(specimens, camera, scene)` warmed
+    // the rigs but never produced a program for the popup sprite -- a clone of the game's own popup
+    // compiled nothing, twice -- and passing the whole scene compiled 33 programs the game never
+    // draws. A rendered frame compiles exactly the variants the renderer will use, because it IS the
+    // renderer using them. The specimens stand where the King stands so they are in the frustum;
+    // the loading bar is over the top; it is one frame before Play is enabled.
+    const kp = game.king.mesh.position;
+    for (const m of specimens) { m.position.set(kp.x, kp.y + 0.5, kp.z); game.root.add(m); }
+    if (game.post) game.post.composer.render(); else r.render(game.scene, game.camera);
+  } catch (e) {
+    console.warn('shader warm-up skipped', e);
+  } finally {
+    for (const m of specimens) { game.root.remove(m); game.disposeEntity(m); }
+  }
+}
 // Imported buildings. They are loaded here rather than on demand because a pad builds its structure
 // synchronously, and a ghost preview appears before that: both need the model already in hand.
 const PROPS = ['hut', 'keep', 'tower'];
@@ -111,6 +150,7 @@ Promise.all([
   } finally {
     releasePortraitRenderer();  // hand the second WebGL context back before play starts
   }
+  warmShaders();
   setLoad(1, 'Ready');
   loadBar.classList.add('done');
   startBtn.disabled = false;

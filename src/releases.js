@@ -35,7 +35,8 @@ export const RELEASES = [
     ],
     fixed: [
       'Three pairs of reward cards shared one picture \u2014 Packhorse and Swift were both a horse \u2014 so two cards side by side looked like the same card. Every card has its own now.',
-      'On a boss night the hearts, the circle round the King and the arrow that points home all faded into the red. They carry a dark edge now and read on any sky.',
+      'On a boss night the hearts, the circle round the King and the arrow that points home all faded into the red. They carry a dark edge now, the hearts are a brighter red, and all three read on any sky.',
+      'The first raider of a new kind, and the first damage number, each used to catch for a moment while the game built what it needed to draw them. Both are built while the title screen loads now.',
       'The hills\u2019 tops were a bare green disc. They have grass and flowers on them like the mesas.',
       'A saved run from a different map used to vanish without a word if you opened the game with that map\u2019s number in the address. It says so now.',
       'Two raider camps could be the same camp as far as the game was concerned, so breaking one of them also counted the other as broken \u2014 a camp you had never been near went quiet, and a saved run brought the pair back as one.',
