@@ -1817,7 +1817,7 @@ export const BuildMethods = {
     } else {
       if (announce) this.hud.toast('The Keep has fallen! *Get Wren behind something.*', 2600, 'Keep');
     }
-    this.showKeepBroken();
+    this.showKeepBroken(repair);
   },
 
   // #127: everything a fallen Keep LOOKS like, with none of the things that only happen at the moment
@@ -1833,7 +1833,8 @@ export const BuildMethods = {
   // of one job and the player had to notice the second one had moved. It stands where the feed mat
   // stood and wears the Keep's own icon; what changes with the Keep's state is the job it offers
   // and the colour that says so -- `build` while it is rubble, `feed` once it can be raised again.
-  showKeepBroken() {
+  // #248: `repair` is whether the repair mat goes down with the rubble; the fall of the village says no
+  showKeepBroken(repair = true) {
     const k = this.keep;
     if (!k) return;
     k.state = 'broken';

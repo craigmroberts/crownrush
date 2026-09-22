@@ -1326,8 +1326,10 @@ export const CHEAP = {
     await page.evaluate(() => { window.CFG.opening.holdFlag = false; window.game.hud.toast = () => {}; });
     const read = () => page.evaluate(() => JSON.parse(localStorage.getItem('crownrush-funnel') || '{}'));
     const afterPlay = await read();
-    await page.evaluate(() => { const g = window.game; const v = { x: 0, z: 1, mag: 1 }; const real = g.input.read; g.input.read = () => v; setTimeout(() => { g.input.read = real; }, 400); });
-    await page.waitForTimeout(600);
+    // the stick held until a frame has read it: under a loaded suite the first game frame after Play
+    // can be more than a wall-clock instant away, and a stub that let go on a timer missed it
+    await page.evaluate(() => { const g = window.game; const v = { x: 0, z: 1, mag: 1 }; const real = g.input.read; g.input.read = () => v; const t0 = Date.now(); const off = () => { if (g.firstInputAt != null || Date.now() - t0 > 4000) g.input.read = real; else requestAnimationFrame(off); }; requestAnimationFrame(off); });
+    await page.waitForFunction(() => window.game.firstInputAt != null, null, { timeout: 5000 }).catch(() => {});
     const afterMove = await read();
     await waitForPicket(page);
     await page.evaluate(() => { const g = window.game; for (const e of [...g.enemies]) if (e.rescue || e.captor) g.removeEnemy(e); g.freeQueen(); if (g.offer) g.takeUpgrade(g.offer[0].id); g.king.mesh.position.set(0, 0, 2); g.queen.mesh.position.set(0, 0, 3.4); });
