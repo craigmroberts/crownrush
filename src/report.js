@@ -67,6 +67,27 @@ export function sampleFrame(ms, game, input) {
 const clock = (t) => `${Math.floor(t / 60)}m${String(Math.round(t % 60)).padStart(2, '0')}s`;
 
 const BOX = 'crownrush-blackbox';
+// #251: THE FUNNEL. Five steps a first session either reaches or does not, counted across the
+// profile's runs, and the days that had a session. On the device, in the player's hands, sent
+// nowhere: the retention diagnostic had to drive bots because nothing in the build could say where
+// players stop, and this is the number that page needed. `?view=report` shows it.
+const FUNNEL = 'crownrush-funnel';
+export const FUNNEL_STEPS = ['play', 'moved', 'rescued', 'keep', 'night'];
+export function readFunnel() {
+  try { return JSON.parse(localStorage.getItem(FUNNEL)) || { steps: {}, days: [] }; } catch { return { steps: {}, days: [] }; }
+}
+export function markFunnel(step) {
+  const f = readFunnel();
+  f.steps[step] = (f.steps[step] || 0) + 1;
+  const day = new Date().toISOString().slice(0, 10);
+  if (!f.days.includes(day)) f.days = [...f.days, day].slice(-60);
+  try { localStorage.setItem(FUNNEL, JSON.stringify(f)); } catch { /* private window */ }
+}
+export function funnelLine() {
+  const f = readFunnel();
+  const names = { play: 'Play', moved: 'moved', rescued: 'rescued Wren', keep: 'stood the Keep', night: 'held a night' };
+  return `${FUNNEL_STEPS.map((s) => `${names[s]} ${f.steps[s] || 0}`).join(' \u2192 ')} \u00b7 ${f.days.length} day${f.days.length === 1 ? '' : 's'} with a session`;
+}
 const BOX_EVERY = 5000;
 let boxAt = 0;
 // #190: STICKY, because `ended` is how the session STOPPED and that is not the same question as
@@ -100,6 +121,10 @@ function writeBox(game, ended) {
       // seventy characters of grass percentages in a one-line record is the line nobody finishes
       q: game.qualityLabel ? game.qualityLabel().replace(/^quality\s+/, '').split(':')[0].trim() : null,
       safe: !!game.safe, ended: ended || null,
+      // #251: this run's first session, the steps a retention page needs
+      firstInput: game.firstInputAt == null ? null : Math.round(game.firstInputAt),
+      rescued: game.rescuedAt == null ? null : Math.round(game.rescuedAt),
+      picketDeaths: game.picketDeaths || 0,
     }));
   } catch { /* private window, or the quota is full: neither is worth a frame's error */ }
 }
@@ -219,6 +244,8 @@ export function bugReport(game, input, extra = {}) {
   // #190: AND HOW THE LAST ONE ENDED, which is the whole of the crash question and cannot be asked
   // of this session -- a report is written by a page that is still alive.
   L.push(pad('last session') + lastSessionLine());
+  L.push(pad('funnel') + funnelLine());   // #251
+  L.push(pad('this run') + `moved at ${game.firstInputAt == null ? 'never' : clock(game.firstInputAt)} \u00b7 rescued at ${game.rescuedAt == null ? 'never' : clock(game.rescuedAt)} \u00b7 fell at the picket ${game.picketDeaths || 0}`);
   L.push(pad('agent') + navigator.userAgent);
   return L.join('\n');
 }

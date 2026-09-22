@@ -233,6 +233,13 @@ export const CFG = {
     // spend on a run you have played before, which is what `?tour` below is partly for and what a way
     // to cut it short would be for -- see the note there.
     calm: 30,          // seconds of quiet before they come
+    // #248: how long the village takes to fall, first building to last, from the north where the
+    // riders come in. It was one frame: 24 walls, the Keep, four towers and every house became
+    // scattered bricks between one frame and the next, with no sound and no reason on screen, in
+    // the one second of the opening a player is guaranteed to be looking at. 2.1 s ends before the
+    // snatch (about 38 s), and each thing goes with a knock and a puff of chips; the rumble under it
+    // is `audio.fall`. `village-falls-in-order` holds the span and the direction.
+    fallOver: 2.1,
     from: [0, -44],    // they walk in from the north, which is where the camp is
     spread: 7,         // how wide they come in
     collectors: 4,
@@ -352,7 +359,13 @@ export const CFG = {
     // run opened with her already gone and she had to be somewhere. She is taken in front of the
     // player now, so where she is held is wherever they stopped carrying her -- `opening.picket`.
     captors: 6, captorRank: 1, captain: true, captainRank: 2,
-    freeRadius: 3.2, aggroRadius: 9, firstRaid: 22,
+    freeRadius: 3.2, aggroRadius: 9,
+    // #247: the grace after the rescue is a FULL DAY -- `cycle.length * nightStart`, 45 s -- so the
+    // clock reads dawn when she is on her feet. It was 22, and 8 of those were the walk home from
+    // the picket: the player arrived at an empty plot with 10 coins on the road, no Keep, no walls,
+    // no archers, and a raid warning already sounding, having just survived a fight he did not
+    // understand (#245). `first-morning-is-full` holds this against the cycle.
+    firstRaid: 45,
     penRadius: 3.4, // how far she can drift before the guards push her back
     noticeRadius: 15, // the King is spotted here: guards turn, she calls out
     alert: 1.1, // beat between being spotted and the charge
@@ -365,6 +378,37 @@ export const CFG = {
     // #33: losing the Keep with her inside now spends one of these, so a run gets two chances
     recaptures: 2,
     keepCost: 0.4,
+    // #245: the share of a guard's blow the King takes at the picket, in the prologue only. Measured
+    // before it existed, with a bot arriving 12 units south of her: standing still and shooting he
+    // was dead in 7.7 s (seven attackers at about 8 a second against 140 health), kiting he freed
+    // her in 40 s untouched, because he out-walks a knight 5.6 to 3.8. Nothing said "keep moving",
+    // so the first fight was binary on a skill nobody had been told. The share is set so that a
+    // player who stands there is hurt and lives long enough to win, and a player who moves is not
+    // hurt at all. Measured with the standing bot, which is the worst case -- he stops in the middle
+    // of all seven:
+    //
+    //     share   outcome
+    //     1.0     dead in 7.7 s, 2 kills
+    //     0.4     dead in 12 s, 3 kills
+    //     0.3     dead in 14 s, 4 kills
+    //     0.2     dead in 17 s, 6 kills -- the captain outlived him
+    //     0.12    frees her in 32 s, down to 5 of 140 -- alive, with no margin for a real thumb
+    //     0.1     frees her with about a fifth of his health left
+    //
+    // 0.1 is a blow of 1 from a rank-1 knight. It reads as being hurt, it adds up if he stands
+    // there, and it cannot end the run. `picket-is-survivable` holds it.
+    kingDamage: 0.1,
+    // #246: how long the King can stand off outside `noticeRadius` before she calls out, and how
+    // often after that. 20 is longer than a lost player takes to try the stick; 30 keeps it a voice
+    // and not a nag.
+    nudgeAfter: 20,
+    nudgeEvery: 30,
+    // #252: getting her back offers a reward card on the spot. The first offer used to need the
+    // Trade Post, the range, the Keep and its first feed -- about 58 coins from a 10-coin start,
+    // the second or third night on a first run, seven or eight minutes after Play. The offer panel
+    // is the best-designed screen in the game and the deck (#235) was just made worth looking at;
+    // this is the first thing a player does right, and it is what a reward is for.
+    offersCard: true,
   },
   // half is the Keep's footprint from its centre and radius is how close a unit may get: both follow
   // what the model actually measures, so enemies hit its wall rather than standing inside it. The
@@ -1422,6 +1466,10 @@ export const CFG = {
     dmgGrowthPerWave: 0.03,
     bossEvery: 5,
     stagger: 0.35,
+    // #247: the first raid, by name. The formula below (4 + 2.2 a night) sent six on night one; four
+    // bandits against a King who has had one day to stand a range and two archers is a raid he can
+    // lose a wall to and not the run. Nothing else in the run is sized here.
+    firstKnights: 4,
     // a wave is mostly the current rank plus some lower ranks; from wave `from` on, 0-`max` scouts of
     // the NEXT rank sneak in as a taste of what levelling the Keep brings
     scouts: { from: 5, max: 2 },

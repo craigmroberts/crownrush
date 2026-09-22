@@ -436,24 +436,53 @@ export const BuildMethods = {
   // the Keep breaks, and only then is the bookkeeping cleared -- so a frame of this is a ruin rather
   // than a blank field, and `reset()` is never involved (it would take the King, the Queen and the men
   // carrying her off with it).
+  // #248: IN ORDER, FROM THE NORTH, OVER `opening.fallOver` SECONDS. Each thing that falls is given a
+  // moment by its distance from where the riders come in, and `updateFalling` lets it go when the
+  // moment comes: a knock, a puff of chips, and the rubble the thing leaves. The bookkeeping that
+  // the rest of the game reads -- the pads, the level, what is built -- is done at once, because a
+  // mat offering to upgrade a tower that is about to be a heap is worse than a level chip going a
+  // frame early; the Keep's own fields go when the Keep does.
+  //
+  // #244: quietly. Twenty-four wall notices and the Keep's used to queue here, and the lane played
+  // them for 76 seconds while she was carried off. The fall is the message; the opening says one
+  // line (`sendCollectors`) and that line is urgent.
   fallOfTheVillage() {
+    const O = CFG.opening;
+    const [fx, fz] = O.from;
+    const items = [];
+    const at = (x, z, fn) => items.push({ d: Math.hypot(x - fx, z - fz), x, z, fn });
     for (const rec of this.structures) {
       const p = rec.mesh.position;
-      this.root.remove(rec.mesh);
-      const heap = makeRubble(3.4, this.wallLevel);
-      heap.position.set(p.x, 0, p.z);
-      this.root.add(heap);
-      this.ruins.push({ mesh: heap, t: CFG.opening.ruinFade });
+      at(p.x, p.z, () => {
+        this.root.remove(rec.mesh);
+        const heap = makeRubble(3.4, this.wallLevel);
+        heap.position.set(p.x, 0, p.z);
+        this.root.add(heap);
+        this.ruins.push({ mesh: heap, t: O.ruinFade });
+        // the crews go with their towers
+        for (const t of this.turrets) if (t.tower === rec.id) { this.root.remove(t.mesh); this.disposeEntity(t.mesh); }
+        this.turrets = this.turrets.filter((t) => t.tower !== rec.id);
+      });
     }
+    for (const w of this.walls) if (w.state !== 'broken') at(w.mx, w.mz, () => this.breakWall(w, false, false));
+    if (this.keep && this.keep.state === 'built') {
+      at(this.keep.x, this.keep.z, () => {
+        this.breakKeep(false, false);   // #248: no repair mat on the ruined plot either
+        this.keep = null;
+        this.feedDef = null;
+      });
+    }
+    const ds = items.map((i) => i.d);
+    const lo = Math.min(...ds);
+    const span = Math.max(1e-6, Math.max(...ds) - lo);
+    this.fellAt = [];
+    for (const it of items) {
+      const delay = ((it.d - lo) / span) * O.fallOver;
+      this.falling.push({ at: this.time + delay, x: it.x, z: it.z, fn: it.fn });
+    }
+    this.falling.sort((a, b) => a.at - b.at);
+    audio.fall(this.panAt(fx));
     this.structures = [];
-    for (const w of this.walls) if (w.state !== 'broken') this.breakWall(w);
-    if (this.keep && this.keep.state === 'built') this.breakKeep();
-    // the crews go with their towers, and the people with their homes
-    for (const t of this.turrets) {
-      this.root.remove(t.mesh);
-      this.disposeEntity(t.mesh);
-    }
-    this.turrets = [];
     this.towers = {};
     for (const v of this.villagers) {
       this.root.remove(v.mesh);
@@ -482,12 +511,23 @@ export const BuildMethods = {
     this.baseLevel = 0;
     this.wallLevel = 0;
     this.tier = 0;
-    this.keep = null;
-    this.feedDef = null;
     this.dynamicPads = [];
     for (const pad of this.pads) { this.root.remove(pad.mesh); this.disposePad(pad); }
     this.pads = [];
     this.refreshPads();
+  },
+
+  // #248: the things whose moment has come. `fellAt` is what fell when, for the check and the report.
+  updateFalling() {
+    if (!this.falling.length) return;
+    while (this.falling.length && this.falling[0].at <= this.time) {
+      const it = this.falling.shift();
+      it.fn();
+      tmp.set(it.x, 0.8, it.z);
+      this.throwChips('stone', tmp, 4);
+      audio.wallHit(this.panAt(it.x));
+      this.fellAt.push({ t: this.time, z: it.z });
+    }
   },
 
   // #152: the heaps sink back into the grass. They are the only thing the fall leaves behind, and a
@@ -1328,9 +1368,10 @@ export const BuildMethods = {
       this.keep.bar = makeHealthBar(3.0, false, true);
       this.keep.bar.position.y = KEEP_BAR_Y;
       m.add(this.keep.bar);
-      this.queenEnterKeep();
+      this.queenEnterKeep(!this.inPrologue());   // #249: not during the tableau, which is torn down before she is out of it
       this.baseLevel = Math.max(1, this.baseLevel);
       this.addFeedPad();
+      if (!this.inPrologue()) this.mark('keep');   // #251: the tableau's Keep is not the player's
     }
   },
 
@@ -1735,7 +1776,7 @@ export const BuildMethods = {
     return true;
   },
 
-  queenEnterKeep() {
+  queenEnterKeep(announce = true) {
     const q = this.queen;
     if (!this.keep || this.keep.state !== 'built' || q.inKeep || q.captive) return;
     // #126: the balcony FIRST, and the flag only if she got there. It used to set `inKeep` and then
@@ -1753,7 +1794,7 @@ export const BuildMethods = {
     setHealthBar(q.bar, 1);
     q.mesh.rotation.y = 0;
     q.moving = false;
-    this.hud.toast('Wren is inside the Keep.', 1500, 'Wren');
+    if (announce) this.hud.toast('Wren is inside the Keep.', 1500, 'Wren');
   },
 
   queenLeaveKeep() {
@@ -1763,7 +1804,7 @@ export const BuildMethods = {
     q.mesh.position.set(this.keep.x + 2.6, 0, this.keep.z + 2.6);
   },
 
-  breakKeep() {
+  breakKeep(announce = true, repair = true) {
     const sheltering = this.queen.inKeep && !this.queen.captive;
     this.queenLeaveKeep();
     audio.wave(true);
@@ -1774,7 +1815,7 @@ export const BuildMethods = {
       this.hud.toast('The Keep is down and Wren with it. *Cut the escort off!*', 3600, 'Wren');
       this.captureQueen();
     } else {
-      this.hud.toast('The Keep has fallen! *Get Wren behind something.*', 2600, 'Keep');
+      if (announce) this.hud.toast('The Keep has fallen! *Get Wren behind something.*', 2600, 'Keep');
     }
     this.showKeepBroken();
   },
@@ -1813,7 +1854,7 @@ export const BuildMethods = {
     // produced the same id -- so the second one raised no mat at all. Minutes apart in real play;
     // it still cost a wrong reading while measuring this.
     this.keepRepairs = (this.keepRepairs || 0) + 1;
-    this.dynamicPads.push({ id: `repair-keep-${this.keepRepairs}`, pos: [k.x + CFG.keep.padOffset[0], k.z + CFG.keep.padOffset[1]], cost: this.repairCost(), icon: 'keep', label: 'Repair the Keep', repairKeep: true });
+    if (repair) this.dynamicPads.push({ id: `repair-keep-${this.keepRepairs}`, pos: [k.x + CFG.keep.padOffset[0], k.z + CFG.keep.padOffset[1]], cost: this.repairCost(), icon: 'keep', label: 'Repair the Keep', repairKeep: true });
     this.refreshPads();
   },
 
@@ -2453,15 +2494,18 @@ export const BuildMethods = {
     } else this.breakWall(w);
   },
 
-  breakWall(w) {
+  breakWall(w, announce = true, repair = true) {
     w.state = 'broken';
     this.root.remove(w.mesh);
     w.mesh = makeRubble(w.len, w.level);
     w.mesh.position.set(w.mx, 0, w.mz);
     w.mesh.rotation.y = -w.ang;
     this.root.add(w.mesh);
-    this.hud.toast(w.gate ? 'The gate is down!' : 'A wall section has fallen!', 1600, 'Keep');
-    // a repair pad appears just inside the gap, on the line back to the middle of the ring
+    if (announce) this.hud.toast(w.gate ? 'The gate is down!' : 'A wall section has fallen!', 1600, 'Keep');
+    // a repair pad appears just inside the gap, on the line back to the middle of the ring. #248: not
+    // during the fall of the village -- its walls break on a timer after the pads were cleared, and a
+    // ruined plot carpeted in "Repair Wall" mats reading "Free Wren first" was the first frame of it.
+    if (!repair) return;
     const T = TIERS[w.tier];
     const c = T.ring || { x: (T.bounds.x0 + T.bounds.x1) / 2, z: (T.bounds.z0 + T.bounds.z1) / 2 };
     const ix = c.x - w.mx;
@@ -2570,12 +2614,14 @@ export const BuildMethods = {
       return;
     }
     this.offer = list;
-    this.offerLevel = (this.offerLevels || []).shift() || this.baseLevel;
+    // #252: level 0 is the rescue's own offer, so it is read out rather than treated as "none"
+    const queued = (this.offerLevels || []).shift();
+    this.offerLevel = queued === undefined ? this.baseLevel : queued;
     this.offerPaused = true;
     this.pause(true);
     this.hud.hideInfo();
     this.infoOpen = false;
-    this.hud.showOffer(this.offerForHud(list), this.offerLevel, this.offerQueue, this.levelGains(this.offerLevel));
+    this.hud.showOffer(this.offerForHud(list), this.offerLevel || '', this.offerQueue, this.offerLevel ? this.levelGains(this.offerLevel) : [], this.offerLevel ? 'Level' : 'Wren is home');   // #252
   },
 
   takeUpgrade(id) {

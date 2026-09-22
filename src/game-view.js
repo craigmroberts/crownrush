@@ -2214,6 +2214,7 @@ export const ViewMethods = {
         ['#horn-btn', '#horn-btn', 'The warhorn — 64px, the thumb\u2019s button'],
         ['#banner-btn', '#banner-btn', 'The rally banner — 56px, the second verb'],
         ['#mount-btn', '#mount-btn', 'Mount and dismount (#217) — 50px, and the only control whose WORD is its state'],
+        ['#objective', '#objective', 'The objective strip while Wren is held (#250) \u2014 the one notice that does not queue or fade: what to do, which way, how far'],
         ['#wren-btn', '#wren-btn', 'Wren, out or in or loose (#234) — 50px, and the only ring that is a charge rather than a cooldown, which is why it is blue'],
         ['#settings-btn', '#settings-btn', 'The pause corner'],
         ['#ks-x', '.panel-x', 'Close, on a panel that styles its own', 'panel keep-sheet'],

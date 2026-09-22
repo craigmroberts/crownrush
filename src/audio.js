@@ -807,6 +807,17 @@ class Audio {
     });
     this.tone({ f: freq('G6'), t: t + 0.36, dur: 0.5, type: 'sine', gain: 0.04, attack: 0.02, release: 0.4 });
   }
+  // #248: the village coming down. Two seconds of rumble -- low-passed noise with a slow swell and
+  // a slower fall -- under the knocks each building makes as it goes (`wallHit`, rate-limited, so
+  // forty of them in two seconds come out as a dozen). Panned from where it started: the north.
+  fall(pan = 0) {
+    const bus = this.placed(pan);
+    if (!this.ready()) return;
+    const t = this.now;
+    this.noise({ t, dur: 2.4, gain: 0.3, type: 'lowpass', f: 110, q: 0.8, bus });
+    this.tone({ f: 46, slideTo: 30, t, dur: 2.2, type: 'sine', gain: 0.16, attack: 0.5, release: 1.2, bus });
+    this.tone({ f: 69, slideTo: 40, t: t + 0.2, dur: 1.8, type: 'triangle', gain: 0.06, attack: 0.4, release: 1.0, lp: 200, bus });
+  }
   // #57: the banner going in. A low wooden knock and a short cloth snap -- the pole driven into the
   // ground, not a fanfare. The horn is the fanfare, and two of those a minute would fight.
   banner() {

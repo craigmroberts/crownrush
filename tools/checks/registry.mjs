@@ -193,6 +193,56 @@ export const CHECKS = [
     why: '#238. Three mechanics shipped with a borrowed sound each, and the way that happens again is a new verb written by copying a neighbour and moving two numbers. The first dig written for this ticket was a low thud under low-passed noise, which is the raider death note for note: 0.10 apart on this scale, and this check is what said so before anyone with ears could.',
   },
   {
+    id: 'village-falls-in-order', area: 'Opening', cost: 'cheap',
+    asserts: 'The opening\'s village falls over the seconds the config names, first thing nearest the north road and last thing furthest, with nothing left standing.',
+    why: '#248. It fell in one frame: 24 walls, the Keep, four towers and every house became scattered bricks between one frame and the next, no sound, no reason on screen, in the one second of the opening a player is guaranteed to be looking at. It read as a bug.',
+  },
+  {
+    id: 'rescue-offers-a-card', area: 'Upgrades', cost: 'cheap',
+    asserts: 'Freeing Wren puts the reward panel up within a second, headed "Wren is home" with no level number and three cards, paused; taking one records it and resumes the game.',
+    why: '#252. The first offer needed the Trade Post, the range, the Keep and its first feed -- about 58 coins from a 10-coin start -- so a first run met the best-designed panel in the game on its second or third night. The rescue is the first thing a player does right.',
+  },
+  {
+    id: 'funnel-counts-the-first-run', area: 'Tooling', cost: 'cheap',
+    asserts: 'On a fresh profile the funnel counts Play, the first move and the rescue once each and one day, and the black box carries when he first moved, when she was freed and how often he fell at the picket.',
+    why: '#251. Nothing in the build could say where players stop; the retention diagnostic had to drive bots. Five counters on the device, sent nowhere, readable from the report, are what that page needed.',
+  },
+  {
+    id: 'objective-strip-while-held', area: 'HUD', cost: 'cheap',
+    asserts: 'While Wren is held a strip above the notice lane says the verb, the direction and the paces; it reads "Go after them" while she is carried and "Take her back" at the picket, the paces fall as the King nears her, and it is gone within a second of her being freed.',
+    why: '#250. Once she was at the picket the only rescue feedback was a pink arrow, and the notice lane was busy (#244). A player who did not already know what the arrow meant had nothing to go on: no direction in words, no distance, nothing that stayed.',
+  },
+  {
+    id: 'first-minute-is-one-card', area: 'Opening', cost: 'cheap',
+    asserts: 'A fresh profile gets one intro card with no key names and a Play button; the run\'s first notice is the morning line with nothing before it; a notice\'s first word is visible the frame its box is.',
+    why: '#249 and #253. Five cards of text before the first frame, keys named to a thumb, a stale "Wren is inside the Keep" a second before "Wren walks with you", and every notice arriving as a labelled empty box: the first minute\'s reading, measured on the phone frame.',
+  },
+  {
+    id: 'first-morning-is-full', area: 'Opening', cost: 'free',
+    asserts: 'The grace after the rescue is at least a whole day of the cycle, and the first raid\'s size is a named number, not the night formula.',
+    why: '#247. The first raid came 22 s after the rescue, 8 of them the walk home, onto an empty plot with no Keep, no walls and no archers. The competitor evidence says the complaint is never that a game is hard; it is the night where nothing had started working yet.',
+  },
+  {
+    id: 'first-raid-after-a-day', area: 'Opening', cost: 'cheap',
+    asserts: 'Driven from the opening: at the rescue the countdown to night reads a full day and is on screen, and the first raid comes a day later with exactly the knights the config names.',
+    why: '#247. The number in config is only worth what the game does with it: `freeQueen` sets the phase and `startWave` reads the size, and either could drift from the config line without a driven check noticing.',
+  },
+  {
+    id: 'rescue-line-on-time', area: 'Opening', cost: 'cheap',
+    asserts: 'In a real run from Play, at most one wall notice is shown during the fall of the village, and "Go after them" and "Take her back" are on screen within a second of the moments they describe.',
+    why: '#244. Measured on the deployed build with the lane logging what it showed: 24 wall notices from 30 s to 106 s, and the instruction to rescue her behind all of them, a minute after she was gone. The one text channel spent the whole first fight on masonry.',
+  },
+  {
+    id: 'picket-is-survivable', area: 'Opening', cost: 'cheap',
+    asserts: 'A King who walks up to the picket and stands still shooting frees Wren without falling, and is still hurt doing it.',
+    why: '#245. Before the damage share the standing player was dead in 7.7 s at 55 s of game time, never having built or seen a raid, while a kiting player freed her in 40 s untouched. The first fight was binary on a skill nothing had said.',
+  },
+  {
+    id: 'picket-restart-and-nudge', area: 'Opening', cost: 'cheap',
+    asserts: 'A player who stands off after the hand-off is called by Wren at nudgeAfter and again at nudgeEvery; a King who falls at the picket stands up on the plot at full health with the guards posted again and the run not over, and a second attempt can free her.',
+    why: '#246. Driven passive for four minutes, the game sat frozen on an empty plot with an arrow; driven standing, it ended at 55 s with "the raiders have the field". Neither player had met the loop. The restart is the hand-off again, and every gate in the prologue reads a flag it must leave right.',
+  },
+  {
     id: 'glut-levels-the-seams', area: 'Economy', cost: 'free',
     asserts: 'Every material has a glut, and no material at three tranches of it is worth more than twice any other material fresh, in coin per second of swinging.',
     why: '#236. Coin per swing-second was a fixed ladder and diamond was 3.2x wood at the top of it, so once the east bridge stood the only reason to mine anything else was that the Keep had not opened it yet -- a schedule, not a decision. This is the arithmetic that keeps the ladder from being put back one price at a time.',

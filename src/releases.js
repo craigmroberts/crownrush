@@ -27,6 +27,25 @@
 // LENGTH: one line each, and the line says what is different to play, not what was done to the code.
 export const RELEASES = [
   {
+    id: 7,
+    date: '2026-09-22',
+    title: 'The first two minutes',
+    added: [
+      'Getting Wren back earns you a reward card on the spot, before you have built a thing.',
+      'While the raiders have Wren, a line at the bottom of the screen says what to do, which way she is and how many paces away \u2014 and it stays until she is back.',
+    ],
+    fixed: [
+      'When the raiders took Wren, the message telling you to go after her arrived a minute late, behind a notice for every wall they knocked down. It arrives the moment it is true now, and the walls fall without a word each.',
+      'The guards at the raider picket could kill the King in seconds if you stood and shot. They hit far softer there now, and Wren tells you the one thing that matters: they are slower than you.',
+      'Getting Wren back from the picket could bring a second party down the north road for her within seconds, and losing her to them ended the run before the first night. Once she is home, the road is quiet until dusk.',
+      'The first raid used to arrive 22 seconds after you got Wren back, before you had built a thing. You have a whole day now, the countdown is up from the moment she is on her feet, and the first night sends four bandits rather than six.',
+      'The village used to vanish in a single frame when the riders came. It falls now, from the north road inwards over two seconds, with the rumble and the knocks to go with it.',
+      'The intro before your first run is one card now, not five, and it no longer names keyboard keys on a phone. The horn and the banner explain themselves the moment they appear instead.',
+      'A notice used to come up as an empty box for a moment before its words typed in. The first word is there the instant the box is.',
+      'If the King fell at the picket the run ended before it had started. He gets up on the plot and tries again now, and if you stand off too long Wren calls out which way she is.',
+    ],
+  },
+  {
     id: 6,
     date: '2026-09-21',
     title: 'The river crossing',

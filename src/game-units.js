@@ -272,6 +272,7 @@ export const UnitsMethods = {
     // against the tree, the player can see the tree, and a flick of the stick goes round it.
     this.collideScenery(p, 0.5);
     k.moving = inp.mag > 0.05;
+    if (k.moving && this.firstInputAt == null) { this.firstInputAt = this.time; this.mark('moved'); }   // #251
     this.animateWalk(k, inp.mag, dt);
     // king fires his own bow
     k.cooldown -= dt;
@@ -654,6 +655,18 @@ export const UnitsMethods = {
     if (u.type === 'queen') return;
     if (u.hp <= 0) return;
     if (u.inKeep || u.captive) return;
+    // #245: THE SCRIPTED FIGHT CANNOT KILL HIM. While she is held in the prologue the only thing that
+    // hits the King is the picket's guard, and he takes `rescue.kingDamage` of each blow -- the share
+    // and the measurement that set it are in config.js. The first blow also says the one thing
+    // nothing had said: he is faster than they are.
+    const atPicket = u.type === 'king' && this.inPrologue() && this.queen.captive && !this.queen.taken;
+    if (atPicket) {
+      dmg *= CFG.rescue.kingDamage;
+      if (!this.kiteHintSaid) {
+        this.kiteHintSaid = true;
+        this.hud.toast('They are slower than you. *Keep moving and shoot.*', 3200, 'Wren', true);
+      }
+    }
     u.hp -= dmg;
     u.lastHit = this.time;
     this.hitAnim(u);
@@ -668,6 +681,7 @@ export const UnitsMethods = {
       //
       // `gameOver` runs BEFORE the splice: it records the run, and the army it records is
       // `units.length - 1` on the understanding that the King is one of them.
+      if (u.type === 'king' && atPicket) return this.picketRestart();   // #246
       if (u.type === 'king') this.gameOver(u.type);
       // #235: The Muster counts him, and dawn brings him back (`musterFallen`)
       if (u.type === 'archer' && this.mods.fallenRise) this.fallen = (this.fallen || 0) + 1;

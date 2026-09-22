@@ -185,6 +185,16 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #699a3f; f
 #hud { position: fixed; inset: 0; pointer-events: none; display: flex; flex-direction: column; align-items: stretch; padding: 0; }
 
 #toast.show { opacity: 1; }
+/* #250: the objective strip, above whatever the notice lane holds (`--notice-stack` is that height). */
+#objective {
+  position: fixed; left: 50%; bottom: calc(var(--notice-bottom) + var(--notice-stack) + 10px); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px; padding: 6px 14px 7px; border-radius: 999px; white-space: nowrap;
+  background: rgba(20, 38, 30, 0.86); color: #fff; box-shadow: var(--wood-ring), 0 4px 12px rgba(0,0,0,0.35);
+  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 700; font-size: 15px; letter-spacing: 0.01em;
+  z-index: 4; pointer-events: none; transition: bottom 0.15s;
+}
+#objective.hidden { display: none; }
+#objective b { color: #ffd23f; }
 
 /* #98: a sheet is its content on a blurred world, not a card sitting on one.
    The blur is affordable here in a way it was not for the notices (#89): every one of these pauses

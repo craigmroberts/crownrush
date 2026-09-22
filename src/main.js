@@ -204,19 +204,13 @@ function announceRelease() {
 // #6: the first time through, Play opens a short stepped intro; after that it goes straight in
 const INTRO_KEY = 'crownrush-intro-seen';
 const INTRO = [
-  { icon: 'tiara', title: 'Keep Wren safe', text: 'Wren walks with you. Men are coming for her and they will not stop for you — get her back when they take her. Nothing can be built, and no raid comes, until she is home.' },
-  { icon: 'coin', title: 'Fight and collect', text: 'Your archers shoot on their own. Raiders drop coins: walk over them to pick them up. The colour a raider wears tells you how dangerous it is.' },
-  // #57: two verbs, one step. A sixth card would make the opening longer for something the player
-  // learns faster by pressing it, and these two belong together: they are the only buttons in the
-  // game that are the King's own rather than a building's. (#160: there were three until the dash
-  // went; the card never had a sentence to spare for it.)
-  { icon: 'horn', title: 'The King\u2019s two buttons', text: 'The horn (Space) rallies your army to you and throws nearby raiders back — save it for a breach. The banner (B) plants where you stand and the army holds that spot instead of following you, so you can go and mine while they defend it.' },
-  { icon: 'hammer', title: 'Build', text: 'Stop on a floor marker to spend coins. Square markers build; round ones recruit and upgrade. Walking across a marker costs nothing.' },
-  // #125: this step used to say wood, stone and straw went into the Keep, which stopped being true
-  // when the material lists were priced into coin -- the first thing a new player reads, sending them
-  // mining for a currency the Keep does not take. It is also the only place with room to say what
-  // mining IS for, which nothing in the game said at all.
-  { icon: 'keep', title: 'Raise the Keep', text: 'Pay coin into the Keep and the whole kingdom levels up: a bigger army, faster arrows, stronger walls. What you mine is not spent — sell it at the trade post to turn a bag into coin. Gather by day. The raid comes at night.' },
+  // #249: ONE CARD. There were five -- about 150 words before the first frame of play, three of them
+  // about verbs the player would not have for minutes, and the third naming keys ("Space", "B") on a
+  // phone. The competitor evidence (docs/competitors.md §1) is that nobody complains about text on
+  // the thing they are about to pay for; a wall of it before the game starts is the other case. The
+  // horn and banner are taught the first time they appear (`game.js`, `verbsSaid`); building and
+  // the Keep are what the mat tip says when you stand on one.
+  { icon: 'tiara', title: 'Keep Wren safe', text: 'Wren walks with you. Men are coming for her, and they will not stop for you. Get her back.' },
 ];
 const startGame = () => {
   try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) { /* private mode */ }

@@ -1410,6 +1410,68 @@ And a mat no longer previews a building that is already standing. A translucent 
 out on top of the real one is the other half of that report, and a preview of something that exists
 is wrong whether or not anybody is looking at it.
 
+## The first two minutes, measured and fixed (#244, #245, #246)
+
+A retention pass drove a new player's first four minutes on the deployed build, three ways: a player
+who never touches the screen, one who walks up to the picket and stands and shoots, and one who
+kites. What it found, with the toast lane instrumented to log what it **showed** rather than what
+was queued:
+
+| | before |
+| --- | --- |
+| the notice lane, 30 s to 106 s | 24 wall and gate notices, one after another |
+| "Go after them" on screen | about 70 s after she was taken |
+| standing still at the picket | dead in 7.7 s, "The King Has Fallen" at 55 s of game time |
+| kiting at the picket | freed her in 40 s, never touched |
+| doing nothing after the hand-off | four minutes on an empty plot with an arrow; the clock is held while she is captive, so nothing ever comes |
+
+Three changes, one per ticket, each with a check that drives the real run from Play (`playFresh`
+in `tools/checks/cheap.mjs` -- `?tour` holds the morning for ever and these need it to end):
+
+- **The lane has an urgent notice (#244).** `toast(..., urgent)` replaces the queue and whatever
+  page is up and shows now; the prologue's three instructions use it, nothing else does. The fall of
+  the village breaks its walls quietly, and the opening's one line is the message. A repeat anywhere
+  in the queue is merged, not only against the page on screen. The collectors' ranks are not
+  announced in the prologue ("Warlords have arrived!" in minute one was noise); a raid announces them.
+  `rescue-line-on-time`: at most one wall notice during the fall, and both instructions within a
+  second of the moments they describe.
+- **The guards' blows are a share at the picket (#245).** `CFG.rescue.kingDamage`, in the prologue
+  only, with the table of shares tried beside it: 0.2 still lost to the captain, 0.12 frees her at
+  about a third health. The first blow says the one thing nothing had said -- *they are slower than
+  you, keep moving*. `picket-is-survivable` drives the standing bot and requires it to win, and to be
+  hurt.
+- **The first morning is a whole one (#247).** `rescue.firstRaid` is the day's length, so the clock
+  reads dawn at the rescue and the countdown is up; the first raid is `waves.firstKnights` (four) by
+  name rather than the night formula's six. `first-morning-is-full` reads the config back and
+  `first-raid-after-a-day` drives the rescue and times the raid.
+- **The village falls in order (#248).** `fallOfTheVillage` gives each wall, tower and house a moment
+  by its distance from the riders' road and `updateFalling` lets it go over `opening.fallOver` (2.1 s)
+  with a knock, chips and rubble, under `audio.fall`'s rumble. It was one frame. `village-falls-in-order`
+  reads `fellAt` for the span and the direction.
+- **The rescue offers a card (#252).** `rescue.offersCard`: `freeQueen` queues level 0, which
+  `showOffer` heads "Wren is home" with no number and no gains. The first offer used to be the second
+  or third night. `rescue-offers-a-card` drives it.
+- **The funnel (#251).** `markFunnel` in `report.js` counts Play, the first move, the rescue, the
+  Keep and the first night held, plus the days with a session, in localStorage and nowhere else; the
+  black box carries `firstInput`, `rescued` and `picketDeaths` per run, and the bug report prints both
+  (`?view=report`). `funnel-counts-the-first-run` drives a fresh profile through the first three.
+- **An objective strip while she is held (#250).** `hud.setObjective` is one line above the notice
+  stack -- *Go after them · north · 38 paces* while she is carried, *Take her back* once she is set
+  down -- written every frame and dirty-checked to the pace. It does not queue, does not fade, and
+  clears on `freeQueen`. `objective-strip-while-held` drives the snatch and reads it.
+- **One intro card (#249), and the buttons taught when they appear.** Five cards were about 150
+  words before the first frame, three of them about verbs minutes away, one naming keys to a thumb.
+  The horn and banner get one line the first time they show (`verbsSaid`); a single card has no Skip.
+  The tableau's "Wren is inside the Keep" line, which fired at t = 0 a second before "Wren walks
+  with you", is quiet during the prologue.
+- **The first word of a notice is instant (#253).** Every letter used to start at opacity 0 on its own
+  delay, so a page came up as a labelled empty box for its first few hundred milliseconds.
+- **A stall gets a nudge and a fall gets a restart (#246).** Outside the notice radius for
+  `nudgeAfter` she calls out (voice, alarm arrow, one line), and again every `nudgeEvery`. A King who
+  falls at the picket is not a run ending: the guards are posted again, he stands up on the plot at
+  full health, and `gameOver('king')` is reachable only once `beginRun` has. `picket-restart-and-nudge`
+  drives both, forcing the share to 1 for the fall.
+
 ## The opening: you had a kingdom this morning
 
 A run does not begin on an empty plot any more (#152). It begins inside a **finished village** —

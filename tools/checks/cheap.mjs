@@ -47,6 +47,51 @@ async function boot(page, url, query = '?tour') {
   }, [BOOT_MIN, BOOT_MAX], { timeout: 150000, polling: 'raf' });
 }
 
+// #244: THE REAL FIRST TWO MINUTES. `boot` uses `?tour`, which holds the morning for ever so the
+// board can look at it; these checks need the morning to end. So: a fresh profile with the intro
+// marked seen, the title, Play, and the run as a new player gets it. The render is then stubbed and
+// the game's own "world is not drawing" watchdog cleared, because under SwiftShader the render is
+// the whole cost of a frame and nothing here reads a pixel -- game time runs at wall speed.
+async function playFresh(page, url) {
+  await page.addInitScript(() => { try { localStorage.setItem('crownrush-intro-seen', '1'); } catch (e) { /* private mode */ } });
+  await page.goto(url, { waitUntil: 'load', timeout: 150000 });
+  await page.waitForSelector('#start-btn:not([disabled])', { timeout: 150000 });
+  await page.click('#start-btn');
+  await page.waitForFunction(() => window.game && window.game.running && window.game.king, null, { timeout: 60000 });
+  await page.evaluate(() => {
+    const g = window.game;
+    clearTimeout(g.renderWatch);
+    g.renderWatch = null;
+    g.renderer.render = () => {};
+    if (g.post && g.post.composer) g.post.composer.render = () => {};
+  });
+}
+// the picket, as a bot: `stand` walks up and shoots, `kite` steps away from anyone inside 4.5. Both
+// walk to her once the guards are down, which is what frees her (`freeRadius`) and what a player does.
+const PICKET_BOT = `(style, seconds) => new Promise((done) => {
+  const g = window.game; const k = g.king; const q = g.queen;
+  const vec = { x: 0, z: 0, mag: 0 }; const real = g.input.read; g.input.read = () => vec;
+  k.mesh.position.set(q.mesh.position.x, 0, q.mesh.position.z + 12);
+  const t0 = g.time; let minHp = k.hp; const deaths0 = g.picketDeaths || 0;
+  const step = () => {
+    const kp = k.mesh.position; let near = null; let nd = 1e9;
+    for (const e of g.enemies) { if (e.hp <= 0) continue; const d = e.mesh.position.distanceTo(kp); if (d < nd) { nd = d; near = e; } }
+    const guards = g.enemies.filter((e) => e.rescue && e.hp > 0).length;
+    if (!guards && kp.distanceTo(q.mesh.position) > 2) { const dx = q.mesh.position.x - kp.x; const dz = q.mesh.position.z - kp.z; const l = Math.hypot(dx, dz) || 1; vec.x = dx / l; vec.z = dz / l; vec.mag = 1; }
+    else if (style === 'kite' && near && nd < 4.5) { const dx = kp.x - near.mesh.position.x; const dz = kp.z - near.mesh.position.z; const l = Math.hypot(dx, dz) || 1; vec.x = dx / l; vec.z = dz / l; vec.mag = 1; }
+    else if (style === 'kite' && kp.distanceTo(q.mesh.position) > 7) { const dx = q.mesh.position.x - kp.x; const dz = q.mesh.position.z - kp.z; const l = Math.hypot(dx, dz) || 1; vec.x = dx / l; vec.z = dz / l; vec.mag = 1; }
+    else { vec.x = 0; vec.z = 0; vec.mag = 0; }
+    if (k.hp < minHp) minHp = k.hp;
+    if (g.time - t0 < seconds && !g.over && q.captive) return requestAnimationFrame(step);
+    g.input.read = real;
+    done({ seconds: +(g.time - t0).toFixed(1), freed: !q.captive, over: !!g.over, hp: Math.round(k.hp), minHp: Math.round(minHp), deaths: (g.picketDeaths || 0) - deaths0, guards: g.enemies.filter((e) => e.rescue).length });
+  };
+  requestAnimationFrame(step);
+})`;
+async function waitForPicket(page) {
+  await page.waitForFunction(() => { const g = window.game; return g.queen.captive && !g.queen.taken && g.enemies.some((e) => e.captor); }, null, { timeout: 150000 });
+}
+
 // #179: MAKE A CHECK PROVE IT CAN FAIL.
 //
 // Every one of the four checks that were wrong about the game passed review because the reasoning
@@ -1224,6 +1269,279 @@ export const CHEAP = {
     if (r.nan.pan !== 0 || r.nan.node !== null) bad.push(`a cue with no position reads ${f(r.nan.pan)}, not the middle`);
     return bad.length ? no(bad) : ok(`east wall ${f(r.e.pan)}, west wall ${f(r.w.pan)}, the King's own cue down the middle, the far side clamped`);
   },
+  // #248: THE VILLAGE FALLS IN ORDER, FROM THE NORTH, OVER THE SECONDS THE CONFIG SAYS. `fellAt` is what
+  // fell when; the first thing down has to be nearer the riders' road than the last, and the span
+  // has to be the config's, not one frame.
+  async 'village-falls-in-order'(page, url) {
+    await boot(page, url);
+    await page.evaluate(() => { const g = window.game; window.CFG.opening.holdFlag = false; g.renderer.render = () => {}; if (g.post && g.post.composer) g.post.composer.render = () => {}; clearTimeout(g.renderWatch); g.renderWatch = null; g.hud.toast = () => {}; });
+    await page.waitForFunction(() => window.game.snatched && window.game.falling.length === 0 && window.game.fellAt.length > 0, null, { timeout: 150000 });
+    const r = await page.evaluate(() => { const g = window.game; const f = g.fellAt; return { n: f.length, span: f[f.length - 1].t - f[0].t, firstZ: f[0].z, lastZ: f[f.length - 1].z, over: window.CFG.opening.fallOver, from: window.CFG.opening.from[1], walls: g.walls.filter((w) => w.state === 'broken').length, standing: g.structures.length, mats: g.dynamicPads.length }; });
+    const bad = [];
+    if (r.n < 20) bad.push(`only ${r.n} things fell`);
+    // held to the ticket's own window, not to the config value: a sabotage that zeroes the config
+    // would zero the expectation with it, and the check stayed green under it once
+    if (r.span < 1.8 || r.span > 2.4) bad.push(`the fall took ${r.span.toFixed(2)}s, not between 1.8 and 2.4 (config says ${r.over})`);
+    if (!(r.firstZ < r.lastZ)) bad.push(`the first thing down (z ${r.firstZ.toFixed(1)}) was not nearer the north road than the last (z ${r.lastZ.toFixed(1)})`);
+    if (r.standing) bad.push(`${r.standing} buildings still standing after the fall`);
+    if (r.mats) bad.push(`${r.mats} repair mats appeared on the ruined plot during the fall`);
+    return bad.length ? no(bad) : ok(`${r.n} things down over ${r.span.toFixed(2)}s, first at z ${r.firstZ.toFixed(0)} and last at z ${r.lastZ.toFixed(0)}; ${r.walls} walls broken`);
+  },
+
+  // #252: GETTING HER BACK OFFERS A CARD, NOW. From the opening to the picket, the guards down, and
+  // the panel has to be up within a second, headed for the rescue and not for a level, with three
+  // cards; taking one resumes the game with the card taken.
+  async 'rescue-offers-a-card'(page, url) {
+    await boot(page, url);
+    await page.evaluate(() => { const g = window.game; window.CFG.opening.holdFlag = false; g.renderer.render = () => {}; if (g.post && g.post.composer) g.post.composer.render = () => {}; clearTimeout(g.renderWatch); g.renderWatch = null; });
+    await waitForPicket(page);
+    await page.evaluate(() => { const g = window.game; for (const e of [...g.enemies]) if (e.rescue || e.captor) g.removeEnemy(e); g.freeQueen(); });
+    await page.waitForTimeout(800);
+    const r = await page.evaluate(() => {
+      const g = window.game;
+      const screen = document.getElementById('offer-screen');
+      const up = !screen.classList.contains('hidden');
+      const word = document.querySelector('#offer-screen .ol-word').textContent;
+      const level = document.getElementById('offer-level').textContent;
+      const cards = [...document.querySelectorAll('#offer-cards .offer-card')].map((b) => b.dataset.id);
+      const paused = !!g.offerPaused;
+      if (g.offer) g.takeUpgrade(g.offer[0].id);
+      return { up, word, level, cards, paused, taken: Object.keys(g.taken), resumed: !g.offerPaused && !g.offer };
+    });
+    const bad = [];
+    if (!r.up) bad.push('no offer panel within a second of the rescue');
+    if (r.word !== 'Wren is home') bad.push(`the panel is headed "${r.word} ${r.level}", not "Wren is home"`);
+    if (r.level !== '') bad.push(`the rescue's offer carries a level number: "${r.level}"`);
+    if (r.cards.length < 3) bad.push(`${r.cards.length} cards on it`);
+    if (!r.paused) bad.push('the game did not pause for it');
+    if (!r.taken.length) bad.push('taking a card recorded nothing in `taken`');
+    if (!r.resumed) bad.push('the game did not resume after the card was taken');
+    return bad.length ? no(bad) : ok(`"Wren is home" with ${r.cards.length} cards, up within a second; took ${r.taken[0]} and the game resumed`);
+  },
+
+  // #251: THE FUNNEL COUNTS THE FIRST RUN. A fresh profile: Play is one, the stick moving him is
+  // one, the rescue is one, and the black box carries when he first moved and when she was freed.
+  async 'funnel-counts-the-first-run'(page, url) {
+    await playFresh(page, url);
+    await page.evaluate(() => { window.CFG.opening.holdFlag = false; window.game.hud.toast = () => {}; });
+    const read = () => page.evaluate(() => JSON.parse(localStorage.getItem('crownrush-funnel') || '{}'));
+    const afterPlay = await read();
+    await page.evaluate(() => { const g = window.game; const v = { x: 0, z: 1, mag: 1 }; const real = g.input.read; g.input.read = () => v; setTimeout(() => { g.input.read = real; }, 400); });
+    await page.waitForTimeout(600);
+    const afterMove = await read();
+    await waitForPicket(page);
+    await page.evaluate(() => { const g = window.game; for (const e of [...g.enemies]) if (e.rescue || e.captor) g.removeEnemy(e); g.freeQueen(); if (g.offer) g.takeUpgrade(g.offer[0].id); g.king.mesh.position.set(0, 0, 2); g.queen.mesh.position.set(0, 0, 3.4); });
+    await page.waitForTimeout(6500);   // the black box writes every five seconds
+    const afterRescue = await read();
+    const box = await page.evaluate(() => JSON.parse(localStorage.getItem('crownrush-blackbox') || '{}'));
+    const line = await page.evaluate(() => { const g = window.game; return { first: g.firstInputAt, rescued: g.rescuedAt }; });
+    const bad = [];
+    if ((afterPlay.steps || {}).play !== 1) bad.push(`after Play the funnel reads play=${(afterPlay.steps || {}).play}`);
+    if ((afterMove.steps || {}).moved !== 1) bad.push(`after the stick moved him the funnel reads moved=${(afterMove.steps || {}).moved}`);
+    if ((afterRescue.steps || {}).rescued !== 1) bad.push(`after the rescue the funnel reads rescued=${(afterRescue.steps || {}).rescued}`);
+    if (!afterRescue.days || afterRescue.days.length !== 1) bad.push(`the funnel lists ${(afterRescue.days || []).length} days, not 1`);
+    if (box.firstInput == null || box.rescued == null) bad.push(`the black box carries firstInput=${box.firstInput} rescued=${box.rescued}`);
+    if (typeof box.picketDeaths !== 'number') bad.push('the black box has no picketDeaths');
+    return bad.length ? no(bad) : ok(`play 1, moved 1 at ${(line.first || 0).toFixed(1)}s, rescued 1 at ${(line.rescued || 0).toFixed(0)}s; the box carries all three`);
+  },
+
+  // #250: THE STRIP IS UP WHILE SHE IS HELD, SAYS THE RIGHT VERB, COUNTS DOWN, AND GOES. From the
+  // opening: "Go after them" while she is carried, "Take her back" once she is set down, the paces
+  // falling as the King is moved toward her, and gone within a second of her being freed.
+  async 'objective-strip-while-held'(page, url) {
+    await boot(page, url);
+    await page.evaluate(() => { const g = window.game; window.CFG.opening.holdFlag = false; g.renderer.render = () => {}; if (g.post && g.post.composer) g.post.composer.render = () => {}; clearTimeout(g.renderWatch); g.renderWatch = null; });
+    const read = () => page.evaluate(() => { const el = document.getElementById('objective'); return { hidden: el.classList.contains('hidden'), text: el.textContent.trim() }; });
+    await page.waitForFunction(() => window.game.queen.taken, null, { timeout: 150000 });
+    await page.waitForTimeout(300);
+    const carried = await read();
+    await waitForPicket(page);
+    await page.waitForTimeout(300);
+    const held = await read();
+    const before = +((held.text.match(/(\d+) paces/) || [])[1] || 0);
+    await page.evaluate(() => { const g = window.game; const q = g.queen.mesh.position; g.king.mesh.position.set(q.x, 0, q.z + 12); });
+    await page.waitForTimeout(300);
+    const nearer = await read();
+    const after = +((nearer.text.match(/(\d+) paces/) || [])[1] || 0);
+    await page.evaluate(() => { const g = window.game; for (const e of [...g.enemies]) if (e.rescue || e.captor) g.removeEnemy(e); g.freeQueen(); });
+    await page.waitForTimeout(1000);
+    const freed = await read();
+    const bad = [];
+    if (carried.hidden || !/Go after them/.test(carried.text)) bad.push(`while she was carried the strip read "${carried.text}"${carried.hidden ? ' (hidden)' : ''}`);
+    if (held.hidden || !/Take her back/.test(held.text)) bad.push(`at the picket the strip read "${held.text}"${held.hidden ? ' (hidden)' : ''}`);
+    if (!/north/.test(held.text)) bad.push(`the strip did not say north at the picket: "${held.text}"`);
+    if (!(after < before)) bad.push(`the paces read ${before} then ${after} after moving the King 12 from her`);
+    if (Math.abs(after - 12) > 2) bad.push(`12 units from her the strip read ${after} paces`);
+    if (!freed.hidden) bad.push(`a second after she was freed the strip still read "${freed.text}"`);
+    return bad.length ? no(bad) : ok(`"${carried.text}" while carried, "${held.text}" at the picket, ${after} paces at 12 units, gone once she was freed`);
+  },
+
+  // #249 / #253: THE FIRST MINUTE SAYS ONE THING AT A TIME. A fresh profile: the intro is one card with
+  // no key names, the run's first notice is the morning line and nothing before it, and a notice's
+  // first word is visible the frame its box is.
+  async 'first-minute-is-one-card'(page, url) {
+    await page.goto(url, { waitUntil: 'load', timeout: 150000 });
+    await page.waitForSelector('#start-btn:not([disabled])', { timeout: 150000 });
+    await page.evaluate(() => { const g = window.game; const h = g.hud; window.__first = []; const T = h.toast.bind(h); h.toast = (t, ms, k, u) => { window.__first.push(t); return T(t, ms, k, u); }; });
+    await page.click('#start-btn');
+    await page.waitForSelector('#intro-screen:not(.hidden)', { timeout: 30000 });
+    const intro = await page.evaluate(() => ({
+      dots: document.querySelectorAll('#intro-dots i').length,
+      text: document.getElementById('intro-text').textContent,
+      next: document.getElementById('intro-next').textContent,
+      skip: getComputedStyle(document.getElementById('intro-skip')).visibility,
+    }));
+    await page.click('#intro-next');
+    await page.waitForFunction(() => window.game && window.game.running && window.game.king, null, { timeout: 60000 });
+    await page.waitForFunction(() => document.getElementById('toast').classList.contains('show'), null, { timeout: 30000 });
+    // the frame the box is up: is its first word visible?
+    const firstWord = await page.evaluate(() => {
+      const spans = [...document.querySelectorAll('#toast-text .tw-w')];
+      if (!spans.length) return { words: 0 };
+      const letters = [...spans[0].querySelectorAll('span')];
+      return { words: spans.length, visible: letters.every((l) => parseFloat(getComputedStyle(l).opacity) >= 0.99) };
+    });
+    const first = await page.evaluate(() => window.__first);
+    const bad = [];
+    if (intro.dots !== 1) bad.push(`the intro is ${intro.dots} cards, not one`);
+    if (/\b(Space|WASD|\(B\)|\(H\)|\(Q\)|Esc)\b/.test(intro.text)) bad.push(`the intro names keys: "${intro.text}"`);
+    if (intro.next !== 'Play') bad.push(`the one card's button says "${intro.next}", not Play`);
+    if (intro.skip !== 'hidden') bad.push('a one-card intro still shows Skip');
+    if (!first.length || !/quiet morning/i.test(first[0])) bad.push(`the run's first notice was "${first[0] || '(none)'}", not the morning line`);
+    if (first.some((t) => /inside the Keep/.test(t))) bad.push('"Wren is inside the Keep" fired during the tableau');
+    if (firstWord.words === 0) bad.push('the notice box was up with no words in it');
+    else if (!firstWord.visible) bad.push('the notice box was up with its first word still fading in');
+    return bad.length ? no(bad) : ok(`one card, no keys, Play; first notice "${first[0].slice(0, 30)}…"; the first word was visible with the box`);
+  },
+
+  // #244: THE RESCUE INSTRUCTION IS ON SCREEN WHEN IT IS TRUE. Measured before the fix, with the lane
+  // instrumented to log what it SHOWED: 24 wall notices from 30 s to 106 s, and "Go after them"
+  // behind all of them -- a minute after she was gone. Asserted here the same way: a spy on
+  // `nextToast` records each page as it comes up, against the moments `captureQueen` and
+  // `handOffAtPicket` actually ran.
+  async 'rescue-line-on-time'(page, url) {
+    await playFresh(page, url);
+    await page.evaluate(() => {
+      const g = window.game; const h = g.hud;
+      window.__shown = []; window.__at = {};
+      const N = h.nextToast.bind(h); h.nextToast = () => { const r = N(); window.__shown.push([g.time, h.toastShowing || '']); return r; };
+      const C = g.captureQueen.bind(g); g.captureQueen = () => { if (!window.__at.capture) window.__at.capture = g.time; return C(); };
+      const H = g.handOffAtPicket.bind(g); g.handOffAtPicket = () => { window.__at.handoff = g.time; return H(); };
+      const F = g.fallOfTheVillage.bind(g); g.fallOfTheVillage = () => { window.__at.fall = g.time; return F(); };
+    });
+    await waitForPicket(page);
+    await page.waitForFunction(() => window.game.time > window.__at.handoff + 3, null, { timeout: 60000 });
+    const r = await page.evaluate(() => ({ shown: window.__shown, at: window.__at }));
+    const bad = [];
+    const firstAfter = (t, re) => r.shown.find(([tt, text]) => tt >= t - 0.05 && re.test(text));
+    const walls = r.shown.filter(([t, text]) => t >= r.at.fall && t <= r.at.capture && /wall section|gate is down/i.test(text)).length;
+    if (walls > 1) bad.push(`${walls} wall or gate notices were shown between the fall and the snatch`);
+    const go = firstAfter(r.at.capture, /Go after them/);
+    if (!go) bad.push('"Go after them" was never shown after she was taken');
+    else if (go[0] - r.at.capture > 1) bad.push(`"Go after them" came up ${(go[0] - r.at.capture).toFixed(1)}s after she was taken (limit 1s)`);
+    const take = firstAfter(r.at.handoff, /Take her back/);
+    if (!take) bad.push('"Take her back" was never shown after the hand-off');
+    else if (take[0] - r.at.handoff > 1) bad.push(`"Take her back" came up ${(take[0] - r.at.handoff).toFixed(1)}s after the hand-off (limit 1s)`);
+    return bad.length ? no(bad) : ok(`fall at ${r.at.fall.toFixed(0)}s with ${walls} wall notice${walls === 1 ? '' : 's'}; "Go after them" ${(go[0] - r.at.capture).toFixed(1)}s after the snatch, "Take her back" ${(take[0] - r.at.handoff).toFixed(1)}s after the hand-off`);
+  },
+
+  // #245: THE FIRST FIGHT CANNOT KILL A PLAYER WHO STANDS STILL. Before the damage share, the
+  // standing bot was dead in 7.7 s; the kiting bot freed her in 40 s untouched. Both are driven, and
+  // the standing one has to win without the restart (#246) ever firing.
+  async 'picket-is-survivable'(page, url) {
+    await playFresh(page, url);
+    await waitForPicket(page);
+    const stand = await page.evaluate(`(${PICKET_BOT})('stand', 90)`);
+    const bad = [];
+    if (stand.over) bad.push(`standing still, the run ended after ${stand.seconds}s`);
+    if (stand.deaths) bad.push(`standing still, the King fell ${stand.deaths} time${stand.deaths > 1 ? 's' : ''} and had to be stood back up`);
+    if (!stand.freed) bad.push(`standing still for ${stand.seconds}s, she was not freed (${stand.guards} guards left, King at ${stand.hp})`);
+    if (stand.minHp === stand.hp && stand.minHp >= 140) bad.push('standing still in the middle of seven guards, the King was never hurt: the fight is a formality');
+    return bad.length ? no(bad) : ok(`standing still: freed in ${stand.seconds}s, King down to ${stand.minHp} of 140 and never fell`);
+  },
+
+  // #246: THE NUDGE, AND THE RESTART AT THE PICKET. Passive after the hand-off she calls out at
+  // `nudgeAfter` and again at `nudgeEvery`; with the damage share forced to 1 the standing bot dies,
+  // and the run is not over -- he is back on the plot at full health with the guards posted again,
+  // and a second, kiting attempt frees her.
+  async 'picket-restart-and-nudge'(page, url) {
+    await playFresh(page, url);
+    await page.evaluate(() => {
+      const g = window.game; window.__nudges = [];
+      const A = g.raiseAlarm.bind(g); g.raiseAlarm = (t, v) => { if (/their camp/.test(t)) window.__nudges.push(g.time); return A(t, v); };
+      const H = g.handOffAtPicket.bind(g); g.handOffAtPicket = () => { window.__handoff = g.time; return H(); };
+    });
+    await waitForPicket(page);
+    const R = await page.evaluate(() => window.CFG.rescue);
+    await page.waitForFunction((lim) => window.game.time > window.__handoff + lim, R.nudgeAfter + R.nudgeEvery + 3, { timeout: 120000 });
+    const nudges = await page.evaluate(() => window.__nudges.map((t) => +(t - window.__handoff).toFixed(1)));
+    const bad = [];
+    if (nudges.length < 2) bad.push(`${nudges.length} nudge${nudges.length === 1 ? '' : 's'} in ${R.nudgeAfter + R.nudgeEvery + 3}s of standing off (wanted 2, at ${R.nudgeAfter} and ${R.nudgeAfter + R.nudgeEvery})`);
+    else {
+      if (Math.abs(nudges[0] - R.nudgeAfter) > 2) bad.push(`the first nudge came at ${nudges[0]}s, not ${R.nudgeAfter}`);
+      if (Math.abs(nudges[1] - nudges[0] - R.nudgeEvery) > 2) bad.push(`the second nudge came ${(nudges[1] - nudges[0]).toFixed(1)}s after the first, not ${R.nudgeEvery}`);
+    }
+    await page.evaluate(() => { window.CFG.rescue.kingDamage = 1; });
+    const stand = await page.evaluate(`(${PICKET_BOT})('stand', 40)`);
+    const after = await page.evaluate(() => { const g = window.game; const k = g.king.mesh.position; return { over: !!g.over, hp: Math.round(g.king.hp), max: g.king.maxHp, atPlot: Math.hypot(k.x, k.z - 2) < 3, guards: g.enemies.filter((e) => e.rescue).length, captive: g.queen.captive }; });
+    if (!stand.deaths) bad.push(`with full damage the standing King did not fall in ${stand.seconds}s, so the restart was not exercised`);
+    if (after.over) bad.push('the King fell at the picket and the run ended');
+    if (after.hp < after.max) bad.push(`after falling he stood up with ${after.hp} of ${after.max}`);
+    if (!after.atPlot) bad.push('after falling he did not stand up on the plot');
+    if (after.guards !== R.captors + (R.captain ? 1 : 0)) bad.push(`${after.guards} guards posted after the restart, not ${R.captors + (R.captain ? 1 : 0)}`);
+    if (!after.captive) bad.push('she was not still held after the restart');
+    await page.evaluate(() => { window.CFG.rescue.kingDamage = 0.1; });
+    const kite = await page.evaluate(`(${PICKET_BOT})('kite', 90)`);
+    if (!kite.freed) bad.push(`the second attempt, kiting, did not free her in ${kite.seconds}s`);
+    return bad.length ? no(bad) : ok(`nudges at ${nudges.join('s and ')}s; fell once at full damage, stood up on the plot at ${after.hp} with ${after.guards} guards posted, and the second attempt freed her in ${kite.seconds}s`);
+  },
+
+  // #247: FROM THE RESCUE TO THE FIRST RAID IS A DAY, AND THE HUD SAYS SO. `?tour` holds the opening;
+  // clearing the flag lets it run, the hand-off comes at about 47 s, and `freeQueen` is called the
+  // way the game calls it. Then the countdown has to be up, and the first `startWave` has to come a
+  // full day later with the number of knights the config names.
+  async 'first-raid-after-a-day'(page, url) {
+    await boot(page, url);
+    await page.evaluate(() => { const g = window.game; window.CFG.opening.holdFlag = false; g.renderer.render = () => {}; if (g.post && g.post.composer) g.post.composer.render = () => {}; clearTimeout(g.renderWatch); g.renderWatch = null; g.hud.toast = () => {}; });
+    await waitForPicket(page);
+    const r = await page.evaluate(() => new Promise((done) => {
+      const g = window.game;
+      const S = g.startWave.bind(g);
+      let firstWave = null;
+      g.startWave = () => { const r = S(); if (!firstWave) firstWave = { at: g.time - t0, queue: g.spawnQueue.map((q) => q.type) }; return r; };
+      // the guards fall and she is freed, the way the game does it; then a frame, so the clock and
+      // the HUD have read the new phase before they are asked
+      for (const e of [...g.enemies]) if (e.rescue || e.captor) g.removeEnemy(e);
+      g.freeQueen();
+      // #252: her thanks is a card, and the panel pauses the game; take one, the way a player does.
+      // Then home: left at the picket she is inside the camp's reach and is taken again.
+      if (g.offer) g.takeUpgrade(g.offer[0].id);
+      g.king.mesh.position.set(0, 0, 2);
+      g.queen.mesh.position.set(0, 0, 3.4);
+      const t0 = g.time;
+      let timer = null; let countdown = null; let frames = 0;
+      const hudNext = document.getElementById('next-wave');
+      const step = () => {
+        if (++frames === 3) { timer = g.waveTimer; countdown = hudNext ? !hudNext.classList.contains('hidden') : null; }
+        if (firstWave || g.time - t0 > 120) return done({ timer, countdown, hudFound: !!hudNext, firstWave });
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }));
+    const day = await page.evaluate(() => window.CFG.cycle.length * window.CFG.cycle.nightStart);
+    const want = await page.evaluate(() => window.CFG.waves.firstKnights);
+    const bad = [];
+    if (r.timer < day - 1) bad.push(`the countdown read ${r.timer.toFixed(0)}s at the rescue, not a day (${day}s)`);
+    if (r.countdown === false) bad.push('the countdown to night was hidden at the rescue');
+    if (!r.firstWave) bad.push('no raid came within 120s of the rescue');
+    else {
+      if (r.firstWave.at < day - 1) bad.push(`the first raid came ${r.firstWave.at.toFixed(0)}s after the rescue, not ${day}`);
+      const knights = r.firstWave.queue.filter((t) => t === 'knight').length;
+      if (knights !== want || knights !== r.firstWave.queue.length) bad.push(`the first raid was ${r.firstWave.queue.join(', ')}; wanted ${want} knights and nothing else`);
+    }
+    return bad.length ? no(bad) : ok(`countdown ${r.timer.toFixed(0)}s at the rescue${r.hudFound ? ', shown' : ''}; the first raid ${r.firstWave.at.toFixed(0)}s later, ${r.firstWave.queue.length} knights`);
+  },
+
   // #236: THE GLUT COMPOUNDS BY THE TRANCHE AND DAWN RESETS IT. Thirty diamond sold through the
   // real `updateTrade` -- the post itself, at its own rate of a unit every 0.09s -- and the coins
   // that arrived counted against 10 x 20 + 10 x 15 + 10 x 11 (the unit price rounds, so the third
@@ -1369,11 +1687,11 @@ export const CHEAP = {
       };
       const dist = (p, q) => { let e = 0; let s = 0; for (let i = 0; i < p.env.length; i++) e += Math.abs(p.env[i] - q.env[i]); for (let i = 0; i < 22; i++) s += Math.abs(p.spec[i] - q.spec[i]); return e / p.env.length + s / 22; };
       const cues = {
-        wrenRelease: (x) => x.wrenRelease(), 'dig(0)': (x) => x.dig(0), 'dig(1)': (x) => x.dig(1), relic: (x) => x.relic(),
+        wrenRelease: (x) => x.wrenRelease(), 'dig(0)': (x) => x.dig(0), 'dig(1)': (x) => x.dig(1), relic: (x) => x.relic(), fall: (x) => x.fall(0),
         horn: (x) => x.horn(), "mine('stone')": (x) => x.mine('stone'), wave: (x) => x.wave(false), unlock: (x) => x.unlock(),
         confirm: (x) => x.confirm(), banner: (x) => x.banner(), enemyDie: (x) => x.enemyDie(0), coin: (x) => x.coin(0), alarm: (x) => x.alarm(0),
       };
-      const fresh = ['wrenRelease', 'dig(0)', 'dig(1)', 'relic'];
+      const fresh = ['wrenRelease', 'dig(0)', 'dig(1)', 'relic', 'fall'];
       const sigs = {};
       for (const [k, f] of Object.entries(cues)) sigs[k] = sig(await render(f));
       const pairs = [];
@@ -1394,7 +1712,7 @@ export const CHEAP = {
     });
     const FLOOR = 0.18;
     const bad = [];
-    for (const k of ['wrenRelease', 'dig(0)', 'dig(1)', 'relic']) if (!(r.peaks[k] > 0.005)) bad.push(`${k} rendered silent (peak ${r.peaks[k]})`);
+    for (const k of ['wrenRelease', 'dig(0)', 'dig(1)', 'relic', 'fall']) if (!(r.peaks[k] > 0.005)) bad.push(`${k} rendered silent (peak ${r.peaks[k]})`);
     for (const [p, q, d] of r.pairs) if (d < FLOOR) bad.push(`${p} and ${q} are ${d.toFixed(3)} apart, under the ${FLOOR} floor: they are the same sound`);
     if (!(r.centroids['dig(1)'] > r.centroids['dig(0)'] * 1.3)) bad.push(`the last dig swing (${r.centroids['dig(1)']} Hz) does not sit above the first (${r.centroids['dig(0)']} Hz)`);
     for (const [k, v] of Object.entries(r.silent)) {
@@ -1596,6 +1914,30 @@ export const PROVE = {
   // #238: the release becomes the horn again, which is exactly what it was before the ticket
   'cues-do-not-converge': () => { window.audio.wrenRelease = window.audio.horn; },
   // #235: the game forgets what it has shown -- `seen` reads empty and writes go nowhere
+  // #248: one frame, as it was
+  'village-falls-in-order': () => { window.CFG.opening.fallOver = 0; },
+  // #252: no card at the rescue
+  'rescue-offers-a-card': () => { window.CFG.rescue.offersCard = false; },
+  // #251: the steps go uncounted
+  'funnel-counts-the-first-run': () => { window.game.mark = () => {}; },
+  // #250: the strip never written
+  'objective-strip-while-held': () => { window.game.hud.setObjective = () => {}; },
+  // #249: the stale Keep line back in the tableau
+  'first-minute-is-one-card': () => { const g = window.game; const o = g.queenEnterKeep.bind(g); g.queenEnterKeep = () => o(true); },
+  // #247: the grace back to 22 s
+  'first-raid-after-a-day': () => { window.CFG.rescue.firstRaid = 22; },
+  // #244: the bug as it shipped -- every wall announces itself and no line has priority, so the
+  // instruction queues behind the masonry. Either half alone is not enough to go red: the quiet fall
+  // empties the queue before "Go after them" arrives, and with the priority the walls do not matter.
+  'rescue-line-on-time': () => {
+    const g = window.game; const h = g.hud;
+    const o = h.toast.bind(h); h.toast = (t, ms, k) => o(t, ms, k, false);
+    const b = g.breakWall.bind(g); g.breakWall = (w) => b(w, true);
+  },
+  // #245: the guards hit as hard as they used to
+  'picket-is-survivable': () => { window.CFG.rescue.kingDamage = 1; },
+  // #246: a death at the picket is the run ending, as it was
+  'picket-restart-and-nudge': () => { window.game.picketRestart = () => window.game.gameOver('king'); },
   // #236: the glut priced back to nothing -- every tranche pays full, which is the ladder as it was
   'glut-resets-at-dawn': () => { for (const m of Object.values(window.CFG.materials)) if (m.glut) m.glut.pay = 1; },
   'unseen-card-on-offer': () => { Object.defineProperty(window.game, 'seen', { get: () => ({}), set() {}, configurable: true }); },

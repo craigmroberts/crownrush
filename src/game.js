@@ -5,6 +5,7 @@ import { audio } from './audio.js';
 import { setRigShadows, enableCrowd, updateCrowd, clearCrowd, crowdStats } from './rig.js';
 import { MODS } from './upgrades.js';
 import { recordRun, readNumber, writeNumber, readLegacy, addLegacy, unlockDiary, readPicks } from './scores.js';
+import { markFunnel } from './report.js';
 import { buildWorld, setupLights } from './world.js';
 import { Input } from './input.js';
 import { setHealthBar, HealthBars, CoinField, clearHealthBars, makeRing, makeCoinStack, makeCamp, makeCache, makeTorchField, cacheSizes } from './models.js';
@@ -577,6 +578,8 @@ export class Game {
     this.mineTimer = 0;
     this.nodes = [];
     this.ruins = [];        // #152: heaps where the opening's buildings stood, until they fade
+    this.falling = [];      // #248: what has yet to fall, and when
+    this.fellAt = [];
     this.gleaner = null;    // #169: made the first frame the Keep stands
     this.villagers = [];    // #48: one gatherer per villager home, working on their own
     this.stable = null;     // #82: { x, z, mesh, yard, gate } once the Stable stands
@@ -637,6 +640,13 @@ export class Game {
     this.kills = 0;        // #172: raiders defeated this run, for the ending's stat box
     this.archerPower = 0;
     this.rankSeen = {};
+    this.kiteHintSaid = false;   // #245: the picket's one line about moving
+    this.firstInputAt = null;    // #251: when the stick first moved him
+    this.rescuedAt = null;
+    this.verbsSaid = false;      // #249: the horn and banner, taught when they first show
+    this.picketDeaths = 0;       // #246: how many times he fell there this run
+    this.awayT = 0;
+    this.nudged = false;
     this.typeSeen = {};
     this.coinCombo = 0;
     this.comboTimer = 0;
@@ -956,6 +966,11 @@ export class Game {
   // IT DOES NOT GO BACK. A recapture mid-run stands the clock still (see `phase` in reset) but it is
   // not a return to the prologue: the pads stay bought, the diary stays open and the King keeps his
   // verbs. "The prologue happened" is a fact about the run, not about where Wren is standing.
+  // #251: a step of the funnel, reached. A method so a check can take it away and see the count stop.
+  mark(step) {
+    markFunnel(step);
+  }
+
   beginRun() {
     this.phase = 'run';
     this.snatched = true;
@@ -1070,6 +1085,7 @@ export class Game {
     this.clearRun();
     this.reset();
     this.running = true;
+    this.mark('play');   // #251
     this.watchRender();
     this.hud.hideStart();
     this.hud.hideGameOver();
@@ -1453,6 +1469,7 @@ export class Game {
       if (this.gain && this.hud.tickGain(dt)) this.dismissGain();
       this.updatePads(dt);
       this.updateOpening(dt);   // #152: the calm, and the men who end it
+      this.updateFalling();   // #248
       this.updateRuins(dt);
       this.updateWaves(dt);
       this.updateFog(dt);
@@ -1487,6 +1504,12 @@ export class Game {
       // offered mid-placement. #137: the cross takes the slot beside it for the same reason, which is
       // why both of these have to stand down and not only the horn.
       const verbs = (!this.inPrologue() || this.queen.taken) && !this.placing;   // #232
+      // #249: the two buttons are taught the moment they appear, once, and without key names: the
+      // intro card that used to say this came three minutes early and said "Space" to a thumb.
+      if (verbs && !this.verbsSaid) {
+        this.verbsSaid = true;
+        this.hud.toast('Two buttons in the corner now. *The horn* rallies your army to you and throws raiders back. *The banner* holds them where you stand.', 4600, 'Wren');
+      }
       this.hud.setHorn(verbs, this.hornT / CFG.horn.cooldown, this.hornT);
       // #57: and the banner, which has a life of its own as well as a cooldown -- it is taken down
       // the frame it runs out rather than being left standing for the army to ignore.
@@ -1516,6 +1539,19 @@ export class Game {
       // out is the point (the meter fills while raiders are near her). Sheltered by day is the
       // horse's time -- the mining trip -- and it takes the slot then, if there is a horse to take
       // it; without one her Out stays. So every verb is reachable by touch at the moment it is for.
+      // #250: THE OBJECTIVE STRIP. While she is held the one line that does not queue or fade says
+      // what to do, which way she is and how far: the notice lane (#244) says it once, the arrow
+      // says which way, and neither says how far or stays. Written every frame, dirty-checked to the
+      // pace in `setObjective`.
+      if (q.captive) {
+        const qp = q.mesh.position;
+        const kp = this.king.mesh.position;
+        const dx = qp.x - kp.x;
+        const dz = qp.z - kp.z;
+        const paces = Math.round(Math.hypot(dx, dz));
+        const way = Math.abs(dz) >= Math.abs(dx) ? (dz < 0 ? 'north' : 'south') : (dx > 0 ? 'east' : 'west');
+        this.hud.setObjective(`${q.taken ? 'Go after them' : 'Take her back'} · <b>${way}</b> · ${paces} paces`);
+      } else this.hud.setObjective(null);
       const wrenSlot = wrenShow && (wrenMode !== 'out' || this.night || !this.hasHorse());
       this.hud.setWren(wrenSlot, wrenMode, q.charge,
         // STALLED is out, at night, and nothing near enough to charge her. Not simply "not
@@ -1652,6 +1688,7 @@ export class Game {
     q.taken = false;
     q.captive = false;
     this.beginRun();   // #232: the other way the prologue can end
+    this.hud.setObjective(null);   // #250
     q.escort = null;
     // #83: she has no wounds to come back with, so the cost of a rescue is that they still half have
     // her -- the bar comes back down and climbs out of it over the next couple of seconds. The Keep

@@ -380,17 +380,31 @@ export class Hud {
   // about. Wren's lines carry her name, which is the whole point of the pattern; everything else
   // says which of the game's concerns it belongs to. Empty means no label, which is right for the
   // few notices that are the game talking about itself rather than about the world.
-  toast(text, ms = 3200, kind = '') {
+  // #244: `urgent` is for a line that cannot be late. The lane is one queue, and measured during the
+  // fall of the village it held 24 wall notices in front of "Go after them" -- the instruction to
+  // rescue her was on screen a minute after she was gone. An urgent notice replaces the queue and
+  // whatever page is up, and shows now. The raid and Keep lines keep the queue they have; only the
+  // prologue's instructions are urgent, because they are the only lines whose moment passes.
+  toast(text, ms = 3200, kind = '', urgent = false) {
     if (!text || this.mute) return;
     this.toastQueue = this.toastQueue || [];
     this.toastLog = this.toastLog || [];
     if (!this.toastLog[0] || this.toastLog[0].text !== text) this.toastLog.unshift({ text, kind });
     this.toastLog.length = Math.min(this.toastLog.length, 8);
-    // the same notice arriving twice in a row just extends it; it does not queue behind itself
+    // the same notice arriving twice just extends it; it does not queue behind itself. #244: and
+    // "twice" means anywhere in the queue, not only the one on screen -- an alternating gate / wall /
+    // wall sequence used to queue every one because no two neighbours matched.
     if (this.toastShowing === text) {
       clearTimeout(this.toastTimer);
       this.toastTimer = setTimeout(() => this.nextToast(), ms);
       return;
+    }
+    if (this.toastQueue.some((q) => q.text === text)) return;
+    if (urgent) {
+      this.toastQueue.length = 0;
+      this.toastRest = null;
+      this.toastShowing = null;
+      clearTimeout(this.toastTimer);
     }
     this.toastQueue.push({ text, kind, ms });
     if (!this.toastShowing) this.nextToast();
@@ -516,7 +530,11 @@ export class Hud {
       const closes = w.endsWith('*');
       if (closes) w = w.slice(0, -1);
       const cls = em ? 'tw-w tw-em' : 'tw-w';
-      const out = lead + `<span class="${cls}">${[...w].map((ch) => `<span style="animation-delay:${i++ * ms}ms">${esc(ch)}</span>`).join('')}</span>`;
+      // #253: the first word is there the frame the box is. Every letter used to start at opacity 0
+      // and fade in on its own delay, so the box came up with a label on it and nothing in it for
+      // the first few hundred milliseconds of every page -- 24 times in the first two minutes, per
+      // the retention pass. The rest of the line still types.
+      const out = lead + `<span class="${cls}">${[...w].map((ch) => (wi ? `<span style="animation-delay:${i++ * ms}ms">${esc(ch)}</span>` : `<span style="opacity:1;animation:none">${esc(ch)}</span>`)).join('')}</span>`;
       if (closes) em = false;
       return out;
     }).join('');
@@ -643,7 +661,7 @@ export class Hud {
     document.getElementById('intro-text').textContent = s.text;
     document.getElementById('intro-dots').innerHTML = this.introSteps.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('');
     document.getElementById('intro-next').textContent = i === this.introSteps.length - 1 ? 'Play' : 'Next';
-    document.getElementById('intro-skip').style.visibility = i === 0 ? 'visible' : 'hidden';
+    document.getElementById('intro-skip').style.visibility = i === 0 && this.introSteps.length > 1 ? 'visible' : 'hidden';   // #249: one card has nothing to skip to
   }
   introNext() {
     if (!this.introSteps) return;
@@ -960,6 +978,21 @@ export class Hud {
     }
     this.tipEls.bar.style.width = `${Math.round(Math.min(1, progress) * 100)}%`;
     if (wasDown) this.syncNoticeStack();
+  }
+  // #250: the objective strip. Dirty-checked to the pace, because it is written every frame she is
+  // held and `Hud.set`'s rule is that a frame that changed nothing writes nothing.
+  setObjective(text) {
+    const el = this.objEl || (this.objEl = document.getElementById('objective'));
+    if (!el) return;
+    const show = !!text;
+    if (show !== this.objShown) {
+      this.objShown = show;
+      el.classList.toggle('hidden', !show);
+    }
+    if (show && text !== this.objText) {
+      this.objText = text;
+      (this.objT || (this.objT = document.getElementById('objective-t'))).innerHTML = text;
+    }
   }
   hidePadTip() {
     this.tip.classList.add('hidden');
@@ -1476,8 +1509,10 @@ export class Hud {
   // #99: `gains` is what the level just gave, from the same `levelGains` the Keep plaque reads for the
   // level ahead. It goes above the cards because it is the answer to "what just happened", and the
   // cards are the question that follows it.
-  showOffer(list, level, queued, gains = []) {
+  showOffer(list, level, queued, gains = [], word = 'Level') {
     document.getElementById('offer-level').textContent = level;
+    const ow = document.querySelector('#offer-screen .ol-word');
+    if (ow && ow.textContent !== word) ow.textContent = word;   // #252: "Wren is home" for the rescue's offer
     // #221: the Quartermaster's Ledger puts a FOURTH card on this panel, and a fourth card does not
     // fit on a phone. Measured in the 390 x 844 frame: three cards make the panel 847 tall, which is
     // already the whole screen, and four make it 995. `.overlay` scrolls, so nothing was clipped --

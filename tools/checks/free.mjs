@@ -184,6 +184,15 @@ export const FREE = {
     return bad.length ? no(bad) : { pass: true, note: `coin/s fresh -> at three tranches: ${rows.join(', ')}` };
   },
 
+  // #247: the first morning is a whole one, and the first raid is the size the config says.
+  'first-morning-is-full'() {
+    const day = CFG.cycle.length * CFG.cycle.nightStart;
+    const bad = [];
+    if (CFG.rescue.firstRaid < day - 1) bad.push(`rescue.firstRaid is ${CFG.rescue.firstRaid}s and the day is ${day}s: the first raid comes before the player has had a morning`);
+    if (!(CFG.waves.firstKnights >= 1 && CFG.waves.firstKnights <= 6)) bad.push(`waves.firstKnights is ${CFG.waves.firstKnights}; the formula sent six and this exists to send fewer`);
+    return bad.length ? no(bad) : { pass: true, note: `${CFG.rescue.firstRaid}s of grace against a ${day}s day; the first raid is ${CFG.waves.firstKnights} knights` };
+  },
+
   'icons-exist'() {
     const bad = [];
     for (const d of PADS) if (d.icon && !ICONS[d.icon]) bad.push(`pad ${d.id} wants icon "${d.icon}"`);

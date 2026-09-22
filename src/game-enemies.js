@@ -39,7 +39,10 @@ export const EnemiesMethods = {
     // waves, rank and Keep level all scale the enemy
     const hpMul = this.enemyHpMul(rank);
     const dmgMul = (1 + CFG.waves.dmgGrowthPerWave * (w - 1)) * rk.damage * (1 + CFG.base.enemyDmgPerLevel * L);
-    if (!this.rankSeen[rank] && this.running) {
+    // #244: not in the prologue. The collectors are Marauders and a Warlord, and "Warlords have
+    // arrived! Watch for their colours" in the first minute is noise in the one lane that has to
+    // say "go after them". They are announced the first time a raid brings them.
+    if (!this.rankSeen[rank] && this.running && !this.inPrologue()) {
       this.rankSeen[rank] = true;
       if (rank > 0) this.hud.toast(`${rk.name}s have arrived! *Watch for their colours.*`, 2800, 'Raid');
     }
@@ -86,7 +89,7 @@ export const EnemiesMethods = {
     const rw = this.raidNight();
     const list = [];
     const L = this.baseLevel;
-    const knights = 4 + Math.round(rw * 2.2);
+    const knights = w === 1 ? CFG.waves.firstKnights : 4 + Math.round(rw * 2.2);   // #247
     for (let i = 0; i < knights; i++) list.push('knight');
     const brutes = L >= CFG.waves.bruteAt.level || rw >= CFG.waves.bruteAt.wave;
     const elites = L >= CFG.waves.eliteAt.level || rw >= CFG.waves.eliteAt.wave;
@@ -249,6 +252,13 @@ export const EnemiesMethods = {
   // marked `rescue` so the raid bar leaves them alone: this is a scripted beat with an outcome, not a
   // fight to be measured, and a progress bar on something the player cannot win is a cruelty.
   updateOpening(dt) {
+    // #247: AND ONCE THE RUN HAS BEGUN, NEVER AGAIN. Found driving the first raid's timing: six
+    // seconds after a rescue at the picket a fresh collector party came down the north road, took
+    // her again, and the run ended "twice taken" before the first night. `captive` guards the
+    // beat below only while she is held -- the moment `freeQueen` clears it, `snatched` is still
+    // true and `updateSnatch` was back on watch for a party that had "stopped coming", which is
+    // what a rescued Wren looks like to it. `beginRun` is the end of the opening; this reads it.
+    if (this.openingDone) return;
     // #224: once she is captive the beat is over and this never runs again. Before that, being
     // `snatched` is NOT the end of this method's job -- it used to be, and that was the bug: the
     // party could be killed on its way to her, and then nothing in the game was trying to take her
@@ -330,10 +340,10 @@ export const EnemiesMethods = {
     // next party reads as the game ignoring him rather than as them not stopping.
     if (wave === 0) {
       this.raiseAlarm('They are coming for Wren!', 'fear');
-      this.hud.toast('The walls are down and they are not stopping for you. *Get her away from them.*', 4200, 'Wren');
+      this.hud.toast('The walls are down and they are not stopping for you. *Get her away from them.*', 4200, 'Wren', true);   // #244
     } else {
       this.raiseAlarm('More on the north road.', 'fear');
-      this.hud.toast('You put that party down and the road sent another. *They are not going home without her.*', 3800, 'Wren');
+      this.hud.toast('You put that party down and the road sent another. *They are not going home without her.*', 3800, 'Wren', true);
     }
   },
 
@@ -401,7 +411,7 @@ export const EnemiesMethods = {
     this.raiseAlarm('They have Wren!', 'fear');
     this.hud.toast(premise
       ? 'They are carrying Wren north. *Go after them.*'
-      : 'They are carrying Wren to the edge of the map. *Cut the escort down.*', 3800, 'Wren');
+      : 'They are carrying Wren to the edge of the map. *Cut the escort down.*', 3800, 'Wren', true);   // #244
     audio.wave(true);
   },
 
@@ -420,7 +430,6 @@ export const EnemiesMethods = {
   // road to it (#147).
   handOffAtPicket() {
     const q = this.queen;
-    const R = CFG.rescue;
     // The party goes with her: they hand her over and walk on to the camp. They are taken off the
     // field rather than stood into the fight, so the rescue is the seven it was tuned for (#147)
     // rather than seven plus however many of them the player failed to shoot on the way north.
@@ -439,6 +448,19 @@ export const EnemiesMethods = {
     // her pacing towards a point she is not standing on.
     const p = q.mesh.position;
     this._pen.set(p.x, 0, p.z);
+    this.postGuards();
+    this.awayT = 0;        // #246: the nudge clock
+    this.nudged = false;
+    this.raiseAlarm('', 'fear');
+    this.hud.toast('They have handed her to the camp\'s picket. *Take her back.*', 3800, 'Wren', true);   // #244
+  },
+
+  // The picket's guards, around wherever she was set down. Its own method since #246, because the
+  // restart there posts them again.
+  postGuards() {
+    const q = this.queen;
+    const R = CFG.rescue;
+    const p = q.mesh.position;
     this.rescueSpotted = false;
     this.alertT = 0;
     for (let i = 0; i < R.captors; i++) {
@@ -455,8 +477,28 @@ export const EnemiesMethods = {
       c.rescue = true;
       c.orbitDir = 1;
     }
-    this.raiseAlarm('', 'fear');
-    this.hud.toast('They have handed her to the camp\'s picket. *Take her back.*', 3800, 'Wren');
+  },
+
+  // #246: THE KING FELL AT THE PICKET, AND THE RUN DOES NOT END. It is the hand-off again: the guards
+  // are posted afresh, he stands up on the plot with his health back, and the fall is not replayed.
+  // Measured before this: a player who walked up and stood still was dead in 7.7 s, at 55 s of game
+  // time, having never built, never seen a raid and never pressed a button -- and the verdict blamed
+  // him for a field he had never held. `gameOver('king')` is reachable only once `beginRun` has.
+  picketRestart() {
+    const k = this.king;
+    this.picketDeaths = (this.picketDeaths || 0) + 1;
+    for (const e of [...this.enemies]) if (e.rescue || e.captor) this.removeEnemy(e);
+    tmp.copy(k.mesh.position).setY(1.2);
+    this.burstFx(tmp, '#ffffff', 3, 0.4);
+    k.hp = k.maxHp;
+    setHealthBar(k.bar, 1);
+    this.clearHurt(k);
+    k.mesh.position.set(0, 0, 2);
+    k.cooldown = 0.5;
+    this.postGuards();
+    this.awayT = 0;
+    this.nudged = false;
+    this.hud.toast('*Get up.* They are slower than you -- keep moving, and shoot.', 3600, 'Wren', true);
   },
 
   // escorts march for the edge with her; the first one alive is the one carrying her
@@ -1183,6 +1225,7 @@ export const EnemiesMethods = {
     this.dawnRules(cleared);   // #235
     // #50: the run is written down here, on the one beat where there is nothing in flight to write.
     this.saveRun();
+    if (cleared && this.wave === 1) this.mark('night');   // #251
     if (cleared) {
       this.addScore(CFG.score.waveClear * this.wave);
       this.hud.toast(`Dawn. You held night ${this.wave}.`, 3000, 'Raid');
@@ -1298,6 +1341,21 @@ export const EnemiesMethods = {
       this.alertT -= dt;
       if (this.alertT <= 0) for (const e of captors) e.captor = false;
     }
+    // #246: THE NUDGE. A player who does nothing after the hand-off used to get nothing: the clock is
+    // held while she is captive, no raid comes, and the last line said (late, #244) was "Take her
+    // back". Driven passive for four minutes of game time, the game sat on an empty plot with an
+    // arrow. So while he stays outside the notice radius she calls out -- `raiseAlarm` is the whole
+    // kit: her voice, the alarm arrow toward her for 3.5 s, the sound -- and a line says which way.
+    // Once after `nudgeAfter`, then every `nudgeEvery`, and never while he is close enough to see.
+    if (d > R.noticeRadius) {
+      this.awayT = (this.awayT || 0) + dt;
+      if (this.awayT >= (this.nudged ? R.nudgeEvery : R.nudgeAfter)) {
+        this.awayT = 0;
+        this.nudged = true;
+        this.raiseAlarm("I'm at their camp. North.", 'call');
+        this.hud.toast("*I'm at their camp.* North, past the ruins. Follow the arrow.", 3400, 'Wren', true);
+      }
+    } else this.awayT = 0;
 
     // she backs away from the nearest guard, but her pen pulls her back, so she paces
     let near = null;
@@ -1379,8 +1437,18 @@ export const EnemiesMethods = {
     this.dayPhase = (CFG.cycle.nightStart - CFG.rescue.firstRaid / CFG.cycle.length + 1) % 1;
     this.duskWarned = false;
     this.hud.toast('Wren is on her feet. "Get me home -- then we settle this."', 3400, 'Wren');
+    this.rescuedAt = this.time;   // #251
+    this.mark('rescued');
+    this.hud.setObjective(null);   // #250: on the event, not the next frame -- the rescue's offer (#252) pauses the frames
     this.raidWarning = this.time + 3.6;
     this.refreshPads();
+    // #252: and her thanks: a card, now. Level 0 is the rescue's own offer -- `showOffer` names it.
+    if (CFG.rescue.offersCard) {
+      this.offerLevels = this.offerLevels || [];
+      this.offerLevels.push(0);
+      this.offerQueue++;
+      if (!this.offer) this.showOffer();
+    }
   },
 
   // #83: how the Queen is lost now. Raiders that have chosen her and reached her get hold of her,
