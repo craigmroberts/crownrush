@@ -1,8 +1,9 @@
 # Raids mode — architecture spec, iteration 1
 
-**Status:** draft for the owner to mark up. Nothing here is built. The story edition is untouched and
-stays the default; the fallback is the branch `release/7-before-overhaul` (b46ca35, the build Pages
-served when this was written, 47 of 47 checks).
+**Status:** locked for iteration 1. The owner answered the five open questions on 2026-09-23; the
+decisions are in section 11 and folded into every section they touch. Nothing here is built yet. The
+story edition is untouched and stays the default; the fallback is the branch
+`release/7-before-overhaul` (b46ca35, the build Pages served when this was written, 47 of 47 checks).
 
 **What this is.** An endless, score-chased run: the King moves across an overworld map from castle to
 castle, defends each one against a short burst of raids, earns allies, and spends them at boss
@@ -11,8 +12,8 @@ castles. Death ends the run. Allies last one run. The legacy tree carries over. 
 **How it ships.** Behind `?mode=raids`, as a second mode beside the story edition, so both can be
 played and the funnel (#251) can compare them with real players before anything is deleted.
 
-Every number below is a **starting proposal** unless it says *measured*. The ones that decide how
-the mode feels are listed in *Open questions* at the end, because they are the owner's to set.
+Every number below is a **starting proposal** unless it says *measured* or *decided*. The decisions
+that set how the mode feels are the owner's, and are recorded in section 11.
 
 ---
 
@@ -24,14 +25,15 @@ the mode feels are listed in *Open questions* at the end, because they are the o
                             │                  King falls                           │
                             │                     v                                 │
                             └──── one tap ─── VERDICT: score, breakdown, legacy <───┘
-                                                                  (every 5th node is a BOSS)
+                                        (five castles, then a BOSS; the very first node is a starter castle)
 ```
 
 | Unit | Target length | Why |
 | --- | --- | --- |
-| A castle | 90–180 s | The unit a phone session is built from. Today's smallest unit is a 75 s day inside a 37-minute pinned run |
-| A region | 5 nodes, the last a boss | The sawtooth: pressure builds to the boss, the next region opens easier |
-| A first run | 4–6 min | Long enough to meet a boss, short enough that dying is not a loss of an evening |
+| A castle | 60–90 s in region 1, 90–180 s after | The unit a phone session is built from. Today's smallest unit is a 75 s day inside a 37-minute pinned run |
+| A region | 6 nodes: five castles, then a boss (*decided*) | The sawtooth: pressure builds to the boss, the next region opens easier |
+| The first boss | reached at about 6–8 min | Five castles before a boss means region 1's castles have to be the short ones, or the first boss is 10–15 minutes away and most first runs never see one |
+| A first run | 4–8 min | Long enough to meet the first boss if it goes well, short enough that dying is not a loss of an evening |
 | A good run | 12–20 min | Where the difficulty curve is tuned to end it (section 7) |
 | Death to next run | under 5 s, one tap | The arcade "one more go" window is seconds |
 
@@ -106,9 +108,15 @@ economy. The story edition reads `'story'` everywhere it does today.
 
 ## 4. The overworld map
 
-**Shape.** A run is a chain of **regions**. A region is 5 **layers** left to right; each layer has 2–3
-nodes; each node links to 1–2 nodes in the next layer; the fifth layer is a single boss. Regions
-are generated **one ahead**, so the map is endless and memory stays flat.
+**Shape.** A run is a chain of **regions**. A region is 6 **layers** left to right: five castle
+layers, then a single boss (*decided*). Each castle layer has 2–3 nodes; each node links to 1–2 nodes
+in the next layer. A muster sits in a castle layer, so a player who takes one fights four castles
+before the boss instead of five; that is the price of the breather. Regions are generated **one
+ahead**, so the map is endless and memory stays flat.
+
+**The first node of a run is fixed** (*decided*): a single **starter castle**, the only node lit, two
+gentle raids of knights, no modifiers. The forks open from the node after it. It is the first of
+region 1's five castles, not an extra one.
 
 ```js
 // map.js
@@ -128,7 +136,7 @@ Node {
 | --- | --- | --- |
 | **castle** | Defend: 3 raids, 90–150 s | The bread and butter |
 | **fortress** | A harder castle: more raiders, a modifier, ×1.5 score | The risk half of every fork |
-| **muster** | No fight. Recruit with the war chest, heal walls, swap an ability | The breather, and where coin becomes power |
+| **muster** | No fight. Spend the war chest on recruits and abilities, swap the ability slot | The breather, and where coin becomes power. No repairs: each castle is stood fresh |
 | **boss** | A castle with the chief and his guard; allies can be committed here | The spend point; the top of the sawtooth |
 
 **Generation rules**, each a free check against 2,000 generated regions:
@@ -137,6 +145,7 @@ Node {
 - A **muster is reachable** in every region, and never forced twice in a row.
 - No path is **fortresses only**; no path is **musters only**.
 - The boss is reachable from every node in the region.
+- Region 1's first layer is exactly one node, the starter castle; every later layer is a fork.
 
 **The screen.** A 2D board in the Mario Wonder manner: nodes on painted paths, the King as a token
 on the node he is at, reachable nodes lit. Built as **DOM and SVG over a paused scene**, not 3D, for
@@ -177,14 +186,17 @@ CastleSpec {
    through the existing `standOpeningVillage` path with the spec's pad list.
 2. The King and the deployed allies appear at the Keep. A 3-second countdown.
 3. Three raids, on a timer, from the spec's bearings. The day cycle does not run; the phase is fixed.
-4. **Cleared** when the third raid is dead and the Keep stands. **Fallen** when the King dies. The
-   Keep falling is a heavy score penalty, not a death, so a run does not end on a wall.
+4. **Cleared** when the third raid is dead. **Fallen** when the King dies. The Keep falling is a
+   heavy score penalty, not a death, so a run does not end on a wall. The starter castle has two
+   raids, not three.
 5. `endCastle()` disposes the stage; the director shows the reward, then the map.
 
-**What leaves the castle game, for iteration 1:** mining, the trade post, the day cycle, camps,
-caches and building from mats. A 2-minute defense has no room for a 45-second morning of errands.
-Coin still drops: it is **score** and it fills the **war chest**, which is spent at musters. This is
-the biggest change of feel in the spec and it is open question 1.
+**A castle is defense only** (*decided*). Out, for iteration 1: mining, the trade post, the day
+cycle, camps, caches, building from mats, and **repair and tower mats** too, because a building or
+repair economy inside a 2-minute defense slows the pace the mode exists for. No mat stands in a
+castle at all. Coin still drops, and it is two things only: **score**, and the run's **war chest**,
+spent at musters on allies and abilities. A wall that falls stays down for the rest of that castle;
+the next castle is stood fresh.
 
 **Leaks are the known risk.** Twenty castles a run is twenty teardowns, and the bridge-mat leak (#190)
 was exactly this shape. A churn check that runs 25 castles and asserts no step in geometries,
@@ -204,9 +216,10 @@ Roster { units: [{ id, type, veteran, hp }], cap }
 | **Earn** | A cleared castle pays 2–4 recruits, more for walls intact and a fast clear | Doing well has to be felt as more men, the same castle |
 | **Cap** | 24 in the roster | Snowball control, and the crowd budget: 24 allies + 3 raids is well inside what `crowd.js` holds |
 | **Deploy** | Choose up to 8 to garrison a castle; the rest wait | Makes every castle a small decision, and bounds the field |
-| **Lose** | A deployed ally who dies is gone from the roster | Without loss, allies are only ever a number going up |
+| **Lose** | A deployed ally who dies is gone for the rest of the run (*decided*). A new run starts with a clean roster; nothing about allies carries between runs, only the legacy tree does | Without loss, allies are only ever a number going up |
 | **Commit** | At a boss, commit any number to a **Call to Arms**: a charge from the gate that hits the boss's guard, then they are spent | The spend-or-save decision the concept is built on |
-| **Heroes** | The existing rigs recast as rare allies: the mounted King's double as a knight captain; the Queen rig as a healer whose one move is the release stun (`loosenWren`, already built) | Keeps the assets, drops the story |
+| **Wren** | A recruitable ally (*decided*), with no story attached. Offered at most once a run, as a muster purchase or a boss reward. Deployed, she carries the release stun as it works today (#234): her meter fills while raiders are near her, and one tap looses it. She can die like any ally, and is then gone for the run | Keeps the rig, the voice and the one mechanic that was already a power fantasy, and drops the rescue |
+| **Other heroes** | The mounted King rig as a knight captain, if iteration 1 has room; otherwise iteration 2 | The same reuse, lower priority |
 
 **Abilities** stay at three buttons, the lesson of #240: **horn**, **banner**, and **one ability slot**.
 The slot is filled from a draft at musters and after bosses. The 23 existing cards become the
@@ -283,10 +296,10 @@ proves it can fail.
 
 | # | Slice | Done when | Model and effort |
 | --- | --- | --- | --- |
-| R1 | **Run state and map generation** (`run.js`, `map.js`, `curve.js`) and the sim | 2,000 generated regions pass the four fork rules; the sim prints run lengths | Sonnet 5, medium — pure code with a clear spec; the sim is the check |
+| R1 | **Run state and map generation** (`run.js`, `map.js`, `curve.js`) and the sim | 2,000 generated regions pass the five map rules, the starter castle included; the sim prints run lengths and when the first boss is reached | Sonnet 5, medium — pure code with a clear spec; the sim is the check |
 | R2 | **The map screen** (`overworld.js`, `?view=map`) | Tap, preview, Ride, on a phone frame, 0 draw calls while up | Sonnet 5, medium — a DOM panel under the house UI rules |
 | R3 | **A castle stage** (`castle.js`, `startCastle`, `endCastle`, the director) | A seeded castle stands, three raids come, clear and fall both fire; 25 castles with no leak | Opus 5, high — it bends the core loop, and teardown has a leak history |
-| R4 | **Roster, rewards and deploy** (`allies.js`, reward screen) | Earn, cap, deploy, lose, driven over a 5-castle run | Sonnet 5, medium |
+| R4 | **Roster, rewards and deploy** (`allies.js`, reward screen), Wren as a recruit | Earn, cap, deploy, lose, driven over a 5-castle run; Wren recruited once, her release fires in a castle | Sonnet 5, medium |
 | R5 | **Bosses and the Call to Arms** | Commit n allies, they charge and are spent; the no-commit bonus scores | Opus 5, medium — the spend decision is the design's centre and is easy to make pointless |
 | R6 | **Score, death screen, Ride again** | Breakdown by castle, gap to best, one tap to a new run under 5 s | Sonnet 5, medium |
 | R7 | **Tuning the curve** with the sim | Median sim run ends between castle 12 and 20 | Opus 5, high — a wrong curve makes the mode quietly too easy or too hard without failing anything |
@@ -297,19 +310,19 @@ boss types, the 40-card deck.
 
 ---
 
-## 11. Open questions for the owner
+## 11. Decisions (owner, 2026-09-23)
 
-These change what gets built, so they are asked rather than assumed.
+These were the open questions. Each is answered and folded into the sections above.
 
-1. **Does the castle keep any economy?** The spec removes mining, trading and building inside a
-   castle and keeps only defense, with coin going to a war chest. The alternative keeps repair and
-   tower mats inside the castle, paid from the chest. The first is faster; the second keeps more of
-   what the game is today.
-2. **Do allies die permanently?** The spec says yes. Without it the roster only grows, and the
-   snowball is back.
-3. **How many castles to a boss?** Five is proposed. Four makes the rhythm faster; six gives the map
-   more room for forks.
-4. **Is Wren an ally or a boss?** The spec makes her rig a healer ally whose move is the release. She
-   could instead be a boss, which reuses her voice and cries differently.
-5. **The first run's first node.** A tutorial castle with one raid and one lit path, or straight into
-   a fork? A fork on the very first screen teaches the whole idea; one lit path is gentler.
+| # | Question | Decision | Where it lands |
+| --- | --- | --- | --- |
+| 1 | Does a castle keep any economy? | **Defense only.** No building, no repair mats, no tower mats. Coin is score and the run's war chest, nothing else | Sections 4 and 5 |
+| 2 | Do allies die permanently? | **For the run.** A deployed ally who dies is gone until the run ends; a new run starts clean. Long-term progression is the legacy tree only | Section 6 |
+| 3 | How many castles to a boss? | **Five castles, then the boss.** A region is six nodes | Sections 1 and 4 |
+| 4 | Is Wren an ally or a boss? | **An ally**, recruitable, with the release stun as her ability and no story | Section 6 |
+| 5 | The first node of a run? | **A fixed, gentle starter castle**, the only node lit; the forks open after it | Section 4 |
+
+**One consequence to watch.** Five castles before a boss puts the first boss 10–15 minutes into a run
+at 90–180 s a castle, and most first runs would never reach one. So region 1's castles are the short
+ones, 60–90 s, which brings the first boss to about 6–8 minutes. R1's sim reports when the first boss
+is reached, and the funnel's `boss1-reached` step measures it with real players.
