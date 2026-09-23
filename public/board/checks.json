@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-23T14:39:18.850Z",
+  "at": "2026-09-23T15:45:51.079Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -268,6 +268,20 @@
       "why": "#256. A run is twenty castles and each is a teardown; the bridge-mat leak (#190) was a copy per refresh that nobody saw until a phone ran out of memory at the river."
     },
     {
+      "id": "allies-five-castles",
+      "area": "Raids",
+      "cost": "cheap",
+      "asserts": "Five castles of a fixed run: each fields the ride card's plan from the roster by id, never more than eight; a man killed in there is off the roster for good; the reward's men arrive; a card taken on the third reward is in force in the fourth and fifth castles.",
+      "why": "#257. Losing men for the run is what makes deploying a decision (decision 2), and a card that stopped at the castle it was taken in would be a reward that vanished."
+    },
+    {
+      "id": "wren-rides-and-releases",
+      "area": "Raids",
+      "cost": "cheap",
+      "asserts": "Wren is offered at the first muster and bought; the next castle has her on the field with her button up; her meter fills with raiders beside her in daylight and her release, through the button, holds them; held on her, they take her, and she is off the roster and never offered again.",
+      "why": "#257, decision 4. She is the one ally with a story rig and a power, and every piece of her comes from the story edition, where each assumed a night, an escort, or a rescue to go back to."
+    },
+    {
       "id": "raids-roster-rules",
       "area": "Raids",
       "cost": "free",
@@ -411,266 +425,276 @@
   "checks": {
     "pads-requires-exist": {
       "pass": true,
-      "at": "2026-09-23T11:52:52.341Z"
+      "at": "2026-09-23T13:48:54.826Z"
     },
     "pads-buildat-in-bounds": {
       "pass": true,
-      "at": "2026-09-23T11:52:52.341Z"
+      "at": "2026-09-23T13:48:54.826Z"
     },
     "pads-no-overlap": {
       "pass": true,
-      "at": "2026-09-23T11:52:52.345Z"
+      "at": "2026-09-23T13:48:54.830Z"
     },
     "opening-homes-legal": {
       "pass": true,
-      "at": "2026-09-23T11:52:52.345Z"
+      "at": "2026-09-23T13:48:54.830Z"
     },
     "icons-exist": {
       "pass": true,
-      "at": "2026-09-23T11:52:52.350Z"
+      "at": "2026-09-23T13:48:54.835Z"
     },
     "upgrade-mods-exist": {
       "pass": true,
       "note": "23 of 23 upgrades declare a mod key, all 33 resolve",
-      "at": "2026-09-23T11:52:52.350Z"
+      "at": "2026-09-23T13:48:54.836Z"
     },
     "footprints-cover-kinds": {
       "pass": true,
-      "at": "2026-09-23T11:52:52.352Z"
+      "at": "2026-09-23T13:48:54.837Z"
     },
     "walls-solid": {
       "pass": true,
       "note": "24 directions, held every time",
-      "at": "2026-09-22T13:11:50.322Z"
+      "at": "2026-09-23T14:01:26.922Z"
     },
     "gates-passable": {
       "pass": true,
       "note": "4 gates",
-      "at": "2026-09-22T13:12:09.932Z"
+      "at": "2026-09-23T14:01:57.885Z"
     },
     "wall-ring-unbroken": {
       "pass": true,
       "note": "360 samples",
-      "at": "2026-09-22T13:12:31.040Z"
+      "at": "2026-09-23T14:02:29.161Z"
     },
     "views-open": {
       "pass": true,
-      "note": "25 views, each with its panel up",
-      "at": "2026-09-22T13:09:15.986Z"
+      "note": "30 views, each with its panel up",
+      "at": "2026-09-23T15:40:11.849Z"
     },
     "opening-resolves": {
       "pass": true,
-      "note": "taken after 791 frames of running",
-      "at": "2026-09-22T13:24:21.333Z"
+      "note": "taken after 792 frames of running",
+      "at": "2026-09-23T14:21:12.982Z"
     },
     "queen-visible": {
       "pass": true,
       "note": "400 frames, including on the Keep doorstep",
-      "at": "2026-09-22T13:30:10.328Z"
+      "at": "2026-09-23T14:30:45.184Z"
     },
     "rebuild-after-fall": {
       "pass": true,
       "note": "empty plot, clear ledger, every mat on it buys",
-      "at": "2026-09-22T14:00:00.751Z"
+      "at": "2026-09-23T15:21:28.516Z"
     },
     "tokens-resolve": {
       "pass": true,
-      "note": "no cycles; 3 tokens nothing reads -- --frame-hi, --frame-lo, --danger-edge (#135)",
-      "at": "2026-09-23T11:52:52.350Z"
+      "note": "no cycles; 2 tokens nothing reads -- --frame-lo, --danger-edge (#135)",
+      "at": "2026-09-23T13:48:54.835Z"
     },
     "icons-unique": {
       "pass": true,
       "note": "55 icons, no key declared twice",
-      "at": "2026-09-23T11:52:52.350Z"
+      "at": "2026-09-23T13:48:54.835Z"
     },
     "bands-hooked": {
       "pass": true,
       "note": "ground, tufts and canopies banded; every lit world surface over 200 triangles with them",
-      "at": "2026-09-22T13:09:37.049Z"
+      "at": "2026-09-23T13:58:13.987Z"
     },
     "post-once": {
       "pass": true,
-      "note": "one tone map (3.01 from ACES, 28.39 from none), 4x MSAA kept, toggle costs no programs",
-      "at": "2026-09-22T13:11:25.063Z"
+      "note": "one tone map (3.46 from ACES, 28.6 from none), 4x MSAA kept, toggle costs no programs",
+      "at": "2026-09-23T14:00:49.704Z"
     },
     "hud-quiet": {
       "pass": true,
       "note": "3 setters replayed 10x with no DOM write; 0 -> 200 runs 0 116 175 197 200 200 in 0.34s",
-      "at": "2026-09-22T13:10:01.479Z"
+      "at": "2026-09-23T13:58:48.050Z"
     },
     "mats-at-doors": {
       "pass": true,
       "note": "5 structure mats on their door's axis, 2 bridge mats on the road at the crossing",
-      "at": "2026-09-22T13:10:23.747Z"
+      "at": "2026-09-23T13:59:18.000Z"
     },
     "deck-seats-the-crew": {
       "pass": true,
-      "at": "2026-09-23T11:52:52.350Z"
+      "at": "2026-09-23T13:48:54.835Z"
     },
     "tower-crew-placed": {
       "pass": true,
       "note": "9 on one deck, each on the planking, and a replacement took the dead man's place",
-      "at": "2026-09-22T13:10:55.582Z"
+      "at": "2026-09-23T14:00:04.355Z"
     },
     "release-greeting": {
       "pass": true,
       "note": "quiet for a new player, shown once to one behind, quiet after",
-      "at": "2026-09-22T13:30:57.417Z"
+      "at": "2026-09-23T14:31:54.453Z"
     },
     "post-walk-unblocked": {
       "pass": true,
       "note": "across a wall and onto his post in 40 frames",
-      "at": "2026-09-22T13:31:59.508Z"
+      "at": "2026-09-23T14:33:21.766Z"
     },
     "relics-bite": {
       "pass": true,
-      "note": "dug in 3.6s for standard; cards 3->4; cap 18->9999; column 40/0/0 -> 40/40/0",
-      "at": "2026-09-22T13:32:19.374Z"
+      "note": "dug in 3.6s for shaft; cards 3->4; cap 18->9999; column 40/0/0 -> 40/40/0",
+      "at": "2026-09-23T14:33:52.029Z"
     },
     "legacy-is-a-head-start": {
       "pass": true,
       "note": "24 unlocks, 17 measured against their card and none stronger, 5 with no card to compare (purse->startCoins, armour->kingHp, stables->startMounted, firstguard->startArchers, standard->startCampsBroken)",
-      "at": "2026-09-23T11:52:52.352Z"
+      "at": "2026-09-23T13:48:54.837Z"
     },
     "one-live-context": {
       "pass": true,
       "note": "2 contexts made, 1 handed back, the game canvas left live; both portraits drawn",
-      "at": "2026-09-22T13:34:42.939Z"
+      "at": "2026-09-23T14:37:36.179Z"
     },
     "black-box-outlives-the-tab": {
       "pass": true,
-      "note": "closed normally (after losing the context at 0m24s and carrying on) · 217 geometries carried over",
-      "at": "2026-09-22T13:33:02.037Z"
+      "note": "closed normally (after losing the context at 0m33s and carrying on) · 212 geometries carried over",
+      "at": "2026-09-23T14:34:52.406Z"
     },
     "churn-verdict-tells-a-step-from-a-leak": {
       "pass": true,
       "note": "6 measured series, each read as what it is",
-      "at": "2026-09-23T11:52:52.352Z"
+      "at": "2026-09-23T13:48:54.837Z"
     },
     "mats-do-not-multiply": {
       "pass": true,
       "note": "22 mats, each down once, unchanged by 40 refreshes",
-      "at": "2026-09-22T13:49:23.223Z"
+      "at": "2026-09-23T15:02:33.387Z"
     },
     "high-ground-holds": {
       "pass": true,
       "note": "3 plateaus: a floor on top, a wall on every side but one, and the ramp is the way up",
-      "at": "2026-09-22T13:35:01.911Z"
+      "at": "2026-09-23T14:38:05.868Z"
     },
     "sounds-have-a-side": {
       "pass": true,
       "note": "east wall 0.94, west wall -0.94, the King's own cue down the middle, the far side clamped",
-      "at": "2026-09-22T13:35:24.275Z"
+      "at": "2026-09-23T14:38:35.978Z"
     },
     "cues-do-not-converge": {
       "pass": true,
-      "note": "55 pairs measured, the closest dig(1) to confirm at 0.214 (floor 0.18); the dig rises 203 to 390 Hz; all four silent when muted and at volume zero",
-      "at": "2026-09-22T13:35:57.922Z"
+      "note": "55 pairs measured, the closest dig(1) to confirm at 0.202 (floor 0.18); the dig rises 204 to 387 Hz; all four silent when muted and at volume zero",
+      "at": "2026-09-23T14:39:32.688Z"
     },
     "unseen-card-on-offer": {
       "pass": true,
       "note": "six offers at level 12 with one card unseen: the unseen card on every one, on the panel, and marked seen after",
-      "at": "2026-09-22T13:49:04.441Z"
+      "at": "2026-09-23T15:02:03.660Z"
     },
     "glut-resets-at-dawn": {
       "pass": true,
       "note": "30 diamond paid 460 (20, then 15, then 11 a unit); dawn, and the next paid 20; the panel reads Stone 4 | Diamond 20 → 15 today",
-      "at": "2026-09-22T13:48:45.307Z"
+      "at": "2026-09-23T15:01:33.419Z"
     },
     "glut-levels-the-seams": {
       "pass": true,
       "note": "coin/s fresh -> at three tranches: wood 4.4->2.2, straw 5.0->2.5, stone 5.7->2.9, iron 9.0->4.0, diamond 14.3->5.7",
-      "at": "2026-09-23T11:52:53.146Z"
+      "at": "2026-09-23T13:48:55.659Z"
     },
     "deck-rotates": {
       "pass": true,
-      "note": "2000 runs: nothing new at level 10 0%, at 12 2%, at 15 79% (the deck runs out by level 14); an offer repeated whole at 15: 1%",
-      "at": "2026-09-23T11:52:53.703Z"
+      "note": "2000 runs: nothing new at level 10 0%, at 12 3%, at 15 77% (the deck runs out by level 14); an offer repeated whole at 15: 1%",
+      "at": "2026-09-23T13:48:56.228Z"
     },
     "picket-restart-and-nudge": {
       "pass": true,
-      "note": "nudges at 20s and 50s; fell once at full damage, stood up on the plot at 140 with 7 guards posted, and the second attempt freed her in 51.3s",
-      "at": "2026-09-22T13:48:29.157Z"
+      "note": "nudges at 20s and 50s; fell once at full damage, stood up on the plot at 140 with 7 guards posted, and the second attempt freed her in 41s",
+      "at": "2026-09-23T15:01:05.964Z"
     },
     "first-morning-is-full": {
       "pass": true,
       "note": "45s of grace against a 45s day; the first raid is 4 knights",
-      "at": "2026-09-23T11:52:53.146Z"
+      "at": "2026-09-23T13:48:55.659Z"
     },
     "first-raid-after-a-day": {
       "pass": true,
       "note": "countdown 45s at the rescue, shown; the first raid 45s later, 4 knights",
-      "at": "2026-09-22T13:42:20.165Z"
+      "at": "2026-09-23T14:54:45.649Z"
     },
     "village-falls-in-order": {
       "pass": true,
       "note": "35 things down over 2.12s, first at z -19 and last at z 19; 24 walls broken",
-      "at": "2026-09-22T13:36:51.510Z"
+      "at": "2026-09-23T14:40:39.303Z"
     },
     "rescue-offers-a-card": {
       "pass": true,
-      "note": "\"Wren is home\" with 3 cards, up within a second; took wider-decks and the game resumed",
-      "at": "2026-09-22T13:38:00.613Z"
+      "note": "\"Wren is home\" with 3 cards, up within a second; took fletchers and the game resumed",
+      "at": "2026-09-23T14:41:57.422Z"
     },
     "funnel-counts-the-first-run": {
       "pass": true,
       "note": "play 1, moved 1 at 0.1s, rescued 1 at 47s; the box carries all three",
-      "at": "2026-09-22T13:39:08.533Z"
+      "at": "2026-09-23T14:43:13.725Z"
     },
     "rescue-line-on-time": {
       "pass": true,
       "note": "fall at 30s with 0 wall notices; \"Go after them\" 0.0s after the snatch, \"Take her back\" 0.0s after the hand-off",
-      "at": "2026-09-22T13:43:28.130Z"
+      "at": "2026-09-23T14:56:04.836Z"
     },
     "picket-is-survivable": {
       "pass": true,
-      "note": "standing still: freed in 32s, King down to 28 of 140 and never fell",
-      "at": "2026-09-22T13:45:03.967Z"
+      "note": "standing still: freed in 32.1s, King down to 29 of 140 and never fell",
+      "at": "2026-09-23T14:57:46.687Z"
     },
     "objective-strip-while-held": {
       "pass": true,
-      "note": "\"Go after them · north · 2 paces\" while carried, \"Take her back · north · 41 paces\" at the picket, 12 paces at 12 units, gone once she was freed",
-      "at": "2026-09-22T13:40:16.132Z"
+      "note": "\"Go after them · north · 0 paces\" while carried, \"Take her back · north · 41 paces\" at the picket, 12 paces at 12 units, gone once she was freed",
+      "at": "2026-09-23T14:44:46.162Z"
     },
     "first-minute-is-one-card": {
       "pass": true,
       "note": "one card, no keys, Play; first notice \"A quiet morning. *Wren walks w…\"; the first word was visible with the box",
-      "at": "2026-09-22T13:40:27.862Z"
+      "at": "2026-09-23T14:52:40.483Z"
     },
     "raids-map-rules": {
       "pass": true,
       "note": "2000 regions, each the same twice, all five rules kept; the rules caught all 4 regions broken on purpose",
-      "at": "2026-09-23T11:52:52.777Z"
+      "at": "2026-09-23T13:48:55.280Z"
     },
     "raids-run-round-trips": {
       "pass": true,
       "note": "20 rides across 4 regions, the same after JSON; bad rides and bad saves refused",
-      "at": "2026-09-23T11:52:52.781Z"
+      "at": "2026-09-23T13:48:55.284Z"
     },
     "raids-first-boss-on-time": {
       "pass": true,
       "note": "median 6:25 (p25 5:51, p90 7:39); 1.04 map draws per region",
-      "at": "2026-09-23T11:52:53.146Z"
+      "at": "2026-09-23T13:48:55.659Z"
     },
     "overworld-rides": {
       "pass": true,
       "note": "0 draws over 30 frames; only the starter lit; nodes 56px; an unlit tap does nothing; card, Ride, and the starter castle stands",
-      "at": "2026-09-23T12:16:02.710Z"
+      "at": "2026-09-23T15:22:24.699Z"
     },
     "castle-stands-and-resolves": {
       "pass": true,
       "note": "24 walls, Keep, 12 tower crew, no mats/camps/caches, Wren off stage; cleared after 7 kills (raids of 3 and 4); the map back with the run on 1; the King's fall fired castle:fell and not gameOver",
-      "at": "2026-09-23T12:16:33.499Z"
+      "at": "2026-09-23T15:22:56.856Z"
     },
     "castles-do-not-leak": {
       "pass": true,
-      "note": "castle 5 -> 25: geometries 201 -> 201, textures 37 -> 37, objects 909 -> 818, heap 71 -> 90 MB; draw calls at most 219",
-      "at": "2026-09-23T12:37:55.057Z"
+      "note": "castle 5 -> 25: geometries 198 -> 199, textures 36 -> 36, objects 920 -> 842, heap 101 -> 93 MB; draw calls at most 211",
+      "at": "2026-09-23T15:45:50.685Z"
     },
     "raids-roster-rules": {
       "pass": true,
       "note": "10139 castles over 300 runs: the roster peaked at 24 of 24, 23330 fell and none came back, Wren in 124 runs and never twice; four broken rosters refused first",
-      "at": "2026-09-23T14:39:18.850Z"
+      "at": "2026-09-23T15:25:46.237Z"
+    },
+    "allies-five-castles": {
+      "pass": true,
+      "note": "five castles: 0 in, 0 fell, 6 after; 6 in, 1 fell, 9 after; 8 in, 1 fell, 8 after; 8 in, 1 fell, 13 after; 8 in, 1 fell, 16 after; the card taken third (keen-eye) held in the fourth and fifth",
+      "at": "2026-09-23T15:23:51.653Z"
+    },
+    "wren-rides-and-releases": {
+      "pass": true,
+      "note": "offered once and bought; on the field with her button; the meter filled in daylight and her release held 6 of 6; taken, off the roster, and never offered again",
+      "at": "2026-09-23T15:26:43.636Z"
     }
   }
 }

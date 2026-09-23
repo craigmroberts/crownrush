@@ -1458,8 +1458,8 @@ map, castle, map. `?view=overworld` and `?view=castle` frame both on the board.
 Every gate is `this.mode === 'raids'`, which only `startCastle` sets, so with no `?mode` the story runs
 exactly as it did. `overworld-rides` (no draw in 30 frames of map, 44 px taps, one lit starter, the card
 and Ride), `castle-stands-and-resolves` (the castle whole and its economy absent, a clear and a fall)
-and `castles-do-not-leak` hold it — twenty-five castles in a row leave geometries at 201 and textures
-at 37 between castle 5 and castle 25, with no castle above 219 draw calls; the same run with a teardown
+and `castles-do-not-leak` hold it — twenty-five castles in a row hold geometries at about 200 (198 to 199
+in the last run) and textures at 36 between castle 5 and castle 25, with no castle above 219 draw calls; the same run with a teardown
 that frees nothing reaches 2,617 geometries. The score on the map is an interim `(kills × 10 + coin)
 × multiplier` until R6 builds the real one, and a muster passes straight through until R4 builds its
 shop.
