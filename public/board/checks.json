@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-23T15:45:51.079Z",
+  "at": "2026-09-23T16:00:44.606Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -280,6 +280,13 @@
       "cost": "cheap",
       "asserts": "Wren is offered at the first muster and bought; the next castle has her on the field with her button up; her meter fills with raiders beside her in daylight and her release, through the button, holds them; held on her, they take her, and she is off the roster and never offered again.",
       "why": "#257, decision 4. She is the one ally with a story rig and a power, and every piece of her comes from the story edition, where each assumed a night, an escort, or a rescue to go back to."
+    },
+    {
+      "id": "raids-commit-is-a-choice",
+      "area": "Raids",
+      "cost": "free",
+      "asserts": "In 3,000 simulated runs each, a player who always commits every spare man to the Call to Arms and one who never commits are each better at one thing: neither holds more bosses AND scores more.",
+      "why": "#258. The spend-or-save decision is the design's centre, and the easiest part of it to make pointless: if one answer is always right it is a formality, and nothing else fails."
     },
     {
       "id": "raids-roster-rules",
@@ -695,6 +702,11 @@
       "pass": true,
       "note": "offered once and bought; on the field with her button; the meter filled in daylight and her release held 6 of 6; taken, off the roster, and never offered again",
       "at": "2026-09-23T15:26:43.636Z"
+    },
+    "raids-commit-is-a-choice": {
+      "pass": true,
+      "note": "always commit holds 86% of bosses and scores 1175; never commit holds 70% and scores 1219",
+      "at": "2026-09-23T16:00:44.606Z"
     }
   }
 }
