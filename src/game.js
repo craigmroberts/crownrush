@@ -1531,7 +1531,9 @@ export class Game {
       const q = this.queen;
       const wrenMode = q.charge >= 1 ? 'hold' : q.inKeep ? 'out' : 'in';
       const canShelter = !!this.keep && this.keep.state === 'built';
-      const wrenShow = this.mode !== 'raids' && verbs && !q.captive && (canShelter || q.charge > 0);   // #256: she is an ally in raids (R4), not a button
+      // #256/#257: in raids the button is hers only in a castle she was brought to, and until she is lost
+      const wrenHere = this.mode !== 'raids' || !!(this.castle && this.castle.wren && !this.castle.wrenLost);
+      const wrenShow = wrenHere && verbs && !q.captive && (canShelter || q.charge > 0);
       // #240: MOUNT AND WREN SHARE ONE SLOT. Four buttons along the bottom edge were 244 of a
       // phone's 390 px, and the joystick is a pointerdown anywhere on the canvas UNDER them -- a
       // thumb resting where thumbs rest landed on a button before it could start a drag. Both

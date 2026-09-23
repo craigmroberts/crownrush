@@ -16,12 +16,15 @@
 //   - no mats, no trade post, no camps, no caches, no mining: defense only (decision 1);
 //   - no day cycle. The time of day is the castle's, held; raids come on the castle's own clock.
 import { CFG, PADS } from './config.js';
+import { UPGRADES } from './upgrades.js';
 import { audio } from './audio.js';
 import { rand } from './game-shared.js';
 
 export const RaidsMethods = {
   // The director (src/raids/director.js) calls these three; the game calls back with two events.
-  startCastle(spec, deployed = []) {
+  // `deployed` is the roster's men going in, `{ id, type }` (src/raids/allies.js); `cards` is the run's
+  // reward cards by id, which `reset()` has just wiped from `mods` and which are put back here.
+  startCastle(spec, deployed = [], cards = {}) {
     this.mode = 'raids';
     this.frozen = false;
     this.reset();
@@ -35,21 +38,105 @@ export const RaidsMethods = {
     this.camps = [];
     for (const c of this.caches || []) { this.root.remove(c.mesh); this.disposeEntity(c.mesh); }
     this.caches = [];
+    this.applyRunCards(cards);   // before the stand, so Wider Decks crews the towers it widens
     this.standCastle(spec);
     this.beginRun();   // after the stand, so the Keep going up is not counted as the player's (#251)
-    for (const a of deployed) this.spawnUnit(a.type, rand(-3, 3), 7 + rand(0, 2), !!a.veteran);
+    // #257: the roster's men, each carrying the id that says who they are, so a death in here is a
+    // name crossed off the roster and not just a number going down
+    let wren = null;
+    for (const a of deployed) {
+      if (a.type === 'wren') { wren = a.id; continue; }
+      const u = this.spawnUnit(a.type, rand(-3, 3), 7 + rand(0, 2), !!a.veteran);
+      u.rosterId = a.id;
+    }
+    this.applyMods();
     this.wave = spec.night;
     this.setDayPhase(spec.phase, spec.blood || null);
     this.night = spec.phase >= CFG.cycle.nightStart && spec.phase < CFG.cycle.dawn;
     audio.init();
     audio.setActive(true);
     audio.setNight(this.night);
-    this.castle = { spec, t: 0, next: 0, done: false, kills0: this.kills, keepFell: false };
+    this.castle = { spec, t: 0, next: 0, done: false, kills0: this.kills, keepFell: false, fell: [], wren: null, wrenLost: false, sent: deployed.length };
+    if (wren) this.deployWren(wren);
     // The horn and banner are taught once, in the starter castle (#249's line); not again every castle.
     if (!spec.starter) this.verbsSaid = true;
     this.castleLog = this.castleLog || [];
     const n = spec.raids.length;
     this.hud.toast(spec.starter ? `Hold the castle. *${n} raids are coming.*` : `${n} raids. *Hold the Keep.*`, 2600, 'Raid', true);
+  },
+
+  // #257: the run's reward cards, applied the way `takeUpgrade` applies one -- through the card's own
+  // `apply`, counted in `taken` -- so a card means in a castle exactly what it means in the story.
+  applyRunCards(cards) {
+    for (const [id, n] of Object.entries(cards || {})) {
+      const u = UPGRADES.find((x) => x.id === id);
+      if (!u) continue;
+      for (let i = 0; i < n; i++) u.apply(this);
+      this.taken[id] = n;
+    }
+  },
+
+  // #257: WREN, DEPLOYED (decision 4). Out of the Keep and on the field at the King's side, with the
+  // release she has in the story (#234): the meter fills while raiders are near her and one tap on
+  // her button looses it. She can still be put in the Keep with the same button, which makes the Keep
+  // the thing they go for again. If they get hold of her for long enough she is lost for the run --
+  // the seize meter she already had is her health here, and `captureQueen` sends it to
+  // `castleWrenLost` instead of into the story's escort.
+  deployWren(id) {
+    const q = this.queen;
+    this.castle.wren = id;
+    q.inKeep = false;
+    q.captive = false;
+    q.seize = 0;
+    q.held = false;
+    q.charge = 0;
+    q.charging = false;
+    this.root.add(q.mesh);
+    q.mesh.position.set(1.4, 0, 9.4);
+    q.followAng = this.king.mesh.rotation.y;
+    q.bar.visible = true;
+  },
+
+  castleWrenLost() {
+    const c = this.castle;
+    const q = this.queen;
+    if (!c || !c.wren || c.wrenLost) return;
+    c.wrenLost = true;
+    c.fell.push(c.wren);
+    const p = q.mesh.position;
+    this.burstFx(p.clone().setY(1.4), '#cfe8ff', 9, 0.6);
+    if (q.mesh.parent) q.mesh.parent.remove(q.mesh);
+    q.inKeep = true;   // off the stage, the way she is in a castle she was not brought to
+    q.seize = 0;
+    q.held = false;
+    q.charge = 0;
+    q.bar.visible = false;
+    for (const e of this.enemies) if (e.target === q) e.target = null;
+    this.raiseAlarm('They have taken Wren. *She will not ride with you again.*', 'fear');
+  },
+
+  // #257: one of the roster's men fell, and is gone for the run (decision 2). Called from
+  // `damageUnit`; the director crosses the names off when the castle ends.
+  castleAllyFell(u) {
+    if (this.castle && u.rosterId) this.castle.fell.push(u.rosterId);
+  },
+
+  // #257: the coin still lying on the field goes into the chest when a castle is held. Picking it up
+  // was the story's economy -- a walk to a heap between raids -- and a castle has no between; the
+  // alternative was a chest that stayed empty for anyone who spent the fight fighting.
+  sweepCoins() {
+    let n = 0;
+    for (let i = this.coins.length - 1; i >= 0; i--) {
+      const c = this.coins[i];
+      if (c.resType) continue;
+      this.coinsCarried++;
+      this.coinsEarned++;
+      this.root.remove(c.mesh);
+      this.coins.splice(i, 1);
+      n++;
+    }
+    if (n && this.coinField) this.coinField.update(this.coins);
+    return n;
   },
 
   // The castle, stood whole: the tier-0 plot's structures and palisade, the homes the opening places,
@@ -75,7 +162,7 @@ export const RaidsMethods = {
     this.rebuildVillage({ built, placedAt });
     for (const id of Object.keys(this.towers)) {
       const t = this.towers[id];
-      for (const [x, z, y] of this.crewSpots({ tower: id, crew: this.towerLevel(t).slots })) {
+      for (const [x, z, y] of this.crewSpots({ tower: id, crew: this.towerLevel(t).slots + this.mods.towerSlots })) {
         this.addTurret(x, z, y, id);
         t.crew++;
       }
@@ -137,12 +224,15 @@ export const RaidsMethods = {
       coins: this.coinsCarried,
       wallsIntact: walls.length ? walls.filter((w) => w.state === 'built').length / walls.length : 1,
       keepStood: !c.keepFell,
+      fell: [...c.fell],
+      sent: c.sent,
     };
   },
 
   castleCleared() {
     const c = this.castle;
     c.done = true;
+    this.sweepCoins();
     this.hud.toast('The castle holds.', 2200, 'Raid', true);
     audio.unlock();
     this.emitCastle('cleared', this.castleResult());

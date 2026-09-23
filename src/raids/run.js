@@ -20,9 +20,16 @@ export function createRun(seed, start = {}) {
     cleared: 0,               // castles cleared (musters are not castles)
     score: 0,
     chest: start.chest || 0,  // the war chest (decision 1: coin is score and this, nothing else)
-    roster: start.roster ? [...start.roster] : [],   // R4 fills in what an ally is; allies last this run only (decision 2)
+    // #257 (R4): the allies, `{ id, type, veteran }` (src/raids/allies.js). They last this run only
+    // (decision 2): a new run is always built here, so it always starts with nobody.
+    roster: start.roster ? [...start.roster] : [],
+    nextAlly: 1,
     abilities: [],
+    cards: {},                // reward cards taken, by id -- re-applied to every castle after `reset()`
+    seen: {},                 // cards shown, taken or not, for `pickOffer`'s rotation (#235)
     wren: false,              // recruited this run (decision 4: an ally, at most once a run)
+    wrenOffered: false,       // shown at a muster or a boss reward; she is not offered twice
+    wrenLost: false,
   };
 }
 

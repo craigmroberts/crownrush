@@ -1157,6 +1157,11 @@ function runView() {
     setTimeout(() => raids.demo(), 400);
     return;
   }
+  // #257: the raids screens about the roster, on a run with eleven men and a card
+  if (VIEW === 'reward' || VIEW === 'muster' || VIEW === 'deploy') {
+    setTimeout(() => raids[{ reward: 'demoReward', muster: 'demoMuster', deploy: 'demoDeploy' }[VIEW]](), 400);
+    return;
+  }
   // #256: a castle stood and fought, live -- the starter of a fixed run, ridden the way the map's Ride
   // button rides it, so its first raid comes in on the castle's own clock
   if (VIEW === 'castle') {

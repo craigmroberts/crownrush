@@ -34,6 +34,7 @@ const POLICIES = {
 export function simulate({ runs = 2000, policy = 'random', seed = 1, maxNodes = 90 } = {}) {
   const S = CFG.raids.seconds;
   const V = CFG.raids.survival;
+  const A = CFG.raids.allies;
   const pick = POLICIES[policy];
   const firstBoss = [];          // seconds from Play to riding into the first boss, for runs that got there
   const firstBossBeaten = [];
@@ -53,17 +54,17 @@ export function simulate({ runs = 2000, policy = 'random', seed = 1, maxNodes = 
       if (node.kind === 'boss' && node.region === 0) firstBoss.push(t);
       if (node.kind === 'muster') {
         t += S.muster;
-        allies = Math.min(V.cap, allies + 2);   // the war chest turned into men
+        allies = Math.min(A.cap, allies + 2);   // the war chest turned into men
         run = complete(run);
         continue;
       }
       t += nodeSeconds(node, rng);
-      const deployed = Math.min(V.deploy, allies);
+      const deployed = Math.min(A.deploy, allies);
       const power = rosterPower(deployed);
       if (rng() < fallChance(node.difficulty, power)) { alive = false; break; }
       // survivors pay for the fight, and a clear pays in recruits (decision 2: gone for the run)
       allies -= Math.min(deployed, Math.round(deployed * V.loss * Math.min(2, node.difficulty / power)));
-      allies = Math.min(V.cap, allies + rng.int(V.recruits[0], V.recruits[1]) + (node.kind === 'fortress' ? 1 : 0));
+      allies = Math.min(A.cap, allies + rng.int(A.earn[0], A.earn[1]) + (node.kind === 'fortress' ? A.fortress : 0));
       t += S.reward;
       run = complete(run, { score: Math.round(100 * node.multiplier) });
       if (node.kind === 'boss' && node.region === 0) firstBossBeaten.push(t);

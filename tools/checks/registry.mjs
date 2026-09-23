@@ -228,6 +228,21 @@ export const CHECKS = [
     why: '#256. A run is twenty castles and each is a teardown; the bridge-mat leak (#190) was a copy per refresh that nobody saw until a phone ran out of memory at the river.',
   },
   {
+    id: 'allies-five-castles', area: 'Raids', cost: 'cheap',
+    asserts: 'Five castles of a fixed run: each fields the ride card\'s plan from the roster by id, never more than eight; a man killed in there is off the roster for good; the reward\'s men arrive; a card taken on the third reward is in force in the fourth and fifth castles.',
+    why: '#257. Losing men for the run is what makes deploying a decision (decision 2), and a card that stopped at the castle it was taken in would be a reward that vanished.',
+  },
+  {
+    id: 'wren-rides-and-releases', area: 'Raids', cost: 'cheap',
+    asserts: 'Wren is offered at the first muster and bought; the next castle has her on the field with her button up; her meter fills with raiders beside her in daylight and her release, through the button, holds them; held on her, they take her, and she is off the roster and never offered again.',
+    why: '#257, decision 4. She is the one ally with a story rig and a power, and every piece of her comes from the story edition, where each assumed a night, an escort, or a rescue to go back to.',
+  },
+  {
+    id: 'raids-roster-rules', area: 'Raids', cost: 'free',
+    asserts: 'Over 300 simulated runs through src/raids/allies.js the roster never passes the cap, never holds an ally twice, never brings back one who fell, and never takes Wren twice; a new run starts empty. The rule helper refuses four rosters broken on purpose first.',
+    why: '#257. Allies are what a run builds, and losing them for good is what makes deploying a decision (decision 2). A fallen man who comes back is the loss rule quietly deleted.',
+  },
+  {
     id: 'raids-map-rules', area: 'Raids', cost: 'free',
     asserts: 'Over 2,000 generated regions: the same seed gives the same region; five castle layers then one boss; 2-3 nodes a fork layer and 1-2 links a node; a real fork on every fork layer; a muster reachable and no layer of musters only; no all-fortress or all-muster path; everything reachable and the boss reachable from everything; region 0 opens on one starter castle.',
     why: '#254. The map is the run\'s decisions. A fork of two identical castles is not a choice, an unreachable node is a promise the map cannot keep, and a map that differs between two loads of the same seed cannot be saved. Written from the spec rather than by calling the generator\'s own validator, which the generator already re-rolls against.',

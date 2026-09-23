@@ -1812,7 +1812,11 @@ export const BuildMethods = {
 
   breakKeep(announce = true, repair = true) {
     // #256: in a castle the Keep falling costs score, not the run, and Wren is not in it to be taken
-    if (this.mode === 'raids') { audio.wave(true); this.castleKeepFell(); this.showKeepBroken(false); return; }
+    if (this.mode === 'raids') {
+      // a Wren who was brought and sheltering is standing in the rubble, and back on the field (#257)
+      if (this.castle && this.castle.wren && !this.castle.wrenLost) this.queenLeaveKeep();
+      audio.wave(true); this.castleKeepFell(); this.showKeepBroken(false); return;
+    }
     const sheltering = this.queen.inKeep && !this.queen.captive;
     this.queenLeaveKeep();
     audio.wave(true);

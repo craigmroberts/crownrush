@@ -1464,6 +1464,32 @@ that frees nothing reaches 2,617 geometries. The score on the map is an interim 
 × multiplier` until R6 builds the real one, and a muster passes straight through until R4 builds its
 shop.
 
+**R4 (#257) gives a run its men.** The roster is `src/raids/allies.js`, pure like the rest of
+`src/raids/`: a clear earns 2–4 recruits (one more for walls still standing, one more for a quick
+clear, one more at a fortress), the roster caps at 24, a castle takes up to eight, and **a man who
+falls in one is gone for the run** (decision 2). A new run always starts with nobody.
+
+- **Who goes in** is a row per kind on the ride card, a step either side, starting on the last
+  castle's choice so nobody is asked twice.
+- **The reward** after each clear is one tap of three: men, a card, or coin for the war chest. The
+  one the node's map card promised pays more (two more men, double coin, or two cards to choose
+  from). Cards come through `pickOffer` and its seen-rotation (#235), minus the eight that read a
+  mat, a mine, a dawn or a Wren being carried off (`CFG.raids.allies.deckSkip`), and they are
+  re-applied to every castle after `reset()`.
+- **The muster** sells a swordsman (16), an archer (20), a card (45) and — the first time a run
+  reaches one — Wren (60). No repairs. The field's coin is swept into the chest at every clear, which
+  measured 45–90 a region-1 castle, and the prices are set from that.
+- **Wren** (decision 4) is one unit on the same roster, offered once a run at a muster or a boss
+  reward. Brought into a castle, she is on the field at the King's side with her button up; her meter
+  fills with raiders near her, day or night, and her release holds them as it does in the story
+  (#234). The seize meter she already had is her health here: held long enough, she is taken and gone
+  for the run.
+
+`raids-roster-rules` plays 300 runs through the roster rules (never over the cap, nobody twice,
+nobody back from the dead, Wren once) after refusing four rosters broken on purpose.
+`allies-five-castles` and `wren-rides-and-releases` drive the real thing. `?view=deploy`,
+`?view=reward` and `?view=muster` frame the three screens on the board.
+
 ## The first two minutes, measured and fixed (#244, #245, #246)
 
 A retention pass drove a new player's first four minutes on the deployed build, three ways: a player

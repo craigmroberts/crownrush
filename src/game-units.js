@@ -685,6 +685,7 @@ export const UnitsMethods = {
       if (u.type === 'king') { if (this.mode === 'raids') this.castleFell('king'); else this.gameOver(u.type); }   // #256
       // #235: The Muster counts him, and dawn brings him back (`musterFallen`)
       if (u.type === 'archer' && this.mods.fallenRise) this.fallen = (this.fallen || 0) + 1;
+      if (u.rosterId) this.castleAllyFell(u);   // #257: gone for the run
       this.units.splice(this.units.indexOf(u), 1);
       u.bar.visible = false;
       // #117: a rider comes off and falls where he sat; the horse is a horse again and goes home

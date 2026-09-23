@@ -114,12 +114,27 @@ async function rideToCastle(page) {
       const lit = [...document.querySelectorAll('.ow-node.lit')];
       const b = lit.find((x) => !x.classList.contains('k-muster')) || lit[0];
       window.raids.ride(b.dataset.id);
+      // #257: a muster opens its shop now; leaving it is the node done
+      const m = document.getElementById('ow-muster');
+      if (m && !m.classList.contains('hidden')) document.getElementById('ow-leave').click();
     }
   });
   await page.waitForFunction(() => window.game.castle && window.game.running, null, { timeout: 60000 });
 }
 // Stub the draw, and clear the castle on fast-forward: each raid is brought to its moment and whatever
 // it spawns is killed through the real damage path. Resolves with the `castle:cleared` detail.
+// #257: the reward screen after a clear, answered, and back to the map
+async function takeReward(page, pick) {
+  await page.waitForSelector('#ow-reward:not(.hidden)', { timeout: 30000 });
+  const chosen = await page.evaluate((want) => {
+    const opts = [...document.querySelectorAll('#ow-reward [data-pick]')].map((b) => b.dataset.pick);
+    const p = want === 'card' ? opts.find((o) => !['men', 'coin', 'wren'].includes(o)) : want;
+    document.querySelector(`#ow-reward [data-pick="${p}"]`).click();
+    return p;
+  }, pick);
+  await page.waitForSelector('#overworld:not(.hidden)', { timeout: 30000 });
+  return chosen;
+}
 const CLEAR_CASTLE = `() => new Promise((done) => {
   const g = window.game;
   // the real draws are own properties, kept once so a check that wants a real frame can put them back
@@ -185,6 +200,7 @@ export const CHEAP = {
       ['?view=defeat', 'gameover-screen'], ['?view=victory', 'victory-screen'],
       ['?view=report', 'report-screen'],   // #182
       ['?view=overworld', 'overworld'], ['?view=castle', null],   // #255, #256
+      ['?view=deploy', 'ow-card'], ['?view=reward', 'ow-reward'], ['?view=muster', 'ow-muster'],   // #257
     ];
     const bad = [];
     for (const [q, panel, phase] of VIEWS) {
@@ -1618,7 +1634,7 @@ export const CHEAP = {
     });
     const cleared = await page.evaluate(`(${CLEAR_CASTLE})()`);
     if (!cleared) return no([`every raider of ${stood.raids.length} raids killed and castle:cleared never fired`]);
-    await page.waitForSelector('#overworld:not(.hidden)', { timeout: 30000 });
+    await takeReward(page, 'men');
     const after = await page.evaluate(() => ({ cleared: window.raids.run.cleared, lit: document.querySelectorAll('.ow-node.lit').length, frozen: window.game.frozen }));
     await rideToCastle(page);
     const fell = await page.evaluate(() => new Promise((done) => {
@@ -1674,7 +1690,8 @@ export const CHEAP = {
         }));
       }));
       await page.evaluate(`(${CLEAR_CASTLE})()`);
-      await page.waitForSelector('#overworld:not(.hidden)', { timeout: 30000 });
+      // coin rather than men, so the twenty-five castles measure the stage and not a growing army
+      await takeReward(page, 'coin');
       // the draw was stubbed to clear fast; put it back for the next castle's measured frame
       await page.evaluate(() => { const g = window.game; const d = window.__draws; g.renderer.render = d.r; if (d.c) g.post.composer.render = d.c; });
       rows.push(m);
@@ -1689,6 +1706,128 @@ export const CHEAP = {
     const worst = Math.max(...rows.map((r) => r.calls));
     if (worst >= 400) bad.push(`a castle drew ${worst} calls, over the 400 budget`);
     return bad.length ? no(bad) : ok(`castle 5 -> 25: geometries ${a.geo} -> ${z.geo}, textures ${a.tex} -> ${z.tex}, objects ${a.objects} -> ${z.objects}${a.heap != null ? `, heap ${a.heap} -> ${z.heap} MB` : ''}; draw calls at most ${worst}`);
+  },
+
+  // #257 (R4): FIVE CASTLES, AND THE ROSTER IS WHO CAME BACK. A fixed run from the title: each castle
+  // takes the ride card's plan (up to eight), one of the men sent in is killed through the real damage
+  // path, and the castle is cleared. After each: the men in the castle were the roster's, by id, and
+  // no more than eight; the one who fell is off the roster for good; the reward screen's men arrive;
+  // and a card taken on the third reward is in force in the fourth castle.
+  async 'allies-five-castles'(page, url) {
+    await playRaids(page, url);
+    await page.evaluate((seed) => window.raids.start(seed), RAIDS_SEED);
+    const bad = [];
+    const log = [];
+    let card = null;
+    for (let i = 0; i < 5; i++) {
+      await rideToCastle(page);
+      const s = await page.evaluate(() => {
+        const g = window.game;
+        const run = window.raids.run;
+        const plan = window.raids.planFor();
+        const inField = g.units.filter((u) => u.rosterId).map((u) => u.rosterId);
+        const onRoster = new Set(run.roster.map((u) => u.id));
+        const victim = g.units.find((u) => u.rosterId);
+        if (victim) g.damageUnit(victim, 1e6, null);
+        return { roster: run.roster.length, planned: plan.swordsman + plan.archer, inField, strangers: inField.filter((id) => !onRoster.has(id)).length, victim: victim ? victim.rosterId : null, taken: { ...g.taken } };
+      });
+      if (s.inField.length > 8) bad.push(`castle ${i + 1} fielded ${s.inField.length} of the roster, over 8`);
+      if (s.inField.length !== Math.min(8, s.planned)) bad.push(`castle ${i + 1} fielded ${s.inField.length} where the plan sent ${s.planned}`);
+      if (s.strangers) bad.push(`castle ${i + 1} fielded ${s.strangers} men who are not on the roster`);
+      if (card && !s.taken[card]) bad.push(`the card taken after castle 3 (${card}) is not in force in castle ${i + 1}`);
+      const cleared = await page.evaluate(`(${CLEAR_CASTLE})()`);
+      if (!cleared) { bad.push(`castle ${i + 1} never cleared`); break; }
+      const before = await page.waitForSelector('#ow-reward:not(.hidden)', { timeout: 30000 }).then(() => page.evaluate(() => ({ ids: window.raids.run.roster.map((u) => u.id), men: window.raids.reward.men })));
+      if (s.victim && before.ids.includes(s.victim)) bad.push(`ally ${s.victim} fell in castle ${i + 1} and is still on the roster`);
+      const pick = await takeReward(page, i === 2 ? 'card' : 'men');
+      if (i === 2) card = pick;
+      const after = await page.evaluate(() => window.raids.run.roster.length);
+      const want = i === 2 ? before.ids.length : Math.min(24, before.ids.length + before.men);
+      if (after !== want) bad.push(`after castle ${i + 1} the roster is ${after}, not ${want}`);
+      log.push(`${s.inField.length} in, ${s.victim ? 1 : 0} fell, ${after} after`);
+    }
+    return bad.length ? no(bad) : ok(`five castles: ${log.join('; ')}; the card taken third (${card}) held in the fourth and fifth`);
+  },
+
+  // #257 (R4): WREN, RECRUITED ONCE, AT THE KING'S SIDE, AND LOST FOR GOOD. The chest is filled and a
+  // muster opened: she is on offer, and bought through its button. The next castle has her on the
+  // field and her button up. With raiders held at her side her meter fills in a daytime castle, and a
+  // full meter spent through her button holds them fast (#234). Then they are held ON her until they
+  // have her: she is gone, off the roster, and the next muster does not offer her again.
+  async 'wren-rides-and-releases'(page, url) {
+    await playRaids(page, url);
+    await page.evaluate((seed) => window.raids.start(seed), RAIDS_SEED);
+    const bought = await page.evaluate(() => {
+      const r = window.raids;
+      r.run = { ...r.run, chest: 500 };
+      r.openMuster();
+      const b = document.querySelector('#ow-muster [data-buy="wren"]');
+      if (b) b.click();
+      const out = { offered: !!b, wren: r.run.wren, inRoster: r.run.roster.some((u) => u.type === 'wren') };
+      document.getElementById('ow-leave').click();
+      return out;
+    });
+    await rideToCastle(page);
+    const onField = await page.evaluate(() => new Promise((done) => {
+      const g = window.game;
+      requestAnimationFrame(() => requestAnimationFrame(() => done({ stage: !!g.queen.mesh.parent, inKeep: g.queen.inKeep, button: !document.getElementById('wren-btn').classList.contains('hidden') })));
+    }));
+    const W = await page.evaluate(() => new Promise((done) => {
+      const g = window.game;
+      const q = g.queen;
+      g.renderer.render = () => {}; if (g.post && g.post.composer) g.post.composer.render = () => {};
+      clearTimeout(g.renderWatch); g.renderWatch = null;
+      g.castle.t = g.castle.spec.raids[0].at;
+      let n = 0;
+      let rose = 0;
+      const pin = (gap, fight) => { for (const e of g.enemies) if (e.hp > 0) { e.hp = e.maxHp = 1e6; e.mesh.position.set(q.mesh.position.x + gap, 0, q.mesh.position.z + 0.4); if (fight) { e.target = q; e.cooldown = 0; } } };
+      const charge = () => {
+        n++;
+        pin(3, false);
+        if (g.enemies.length && q.charge > 0.2) { rose = q.charge; return release(); }
+        if (n > 2500) return done({ rose: q.charge, night: g.night });
+        requestAnimationFrame(charge);
+      };
+      const release = () => {
+        q.charge = 1;
+        document.getElementById('wren-btn').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+        const hold = window.CFG ? window.CFG.wren.hold : 2;
+        const held = g.enemies.filter((e) => e.cooldown >= hold - 0.2).length;
+        n = 0;
+        const take = () => {
+          n++;
+          pin(0.8, true);
+          if (g.castle.wrenLost) return done({ rose, held, of: g.enemies.length, lost: true, fell: [...g.castle.fell], stage: !!q.mesh.parent });
+          if (n > 4000) return done({ rose, held, of: g.enemies.length, lost: false, seize: q.seize });
+          requestAnimationFrame(take);
+        };
+        requestAnimationFrame(take);
+      };
+      requestAnimationFrame(charge);
+    }));
+    const cleared = await page.evaluate(`(${CLEAR_CASTLE})()`);
+    if (cleared) await takeReward(page, 'coin');
+    const after = await page.evaluate(() => {
+      const r = window.raids;
+      const out = { inRoster: r.run.roster.some((u) => u.type === 'wren'), wrenLost: r.run.wrenLost };
+      r.openMuster();
+      out.offeredAgain = !!document.querySelector('#ow-muster [data-buy="wren"]');
+      document.getElementById('ow-leave').click();
+      return out;
+    });
+    const bad = [];
+    if (!bought.offered) bad.push('the first muster did not offer Wren');
+    if (!bought.wren || !bought.inRoster) bad.push('buying Wren at the muster did not put her on the roster');
+    if (!onField.stage || onField.inKeep) bad.push('Wren was brought and is not on the field');
+    if (!onField.button) bad.push('Wren was brought and her button is not up');
+    if (!W.rose) bad.push(`her meter did not fill with raiders at her side in a daytime castle (${W.rose ? W.rose.toFixed(2) : 0})`);
+    else if (!W.held) bad.push(`her release through the button held none of the ${W.of} raiders beside her`);
+    if (W.rose && !W.lost) bad.push(`raiders held on her never took her (seize ${W.seize})`);
+    if (W.lost && W.stage) bad.push('Wren was taken and is still on the field');
+    if (!cleared) bad.push('the castle never cleared after she was taken');
+    if (after.inRoster) bad.push('Wren was taken and is still on the roster');
+    if (after.offeredAgain) bad.push('a muster offered Wren again after she was lost');
+    return bad.length ? no(bad) : ok(`offered once and bought; on the field with her button; the meter filled in daylight and her release held ${W.held} of ${W.of}; taken, off the roster, and never offered again`);
   },
 
   // #247: FROM THE RESCUE TO THE FIRST RAID IS A DAY, AND THE HUD SAYS SO. `?tour` holds the opening;
@@ -2121,6 +2260,10 @@ export const PROVE = {
   'first-minute-is-one-card': () => { const g = window.game; const o = g.queenEnterKeep.bind(g); g.queenEnterKeep = () => o(true); },
   // #255: every node lit, so an unlit tap raises a card
   'overworld-rides': () => { if (window.raids) window.raids.map.isLit = () => true; },
+  // #257: a man who falls in a castle is not crossed off the roster
+  'allies-five-castles': () => { window.game.castleAllyFell = () => {}; },
+  // #257: Wren's release does nothing
+  'wren-rides-and-releases': () => { window.game.loosenWren = () => {}; },
   // #256: the castle never calls itself cleared
   'castle-stands-and-resolves': () => { window.game.castleCleared = () => {}; },
   // #256: a teardown that frees nothing -- what the bridge-mat leak looked like from outside

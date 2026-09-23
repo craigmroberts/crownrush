@@ -872,7 +872,37 @@ export const CFG = {
     // enemy strength over roster power, `fall = base * e^(slope * (D/P - 1))`, clamped. Roster power
     // is 1 + `allyValue` per ally. It exists so the sim can report a run length at all; nothing about
     // a run's length in the R1 report should be read as a prediction.
-    survival: { base: 0.03, slope: 2.2, floor: 0.005, ceil: 0.95, allyValue: 0.08, recruits: [2, 4], cap: 24, deploy: 8, loss: 0.15 },
+    survival: { base: 0.03, slope: 2.2, floor: 0.005, ceil: 0.95, allyValue: 0.08, loss: 0.15 },
+    // #257 (R4): THE ROSTER. `src/raids/allies.js` reads these; the sim reads `earn`, `cap`, `deploy`.
+    allies: {
+      // A clear pays `earn[0]`, one more for walls still standing at `intactAt`, one more for a clear
+      // within `fastAfter` seconds of the last raid arriving -- 2 to 4, so doing well is felt as more
+      // men from the same castle (spec section 6). A fortress pays one more.
+      earn: [2, 4], intactAt: 0.9, fastAfter: 20, fortress: 1,
+      // The node's own reward, when it is what the player takes: two more recruits, or double coin, or
+      // a second card to choose between. The map card has already promised it, so it has to pay.
+      bonus: { allies: 2, chest: 2 },
+      // 24 is snowball control and the crowd budget: 24 allies and three raids is well inside what
+      // `crowd.js` holds. 8 deployed bounds the field and makes each castle a small choice.
+      cap: 24, deploy: 8,
+      // What a recruit is. Half and half: swordsmen hold a gap, archers are what kills from behind it,
+      // and the deploy row is only a choice if there are two kinds to choose between.
+      mix: { swordsman: 0.5, archer: 0.5 },
+      // The muster's prices, in chest coin. Measured on five castles of run 20260923 with the field
+      // swept at each clear: the starter paid 21 and region-1 castles 45-90, so a muster after two
+      // castles holds about 110. At these prices that is five or six men, or Wren and a man, or a
+      // card and three men -- a choice, not a shopping list. The first guess (8/10/24/30) was set
+      // on 20-30 a castle, and had the chest at 250 by the fifth with nothing it could not buy.
+      // R7 tunes these against real runs.
+      price: { swordsman: 16, archer: 20, card: 45, wren: 60 },
+      // The coin reward on the reward screen, instead of men or a card. Set near what the men
+      // option is worth at those prices (3 men, about 55), so the choice is between kinds, not sizes.
+      coin: { base: 50, perRegion: 25 },
+      // Reward cards a castle cannot use, kept out of the raids deck: each reads a mat, a mine, a
+      // dawn or a Wren being carried off, and a castle has none of those. A card that does nothing is
+      // worse than no card -- it spends the choice.
+      deckSkip: ['volunteers', 'muster', 'portcullis', 'tithe', 'huntsman', 'sharp-tools', 'packhorse', 'quick-feet'],
+    },
     // #256 (R3): WHAT A NODE BECOMES WHEN THE KING RIDES INTO IT. `src/raids/castle.js` reads these.
     // Starting numbers for R7 to tune against real castles -- they are set so a region-1 castle lasts
     // the 60-90 s the first-boss timing rests on, and no more precisely than that.

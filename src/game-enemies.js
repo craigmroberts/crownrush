@@ -330,6 +330,7 @@ export const EnemiesMethods = {
   },
 
   captureQueen() {
+    if (this.mode === 'raids') return this.castleWrenLost();   // #257: lost for the run, not carried off
     const q = this.queen;
     // #233: with the escort parked she is never taken, which is what takes BOTH of her endings off
     // the board in one line -- `gameOver('queen')` is four lines below, and `gameOver('taken')` is
@@ -1508,7 +1509,8 @@ export const EnemiesMethods = {
       this.hud.toast('They have her, and the moment is gone.', 2000, 'Wren');
       return;
     }
-    if (!this.night || q.charge >= 1) { q.charging = false; return; }
+    // #257: a castle is all raid, whatever its time of day, so the meter is not waiting for a night
+    if ((!this.night && this.mode !== 'raids') || q.charge >= 1) { q.charging = false; return; }
     const p = q.mesh.position;
     let near = false;
     for (const e of this.enemies) {
@@ -1649,7 +1651,8 @@ export const EnemiesMethods = {
   updateQueen(dt) {
     const q = this.queen;
     if (!q) return;
-    if (this.mode === 'raids') return;   // #256: in the Keep and off the stage for the whole castle
+    // #256: in the Keep and off the stage for the whole castle -- unless she was brought (#257)
+    if (this.mode === 'raids' && !(this.castle && this.castle.wren && !this.castle.wrenLost)) return;
     // #126: the invariant, checked rather than assumed -- whenever Wren is free and the Keep is
     // built, walking the King to the door has to put her inside, and there must be no state in which
     // that fails. `inKeep` is the flag that can strand her: everything below returns immediately on

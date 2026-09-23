@@ -231,6 +231,12 @@ not an architecture one.
 **The reward screen** after each castle is one choice of three: **allies**, **a card**, or **coin for
 the chest**. One tap, then the map.
 
+*As built in R4 (#257):* the node's map card names one of the three as its reward, and that one pays
+more when it is taken — two more men, double coin, or two cards to choose between — so the promise
+on the map is kept. Coin lying on the field is swept into the chest at each clear. Wren's loss is her
+seize meter running out: held by raiders long enough, she is taken and gone for the run, which is the
+same bar she carries in the story.
+
 ---
 
 ## 7. Difficulty and score

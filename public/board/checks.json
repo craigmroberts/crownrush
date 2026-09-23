@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-23T12:37:55.373Z",
+  "at": "2026-09-23T14:39:18.850Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -266,6 +266,13 @@
       "cost": "cheap",
       "asserts": "Twenty-five castles ridden, drawn, cleared and torn down in a row leave geometries, textures, scene objects and heap flat between castle 5 and castle 25, and no castle draws 400 calls or more.",
       "why": "#256. A run is twenty castles and each is a teardown; the bridge-mat leak (#190) was a copy per refresh that nobody saw until a phone ran out of memory at the river."
+    },
+    {
+      "id": "raids-roster-rules",
+      "area": "Raids",
+      "cost": "free",
+      "asserts": "Over 300 simulated runs through src/raids/allies.js the roster never passes the cap, never holds an ally twice, never brings back one who fell, and never takes Wren twice; a new run starts empty. The rule helper refuses four rosters broken on purpose first.",
+      "why": "#257. Allies are what a run builds, and losing them for good is what makes deploying a decision (decision 2). A fallen man who comes back is the loss rule quietly deleted."
     },
     {
       "id": "raids-map-rules",
@@ -659,6 +666,11 @@
       "pass": true,
       "note": "castle 5 -> 25: geometries 201 -> 201, textures 37 -> 37, objects 909 -> 818, heap 71 -> 90 MB; draw calls at most 219",
       "at": "2026-09-23T12:37:55.057Z"
+    },
+    "raids-roster-rules": {
+      "pass": true,
+      "note": "10139 castles over 300 runs: the roster peaked at 24 of 24, 23330 fell and none came back, Wren in 124 runs and never twice; four broken rosters refused first",
+      "at": "2026-09-23T14:39:18.850Z"
     }
   }
 }

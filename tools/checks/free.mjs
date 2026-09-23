@@ -6,7 +6,9 @@ import { verdict } from '../churn/verdict.mjs';
 import { simulate } from '../deck/reheat.mjs';
 import { simulate as simulateRaids } from '../raids/sim.mjs';
 import { generateRegion } from '../../src/raids/map.js';
-import { createRun, choices, ride, serialize, parse } from '../../src/raids/run.js';
+import { createRun, choices, ride, complete, serialize, parse } from '../../src/raids/run.js';
+import { recruit, buy, canBuy, deploy, defaultPlan, lose, recruitWren, offerWren, wrenOnOffer } from '../../src/raids/allies.js';
+import { makeRng } from '../../src/raids/rand.js';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -290,6 +292,76 @@ export const FREE = {
     try { parse(JSON.stringify({ ...run, at: '9.9.9', path: [...run.path, '9.9.9'] })); bad.push('a run on a node not on its map was loaded'); } catch { /* refused */ }
     try { parse(JSON.stringify({ ...run, v: 99 })); bad.push('a run from a future version was loaded'); } catch { /* refused */ }
     return bad.length ? no(bad) : { pass: true, note: `${rides} rides across ${regions} regions, the same after JSON; bad rides and bad saves refused` };
+  },
+
+  // #257: THE ROSTER KEEPS ITS RULES OVER WHOLE RUNS. 300 runs of 40 nodes through src/raids/allies.js:
+  // castles earn men, musters sell them (and Wren), every castle deploys and loses some. After every
+  // step the roster is held to the rules -- never over the cap, no id twice, nobody who fell comes
+  // back, Wren at most once -- and a new run starts with nobody. The rules are checked by a helper
+  // written apart from allies.js, and it is shown four broken traces first and has to refuse each.
+  'raids-roster-rules'() {
+    const cap = CFG.raids.allies.cap;
+    const problems = (trace) => {
+      const bad = [];
+      const fell = new Set();
+      let wrens = 0;
+      for (const step of trace) {
+        const ids = step.roster.map((u) => u.id);
+        if (ids.length > cap) bad.push(`${ids.length} on a roster capped at ${cap}`);
+        if (new Set(ids).size !== ids.length) bad.push('the same ally twice on one roster');
+        for (const id of ids) if (fell.has(id)) bad.push(`ally ${id} fell and is back`);
+        for (const id of step.fell || []) fell.add(id);
+        if (step.wrenJoined) wrens++;
+      }
+      if (wrens > 1) bad.push(`Wren joined ${wrens} times in one run`);
+      return bad;
+    };
+    const u = (id, type = 'archer') => ({ id, type, veteran: false });
+    const broken = [
+      [{ roster: Array.from({ length: cap + 1 }, (_, i) => u(i + 1)) }],
+      [{ roster: [u(1), u(1)] }],
+      [{ roster: [u(1), u(2)], fell: [2] }, { roster: [u(1), u(2)] }],
+      [{ roster: [], wrenJoined: true }, { roster: [], wrenJoined: true }],
+    ];
+    const blind = broken.filter((t) => !problems(t).length).length;
+    if (blind) return no(`the rule helper passed ${blind} of ${broken.length} rosters broken on purpose`);
+    const bad = [];
+    let steps = 0, peak = 0, fellTotal = 0, wrenRuns = 0;
+    for (let r = 0; r < 300; r++) {
+      const rng = makeRng(9000 + r);
+      let run = createRun(5000 + r);
+      if (run.roster.length) bad.push('a new run did not start empty');
+      const trace = [];
+      for (let i = 0; i < 40; i++) {
+        const lit = choices(run);
+        const node = lit[Math.floor(rng() * lit.length)];
+        run = ride(run, node.id);
+        if (node.kind === 'muster') {
+          run = { ...run, chest: run.chest + 40 };
+          const hadWren = run.wren;
+          if (wrenOnOffer(run)) run = rng() < 0.5 && canBuy(run, 'wren').ok ? buy(run, 'wren') : offerWren(run);
+          for (const t of ['swordsman', 'archer', 'archer']) if (canBuy(run, t).ok) run = buy(run, t);
+          // a second recruit of a Wren already riding must not bring a second Wren
+          if (run.wren) run = recruitWren(run);
+          trace.push({ roster: run.roster, wrenJoined: !hadWren && run.wren });
+          run = complete(run);
+          continue;
+        }
+        const sent = deploy(run, defaultPlan(run));
+        const fell = sent.filter(() => rng() < 0.3).map((x) => x.id);
+        run = lose(run, fell);
+        fellTotal += fell.length;
+        run = recruit(run, 2 + Math.floor(rng() * 5)).run;
+        run = complete(run);
+        trace.push({ roster: run.roster, fell });
+        peak = Math.max(peak, run.roster.length);
+        steps++;
+      }
+      if (run.wren || run.wrenLost) wrenRuns++;
+      bad.push(...problems(trace).map((x) => `run ${r}: ${x}`));
+      if (bad.length > 5) break;
+    }
+    return bad.length ? no(bad.slice(0, 5)) : { pass: true, note: `${steps} castles over 300 runs: the roster peaked at ${peak} of ${cap}, ${fellTotal} fell and none came back, Wren in ${wrenRuns} runs and never twice; four broken rosters refused first` };
   },
 
   // #254: THE FIRST BOSS AT 6-8 MINUTES. 2,000 simulated runs by a player who takes any lit node; the

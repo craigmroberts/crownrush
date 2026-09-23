@@ -13,10 +13,19 @@
 import { region, choices, nodeById } from './raids/run.js';
 import { nodePreview } from './raids/map.js';
 import { modifierName } from './raids/castle.js';
+import { counts } from './raids/allies.js';
+import { CFG } from './config.js';
 import { iconSvg } from './icons.js';
 
 const ICON = { castle: 'castle', fortress: 'tower', muster: 'banner', boss: 'skull' };
 const RIDE_MS = 650;
+// #257: the roster's kinds as the screens name them, in the order the deploy row lists them
+const KIND = {
+  wren: { icon: 'tiara', one: 'Wren', many: 'Wren' },
+  swordsman: { icon: 'swordsman', one: 'swordsman', many: 'swordsmen' },
+  archer: { icon: 'archer', one: 'archer', many: 'archers' },
+};
+const menWord = (n) => `${n} ${n === 1 ? 'man' : 'men'}`;
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
 export class Overworld {
@@ -27,6 +36,8 @@ export class Overworld {
     this.king = el.querySelector('#ow-king');
     this.card = el.querySelector('#ow-card');
     this.fallen = el.querySelector('#ow-fallen');
+    this.rewardEl = el.querySelector('#ow-reward');
+    this.musterEl = el.querySelector('#ow-muster');
     this.king.innerHTML = iconSvg('crown', 30);
     this.lit = new Set();
     this.riding = false;
@@ -35,8 +46,19 @@ export class Overworld {
       if (b) this.tap(b.dataset.id);
     });
     this.card.addEventListener('click', (e) => {
+      const step = e.target.closest('[data-step]');
+      if (step) return this.stepPlan(step.dataset.kind, +step.dataset.step);
       if (e.target.closest('#ow-ride')) this.rideTo(this.cardNode);
       else if (e.target.closest('#ow-card-x')) this.closeCard();
+    });
+    this.rewardEl.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-pick]');
+      if (b && this.onPick) this.onPick(b.dataset.pick);
+    });
+    this.musterEl.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-buy]');
+      if (b && !b.disabled && this.muster) this.muster.buy(b.dataset.buy);
+      else if (e.target.closest('#ow-leave') && this.muster) this.muster.leave();
     });
     el.querySelector('#ow-board').addEventListener('click', (e) => {
       if (!e.target.closest('.ow-node')) this.closeCard();
@@ -66,6 +88,8 @@ export class Overworld {
     if (onRide) this.onRide = onRide;
     this.riding = false;
     this.fallen.classList.add('hidden');
+    this.rewardEl.classList.add('hidden');
+    this.musterEl.classList.add('hidden');
     this.closeCard();
     this.render();
     this.el.classList.remove('hidden');
@@ -113,7 +137,7 @@ export class Overworld {
     this.placeKing(k, false);
     const castle = Math.min(5, layers.flat().filter((n) => visited.has(n.id) && n.kind !== 'muster' && n.kind !== 'boss').length + 1);
     this.el.querySelector('#ow-title').textContent = `Region ${index + 1}`;
-    this.el.querySelector('#ow-sub').textContent = `${run.cleared} cleared · ${run.score.toLocaleString()} score`;
+    this.el.querySelector('#ow-sub').textContent = `${run.cleared} cleared · ${run.score.toLocaleString()} score · ${run.chest} coin · ${menWord(run.roster.filter((u) => u.type !== 'wren').length)}${run.wren && !run.wrenLost ? ' and Wren' : ''}`;
     this.el.querySelector('#ow-hint').textContent = run.at == null ? 'Tap the lit castle to ride' : this.lit.size > 1 ? 'Choose where to ride' : 'Ride on';
     this.el.dataset.castle = String(castle);
   }
@@ -147,11 +171,82 @@ export class Overworld {
       <p>${esc(blurb)}</p>
       <div class="ow-chips">${mods}${mult}</div>
       <p class="ow-reward">${esc(p.reward)}</p>
+      ${node.kind === 'muster' ? '' : '<div id="ow-deploy"></div>'}
       <button id="ow-ride" class="primary">Ride</button>`;
+    this.renderDeploy();
     // Away from the node: a card at the bottom covered the very node it was about.
     const b = this.nodesEl.querySelector(`[data-id="${node.id}"]`);
     this.card.classList.toggle('top', !!b && parseFloat(b.style.top) > 50);
     this.card.classList.remove('hidden');
+  }
+
+  // #257: WHO GOES IN. A row per kind the roster holds, with the count going and a step either side,
+  // eight at most (CFG.raids.allies.deploy). It starts on the last castle's choice, so a player who
+  // never touches it is sent the same way every time and one who does is not asked twice.
+  renderDeploy() {
+    const box = this.card.querySelector('#ow-deploy');
+    if (!box || !this.director) return;
+    const run = this.run;
+    const have = counts(run);
+    if (!run.roster.length) { box.innerHTML = ''; return; }
+    const plan = this.director.planFor();
+    const cap = CFG.raids.allies.deploy;
+    const going = plan.wren + plan.swordsman + plan.archer;
+    const rows = ['wren', 'swordsman', 'archer'].filter((k) => have[k]).map((k) => {
+      const K = KIND[k];
+      return `<div class="ow-row"><span class="ow-kind">${iconSvg(K.icon, 22)}${k === 'wren' ? 'Wren' : `${have[k]} ${have[k] === 1 ? K.one : K.many}`}</span>
+        <span class="ow-step"><button data-kind="${k}" data-step="-1" aria-label="Fewer ${K.many}" ${plan[k] ? '' : 'disabled'}>−</button><b>${plan[k]}</b><button data-kind="${k}" data-step="1" aria-label="More ${K.many}" ${plan[k] < have[k] && going < cap ? '' : 'disabled'}>+</button></span></div>`;
+    }).join('');
+    box.innerHTML = `<p class="ow-deploy-head">Into the castle: <b>${going} of ${cap}</b></p>${rows}<p class="ow-note">Anyone who falls there is gone for the run.</p>`;
+  }
+
+  stepPlan(kind, by) {
+    const plan = { ...this.director.planFor() };
+    plan[kind] = (plan[kind] || 0) + by;
+    this.director.setPlan(plan);
+    this.renderDeploy();
+  }
+
+  // #257: THE REWARD. One choice, one tap, then the map (spec section 6). The option the node's map
+  // card promised is marked, because it is the one that pays more.
+  showReward(run, R, onPick) {
+    this.run = run;
+    this.onPick = onPick;
+    this.render();
+    this.closeCard();
+    const promised = '<span class="chip ok">Promised</span>';
+    const opt = (pick, icon, title, sub, mark) => `<button class="ow-opt" data-pick="${pick}">${iconSvg(icon, 30)}<span><b>${esc(title)}</b><small>${esc(sub)}</small></span>${mark ? promised : ''}</button>`;
+    const opts = [
+      opt('men', 'person', `${menWord(R.men)}`, 'Swordsmen and archers join the roster', R.kind === 'allies'),
+      ...R.cards.map((c) => opt(c.id, c.icon, c.name, c.desc, R.kind === 'card')),
+      opt('coin', 'coin', `${R.coin} coin`, 'Into the war chest, for the next muster', R.kind === 'chest'),
+    ];
+    if (R.wren) opts.push(opt('wren', 'tiara', 'Wren', 'She rides with you. When they close on her, she can hold them fast.', false));
+    const lost = R.fell ? `${R.fell} of ${R.sent} who went in fell, and are gone for the run.` : R.sent ? `All ${R.sent} who went in came back.` : '';
+    this.rewardEl.innerHTML = `<h1>The castle holds</h1>${lost ? `<p class="ow-note">${esc(lost)}</p>` : ''}<p>Choose one.</p><div class="ow-opts">${opts.join('')}</div>`;
+    this.el.querySelector('#ow-hint').textContent = '';
+    this.rewardEl.classList.remove('hidden');
+    this.el.classList.remove('hidden');
+  }
+
+  // #257: THE MUSTER. The chest, what it buys, and one way out. Nothing is repaired here (decision 1).
+  showMuster(run, stock, handlers) {
+    this.run = run;
+    this.muster = handlers;
+    this.render();
+    this.closeCard();
+    const label = { swordsman: ['swordsman', 'A swordsman', 'Holds a gap in the wall'], archer: ['archer', 'An archer', 'Kills from behind it'], card: ['star', 'A reward card', 'Choose one of three'], wren: ['tiara', 'Wren', 'Once a run. Her release holds raiders fast'] };
+    const rows = stock.items.map((s) => {
+      const [icon, title, sub] = label[s.item];
+      return `<div class="ow-buy">${iconSvg(icon, 28)}<span><b>${esc(title)}</b><small>${esc(s.ok ? sub : s.why || sub)}</small></span><button data-buy="${s.item}" ${s.ok ? '' : 'disabled'}>${iconSvg('coin', 16)}${s.price}</button></div>`;
+    }).join('');
+    const cards = stock.cards ? `<p class="ow-deploy-head">Choose one</p><div class="ow-opts">${stock.cards.map((c) => `<button class="ow-opt" data-buy="${c.id}">${iconSvg(c.icon, 30)}<span><b>${esc(c.name)}</b><small>${esc(c.desc)}</small></span></button>`).join('')}</div>` : '';
+    const have = counts(run);
+    const roster = `${menWord(have.swordsman + have.archer)}${have.wren ? ' and Wren' : ''} of ${CFG.raids.allies.cap}`;
+    this.musterEl.innerHTML = `<h1>Muster</h1><p class="ow-stats">${iconSvg('coin', 18)} ${run.chest} in the chest · ${esc(roster)}</p>${rows}${cards}<button id="ow-leave" class="primary">Ride on</button>`;
+    this.el.querySelector('#ow-hint').textContent = '';
+    this.musterEl.classList.remove('hidden');
+    this.el.classList.remove('hidden');
   }
 
   closeCard() {
