@@ -12,6 +12,7 @@ import { setHealthBar, HealthBars, CoinField, clearHealthBars, makeRing, makeCoi
 import { V3, tmp, tmp2, rand } from './game-shared.js';
 import { BuildMethods } from './game-build.js';
 import { RaidsMethods } from './game-raids.js';
+import { ABILITY } from './raids/abilities.js';
 import { EnemiesMethods } from './game-enemies.js';
 import { UnitsMethods } from './game-units.js';
 import { ViewMethods } from './game-view.js';
@@ -1566,6 +1567,9 @@ export class Game {
         // charging": in the Keep or in daylight the ring is meant to be still, and dressing those as
         // a stall would cry wolf for two thirds of a run.
         !q.inKeep && this.night && !q.charging && q.charge < 1);
+      // #258: raids mode's third button, once a castle
+      const ab = this.castle && !this.castle.done ? this.castle.ability : null;
+      this.hud.setAbility(!!ab && verbs, ab, ab ? ABILITY[ab].icon : null, !!ab && !this.castle.abilityUsed);
       // #217: the mount button, which stands down with the other two for the same reason. Its
       // mode is derived here rather than in the HUD, because the HUD does not know how far away a
       // horse is and should not learn.

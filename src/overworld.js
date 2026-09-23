@@ -13,7 +13,8 @@
 import { region, choices, nodeById } from './raids/run.js';
 import { nodePreview } from './raids/map.js';
 import { modifierName } from './raids/castle.js';
-import { counts } from './raids/allies.js';
+import { counts, committable, commitPick, withoutCommitted } from './raids/allies.js';
+import { ABILITY } from './raids/abilities.js';
 import { CFG } from './config.js';
 import { iconSvg } from './icons.js';
 
@@ -47,6 +48,7 @@ export class Overworld {
     });
     this.card.addEventListener('click', (e) => {
       const step = e.target.closest('[data-step]');
+      if (step && step.dataset.kind === 'commit') return this.stepCommit(+step.dataset.step);
       if (step) return this.stepPlan(step.dataset.kind, +step.dataset.step);
       if (e.target.closest('#ow-ride')) this.rideTo(this.cardNode);
       else if (e.target.closest('#ow-card-x')) this.closeCard();
@@ -73,6 +75,12 @@ export class Overworld {
   }
 
   // The region on screen: the one the King is in, or the next one once he has beaten its boss.
+  // #258: the boss of the region on screen
+  regionBoss(run) {
+    const layers = region(run, this.regionOf(run)).layers;
+    return layers[layers.length - 1][0];
+  }
+
   regionOf(run) {
     if (run.at == null) return 0;
     const here = nodeById(run, run.at);
@@ -163,7 +171,7 @@ export class Overworld {
     const blurb = node.starter ? 'Two gentle raids. Learn the walls, the towers and the horn.'
       : node.kind === 'fortress' ? 'More raiders, a harder rank, and more score for holding it.'
         : node.kind === 'muster' ? 'No fight. Rest your men and spend the war chest.'
-          : node.kind === 'boss' ? 'Their captain comes with the last raid.'
+          : node.kind === 'boss' ? 'The chief comes with the last raid, and his guard with him.'
             : 'Three raids. Hold the Keep.';
     this.card.innerHTML = `
       <button id="ow-card-x" class="panel-x" aria-label="Close">×</button>
@@ -186,10 +194,14 @@ export class Overworld {
   renderDeploy() {
     const box = this.card.querySelector('#ow-deploy');
     if (!box || !this.director) return;
-    const run = this.run;
+    const node = this.cardNode;
+    const boss = node && node.kind === 'boss';
+    const n = boss ? this.director.commitFor() : 0;
+    // at a boss the committed are set aside first, and the deploy row counts who is left
+    const run = boss ? withoutCommitted(this.run, commitPick(this.run, n)) : this.run;
     const have = counts(run);
-    if (!run.roster.length) { box.innerHTML = ''; return; }
-    const plan = this.director.planFor();
+    if (!this.run.roster.length) { box.innerHTML = ''; return; }
+    const plan = this.director.planFor(node);
     const cap = CFG.raids.allies.deploy;
     const going = plan.wren + plan.swordsman + plan.archer;
     const rows = ['wren', 'swordsman', 'archer'].filter((k) => have[k]).map((k) => {
@@ -197,13 +209,26 @@ export class Overworld {
       return `<div class="ow-row"><span class="ow-kind">${iconSvg(K.icon, 22)}${k === 'wren' ? 'Wren' : `${have[k]} ${have[k] === 1 ? K.one : K.many}`}</span>
         <span class="ow-step"><button data-kind="${k}" data-step="-1" aria-label="Fewer ${K.many}" ${plan[k] ? '' : 'disabled'}>−</button><b>${plan[k]}</b><button data-kind="${k}" data-step="1" aria-label="More ${K.many}" ${plan[k] < have[k] && going < cap ? '' : 'disabled'}>+</button></span></div>`;
     }).join('');
-    box.innerHTML = `<p class="ow-deploy-head">Into the castle: <b>${going} of ${cap}</b></p>${rows}<p class="ow-note">Anyone who falls there is gone for the run.</p>`;
+    // #258: THE CALL TO ARMS, at a boss only. The spend-or-save decision the design is built on, so it
+    // says both halves of the price on the card, next to the steps: they are spent, and nobody
+    // committed doubles the score.
+    const max = committable(this.run);
+    const call = boss && max ? `<div class="ow-call"><p class="ow-deploy-head">Call to Arms</p>
+      <div class="ow-row"><span class="ow-kind">${iconSvg('swords', 22)}Charge the chief's guard</span>
+        <span class="ow-step"><button data-kind="commit" data-step="-1" aria-label="Commit fewer" ${n ? '' : 'disabled'}>−</button><b>${n}</b><button data-kind="commit" data-step="1" aria-label="Commit more" ${n < max ? '' : 'disabled'}>+</button></span></div>
+      <p class="ow-note">${n ? `${menWord(n)} charge from the gate when he comes, and are spent for the run.` : `Commit nobody and this castle scores \u00d7${CFG.raids.boss.bank}.`}</p></div>` : '';
+    box.innerHTML = `${call}<p class="ow-deploy-head">Into the castle: <b>${going} of ${cap}</b></p>${rows}<p class="ow-note">Anyone who falls there is gone for the run.</p>`;
   }
 
   stepPlan(kind, by) {
-    const plan = { ...this.director.planFor() };
+    const plan = { ...this.director.planFor(this.cardNode) };
     plan[kind] = (plan[kind] || 0) + by;
-    this.director.setPlan(plan);
+    this.director.setPlan(plan, this.cardNode);
+    this.renderDeploy();
+  }
+
+  stepCommit(by) {
+    this.director.setCommit(this.director.commitFor() + by);
     this.renderDeploy();
   }
 
@@ -216,14 +241,19 @@ export class Overworld {
     this.closeCard();
     const promised = '<span class="chip ok">Promised</span>';
     const opt = (pick, icon, title, sub, mark) => `<button class="ow-opt" data-pick="${pick}">${iconSvg(icon, 30)}<span><b>${esc(title)}</b><small>${esc(sub)}</small></span>${mark ? promised : ''}</button>`;
-    const opts = [
+    // #258: a boss pays an ability -- the slot's next occupant, replacing what is in it -- and not the
+    // usual three
+    const inSlot = run.ability ? ABILITY[run.ability] : null;
+    const opts = R.abilities ? R.abilities.map((a) => opt(a.id, a.icon, a.name, a.desc, false)) : [
       opt('men', 'person', `${menWord(R.men)}`, 'Swordsmen and archers join the roster', R.kind === 'allies'),
       ...R.cards.map((c) => opt(c.id, c.icon, c.name, c.desc, R.kind === 'card')),
       opt('coin', 'coin', `${R.coin} coin`, 'Into the war chest, for the next muster', R.kind === 'chest'),
     ];
     if (R.wren) opts.push(opt('wren', 'tiara', 'Wren', 'She rides with you. When they close on her, she can hold them fast.', false));
     const lost = R.fell ? `${R.fell} of ${R.sent} who went in fell, and are gone for the run.` : R.sent ? `All ${R.sent} who went in came back.` : '';
-    this.rewardEl.innerHTML = `<h1>The castle holds</h1>${lost ? `<p class="ow-note">${esc(lost)}</p>` : ''}<p>Choose one.</p><div class="ow-opts">${opts.join('')}</div>`;
+    const call = R.boss ? (R.banked ? `Nobody was committed: this castle scores \u00d7${CFG.raids.boss.bank}.` : `${menWord(R.spent)} were spent in the charge.`) : '';
+    const choose = R.abilities ? (inSlot ? `Choose an ability. It replaces ${inSlot.name}.` : 'Choose an ability for the third button.') : 'Choose one.';
+    this.rewardEl.innerHTML = `<h1>${R.boss ? 'The chief has fallen' : 'The castle holds'}</h1>${call ? `<p class="ow-note">${esc(call)}</p>` : ''}${lost ? `<p class="ow-note">${esc(lost)}</p>` : ''}<p>${esc(choose)}</p><div class="ow-opts">${opts.join('')}</div>`;
     this.el.querySelector('#ow-hint').textContent = '';
     this.rewardEl.classList.remove('hidden');
     this.el.classList.remove('hidden');
@@ -235,12 +265,14 @@ export class Overworld {
     this.muster = handlers;
     this.render();
     this.closeCard();
-    const label = { swordsman: ['swordsman', 'A swordsman', 'Holds a gap in the wall'], archer: ['archer', 'An archer', 'Kills from behind it'], card: ['star', 'A reward card', 'Choose one of three'], wren: ['tiara', 'Wren', 'Once a run. Her release holds raiders fast'] };
+    const slot = stock.ability ? ABILITY[stock.ability].name : null;
+    const label = { swordsman: ['swordsman', 'A swordsman', 'Holds a gap in the wall'], archer: ['archer', 'An archer', 'Kills from behind it'], card: ['star', 'A reward card', 'Choose one of three'], ability: ['horn', 'An ability', slot ? `Choose one of three to replace ${slot}` : 'Choose one of three for the third button'], wren: ['tiara', 'Wren', 'Once a run. Her release holds raiders fast'] };
     const rows = stock.items.map((s) => {
       const [icon, title, sub] = label[s.item];
       return `<div class="ow-buy">${iconSvg(icon, 28)}<span><b>${esc(title)}</b><small>${esc(s.ok ? sub : s.why || sub)}</small></span><button data-buy="${s.item}" ${s.ok ? '' : 'disabled'}>${iconSvg('coin', 16)}${s.price}</button></div>`;
     }).join('');
-    const cards = stock.cards ? `<p class="ow-deploy-head">Choose one</p><div class="ow-opts">${stock.cards.map((c) => `<button class="ow-opt" data-buy="${c.id}">${iconSvg(c.icon, 30)}<span><b>${esc(c.name)}</b><small>${esc(c.desc)}</small></span></button>`).join('')}</div>` : '';
+    const choice = stock.cards || stock.abilities;
+    const cards = choice ? `<p class="ow-deploy-head">Choose one</p><div class="ow-opts">${choice.map((c) => `<button class="ow-opt" data-buy="${c.id}">${iconSvg(c.icon, 30)}<span><b>${esc(c.name)}</b><small>${esc(c.desc)}</small></span></button>`).join('')}</div>` : '';
     const have = counts(run);
     const roster = `${menWord(have.swordsman + have.archer)}${have.wren ? ' and Wren' : ''} of ${CFG.raids.allies.cap}`;
     this.musterEl.innerHTML = `<h1>Muster</h1><p class="ow-stats">${iconSvg('coin', 18)} ${run.chest} in the chest · ${esc(roster)}</p>${rows}${cards}<button id="ow-leave" class="primary">Ride on</button>`;

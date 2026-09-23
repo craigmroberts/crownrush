@@ -25,17 +25,28 @@ import { nodeSeconds, fallChance, rosterPower } from '../../src/raids/curve.js';
 import { riskOf } from '../../src/raids/map.js';
 import { createRun, choices, ride, complete, region } from '../../src/raids/run.js';
 
+// #258: what a player commits to the Call to Arms at a boss, from the men not deployed.
+const COMMITS = {
+  none: () => 0,
+  half: (reserve) => Math.floor(reserve / 2),
+  all: (reserve) => reserve,
+};
+
 const POLICIES = {
   random: (lit, rng) => rng.pick(lit),
   safe: (lit) => lit.reduce((a, b) => (riskOf(b) < riskOf(a) ? b : a)),
   bold: (lit) => lit.reduce((a, b) => (b.multiplier > a.multiplier ? b : a)),
 };
 
-export function simulate({ runs = 2000, policy = 'random', seed = 1, maxNodes = 90 } = {}) {
+export function simulate({ runs = 2000, policy = 'random', commit = 'half', seed = 1, maxNodes = 90 } = {}) {
   const S = CFG.raids.seconds;
   const V = CFG.raids.survival;
   const A = CFG.raids.allies;
   const pick = POLICIES[policy];
+  const commitOf = COMMITS[commit];
+  const bossReached = [];        // per run: bosses ridden into
+  const bossBeaten = [];         // per run: bosses held
+  const scores = [];
   const firstBoss = [];          // seconds from Play to riding into the first boss, for runs that got there
   const firstBossBeaten = [];
   const lengths = [];            // { seconds, castles } for every run
@@ -46,6 +57,8 @@ export function simulate({ runs = 2000, policy = 'random', seed = 1, maxNodes = 
     let t = S.firstMap;
     let allies = 0;
     let alive = true;
+    let bossesIn = 0;
+    let bossesHeld = 0;
     for (let step = 0; step < maxNodes && alive; step++) {
       const lit = choices(run);
       const node = pick(lit, rng);
@@ -60,21 +73,34 @@ export function simulate({ runs = 2000, policy = 'random', seed = 1, maxNodes = 
       }
       t += nodeSeconds(node, rng);
       const deployed = Math.min(A.deploy, allies);
-      const power = rosterPower(deployed);
+      // #258: at a boss, some of the men left over are committed; they add to the fight and are spent
+      const committed = node.kind === 'boss' ? commitOf(allies - deployed) : 0;
+      const power = rosterPower(deployed) + V.chargeValue * committed;
+      if (node.kind === 'boss') bossesIn++;
       if (rng() < fallChance(node.difficulty, power)) { alive = false; break; }
+      allies -= committed;
+      if (node.kind === 'boss') bossesHeld++;
       // survivors pay for the fight, and a clear pays in recruits (decision 2: gone for the run)
       allies -= Math.min(deployed, Math.round(deployed * V.loss * Math.min(2, node.difficulty / power)));
       allies = Math.min(A.cap, allies + rng.int(A.earn[0], A.earn[1]) + (node.kind === 'fortress' ? A.fortress : 0));
       t += S.reward;
-      run = complete(run, { score: Math.round(100 * node.multiplier) });
+      const banked = node.kind === 'boss' && !committed ? CFG.raids.boss.bank : 1;
+      run = complete(run, { score: Math.round(100 * node.multiplier * banked) });
       if (node.kind === 'boss' && node.region === 0) firstBossBeaten.push(t);
     }
     lengths.push({ seconds: t, castles: run.cleared });
+    bossReached.push(bossesIn);
+    bossBeaten.push(bossesHeld);
+    scores.push(run.score);
     for (const i of new Set(run.path.map((id) => +id.split('.')[0]))) attempts.push(region(run, i).attempts);
   }
   const q = (xs, p) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.min(s.length - 1, Math.floor(p * s.length))] : NaN; };
   return {
-    runs, policy,
+    runs, policy, commit,
+    // #258: of the bosses ridden into, the share held; and the median score a run ends on
+    bossClear: bossReached.reduce((a, b) => a + b, 0) ? bossBeaten.reduce((a, b) => a + b, 0) / bossReached.reduce((a, b) => a + b, 0) : 0,
+    medianScore: q(scores, 0.5),
+    meanScore: Math.round(scores.reduce((a, b) => a + b, 0) / runs),
     firstBoss: { reached: firstBoss.length / runs, p25: q(firstBoss, 0.25), median: q(firstBoss, 0.5), p75: q(firstBoss, 0.75), p90: q(firstBoss, 0.9) },
     firstBossBeaten: firstBossBeaten.length / runs,
     runLength: { medianSeconds: q(lengths.map((l) => l.seconds), 0.5), medianCastles: q(lengths.map((l) => l.castles), 0.5), p90Castles: q(lengths.map((l) => l.castles), 0.9) },
@@ -99,4 +125,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log(`${r.policy.padEnd(10)}${pc(r.firstBoss.reached).padEnd(17)}${pc(r.firstBossBeaten).padEnd(10)}${mmss(r.runLength.medianSeconds).padEnd(13)}${String(r.runLength.medianCastles).padEnd(17)}${r.runLength.p90Castles}`);
   }
   console.log(`\nmap draws per region that keeps all five rules: ${results[0].drawsPerRegion.toFixed(2)} on average`);
+  console.log('\nTHE CALL TO ARMS (#258; on the same PLACEHOLDER survival model), a player who takes any lit node');
+  console.log('commits      bosses held   median score');
+  for (const c of Object.keys(COMMITS)) {
+    const r = simulate({ policy: 'random', commit: c });
+    console.log(`${c.padEnd(13)}${pc(r.bossClear).padEnd(14)}${r.medianScore}`);
+  }
 }

@@ -2207,6 +2207,10 @@ export const ViewMethods = {
     try { this.showKeep(); this.hud.hidePanels(); this.keepOpen = false; }
     catch (e) { /* reported as empty below */ }
 
+    // #258: raids mode's ability button carries no icon until an ability is in the slot
+    try { this.hud.setAbility(true, 'volley', 'arrows', true); }
+    catch (e) { /* reported as empty below */ }
+
     const GROUPS = [
       ['Buttons', 'Every treatment a tap target currently wears. The README says one rule paints every call to action; these are what is actually on screen.', [
         ['#start-btn', '.panel button', 'Play, and the primary action of every panel', 'panel'],
@@ -2219,6 +2223,7 @@ export const ViewMethods = {
         ['#mount-btn', '#mount-btn', 'Mount and dismount (#217) — 50px, and the only control whose WORD is its state'],
         ['#objective', '#objective', 'The objective strip while Wren is held (#250) \u2014 the one notice that does not queue or fade: what to do, which way, how far'],
         ['#wren-btn', '#wren-btn', 'Wren, out or in or loose (#234) — 50px, and the only ring that is a charge rather than a cooldown, which is why it is blue'],
+        ['#ability-btn', '#ability-btn', 'Raids mode\u2019s ability slot (#258) \u2014 50px above the banner, once a castle; the word is Ready or Used'],
         ['#settings-btn', '#settings-btn', 'The pause corner'],
         ['#ks-x', '.panel-x', 'Close, on a panel that styles its own', 'panel keep-sheet'],
         ['#set-x', '.panel-x', 'Close, the shared rule', 'panel'],

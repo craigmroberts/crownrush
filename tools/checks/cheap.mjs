@@ -201,6 +201,7 @@ export const CHEAP = {
       ['?view=report', 'report-screen'],   // #182
       ['?view=overworld', 'overworld'], ['?view=castle', null],   // #255, #256
       ['?view=deploy', 'ow-card'], ['?view=reward', 'ow-reward'], ['?view=muster', 'ow-muster'],   // #257
+      ['?view=commit', 'ow-card'], ['?view=bossreward', 'ow-reward'],   // #258
     ];
     const bad = [];
     for (const [q, panel, phase] of VIEWS) {
@@ -1853,6 +1854,137 @@ export const CHEAP = {
     return bad.length ? no(bad) : ok(`offered once and bought; on the field with her button; the meter filled in daylight and her release held ${W.held} of ${W.of}; taken, off the roster, and never offered again`);
   },
 
+  // #258 (R5): THE CALL TO ARMS, BOTH WAYS. Region 1's boss on the fixed run, twice, with sixteen men
+  // on the roster. Once with nobody committed: no charge, and the clear scores double. Once with eight
+  // committed: when the chief is on the field eight men come out of a gate, the charge lands on his
+  // guard, and afterwards all eight are off the roster -- the ones who lived too -- and the clear
+  // scores single. The raids are brought forward and the field cleared by the real damage path.
+  async 'boss-call-to-arms'(page, url) {
+    await playRaids(page, url);
+    const boss = async (commit) => {
+      await page.evaluate(({ seed, commit }) => {
+        const r = window.raids;
+        r.start(seed);
+        const roster = [];
+        for (let i = 1; i <= 16; i++) roster.push({ id: i, type: i % 2 ? 'swordsman' : 'archer', veteran: false });
+        r.run = { ...r.run, at: '0.4.0', path: ['0.0.0', '0.1.0', '0.2.0', '0.3.0', '0.4.0'], roster, nextAlly: 17 };
+        r.commit = commit;
+        r.plan = null;
+        r.ride('0.5.0');
+      }, { seed: RAIDS_SEED, commit });
+      await page.waitForFunction(() => window.game.castle && window.game.running, null, { timeout: 60000 });
+      const fight = await page.evaluate(() => new Promise((done) => {
+        const g = window.game;
+        g.renderer.render = () => {}; if (g.post && g.post.composer) g.post.composer.render = () => {};
+        clearTimeout(g.renderWatch); g.renderWatch = null;
+        const c = g.castle;
+        const seen = { charge: null, hit: null };
+        window.addEventListener('castle:charge', (e) => { seen.charge = e.detail; }, { once: true });
+        window.addEventListener('castle:charge-hit', (e) => { seen.hit = e.detail; }, { once: true });
+        const inField = g.units.filter((u) => u.rosterId).length;
+        let n = 0;
+        let chargers = 0;
+        let fromGate = null;
+        const step = () => {
+          n++;
+          const nx = c.spec.raids[c.next];
+          if (nx && c.t < nx.at) c.t = nx.at;
+          const chief = g.enemies.find((e) => e.type === 'boss' && e.hp > 0);
+          const ch = g.units.filter((u) => u.charge);
+          if (ch.length > chargers) {
+            chargers = ch.length;
+            if (fromGate == null) {
+              const gates = g.walls.filter((w) => w.gate && w.mesh);
+              fromGate = Math.min(...ch.map((u) => Math.min(...gates.map((w) => u.mesh.position.distanceTo(w.mesh.position)))));
+            }
+          }
+          // hold the chief and his guard until the charge has landed or cannot, then clear the field
+          const waiting = chief && c.committed.length && !c.chargeHit && n < 3000;
+          for (const e of [...g.enemies]) {
+            if (e.hp <= 0) continue;
+            if (waiting && (e === chief || chief.mesh.position.distanceTo(e.mesh.position) < 10)) { e.hp = Math.max(e.hp, 1); e.cooldown = 1; continue; }
+            if (!chief || !waiting) g.damageEnemy(e, 1e6, e.mesh.position);
+          }
+          if (c.done || n > 6000) return done({ inField, chargers, fromGate, charge: seen.charge, hit: seen.hit, committed: c.committed.map((u) => u.id), frames: n });
+          requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }));
+      await page.waitForSelector('#ow-reward:not(.hidden)', { timeout: 30000 });
+      const after = await page.evaluate(() => {
+        const r = window.raids;
+        const c = r.lastClear;
+        const base = (c.kills * 10 + c.coins) * r.node.multiplier * (c.keepStood ? 1 : 0.5);
+        return { roster: r.run.roster.map((u) => u.id), ratio: c.score / base, abilities: (r.reward.abilities || []).length, bank: window.CFG.raids.boss.bank };
+      });
+      return { fight, after };
+    };
+    const zero = await boss(0);
+    const eight = await boss(8);
+    const bad = [];
+    if (zero.fight.charge || zero.fight.chargers) bad.push('nobody was committed and a charge came out');
+    if (Math.abs(zero.after.ratio - zero.after.bank) > 0.02) bad.push(`the boss held with nobody committed scored x${zero.after.ratio.toFixed(2)}, not x${zero.after.bank}`);
+    if (zero.after.roster.length !== 16) bad.push(`with nobody committed and nobody killed the roster went from 16 to ${zero.after.roster.length}`);
+    if (!eight.fight.charge || eight.fight.chargers !== 8) bad.push(`eight committed, and ${eight.fight.chargers} charged`);
+    if (eight.fight.fromGate != null && eight.fight.fromGate > 3) bad.push(`the charge came out ${eight.fight.fromGate.toFixed(1)} from the nearest gate`);
+    if (!eight.fight.hit) bad.push('the charge never landed on the guard');
+    if (eight.fight.inField > 8) bad.push(`${eight.fight.inField} deployed beside the eight committed; the deploy is eight`);
+    const kept = eight.fight.committed.filter((id) => eight.after.roster.includes(id));
+    if (kept.length) bad.push(`${kept.length} of the committed are still on the roster; they are spent`);
+    if (Math.abs(eight.after.ratio - 1) > 0.02) bad.push(`the boss held with eight committed scored x${eight.after.ratio.toFixed(2)}, not x1`);
+    if (!zero.after.abilities || !eight.after.abilities) bad.push('a boss clear offered no ability');
+    return bad.length ? no(bad) : ok(`nobody committed: no charge, x${zero.after.ratio.toFixed(1)} score, 16 kept; eight committed: 8 out of a gate, the charge struck ${eight.fight.hit.hit} of the guard, all 8 spent, x1 score; both offered ${eight.after.abilities} abilities`);
+  },
+
+  // #258 (R5): THE THIRD BUTTON, ONCE A CASTLE. The slot filled with Hold Fast, a castle ridden: the
+  // button is up and ready, a tap holds every raider on the field, the button reads Used and a second
+  // tap does nothing; the next castle has it ready again.
+  async 'ability-once-a-castle'(page, url) {
+    await playRaids(page, url);
+    await page.evaluate((seed) => { const r = window.raids; r.start(seed); r.run = { ...r.run, ability: 'hold' }; }, RAIDS_SEED);
+    const one = async () => {
+      await rideToCastle(page);
+      return page.evaluate(() => new Promise((done) => {
+        const g = window.game;
+        g.renderer.render = () => {}; if (g.post && g.post.composer) g.post.composer.render = () => {};
+        clearTimeout(g.renderWatch); g.renderWatch = null;
+        const c = g.castle;
+        c.t = c.spec.raids[0].at;
+        const btn = document.getElementById('ability-btn');
+        let n = 0;
+        const step = () => {
+          n++;
+          const live = g.enemies.filter((e) => e.hp > 0);
+          if (live.length >= 3 || n > 1500) {
+            const before = { shown: !btn.classList.contains('hidden'), ready: btn.classList.contains('ready') };
+            for (const e of live) e.cooldown = 0;
+            btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+            const held = live.filter((e) => e.cooldown >= window.CFG.raids.abilities.hold.seconds - 0.1).length;
+            for (const e of live) e.cooldown = 0;
+            btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+            const again = live.filter((e) => e.cooldown > 0.5).length;
+            requestAnimationFrame(() => requestAnimationFrame(() => done({ before, held, of: live.length, again, after: { ready: btn.classList.contains('ready'), label: document.getElementById('ability-lbl').textContent } })));
+            return;
+          }
+          requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }));
+    };
+    const a = await one();
+    await page.evaluate(`(${CLEAR_CASTLE})()`);
+    await takeReward(page, 'coin');
+    const b = await one();
+    const bad = [];
+    for (const [k, r] of [['first', a], ['second', b]]) {
+      if (!r.before.shown || !r.before.ready) bad.push(`the ${k} castle opened without the ability button up and ready`);
+      if (!r.held || r.held < r.of) bad.push(`in the ${k} castle Hold Fast held ${r.held} of ${r.of}`);
+      if (r.again) bad.push(`in the ${k} castle a second tap held ${r.again} more -- it is once a castle`);
+      if (r.after.ready || r.after.label !== 'Used') bad.push(`after use in the ${k} castle the button reads "${r.after.label}"`);
+    }
+    return bad.length ? no(bad) : ok(`Hold Fast held ${a.held} of ${a.of}, then ${b.held} of ${b.of} in the next castle; a second tap did nothing and the button read Used each time`);
+  },
+
   // #247: FROM THE RESCUE TO THE FIRST RAID IS A DAY, AND THE HUD SAYS SO. `?tour` holds the opening;
   // clearing the flag lets it run, the hand-off comes at about 47 s, and `freeQueen` is called the
   // way the game calls it. Then the countdown has to be up, and the first `startWave` has to come a
@@ -2283,6 +2415,10 @@ export const PROVE = {
   'first-minute-is-one-card': () => { const g = window.game; const o = g.queenEnterKeep.bind(g); g.queenEnterKeep = () => o(true); },
   // #255: every node lit, so an unlit tap raises a card
   'overworld-rides': () => { if (window.raids) window.raids.map.isLit = () => true; },
+  // #258: the committed never come out of the gate
+  'boss-call-to-arms': () => { window.game.callToArms = function () { this.castle.charged = true; }; },
+  // #258: the third button does nothing
+  'ability-once-a-castle': () => { window.game.useAbility = () => false; },
   // #257: a man who falls in a castle is not crossed off the roster
   'allies-five-castles': () => { window.game.castleAllyFell = () => {}; },
   // #257: Wren's release does nothing

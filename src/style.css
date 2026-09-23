@@ -2320,3 +2320,27 @@ body.placing #toast { opacity: 0.55; transition: opacity 0.18s ease-out; }
 .ow-buy button { width: 78px; flex: none; height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-weight: 800; border-radius: 12px; }
 #ow-muster #ow-leave { width: 100%; margin-top: 12px; }
 #ow-card #ow-deploy .ow-note { margin: 4px 0 0; }
+
+/* #258 (R5): raids mode's ability slot. ABOVE the banner, beside the pause button, rather than a fourth
+   in the bottom row: #240 measured four along the bottom edge at 244 of a phone's 390 px, with the
+   joystick's pointerdown underneath them. Here it sits at the pause button's height, clear of the
+   notice line (--notice-bottom, 147px) by 13px. The mount/Wren tier's 50px and its word label, and the
+   horn's gold pulse while it is ready -- it is once a castle, so ready is worth a pulse. */
+#ability-btn {
+  position: fixed; bottom: calc(84px + env(safe-area-inset-bottom));
+  right: max(87px, calc(75px + env(safe-area-inset-right)));
+  width: 50px; height: 50px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; pointer-events: auto;
+  background: rgba(20, 38, 30, 0.86); box-shadow: var(--wood-ring), 0 6px 16px rgba(0,0,0,0.35); z-index: 5;
+  display: grid; place-items: center; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+#ability-btn.hidden { display: none; }
+#ability-btn i { position: relative; margin-top: -6px; display: grid; place-items: center; }
+#ability-btn.used i { opacity: 0.35; }
+#ability-btn.used { background: rgba(38, 34, 26, 0.86); }
+#ability-btn.ready { animation: hornReady 1.2s ease-in-out infinite alternate; }
+#ability-btn b {
+  position: absolute; bottom: 4px; color: #f2e8d0; font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+  font-size: 11px; line-height: 1; letter-spacing: 0.02em; text-shadow: 0 1px 0 rgba(0,0,0,0.6);
+}
+.ow-call { margin: 6px 0 4px; padding: 6px 10px 8px; border-radius: 12px; background: rgba(232, 52, 42, 0.12); border: 1px solid rgba(232, 52, 42, 0.35); }
+.ow-call .ow-deploy-head { margin-top: 2px; color: #ffc0ba; }

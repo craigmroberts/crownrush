@@ -1143,6 +1143,27 @@ export class Hud {
     }
   }
 
+  // #258: raids mode's ability slot. Dirty-checked like the rest -- `Hud.set` is every frame -- and the
+  // icon is only rewritten when the ability in the slot changes, which is between castles.
+  setAbility(show, id, icon, ready) {
+    const b = this.abilityBtn || (this.abilityBtn = document.getElementById('ability-btn'));
+    if (show !== this.abilityShown) {
+      this.abilityShown = show;
+      b.classList.toggle('hidden', !show);
+    }
+    if (!show) return;
+    if (id !== this.abilityId) {
+      this.abilityId = id;
+      document.getElementById('ability-ic').innerHTML = iconSvg(icon, 26);
+    }
+    if (ready !== this.abilityReady) {
+      this.abilityReady = ready;
+      b.classList.toggle('ready', ready);
+      b.classList.toggle('used', !ready);
+      document.getElementById('ability-lbl').textContent = ready ? 'Ready' : 'Used';
+    }
+  }
+
   // #57: the banner button. Same shape as the horn's above, plus `flying` -- whether one is actually
   // standing, which the ring cannot say because it is filling both while the banner is up and for
   // the ten seconds after it falls. Dirty-checked like the rest: this runs every frame.

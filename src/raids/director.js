@@ -10,7 +10,8 @@ import { CFG } from '../config.js';
 import { pickOffer } from '../upgrades.js';
 import { createRun, ride, complete, nodeById } from './run.js';
 import { castleSpec } from './castle.js';
-import { recruitsFor, recruit, buy, pay, canBuy, price, deploy, defaultPlan, clampPlan, lose, takeCard, seeCards, coinReward, wrenOnOffer, offerWren, recruitWren } from './allies.js';
+import { recruitsFor, recruit, buy, pay, canBuy, price, deploy, defaultPlan, clampPlan, lose, takeCard, seeCards, coinReward, wrenOnOffer, offerWren, recruitWren, committable, commitPick, withoutCommitted } from './allies.js';
+import { draftAbilities, setAbility } from './abilities.js';
 
 // The beat between a castle ending and the next screen: long enough to see the last raider fall, or
 // the King, and short enough that the next screen is the next thing rather than a wait.
@@ -24,6 +25,8 @@ export class RaidsDirector {
     this.run = null;
     this.node = null;
     this.plan = null;   // #257: the deploy plan the ride card last showed, kept between castles
+    this.commit = 0;    // #258: how many the boss card's Call to Arms row commits
+    this.committed = [];
     game.director = this;
     map.director = this;
   }
@@ -36,6 +39,7 @@ export class RaidsDirector {
     this.run = createRun(seed);
     this.node = null;
     this.plan = null;
+    this.commit = 0;
     this.toMap();
   }
 
@@ -46,13 +50,26 @@ export class RaidsDirector {
 
   // #257: what the ride card's deploy row starts on -- last castle's plan if there was one, clamped to
   // who is left, or the default split.
-  planFor() {
-    return this.plan ? clampPlan(this.run, this.plan) : defaultPlan(this.run);
+  // At a boss the committed are set aside first, so the deploy row counts only who is left.
+  planFor(node = null) {
+    const run = node && node.kind === 'boss' ? withoutCommitted(this.run, commitPick(this.run, this.commitFor())) : this.run;
+    return this.plan ? clampPlan(run, this.plan) : defaultPlan(run);
   }
 
-  setPlan(plan) {
-    this.plan = clampPlan(this.run, plan);
+  setPlan(plan, node = null) {
+    const run = node && node.kind === 'boss' ? withoutCommitted(this.run, commitPick(this.run, this.commitFor())) : this.run;
+    this.plan = clampPlan(run, plan);
     return this.plan;
+  }
+
+  // #258: the Call to Arms row, clamped to the men there are
+  commitFor() {
+    return Math.max(0, Math.min(this.commit, committable(this.run)));
+  }
+
+  setCommit(n) {
+    this.commit = Math.max(0, Math.min(n, committable(this.run)));
+    return this.commit;
   }
 
   // The map's Ride button, or a check. A muster is not a fight: it opens the muster, and leaving it
@@ -67,8 +84,10 @@ export class RaidsDirector {
     }
     this.map.hide();
     this.game.freeze(false);
-    this.sent = deploy(this.run, this.planFor());
-    this.game.startCastle(castleSpec(this.run.seed, node), this.sent, this.run.cards);
+    // #258: at a boss the committed are set aside before the deploy chooses, and go in held back
+    this.committed = node.kind === 'boss' ? commitPick(this.run, this.commitFor()) : [];
+    this.sent = deploy(withoutCommitted(this.run, this.committed), this.planFor(node));
+    this.game.startCastle(castleSpec(this.run.seed, node), this.sent, this.run.cards, { committed: this.committed, ability: this.run.ability });
     return node;
   }
 
@@ -81,8 +100,14 @@ export class RaidsDirector {
   // multiplier, halved if the Keep fell. It exists so the map has a number to show; R6 replaces it.
   afterClear(r) {
     const spec = this.game.castle ? this.game.castle.spec : castleSpec(this.run.seed, this.node);
-    const score = Math.round((r.kills * 10 + r.coins) * (this.node.multiplier || 1) * (r.keepStood ? 1 : 0.5));
+    // #258: a boss held with nobody committed scores `bank` times over -- banking pays too
+    const banked = this.node.kind === 'boss' && !this.committed.length;
+    const score = Math.round((r.kills * 10 + r.coins) * (this.node.multiplier || 1) * (r.keepStood ? 1 : 0.5) * (banked ? CFG.raids.boss.bank : 1));
     this.run = lose(this.run, r.fell || []);
+    // and the committed are spent, whether they came back or not
+    this.run = lose(this.run, this.committed.map((u) => u.id));
+    this.lastCommit = { committed: this.committed.length, banked };
+    this.committed = [];
     this.run = complete(this.run, { score, chest: r.coins });
     this.lastClear = { ...r, score };
     this.game.endCastle();
@@ -100,10 +125,17 @@ export class RaidsDirector {
     const men = recruitsFor(r, spec) + (kind === 'allies' ? A.bonus.allies : 0);
     const cards = this.drawCards(kind === 'card' ? 2 : 1);
     const coin = coinReward(this.node.region) * (kind === 'chest' ? A.bonus.chest : 1);
-    const out = { kind, men, cards, coin, fell: (r.fell || []).length, sent: r.sent || 0, wren: false };
-    if (this.node.kind === 'boss' && wrenOnOffer(this.run)) {
-      out.wren = true;
-      this.run = offerWren(this.run);
+    const out = { kind, men, cards, coin, fell: (r.fell || []).length, sent: r.sent || 0, wren: false, abilities: null, boss: this.node.kind === 'boss', spent: 0, banked: false };
+    if (this.node.kind === 'boss') {
+      out.spent = this.lastCommit ? this.lastCommit.committed : 0;
+      out.banked = !!(this.lastCommit && this.lastCommit.banked);
+      // #258: a boss pays an ability -- the choice of three is the whole reward, with Wren beside it
+      // if she has not been offered yet
+      out.abilities = draftAbilities(this.run);
+      if (wrenOnOffer(this.run)) {
+        out.wren = true;
+        this.run = offerWren(this.run);
+      }
     }
     return out;
   }
@@ -121,7 +153,8 @@ export class RaidsDirector {
   takeReward(pick) {
     const R = this.reward;
     if (!R) return;
-    if (pick === 'men') this.run = recruit(this.run, R.men).run;
+    if (R.abilities && R.abilities.some((a) => a.id === pick)) this.run = setAbility(this.run, pick);
+    else if (pick === 'men') this.run = recruit(this.run, R.men).run;
     else if (pick === 'coin') this.run = { ...this.run, chest: this.run.chest + R.coin };
     else if (pick === 'wren' && R.wren) this.run = recruitWren(this.run);
     else if (R.cards.some((c) => c.id === pick)) this.run = takeCard(this.run, pick);
@@ -134,6 +167,7 @@ export class RaidsDirector {
   // repairs (decision 1). Leaving is the node done.
   openMuster() {
     this.game.freeze(true);
+    this.musterAbilities = null;
     this.musterWren = wrenOnOffer(this.run);
     if (this.musterWren) this.run = offerWren(this.run);
     this.musterCards = null;
@@ -150,18 +184,29 @@ export class RaidsDirector {
   musterStock() {
     const items = ['swordsman', 'archer'].map((t) => ({ item: t, price: price(t), ...canBuy(this.run, t) }));
     const cardOk = this.run.chest >= price('card');
-    items.push({ item: 'card', price: price('card'), ok: cardOk && !this.musterCards, why: this.musterCards ? 'Choose one below' : cardOk ? '' : `${price('card') - this.run.chest} more coin` });
+    items.push({ item: 'card', price: price('card'), ok: cardOk && !this.musterCards && !this.musterAbilities, why: this.musterCards ? 'Choose one below' : cardOk ? '' : `${price('card') - this.run.chest} more coin` });
+    // #258: the ability slot, swapped here (spec section 6)
+    const ap = CFG.raids.abilities.price;
+    items.push({ item: 'ability', price: ap, ok: this.run.chest >= ap && !this.musterAbilities && !this.musterCards, why: this.musterAbilities ? 'Choose one below' : this.run.chest >= ap ? '' : `${ap - this.run.chest} more coin` });
     if (this.musterWren) {
       // the offer this muster made stands until the King leaves it, bought or not
       const c = this.run.wren ? { ok: false, why: 'She rides with you' } : this.run.chest >= price('wren') ? { ok: true, why: '' } : { ok: false, why: `${price('wren') - this.run.chest} more coin` };
       items.push({ item: 'wren', price: price('wren'), ...c });
     }
-    return { items, cards: this.musterCards };
+    return { items, cards: this.musterCards, abilities: this.musterAbilities, ability: this.run.ability };
   }
 
   buyAtMuster(item) {
-    if (item === 'card') {
-      if (this.musterCards || this.run.chest < price('card')) return;
+    if (item === 'ability') {
+      const ap = CFG.raids.abilities.price;
+      if (this.musterAbilities || this.musterCards || this.run.chest < ap) return;
+      this.run = pay(this.run, ap);
+      this.musterAbilities = draftAbilities(this.run);
+    } else if (this.musterAbilities && this.musterAbilities.some((a) => a.id === item)) {
+      this.run = setAbility(this.run, item);
+      this.musterAbilities = null;
+    } else if (item === 'card') {
+      if (this.musterCards || this.musterAbilities || this.run.chest < price('card')) return;
       this.run = pay(this.run, price('card'));
       this.musterCards = this.drawCards(3);
     } else if (item === 'wren') {
@@ -180,13 +225,16 @@ export class RaidsDirector {
   leaveMuster() {
     // a card paid for and not chosen is chosen for them -- the coin is gone, so the card must not be
     if (this.musterCards) this.run = takeCard(this.run, this.musterCards[0].id);
+    if (this.musterAbilities) this.run = setAbility(this.run, this.musterAbilities[0].id);
     this.musterCards = null;
+    this.musterAbilities = null;
     this.run = complete(this.run);
     this.toMap();
   }
 
   afterFall(r) {
     this.lastFall = r;
+    this.committed = [];
     this.game.endCastle();
     this.game.freeze(true);
     this.map.showFallen(this.run, this.node, () => this.start());
@@ -231,6 +279,28 @@ export class RaidsDirector {
     this.run = complete(this.run, { score: 480, chest: r.coins });
     this.game.freeze(true);
     this.reward = this.rewardFor(r, spec);
+    this.map.showReward(this.run, this.reward, (pick) => this.takeReward(pick));
+  }
+
+  // `?view=commit`: the boss's ride card, with eleven men and the Call to Arms row
+  demoCommit() {
+    this.demoRoster();
+    this.run = recruit(this.run, 6).run;
+    this.commit = 4;
+    const boss = this.map.regionBoss(this.run);
+    this.toMap();
+    this.map.openCard(boss);
+  }
+
+  // `?view=bossreward`: what a boss pays -- an ability, and Wren the first time
+  demoBossReward() {
+    this.demoRoster();
+    this.node = this.map.regionBoss(this.run);
+    this.lastCommit = { committed: 0, banked: true };
+    this.run = complete({ ...this.run, at: this.node.id, path: [...this.run.path, this.node.id] }, { score: 1800, chest: 40 });
+    this.game.freeze(true);
+    const spec = castleSpec(this.run.seed, this.node);
+    this.reward = this.rewardFor({ seconds: 120, kills: 40, coins: 40, wallsIntact: 1, keepStood: true, fell: [], sent: 8 }, spec);
     this.map.showReward(this.run, this.reward, (pick) => this.takeReward(pick));
   }
 

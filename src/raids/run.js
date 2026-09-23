@@ -24,7 +24,7 @@ export function createRun(seed, start = {}) {
     // (decision 2): a new run is always built here, so it always starts with nobody.
     roster: start.roster ? [...start.roster] : [],
     nextAlly: 1,
-    abilities: [],
+    ability: null,            // #258: the one ability in the third button's slot (src/raids/abilities.js)
     cards: {},                // reward cards taken, by id -- re-applied to every castle after `reset()`
     seen: {},                 // cards shown, taken or not, for `pickOffer`'s rotation (#235)
     wren: false,              // recruited this run (decision 4: an ally, at most once a run)

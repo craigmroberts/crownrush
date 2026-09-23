@@ -19,12 +19,15 @@ import { CFG, PADS } from './config.js';
 import { UPGRADES } from './upgrades.js';
 import { audio } from './audio.js';
 import { rand } from './game-shared.js';
+import { setHealthBar } from './models.js';
 
 export const RaidsMethods = {
   // The director (src/raids/director.js) calls these three; the game calls back with two events.
   // `deployed` is the roster's men going in, `{ id, type }` (src/raids/allies.js); `cards` is the run's
   // reward cards by id, which `reset()` has just wiped from `mods` and which are put back here.
-  startCastle(spec, deployed = [], cards = {}) {
+  // #258: `opts.committed` are the men of the Call to Arms, held back until the chief comes;
+  // `opts.ability` is the run's third button.
+  startCastle(spec, deployed = [], cards = {}, opts = {}) {
     this.mode = 'raids';
     this.frozen = false;
     this.reset();
@@ -56,7 +59,10 @@ export const RaidsMethods = {
     audio.init();
     audio.setActive(true);
     audio.setNight(this.night);
-    this.castle = { spec, t: 0, next: 0, done: false, kills0: this.kills, keepFell: false, fell: [], wren: null, wrenLost: false, sent: deployed.length };
+    this.castle = {
+      spec, t: 0, next: 0, done: false, kills0: this.kills, keepFell: false, fell: [], wren: null, wrenLost: false, sent: deployed.length,
+      committed: opts.committed || [], charged: false, chargeHit: false, ability: opts.ability || null, abilityUsed: false,
+    };
     if (wren) this.deployWren(wren);
     // The horn and banner are taught once, in the starter castle (#249's line); not again every castle.
     if (!spec.starter) this.verbsSaid = true;
@@ -190,7 +196,109 @@ export const RaidsMethods = {
       this.queueCastleRaid(raids[c.next], c.next, raids.length);
       c.next++;
     }
+    if (c.committed.length && !c.chargeHit) this.updateCharge();
     if (c.next >= raids.length && this.spawnQueue.length === 0 && !this.anyActiveEnemy()) this.castleCleared();
+  },
+
+  // #258 (R5): THE CALL TO ARMS. The committed men wait until the chief is on the field, then come out
+  // of the gate nearest him at a run and go for his guard. The first of them to reach it lands the
+  // charge -- a blow on every raider round him, harder for more men -- and after that they fight as
+  // the army does. Whatever happens to them, they are spent: the director takes them off the roster
+  // when the castle ends, alive or not.
+  updateCharge() {
+    const c = this.castle;
+    const B = CFG.raids.boss;
+    const boss = this.enemies.find((e) => e.type === 'boss' && e.hp > 0);
+    if (!c.charged) {
+      if (boss) this.callToArms(boss);
+      return;
+    }
+    if (!boss) { c.chargeHit = true; return; }
+    const bp = boss.mesh.position;
+    for (const u of this.units) {
+      if (!u.charge) continue;
+      if (u.mesh.position.distanceToSquared(bp) > (B.radius + boss.radius) ** 2) continue;
+      c.chargeHit = true;
+      const dmg = B.impact + B.impactPer * c.committed.length;
+      let hit = 0;
+      for (const e of [...this.enemies]) {
+        if (e.hp <= 0 || e.mesh.position.distanceToSquared(bp) > B.radius * B.radius) continue;
+        this.damageEnemy(e, dmg, e.mesh.position);
+        hit++;
+      }
+      audio.wave(false);
+      this.spawnFx(bp.x, bp.z, 0xffd23d);
+      this.burstFx(bp.clone().setY(1.4), '#ffe27a', 12, 0.8);
+      this.hud.toast(`*The charge lands.* ${hit} of the guard struck.`, 2200, 'Raid');
+      this.emitCastle('charge-hit', { hit, dmg });
+      return;
+    }
+  },
+
+  callToArms(boss) {
+    const c = this.castle;
+    const B = CFG.raids.boss;
+    c.charged = true;
+    const bp = boss.mesh.position;
+    const gates = this.walls.filter((w) => w.gate && w.mesh);
+    const gate = gates.reduce((a, w) => (!a || w.mesh.position.distanceToSquared(bp) < a.mesh.position.distanceToSquared(bp) ? w : a), null);
+    const gx = gate ? gate.mesh.position.x : 0;
+    const gz = gate ? gate.mesh.position.z : 0;
+    for (const a of c.committed) {
+      const u = this.spawnUnit(a.type, gx + rand(-1.2, 1.2), gz + rand(-1.2, 1.2), !!a.veteran);
+      u.rosterId = a.id;
+      u.charge = { boss };
+      u.stats = { ...u.stats, speed: u.stats.speed * B.speed, aggro: B.aggro };
+    }
+    audio.horn();
+    this.hud.toast(`*The Call to Arms!* ${c.committed.length} men charge the chief\u2019s guard.`, 2600, 'Raid', true);
+    this.emitCastle('charge', { men: c.committed.length });
+  },
+
+  // #258 (R5): THE THIRD BUTTON. Once a castle, whatever is in the slot.
+  useAbility() {
+    const c = this.castle;
+    if (!c || c.done || !c.ability || c.abilityUsed || !this.running) return false;
+    const A = CFG.raids.abilities;
+    const kp = this.king.mesh.position;
+    c.abilityUsed = true;
+    let said = '';
+    if (c.ability === 'volley') {
+      let n = 0;
+      for (const e of [...this.enemies]) {
+        if (e.hp <= 0 || e.mesh.position.distanceToSquared(kp) > A.volley.radius ** 2) continue;
+        this.damageEnemy(e, A.volley.damage, e.mesh.position);
+        this.burstFx(e.mesh.position.clone().setY(1.2), '#ffe27a', 3, 0.3);
+        n++;
+      }
+      said = n ? `*Rain of arrows.* ${n} struck.` : '*Rain of arrows* \u2014 on nobody.';
+    } else if (c.ability === 'hold') {
+      let n = 0;
+      for (const e of this.enemies) {
+        if (e.hp <= 0) continue;
+        e.cooldown = Math.max(e.cooldown, A.hold.seconds);
+        e.retarget = Math.max(e.retarget, A.hold.seconds);
+        e.flash = Math.max(e.flash || 0, 0.3);
+        n++;
+      }
+      said = `*Hold fast!* ${n} held where they stand.`;
+    } else if (c.ability === 'sally') {
+      for (let i = 0; i < A.sally.men; i++) this.spawnUnit('swordsman', kp.x + rand(-2, 2), kp.z + rand(-2, 2));
+      this.applyMods();
+      said = `*Sally forth!* ${A.sally.men} swordsmen at your side.`;
+    } else if (c.ability === 'mend') {
+      let n = 0;
+      for (const w of this.walls) {
+        if (w.state === 'broken') { this.restoreWall(w); n++; } else if (w.state === 'built' && w.hp < w.maxHp) { w.hp = w.maxHp; setHealthBar(w.bar, 1); n++; }
+      }
+      this.refreshPads();
+      said = n ? `*The masons are out.* ${n} ${n === 1 ? 'wall' : 'walls'} whole again.` : '*The masons are out* \u2014 but nothing was broken.';
+    }
+    audio.horn();
+    this.spawnFx(kp.x, kp.z, 0x9ad0ff);
+    this.hud.toast(said, 2400, 'The King');
+    this.emitCastle('ability', { id: c.ability });
+    return true;
   },
 
   queueCastleRaid(raid, i, of) {

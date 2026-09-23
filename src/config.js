@@ -872,7 +872,14 @@ export const CFG = {
     // enemy strength over roster power, `fall = base * e^(slope * (D/P - 1))`, clamped. Roster power
     // is 1 + `allyValue` per ally. It exists so the sim can report a run length at all; nothing about
     // a run's length in the R1 report should be read as a prediction.
-    survival: { base: 0.03, slope: 2.2, floor: 0.005, ceil: 0.95, allyValue: 0.08, loss: 0.15 },
+    // #258: `chargeValue` is what a committed man adds to a boss fight, in the same units as
+    // `allyValue`, and he is spent after. PLACEHOLDER like the rest of this line; R7 fits it. What it
+    // has to do now is keep the commit a choice. Swept over 3,000 runs a cell with the bank at x2:
+    // at 0.12 "always commit" held 93% of bosses against 70% AND out-scored "never" (1,231 to 1,219)
+    // -- it won both, which makes the commit a formality. At 0.08 the score gap is 1% (1,219 to
+    // 1,200), too thin to survive R7 moving anything. 0.06: never commit scores 4% more, always
+    // commit holds 16 points more bosses. `raids-commit-is-a-choice` holds that shape.
+    survival: { base: 0.03, slope: 2.2, floor: 0.005, ceil: 0.95, allyValue: 0.08, loss: 0.15, chargeValue: 0.06 },
     // #257 (R4): THE ROSTER. `src/raids/allies.js` reads these; the sim reads `earn`, `cap`, `deploy`.
     allies: {
       // A clear pays `earn[0]`, one more for walls still standing at `intactAt`, one more for a clear
@@ -902,6 +909,30 @@ export const CFG = {
       // dawn or a Wren being carried off, and a castle has none of those. A card that does nothing is
       // worse than no card -- it spends the choice.
       deckSkip: ['volunteers', 'muster', 'portcullis', 'tithe', 'huntsman', 'sharp-tools', 'packhorse', 'quick-feet'],
+    },
+    // #258 (R5): THE BOSS, AND THE CALL TO ARMS. The spend-or-save decision the design is built on:
+    // men committed charge from the gate at the chief's guard when he comes, and are spent for the
+    // run whatever happens to them; a boss held with nobody committed scores `bank` times over.
+    boss: {
+      bank: 2,
+      // The charge: committed men run `speed` times their own pace, and the first of them to reach
+      // the guard lands `impact` damage on every raider within `radius` of him -- a charge is a blow,
+      // not just more men arriving. `impactPer` more per man committed, so eight hit harder than two.
+      speed: 1.6, impact: 40, impactPer: 12, radius: 4.5,
+      // How far a charging man will chase. The whole field, because he is sent at the guard and has
+      // no post or King to stay near.
+      aggro: 80,
+    },
+    // #258 (R5): THE ABILITY SLOT -- the third button after the horn and the banner (spec section 6,
+    // the lesson of #240: three buttons, not more). Filled from a draft of three after a boss, and at
+    // a muster for `price`. Each is ONCE A CASTLE: one earned moment a fight, the rule Wren's release
+    // was written on (#234), rather than a cooldown to be tapped whenever it comes round.
+    abilities: {
+      price: 50,
+      volley: { radius: 11, damage: 55 },        // arrows on everything within 11 of the King
+      hold: { seconds: 4 },                      // every raider on the field held fast, Wren's release everywhere
+      sally: { men: 3 },                         // three swordsmen at the King's side, for this castle only
+      mend: {},                                  // every wall and gate standing again, at full
     },
     // #256 (R3): WHAT A NODE BECOMES WHEN THE KING RIDES INTO IT. `src/raids/castle.js` reads these.
     // Starting numbers for R7 to tune against real castles -- they are set so a region-1 castle lasts

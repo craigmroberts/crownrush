@@ -176,3 +176,25 @@ export function coinReward(region) {
   const C = CFG.raids.allies.coin;
   return C.base + C.perRegion * region;
 }
+
+// ---- the Call to Arms (#258, R5) ----
+
+// Who can be committed at a boss: any man on the roster. Not Wren -- she is not a charge, and losing
+// her to one would spend the one ally the run can only have once.
+export function committable(run) {
+  return run.roster.filter((u) => u.type !== 'wren').length;
+}
+
+// The men a commit of `n` sends: the NEWEST first, so the deploy's oldest-first pick is untouched by
+// how many are committed, and a player who commits two does not lose the two who have been with him
+// longest.
+export function commitPick(run, n) {
+  const men = run.roster.filter((u) => u.type !== 'wren');
+  return men.slice(Math.max(0, men.length - Math.max(0, Math.min(n, men.length))));
+}
+
+// The roster the deploy chooses from once the committed are set aside.
+export function withoutCommitted(run, committed) {
+  const out = new Set(committed.map((u) => u.id));
+  return { ...run, roster: run.roster.filter((u) => !out.has(u.id)) };
+}

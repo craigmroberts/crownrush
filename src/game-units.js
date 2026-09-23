@@ -497,7 +497,15 @@ export const UnitsMethods = {
 
       const p = u.mesh.position;
       let target = null;
-      if (u.melee) {
+      // #258: a man of the Call to Arms is sent at the chief's GUARD -- whoever stands nearest the
+      // chief, or the chief himself -- until the chief falls, and then he is one of the army again
+      const boss = u.charge && u.charge.boss.hp > 0 ? u.charge.boss : null;
+      if (u.charge && !boss) u.charge = null;
+      if (boss && !u.melee) tmp.copy(boss.mesh.position);
+      if (boss && u.melee) {
+        target = this.nearestEnemy(boss.mesh.position, 8) || boss;
+        tmp.copy(target.mesh.position);
+      } else if (u.melee) {
         target = this.nearestEnemy(p, u.stats.aggro);
         // What a melee soldier may chase away FROM: its own post or the block it is part of when it
         // is holding the grounds, the King or the banner otherwise. A soldier defending a wall has no
@@ -537,7 +545,7 @@ export const UnitsMethods = {
       // Only for the genuinely stuck -- the wrong side of a wall or a river. It used to fire at 14,
       // which a soldier allowed to trail properly reaches honestly, and a man blinking to the King's
       // feet reads far worse than one jogging to catch up.
-      if (d > A.lost) p.set((posted ? ox : cx) + rand(-1, 1), 0, (posted ? oz : cz) + rand(-1, 1));
+      if (d > A.lost && !boss) p.set((posted ? ox : cx) + rand(-1, 1), 0, (posted ? oz : cz) + rand(-1, 1));   // #258: a charge is far from the King on purpose
       u.moving = moving > 0.05;
       this.animateWalk(u, moving, dt);
 

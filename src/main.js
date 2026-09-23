@@ -450,6 +450,12 @@ document.getElementById('wren-btn').addEventListener('pointerdown', (e) => {
   e.stopPropagation();
   game.useWren();
 });
+// #258: the ability slot, raids only
+document.getElementById('ability-btn').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  game.useAbility();
+});
 // #57: `stopPropagation` for the same reason the horn has it -- the canvas under these buttons
 // listens for the drag that moves the King, and a press that reaches it would start walking him at
 // the same time (#128 is what that bug looks like from the player's side).
@@ -937,6 +943,7 @@ window.addEventListener('keydown', (e) => {
   // her in and out of the Keep every time somebody walked north. Q is beside it, unused, and reads
   // as the Queen. `e.repeat` like the rest.
   if ((e.key === 'q' || e.key === 'Q') && !e.repeat) return game.useWren();
+  if ((e.key === 'e' || e.key === 'E') && !e.repeat && game.castle) return game.useAbility();   // #258
   if (e.key === 'Enter' && game.placing) return game.confirmPlacing();   // #43
   if ((e.key === 'm' || e.key === 'M') && !e.repeat && game.movable) return game.beginMoving(game.movable);
   if (e.key === 'i' || e.key === 'I') game.toggleInfo();
@@ -1158,8 +1165,9 @@ function runView() {
     return;
   }
   // #257: the raids screens about the roster, on a run with eleven men and a card
-  if (VIEW === 'reward' || VIEW === 'muster' || VIEW === 'deploy') {
-    setTimeout(() => raids[{ reward: 'demoReward', muster: 'demoMuster', deploy: 'demoDeploy' }[VIEW]](), 400);
+  const RAIDS_VIEWS = { reward: 'demoReward', muster: 'demoMuster', deploy: 'demoDeploy', commit: 'demoCommit', bossreward: 'demoBossReward' };   // #257, #258
+  if (RAIDS_VIEWS[VIEW]) {
+    setTimeout(() => raids[RAIDS_VIEWS[VIEW]](), 400);
     return;
   }
   // #256: a castle stood and fought, live -- the starter of a fixed run, ridden the way the map's Ride

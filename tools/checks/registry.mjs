@@ -238,6 +238,21 @@ export const CHECKS = [
     why: '#257, decision 4. She is the one ally with a story rig and a power, and every piece of her comes from the story edition, where each assumed a night, an escort, or a rescue to go back to.',
   },
   {
+    id: 'boss-call-to-arms', area: 'Raids', cost: 'cheap',
+    asserts: 'Region 1\'s boss twice on a fixed run with sixteen men: committing nobody brings no charge and scores the bank multiple; committing eight brings eight out of a gate when the chief comes, the charge lands on his guard, all eight are spent whether they lived or not, and the clear scores single. Both offer an ability.',
+    why: '#258. The Call to Arms is the one decision the whole design is built around. A charge that never lands, or men who come back from being spent, and it is a number going down for nothing.',
+  },
+  {
+    id: 'ability-once-a-castle', area: 'Raids', cost: 'cheap',
+    asserts: 'With Hold Fast in the slot the ability button is up and ready in a castle; a tap holds every raider on the field; a second tap does nothing and the button reads Used; the next castle has it ready again.',
+    why: '#258. Once a castle is the ability\'s whole rule (the lesson of #234): a slot that refilled would be a cooldown to tap, and one that did not reset would be a single use a run.',
+  },
+  {
+    id: 'raids-commit-is-a-choice', area: 'Raids', cost: 'free',
+    asserts: 'In 3,000 simulated runs each, a player who always commits every spare man to the Call to Arms and one who never commits are each better at one thing: neither holds more bosses AND scores more.',
+    why: '#258. The spend-or-save decision is the design\'s centre, and the easiest part of it to make pointless: if one answer is always right it is a formality, and nothing else fails.',
+  },
+  {
     id: 'raids-roster-rules', area: 'Raids', cost: 'free',
     asserts: 'Over 300 simulated runs through src/raids/allies.js the roster never passes the cap, never holds an ally twice, never brings back one who fell, and never takes Wren twice; a new run starts empty. The rule helper refuses four rosters broken on purpose first.',
     why: '#257. Allies are what a run builds, and losing them for good is what makes deploying a decision (decision 2). A fallen man who comes back is the loss rule quietly deleted.',

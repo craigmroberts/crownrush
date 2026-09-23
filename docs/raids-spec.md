@@ -222,6 +222,11 @@ Roster { units: [{ id, type, veteran, hp }], cap }
 | **Wren** | A recruitable ally (*decided*), with no story attached. Offered at most once a run, as a muster purchase or a boss reward. Deployed, she carries the release stun as it works today (#234): her meter fills while raiders are near her, and one tap looses it. She can die like any ally, and is then gone for the run | Keeps the rig, the voice and the one mechanic that was already a power fantasy, and drops the rescue |
 | **Other heroes** | The mounted King rig as a knight captain, if iteration 1 has room; otherwise iteration 2 | The same reuse, lower priority |
 
+*As built in R5 (#258):* the committed are drawn from the whole roster before the deploy chooses
+(newest men first, never Wren), wait until the chief is on the field, and come out of the gate nearest
+him. The sim's commit policy and the free check `raids-commit-is-a-choice` hold "always commit" and
+"never commit" to each winning one of boss clear rate and score, not both.
+
 **Abilities** stay at three buttons, the lesson of #240: **horn**, **banner**, and **one ability slot**.
 The slot is filled from a draft at musters and after bosses. The 23 existing cards become the
 between-castle reward draft through `pickOffer` with its seen-rotation, so the deck work carries over

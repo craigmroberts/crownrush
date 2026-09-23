@@ -367,6 +367,21 @@ export const FREE = {
     return bad.length ? no(bad.slice(0, 5)) : { pass: true, note: `${steps} castles over 300 runs: the roster peaked at ${peak} of ${cap}, ${fellTotal} fell and none came back, Wren in ${wrenRuns} runs and never twice; four broken rosters refused first` };
   },
 
+  // #258: THE CALL TO ARMS IS A CHOICE. 3,000 simulated runs each by a player who always commits every
+  // man not deployed and one who never commits: neither may be better on BOTH the share of bosses
+  // held and the mean score. If one wins both, the commit is a formality and the design's centre is
+  // gone without anything else failing. On the placeholder survival model (R7 refits it), so this
+  // holds the shape of the trade, not its size.
+  'raids-commit-is-a-choice'() {
+    const all = simulateRaids({ runs: 3000, policy: 'random', commit: 'all' });
+    const none = simulateRaids({ runs: 3000, policy: 'random', commit: 'none' });
+    const pc = (x) => `${Math.round(x * 100)}%`;
+    const line = `always commit holds ${pc(all.bossClear)} of bosses and scores ${all.meanScore}; never commit holds ${pc(none.bossClear)} and scores ${none.meanScore}`;
+    if (all.bossClear >= none.bossClear && all.meanScore >= none.meanScore) return no(`always committing wins both: ${line}`);
+    if (none.bossClear >= all.bossClear && none.meanScore >= all.meanScore) return no(`never committing wins both: ${line}`);
+    return { pass: true, note: line };
+  },
+
   // #254: THE FIRST BOSS AT 6-8 MINUTES. 2,000 simulated runs by a player who takes any lit node; the
   // median time from Play to riding into the first boss, for the runs that get there. This is timing
   // over the map's shape and `CFG.raids.seconds`, which R3 still has to hit in real castles; the

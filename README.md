@@ -1490,6 +1490,26 @@ nobody back from the dead, Wren once) after refusing four rosters broken on purp
 `allies-five-castles` and `wren-rides-and-releases` drive the real thing. `?view=deploy`,
 `?view=reward` and `?view=muster` frame the three screens on the board.
 
+**R5 (#258) is the boss, and the decision the design is built on.** A boss's ride card has a **Call
+to Arms** row above the deploy: commit any number of men (not Wren). When the chief is on the field
+they come out of the gate nearest him at a run, go for his guard, and the first to reach it lands a
+blow on every raider round him — harder for more men (`CFG.raids.boss`). Then they fight as the army
+does, and **all of them are spent for the run**, alive or not. **Commit nobody and the boss scores
+×2.** A boss pays an ability rather than the usual three, with Wren beside it if she has not been
+offered yet.
+
+**The ability slot** is the third button, above the banner beside pause rather than a fourth along the
+bottom (#240's measurement). One ability at a time, filled after a boss or bought at a muster (50),
+**once a castle**: Rain of Arrows, Hold Fast, Sally Forth, Mason's Call (`src/raids/abilities.js`).
+
+Whether committing is a choice at all is measured, not assumed. `npm run raids:sim` now plays a commit
+policy, and the charge's value in the placeholder survival model was swept for it: at 0.12 "always
+commit" held 93% of bosses *and* out-scored "never commit", which makes the decision a formality. At
+0.06 never commit scores 4% more and always commit holds 16 points more bosses (86% against 70%).
+`raids-commit-is-a-choice` holds that shape and goes red at 0.12. `boss-call-to-arms` drives a boss
+with nobody and with eight committed, and `ability-once-a-castle` the third button, each red under its
+sabotage. `?view=commit` and `?view=bossreward` are on the board.
+
 ## The first two minutes, measured and fixed (#244, #245, #246)
 
 A retention pass drove a new player's first four minutes on the deployed build, three ways: a player
