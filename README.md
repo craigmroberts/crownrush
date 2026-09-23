@@ -1410,6 +1410,34 @@ And a mat no longer previews a building that is already standing. A translucent 
 out on top of the real one is the other half of that report, and a preview of something that exists
 is wrong whether or not anybody is looking at it.
 
+## Raids mode, in progress (#254-#261)
+
+A second mode is being built beside the story edition, behind `?mode=raids`: an endless run across an
+overworld map of castles, allies earned per castle and spent at bosses, the legacy tree carried over,
+no story. The design, the owner's decisions and the eight tickets are in `docs/raids-spec.md`. The
+story edition is untouched, and its last build before the overhaul is the branch
+`release/7-before-overhaul`.
+
+**R1 (#254) is the part that decides a run's shape, and it is pure code with no drawing.** `src/raids/`
+holds the run state (`run.js`, a seed and a path, JSON, the only thing that will be saved), the map
+(`map.js`: five castle layers then a boss, forks of 2-3, one starter castle to open a run) and the
+curve (`curve.js`). Numbers are in `CFG.raids`. `npm run raids` plays 2,000 runs per player type
+through the real modules:
+
+| player | reaches the first boss at, median | p25 to p90 |
+| --- | --- | --- |
+| takes any lit node | 6:25 | 5:51 to 7:39 |
+| takes the safest | 5:45 | 4:51 to 6:57 |
+| takes the biggest multiplier | 7:18 | 6:41 to 7:56 |
+
+That is timing over the map's shape and the castle lengths R3 still has to hit. The sim's survival
+figures run on a placeholder model until R7 fits one to real castles, and it says so when it prints.
+Raw map draws kept all five rules 29% of the time at first; repairing same-kind forks and missing
+musters at draw time, fixing an orphaned-link bug and letting the starter lead to every node of the
+first fork brought that to 96%, 1.04 draws a region. `raids-map-rules`, `raids-run-round-trips` and
+`raids-first-boss-on-time` hold it, and the first of those rejects four regions broken on purpose
+before it checks the real ones.
+
 ## The first two minutes, measured and fixed (#244, #245, #246)
 
 A retention pass drove a new player's first four minutes on the deployed build, three ways: a player

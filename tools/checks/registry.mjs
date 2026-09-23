@@ -213,6 +213,21 @@ export const CHECKS = [
     why: '#250. Once she was at the picket the only rescue feedback was a pink arrow, and the notice lane was busy (#244). A player who did not already know what the arrow meant had nothing to go on: no direction in words, no distance, nothing that stayed.',
   },
   {
+    id: 'raids-map-rules', area: 'Raids', cost: 'free',
+    asserts: 'Over 2,000 generated regions: the same seed gives the same region; five castle layers then one boss; 2-3 nodes a fork layer and 1-2 links a node; a real fork on every fork layer; a muster reachable and no layer of musters only; no all-fortress or all-muster path; everything reachable and the boss reachable from everything; region 0 opens on one starter castle.',
+    why: '#254. The map is the run\'s decisions. A fork of two identical castles is not a choice, an unreachable node is a promise the map cannot keep, and a map that differs between two loads of the same seed cannot be saved. Written from the spec rather than by calling the generator\'s own validator, which the generator already re-rolls against.',
+  },
+  {
+    id: 'raids-run-round-trips', area: 'Raids', cost: 'free',
+    asserts: 'A run ridden across three regions is the same run, with the same choices, after JSON; a ride to a node that is not lit is refused, and so is a saved run on a node not on its map or from another version.',
+    why: '#254. The run is the only thing raids mode will save (R8), and it stores a seed and a path rather than the map. If reading it back differs by one node, the King resumes somewhere the map does not have.',
+  },
+  {
+    id: 'raids-first-boss-on-time', area: 'Raids', cost: 'free',
+    asserts: 'In 2,000 simulated runs, the median time from Play to riding into the first boss is between 6 and 8 minutes.',
+    why: '#254, and the owner\'s decision 3. Five castles before a boss at 90-180 s a castle would put the first boss 10-15 minutes in, where most first runs never arrive; region 1\'s castles are short to bring it in. Timing only: the survival half of the sim is a placeholder until R7.',
+  },
+  {
     id: 'first-minute-is-one-card', area: 'Opening', cost: 'cheap',
     asserts: 'A fresh profile gets one intro card with no key names and a Play button; the run\'s first notice is the morning line with nothing before it; a notice\'s first word is visible the frame its box is.',
     why: '#249 and #253. Five cards of text before the first frame, keys named to a thumb, a stale "Wren is inside the Keep" a second before "Wren walks with you", and every notice arriving as a labelled empty box: the first minute\'s reading, measured on the phone frame.',

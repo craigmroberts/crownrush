@@ -110,7 +110,8 @@ economy. The story edition reads `'story'` everywhere it does today.
 
 **Shape.** A run is a chain of **regions**. A region is 6 **layers** left to right: five castle
 layers, then a single boss (*decided*). Each castle layer has 2–3 nodes; each node links to 1–2 nodes
-in the next layer. A muster sits in a castle layer, so a player who takes one fights four castles
+in the next layer, except the starter castle, which links to every node of the first fork (built in R1:
+with two links, a three-node fork after it always stranded one node). A muster sits in a castle layer, so a player who takes one fights four castles
 before the boss instead of five; that is the price of the breather. Regions are generated **one
 ahead**, so the map is endless and memory stays flat.
 

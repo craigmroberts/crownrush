@@ -4,6 +4,9 @@ import { MODS, UPGRADES } from '../../src/upgrades.js';
 import { ICONS } from '../../src/icons.js';
 import { verdict } from '../churn/verdict.mjs';
 import { simulate } from '../deck/reheat.mjs';
+import { simulate as simulateRaids } from '../raids/sim.mjs';
+import { generateRegion } from '../../src/raids/map.js';
+import { createRun, choices, ride, serialize, parse } from '../../src/raids/run.js';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,6 +29,45 @@ function needs(d, id, seen = new Set()) {
   return false;
 }
 const foot = (kind) => CFG.footprint[kind] || null;
+
+// #254: the raids map rules, from the spec (docs/raids-spec.md section 4), as sentences. Kept apart
+// from `src/raids/map.js`'s own validator on purpose -- see `raids-map-rules`.
+function raidsRegionProblems(g, index) {
+  const R = CFG.raids;
+  const bad = [];
+  const risk = (n) => ({ muster: 0, castle: 1, fortress: 2 }[n.kind] + 0.5 * n.modifiers.length);
+  const L = g.layers;
+  const all = L.flat();
+  const byId = new Map(all.map((n) => [n.id, n]));
+  if (L.length !== R.castleLayers + 1) bad.push(`${L.length} layers, not ${R.castleLayers + 1}`);
+  const last = L[L.length - 1];
+  if (last.length !== 1 || last[0].kind !== 'boss') bad.push('it does not end on one boss');
+  if (index === 0 && !(L[0].length === 1 && L[0][0].starter && L[0][0].kind === 'castle')) bad.push('it does not open on one starter castle');
+  if (index > 0 && L[0].some((n) => n.starter)) bad.push('a later region has a starter castle');
+  for (const row of L.slice(0, R.castleLayers)) {
+    const fork = !(index === 0 && row[0].layer === 0);
+    if (fork && (row.length < 2 || row.length > 3)) bad.push(`layer ${row[0].layer} has ${row.length} nodes`);
+    if (fork && new Set(row.map(risk)).size < 2) bad.push(`layer ${row[0].layer} is not a real fork`);
+    if (row.every((n) => n.kind === 'muster')) bad.push(`layer ${row[0].layer} is musters only`);
+    for (const n of row) {
+      if (!n.starter && (n.next.length < 1 || n.next.length > 2)) bad.push(`${n.id} has ${n.next.length} links`);
+      for (const id of n.next) if (!byId.has(id) || byId.get(id).layer !== n.layer + 1) bad.push(`${n.id} links to ${id}`);
+    }
+  }
+  const seen = new Set(L[0].map((n) => n.id));
+  for (const n of all) if (seen.has(n.id)) n.next.forEach((id) => seen.add(id));
+  if (seen.size !== all.length) bad.push(`${all.length - seen.size} nodes cannot be reached`);
+  const leads = new Set([last[0].id]);
+  for (const n of [...all].reverse()) if (n.next.some((id) => leads.has(id))) leads.add(n.id);
+  if (leads.size !== all.length) bad.push(`the boss cannot be reached from ${all.length - leads.size} nodes`);
+  const paths = [];
+  const walk = (n, acc) => (n.layer === R.castleLayers - 1 ? paths.push([...acc, n]) : n.next.forEach((id) => byId.has(id) && walk(byId.get(id), [...acc, n])));
+  L[0].forEach((n) => walk(n, []));
+  if (!paths.some((p) => p.some((n) => n.kind === 'muster'))) bad.push('no path reaches a muster');
+  if (paths.some((p) => p.every((n) => n.kind === 'fortress'))) bad.push('a path is fortresses only');
+  if (paths.some((p) => p.every((n) => n.kind === 'muster'))) bad.push('a path is musters only');
+  return bad;
+}
 
 export const FREE = {
   'tokens-resolve'() {
@@ -191,6 +233,76 @@ export const FREE = {
     if (CFG.rescue.firstRaid < day - 1) bad.push(`rescue.firstRaid is ${CFG.rescue.firstRaid}s and the day is ${day}s: the first raid comes before the player has had a morning`);
     if (!(CFG.waves.firstKnights >= 1 && CFG.waves.firstKnights <= 6)) bad.push(`waves.firstKnights is ${CFG.waves.firstKnights}; the formula sent six and this exists to send fewer`);
     return bad.length ? no(bad) : { pass: true, note: `${CFG.rescue.firstRaid}s of grace against a ${day}s day; the first raid is ${CFG.waves.firstKnights} knights` };
+  },
+
+  // #254: THE MAP KEEPS ITS FIVE RULES. Written here from the spec, not by calling `regionProblems`:
+  // the generator re-rolls until its own validator passes, so asking that validator again would only
+  // prove it agrees with itself. 500 run seeds x regions 0-3 = 2,000 regions.
+  //
+  // AND IT PROVES ITSELF FIRST. Free checks have no `--prove`, and the obvious sabotage -- a generator
+  // drawing only castles -- stayed green, because the generator's repairs turned the draw back into a
+  // legal map, which is their job. So the check's own rules are run against four regions broken on
+  // purpose, one rule each, and the check fails if any of them gets through.
+  'raids-map-rules'() {
+    const bad = [];
+    const selfTest = [
+      ['a fork of two identical nodes', (g) => { const row = g.layers[1]; row.forEach((n) => { n.kind = 'castle'; n.modifiers = []; }); }],
+      ['an unreachable node', (g) => { const t = g.layers[2][0].id; g.layers[1].forEach((n) => { n.next = n.next.filter((id) => id !== t); if (!n.next.length) n.next = [g.layers[2][1].id]; }); }],
+      ['no muster anywhere', (g) => { g.layers.flat().forEach((n) => { if (n.kind === 'muster') n.kind = 'castle'; }); }],
+      ['region 0 without its starter', (g) => { g.layers[0][0].starter = false; }],
+    ];
+    for (const [what, breakIt] of selfTest) {
+      const g = JSON.parse(JSON.stringify(generateRegion(7, 0)));
+      breakIt(g);
+      if (!raidsRegionProblems(g, 0).length) bad.push(`the rules let through a region with ${what}`);
+    }
+    let regions = 0;
+    for (let seed = 1; seed <= 500 && bad.length < 8; seed++) {
+      for (let index = 0; index < 4; index++) {
+        const g = generateRegion(seed, index);
+        regions++;
+        const where = `seed ${seed} region ${index}`;
+        if (JSON.stringify(generateRegion(seed, index)) !== JSON.stringify(g)) bad.push(`${where} is not the same region twice`);
+        for (const p of raidsRegionProblems(g, index)) bad.push(`${where}: ${p}`);
+      }
+    }
+    return bad.length ? no(bad.slice(0, 8)) : { pass: true, note: `${regions} regions, each the same twice, all five rules kept; the rules caught all ${selfTest.length} regions broken on purpose` };
+  },
+
+  // #254: A RUN IS ITS JSON. Ride a run through three regions, write it out and read it back, and it
+  // is the same run with the same choices; a ride to a node that is not lit, and a saved run whose
+  // King is on a node that is not on its map, are refused rather than half-loaded.
+  'raids-run-round-trips'() {
+    const bad = [];
+    let run = createRun(1234);
+    let rides = 0;
+    for (let i = 0; i < 20; i++) {
+      const lit = choices(run);
+      run = ride(run, lit[i % lit.length].id);
+      rides++;
+    }
+    const back = parse(serialize(run));
+    if (serialize(back) !== serialize(run)) bad.push('a run read back from JSON is not the run written');
+    if (JSON.stringify(choices(back).map((n) => n.id)) !== JSON.stringify(choices(run).map((n) => n.id))) bad.push('a run read back offers different choices');
+    const regions = new Set(run.path.map((id) => id.split('.')[0])).size;
+    if (regions < 3) bad.push(`20 rides crossed ${regions} regions; the test wants to cross a boss at least twice`);
+    try { ride(run, '0.0.0'); bad.push('riding back to the starter from region 3 was allowed'); } catch { /* refused, as it should be */ }
+    try { parse(JSON.stringify({ ...run, at: '9.9.9', path: [...run.path, '9.9.9'] })); bad.push('a run on a node not on its map was loaded'); } catch { /* refused */ }
+    try { parse(JSON.stringify({ ...run, v: 99 })); bad.push('a run from a future version was loaded'); } catch { /* refused */ }
+    return bad.length ? no(bad) : { pass: true, note: `${rides} rides across ${regions} regions, the same after JSON; bad rides and bad saves refused` };
+  },
+
+  // #254: THE FIRST BOSS AT 6-8 MINUTES. 2,000 simulated runs by a player who takes any lit node; the
+  // median time from Play to riding into the first boss, for the runs that get there. This is timing
+  // over the map's shape and `CFG.raids.seconds`, which R3 still has to hit in real castles; the
+  // survival half of the sim is a placeholder and is not asserted on.
+  'raids-first-boss-on-time'() {
+    const r = simulateRaids({ runs: 2000, policy: 'random' });
+    const m = r.firstBoss.median / 60;
+    const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+    return m >= 6 && m <= 8
+      ? { pass: true, note: `median ${mmss(r.firstBoss.median)} (p25 ${mmss(r.firstBoss.p25)}, p90 ${mmss(r.firstBoss.p90)}); ${r.drawsPerRegion.toFixed(2)} map draws per region` }
+      : no(`the median run reaches the first boss at ${mmss(r.firstBoss.median)}, outside 6:00-8:00`);
   },
 
   'icons-exist'() {

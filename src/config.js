@@ -842,6 +842,39 @@ export const CFG = {
   // Walking away has to be an answer, or an early visit to the camp ends the run (#28).
   finale: { pos: [-4, -74], radius: 9, garrison: 8, wakeRadius: 20, leash: 38, level: 13, chiefHp: 3.2, callEvery: 9, callCount: 3 },
 
+  // #254: RAIDS MODE (R1). The overworld map, the difficulty curve and the timings a run is built
+  // from. docs/raids-spec.md is the design; these are its numbers, and `npm run raids` plays two
+  // thousand runs through them. Nothing in the story edition reads this block.
+  raids: {
+    // A region is five castle layers, then the boss (owner's decision 3). A fork layer has 2-3 nodes
+    // and each node links to 1-2 in the next; region 1 opens on one starter castle (decision 5).
+    castleLayers: 5,
+    width: [2, 3],
+    // What a fork layer is made of, by weight. Musters are the breather and cost a castle of score;
+    // fortresses are the risk half of the fork. `map.js` repairs a draw that breaks a rule.
+    kinds: { castle: 0.55, fortress: 0.3, muster: 0.15 },
+    modifiers: ['night', 'fog', 'no-towers', 'double-raid'],
+    modifierChance: 0.35,        // a plain castle from region 2 on; a fortress always has one
+    // Score multipliers by node, and per modifier (spec section 7).
+    multiplier: { castle: 1, fortress: 1.5, boss: 2, muster: 0, modifier: 1.2 },
+    // D(n), a sawtooth that steepens: the region's base, a step per layer, relief on the castle
+    // after a boss. The first three bases are set by hand; after that each region is x1.25.
+    curve: { base: [1, 1.35, 1.8], growth: 1.25, layerStep: 0.15, relief: 0.75, fortress: 1.4, boss: 1.6, modifier: 1.15 },
+    // Seconds. Region 1's castles are the short ones so the first boss is reached at 6-8 minutes:
+    // five castles at the later 90-180 s would put it 10-15 minutes in, where most first runs never
+    // get (spec section 11). `map` is choosing a node, `reward` the screen after a castle, `firstMap`
+    // reading the map the first time. These are targets R3 has to hit, not measurements yet.
+    seconds: {
+      starter: [50, 65], region1: [60, 90], later: [90, 180], fortress: 1.2, boss: [120, 180],
+      muster: 12, map: 5, reward: 4, firstMap: 8,
+    },
+    // PLACEHOLDER until R7 fits it to real castles: the chance the King falls in a castle rises with
+    // enemy strength over roster power, `fall = base * e^(slope * (D/P - 1))`, clamped. Roster power
+    // is 1 + `allyValue` per ally. It exists so the sim can report a run length at all; nothing about
+    // a run's length in the R1 report should be read as a prediction.
+    survival: { base: 0.03, slope: 2.2, floor: 0.005, ceil: 0.95, allyValue: 0.08, recruits: [2, 4], cap: 24, deploy: 8, loss: 0.15 },
+  },
+
   // #218: THE RAID COMES FROM CAMPS THAT ARE STANDING ON THE MAP.
   //
   // The complaint this answers: "it's very singular decisions at the moment and you have to follow
