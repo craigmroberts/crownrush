@@ -337,7 +337,8 @@ export const FREE = {
         const node = lit[Math.floor(rng() * lit.length)];
         run = ride(run, node.id);
         if (node.kind === 'muster') {
-          run = { ...run, chest: run.chest + 40 };
+          // enough that Wren (60) is sometimes bought and sometimes not, so both halves of her rule run
+          run = { ...run, chest: run.chest + 90 };
           const hadWren = run.wren;
           if (wrenOnOffer(run)) run = rng() < 0.5 && canBuy(run, 'wren').ok ? buy(run, 'wren') : offerWren(run);
           for (const t of ['swordsman', 'archer', 'archer']) if (canBuy(run, t).ok) run = buy(run, t);
@@ -361,6 +362,8 @@ export const FREE = {
       bad.push(...problems(trace).map((x) => `run ${r}: ${x}`));
       if (bad.length > 5) break;
     }
+    // a run that never recruits her never tests her rule, and this check once said so quietly
+    if (!wrenRuns) bad.push('no run recruited Wren, so her once-a-run rule was never exercised');
     return bad.length ? no(bad.slice(0, 5)) : { pass: true, note: `${steps} castles over 300 runs: the roster peaked at ${peak} of ${cap}, ${fellTotal} fell and none came back, Wren in ${wrenRuns} runs and never twice; four broken rosters refused first` };
   },
 

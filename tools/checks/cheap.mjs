@@ -1749,18 +1749,24 @@ export const CHEAP = {
     return bad.length ? no(bad) : ok(`five castles: ${log.join('; ')}; the card taken third (${card}) held in the fourth and fifth`);
   },
 
-  // #257 (R4): WREN, RECRUITED ONCE, AT THE KING'S SIDE, AND LOST FOR GOOD. The chest is filled and a
-  // muster opened: she is on offer, and bought through its button. The next castle has her on the
+  // #257 (R4): WREN, RECRUITED ONCE, AT THE KING'S SIDE, AND LOST FOR GOOD. The starter is ridden and
+  // cleared, the chest filled, and the run's first muster (0.1.1 on this seed) ridden: she is on offer,
+  // and bought through its button. The next castle has her on the
   // field and her button up. With raiders held at her side her meter fills in a daytime castle, and a
   // full meter spent through her button holds them fast (#234). Then they are held ON her until they
   // have her: she is gone, off the roster, and the next muster does not offer her again.
   async 'wren-rides-and-releases'(page, url) {
     await playRaids(page, url);
     await page.evaluate((seed) => window.raids.start(seed), RAIDS_SEED);
+    await rideToCastle(page);
+    if (!await page.evaluate(`(${CLEAR_CASTLE})()`)) return no('the starter castle never cleared');
+    await takeReward(page, 'coin');
     const bought = await page.evaluate(() => {
       const r = window.raids;
       r.run = { ...r.run, chest: 500 };
-      r.openMuster();
+      const muster = r.map.litOf(r.run).find((n) => n.kind === 'muster');
+      if (!muster) return { offered: false, wren: false, inRoster: false, noMuster: true };
+      r.ride(muster.id);
       const b = document.querySelector('#ow-muster [data-buy="wren"]');
       if (b) b.click();
       const out = { offered: !!b, wren: r.run.wren, inRoster: r.run.roster.some((u) => u.type === 'wren') };
@@ -1807,15 +1813,31 @@ export const CHEAP = {
     }));
     const cleared = await page.evaluate(`(${CLEAR_CASTLE})()`);
     if (cleared) await takeReward(page, 'coin');
+    // the next muster on this seed is 0.4.1; ride there through castles and look at what it sells
     const after = await page.evaluate(() => {
       const r = window.raids;
-      const out = { inRoster: r.run.roster.some((u) => u.type === 'wren'), wrenLost: r.run.wrenLost };
-      r.openMuster();
-      out.offeredAgain = !!document.querySelector('#ow-muster [data-buy="wren"]');
-      document.getElementById('ow-leave').click();
-      return out;
+      return { inRoster: r.run.roster.some((u) => u.type === 'wren'), wrenLost: r.run.wrenLost };
     });
+    for (let i = 0; i < 4; i++) {
+      const m = await page.evaluate(() => {
+        const r = window.raids;
+        const muster = r.map.litOf(r.run).find((n) => n.kind === 'muster');
+        if (!muster) return false;
+        r.ride(muster.id);
+        return true;
+      });
+      if (m) {
+        after.offeredAgain = await page.evaluate(() => !!document.querySelector('#ow-muster [data-buy="wren"]'));
+        after.secondMuster = true;
+        break;
+      }
+      await page.evaluate(() => { const r = window.raids; const lit = r.map.litOf(r.run); r.ride(lit[0].id); });
+      await page.waitForFunction(() => window.game.castle && window.game.running, null, { timeout: 60000 });
+      await page.evaluate(`(${CLEAR_CASTLE})()`);
+      await takeReward(page, 'coin');
+    }
     const bad = [];
+    if (bought.noMuster) return no('no muster lit after the starter on the pinned seed -- the check needs one');
     if (!bought.offered) bad.push('the first muster did not offer Wren');
     if (!bought.wren || !bought.inRoster) bad.push('buying Wren at the muster did not put her on the roster');
     if (!onField.stage || onField.inKeep) bad.push('Wren was brought and is not on the field');
@@ -1826,7 +1848,8 @@ export const CHEAP = {
     if (W.lost && W.stage) bad.push('Wren was taken and is still on the field');
     if (!cleared) bad.push('the castle never cleared after she was taken');
     if (after.inRoster) bad.push('Wren was taken and is still on the roster');
-    if (after.offeredAgain) bad.push('a muster offered Wren again after she was lost');
+    if (!after.secondMuster) bad.push('the run never reached a second muster to ask');
+    else if (after.offeredAgain) bad.push('a muster offered Wren again after she was lost');
     return bad.length ? no(bad) : ok(`offered once and bought; on the field with her button; the meter filled in daylight and her release held ${W.held} of ${W.of}; taken, off the roster, and never offered again`);
   },
 
