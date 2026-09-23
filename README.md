@@ -1421,7 +1421,7 @@ story edition is untouched, and its last build before the overhaul is the branch
 **R1 (#254) is the part that decides a run's shape, and it is pure code with no drawing.** `src/raids/`
 holds the run state (`run.js`, a seed and a path, JSON, the only thing that will be saved), the map
 (`map.js`: five castle layers then a boss, forks of 2-3, one starter castle to open a run) and the
-curve (`curve.js`). Numbers are in `CFG.raids`. `npm run raids` plays 2,000 runs per player type
+curve (`curve.js`). Numbers are in `CFG.raids`. `npm run raids:sim` plays 2,000 runs per player type
 through the real modules:
 
 | player | reaches the first boss at, median | p25 to p90 |
@@ -1437,6 +1437,32 @@ musters at draw time, fixing an orphaned-link bug and letting the starter lead t
 first fork brought that to 96%, 1.04 draws a region. `raids-map-rules`, `raids-run-round-trips` and
 `raids-first-boss-on-time` hold it, and the first of those rejects four regions broken on purpose
 before it checks the real ones.
+
+**R2 (#255) draws the map, and R3 (#256) stands a castle on it.** Play in `?mode=raids` opens the map
+(`src/overworld.js`): a region climbing a portrait screen, the starter at the bottom and the boss at the
+top, the nodes the King can ride to lit and pulsing, each carrying its score multiplier. A tap raises
+a card — kind, modifiers, multiplier, reward, one Ride button; an unlit node answers nothing. The map is
+DOM over a frozen game: `update()` returns before it simulates or draws, so the map costs **no draw
+calls**, which is the breather a phone gets between castles.
+
+A castle is not a new world — `buildWorld` runs once a page load — but the tier-0 village stood on the
+same plot (`src/game-raids.js`) with its economy switched off: walls, Keep, homes and the spec's crewed
+towers; no mats, no trade post, no camps or caches, no mining (decision 1). Wren is in the Keep and off
+the stage, so a standing Keep with her in it is what raiders go for, with no change to how one picks a
+target. What a castle holds is `castleSpec(runSeed, node)` in `src/raids/castle.js`, a pure function of
+the node: raid times, sizes and mix, rank, Keep level, time of day, towers. Clearing its raids fires
+`castle:cleared` and the map comes back with the run a castle on; the King falling fires `castle:fell`
+in place of the story's `gameOver`, and the map offers Ride again. `src/raids/director.js` is the glue:
+map, castle, map. `?view=overworld` and `?view=castle` frame both on the board.
+
+Every gate is `this.mode === 'raids'`, which only `startCastle` sets, so with no `?mode` the story runs
+exactly as it did. `overworld-rides` (no draw in 30 frames of map, 44 px taps, one lit starter, the card
+and Ride), `castle-stands-and-resolves` (the castle whole and its economy absent, a clear and a fall)
+and `castles-do-not-leak` hold it — twenty-five castles in a row leave geometries at 201 and textures
+at 37 between castle 5 and castle 25, with no castle above 219 draw calls; the same run with a teardown
+that frees nothing reaches 2,617 geometries. The score on the map is an interim `(kills × 10 + coin)
+× multiplier` until R6 builds the real one, and a muster passes straight through until R4 builds its
+shop.
 
 ## The first two minutes, measured and fixed (#244, #245, #246)
 

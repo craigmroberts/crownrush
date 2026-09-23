@@ -233,6 +233,11 @@ const GROUPS = [
     ['twilight', 'Twilight', '../?view=road&phase=0.70', 'The handover: the last warm light going, the violet coming up under it.'],
     ['bloodmoon', 'Blood moon', '../?view=road&phase=0.64&blood=1', 'The twin of Dusk, at the same phase. It has to be told from it at a glance, which is the whole reason it exists.'],
   ]],
+  // #255, #256: RAIDS MODE, behind `?mode=raids` until it replaces the story (docs/raids-spec.md).
+  ['raids', 'Raids mode', [
+    ['overworld', 'The map', '../?view=overworld', 'A region of the raids map two nodes in: the starter and one fork taken, the King\u2019s token on the last, the next fork lit. Tap a lit node for its card. Drawn in DOM over a frozen game, so this frame costs no draw calls (#255).'],
+    ['castle', 'A castle', '../?view=castle', 'The starter castle of the same run, stood and fought live: the tier-0 village with its economy switched off \u2014 no mats, no trade post, no camps, Wren in the Keep \u2014 and its two raids coming on the castle\u2019s clock (#256).'],
+  ]],
   ['progress', 'Progress', [
     ['keep', 'Keep sheet', '../?view=keep', 'What the next Keep level costs and what it gives.'],
     ['levelup', 'Level up', '../?view=levelup', 'The reward panel: what the level gave, and the three cards it offers.'],

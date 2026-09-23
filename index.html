@@ -233,6 +233,25 @@
          that does not queue and does not fade. It rides above the notice stack, so a notice arriving
          shows under it for its duration and the strip stays where it was. -->
     <div id="objective" class="hidden"><i data-icon="tiara" data-size="16"></i><span id="objective-t">Take her back · <b>north</b> · 38 paces</span></div>
+    <!-- #255 (R2): the raids map, over a frozen game. DOM and SVG, so it costs no draw calls; the nodes
+         and paths are written by src/overworld.js from the run. `?mode=raids` shows it; `?view=overworld`
+         frames it on the board. -->
+    <div id="overworld" class="hidden">
+      <div class="ow-head"><b id="ow-title">Region 1</b><span id="ow-sub"></span></div>
+      <div class="ow-board" id="ow-board">
+        <svg id="ow-paths" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+        <div id="ow-nodes"></div>
+        <i id="ow-king" aria-hidden="true"></i>
+      </div>
+      <p class="ow-hint" id="ow-hint"></p>
+      <div id="ow-card" class="panel hidden"></div>
+      <div id="ow-fallen" class="panel hidden">
+        <h1>The King fell</h1>
+        <p id="ow-fallen-where"></p>
+        <p id="ow-fallen-stats" class="ow-stats"></p>
+        <button id="ow-again" class="primary">Ride again</button>
+      </div>
+    </div>
     <div id="toast"><div class="toast-panel" id="toast-panel"><b id="toast-kind" class="hidden"><img id="toast-face" alt="" hidden><span id="toast-kind-t"></span></b><span id="toast-text"></span><i id="toast-more"></i></div></div>
 
     <div id="start-screen" class="overlay">

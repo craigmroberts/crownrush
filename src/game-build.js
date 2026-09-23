@@ -23,6 +23,12 @@ const LOCK_WORD = { noguard: 'Nobody to promote', nohorse: 'The yard is empty', 
 export const BuildMethods = {
   // ---------- pads ----------
   refreshPads() {
+    // #256: a castle has no mats at all -- not to build, not to repair, not to crew (decision 1)
+    if (this.mode === 'raids') {
+      for (const pad of this.pads || []) { this.root.remove(pad.mesh); this.disposePad(pad); }
+      this.pads = [];
+      return;
+    }
     let added = 0;
     for (const def of [...PADS, ...this.dynamicPads]) {
       // #190: BY ID, NOT BY OBJECT. `addPad` hands a bridge def to `bridgeMatPos`, which returns a
@@ -1805,6 +1811,8 @@ export const BuildMethods = {
   },
 
   breakKeep(announce = true, repair = true) {
+    // #256: in a castle the Keep falling costs score, not the run, and Wren is not in it to be taken
+    if (this.mode === 'raids') { audio.wave(true); this.castleKeepFell(); this.showKeepBroken(false); return; }
     const sheltering = this.queen.inKeep && !this.queen.captive;
     this.queenLeaveKeep();
     audio.wave(true);

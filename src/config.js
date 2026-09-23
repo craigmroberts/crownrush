@@ -843,7 +843,7 @@ export const CFG = {
   finale: { pos: [-4, -74], radius: 9, garrison: 8, wakeRadius: 20, leash: 38, level: 13, chiefHp: 3.2, callEvery: 9, callCount: 3 },
 
   // #254: RAIDS MODE (R1). The overworld map, the difficulty curve and the timings a run is built
-  // from. docs/raids-spec.md is the design; these are its numbers, and `npm run raids` plays two
+  // from. docs/raids-spec.md is the design; these are its numbers, and `npm run raids:sim` plays two
   // thousand runs through them. Nothing in the story edition reads this block.
   raids: {
     // A region is five castle layers, then the boss (owner's decision 3). A fork layer has 2-3 nodes
@@ -873,6 +873,24 @@ export const CFG = {
     // is 1 + `allyValue` per ally. It exists so the sim can report a run length at all; nothing about
     // a run's length in the R1 report should be read as a prediction.
     survival: { base: 0.03, slope: 2.2, floor: 0.005, ceil: 0.95, allyValue: 0.08, recruits: [2, 4], cap: 24, deploy: 8, loss: 0.15 },
+    // #256 (R3): WHAT A NODE BECOMES WHEN THE KING RIDES INTO IT. `src/raids/castle.js` reads these.
+    // Starting numbers for R7 to tune against real castles -- they are set so a region-1 castle lasts
+    // the 60-90 s the first-boss timing rests on, and no more precisely than that.
+    castle: {
+      // When each raid arrives, in seconds from the castle starting. The first is a 3 s countdown.
+      // Region 1's gaps are short so its castles fit in 60-90 s; later castles breathe more.
+      at: { starter: [3, 26], region1: [3, 24, 46], later: [3, 40, 80], boss: [3, 45, 90] },
+      // Raiders in a raid: `base + perD * difficulty`, and each later raid of the castle is `growth`
+      // bigger than the one before. The starter sends three, then four, knights.
+      size: { starter: [3, 4], base: 3, perD: 2.5, growth: 0.25 },
+      // From which region each type joins the knights, and what share of a raid it takes.
+      mix: [{ type: 'brute', from: 1, share: 0.2 }, { type: 'elite', from: 2, share: 0.15 }, { type: 'shield', from: 2, share: 0.1 }, { type: 'archer', from: 3, share: 0.1 }],
+      // Keep level, which is the wall material and a part of enemy damage: 3 in region 1, +2 a region.
+      level: { starter: 2, base: 3, perRegion: 2, max: 13 },
+      // Time of day, held for the whole castle: region 1 at noon, region 2 in the golden hour, then
+      // drawn from the day. `night` is the modifier; a boss is the blood moon.
+      phase: { region1: 0.3, region2: 0.52, later: [0.3, 0.52, 0.7], night: 0.8, boss: 0.64 },
+    },
   },
 
   // #218: THE RAID COMES FROM CAMPS THAT ARE STANDING ON THE MAP.

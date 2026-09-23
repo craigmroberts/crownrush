@@ -11,6 +11,8 @@ import { SAVE_VERSION, readLength, writeLength } from './game-save.js';
 import { CFG, PADS } from './config.js';
 import { sampleFrame, bugReport, reportWithLog, noteSession, endSession } from './report.js';
 import { newestRelease, unseenReleases, hasNews, readSeen, markSeen } from './releases.js';
+import { Overworld } from './overworld.js';
+import { RaidsDirector } from './raids/director.js';
 
 const canvas = document.getElementById('game');
 const hud = new Hud();
@@ -20,6 +22,15 @@ try {
 } catch (err) {
   window.__showError(err && err.message ? err.message : String(err));
   throw err;
+}
+// #255/#256: raids mode, behind `?mode=raids`. Its director owns the map and the castles; the title's
+// Play starts a raids run instead of the story, and the story's Continue and intro are not offered.
+// The director always exists, so `?view=overworld` can frame the map from a story page too.
+const RAIDS = /[?&]mode=raids/.test(location.search);
+const raids = new RaidsDirector(game, new Overworld(document.getElementById('overworld')));
+if (RAIDS) {
+  const line = document.querySelector('#start-screen .panel.title > p');
+  if (line) line.textContent = 'Ride from castle to castle. Hold each one against the raids, gather allies, and see how far you get.';
 }
 
 // #51: a KTX2 texture transcodes to whichever compressed format the device supports, and only a
@@ -34,7 +45,7 @@ const refreshStart = () => {
   const len = readLength();
   // #56: and what previous runs have earned. `legacyProgress` is read fresh rather than cached,
   // because the run that just ended is what changed it.
-  hud.showStart(readScores(len)[0] || null, game.savedRun(), len, game.legacyProgress());
+  hud.showStart(readScores(len)[0] || null, RAIDS ? null : game.savedRun(), len, game.legacyProgress());
   // #220: the chooser button is drawn INSIDE the legacy block, so its listener has to be re-bound
   // every time that block is redrawn -- `renderLegacy` replaces the markup wholesale, which takes
   // any listener on it with it. Same reason `refreshStart` re-binds nothing else: everything else on
@@ -237,6 +248,11 @@ function startForView() {
   runView();
 }
 document.getElementById('start-btn').addEventListener('click', () => {
+  if (RAIDS) {
+    hud.hideStart();
+    audio.init();
+    return raids.start();
+  }
   let seen = false;
   try { seen = !!localStorage.getItem(INTRO_KEY); } catch (e) { /* private mode */ }
   if (seen) return game.start();
@@ -1136,6 +1152,17 @@ function runView() {
     setTimeout(() => game.showElements(), 500);
     return;
   }
+  // #255: the raids map, part-way through its first region, drawn over a frozen game
+  if (VIEW === 'overworld') {
+    setTimeout(() => raids.demo(), 400);
+    return;
+  }
+  // #256: a castle stood and fought, live -- the starter of a fixed run, ridden the way the map's Ride
+  // button rides it, so its first raid comes in on the castle's own clock
+  if (VIEW === 'castle') {
+    setTimeout(() => { raids.start(20260923); raids.ride('0.0.0'); }, 400);
+    return;
+  }
   if (VIEW === 'build') {
     setTimeout(async () => {
       if (!await game.showStructure(CHAR, AGE, LEVEL)) {
@@ -1367,6 +1394,7 @@ requestAnimationFrame(frame);
 
 // expose for poking around in the console
 window.game = game;
+window.raids = raids;   // #256: the checks drive raids mode through its director
 // #144: the balance table too. Sweeping a tuning number in a live game is how the figures beside it
 // in config.js get pinned, and rebuilding once per candidate value is the alternative.
 window.CFG = CFG;

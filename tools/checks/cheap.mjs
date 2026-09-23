@@ -92,6 +92,57 @@ async function waitForPicket(page) {
   await page.waitForFunction(() => { const g = window.game; return g.queen.captive && !g.queen.taken && g.enemies.some((e) => e.captor); }, null, { timeout: 150000 });
 }
 
+// #255/#256: RAIDS MODE FROM THE TITLE. A fresh profile, `?mode=raids`, Play: the map comes up over a
+// frozen game. Everything after that is driven through the page or through `window.raids`, the
+// director, the way the map's own Ride button drives it.
+async function playRaids(page, url) {
+  await page.addInitScript(() => { try { localStorage.setItem('crownrush-intro-seen', '1'); } catch (e) { /* private mode */ } });
+  await page.goto(`${url}?mode=raids`, { waitUntil: 'load', timeout: 150000 });
+  await page.waitForSelector('#start-btn:not([disabled])', { timeout: 150000 });
+  await page.click('#start-btn');
+  await page.waitForSelector('#overworld:not(.hidden)', { timeout: 30000 });
+}
+// A fixed run for the checks that ride it, so a red is the same red on the next run. Play draws a
+// random seed; this is the same restart the fallen screen's Ride again does, with a seed.
+const RAIDS_SEED = 20260923;
+// Ride a lit node that is a fight, and wait for its castle to be standing. A muster is passed straight
+// through until R4 builds its shop, and it is sometimes the only lit node -- a node leads on to one or
+// two, and the one can be a muster -- so ride on until a castle stands.
+async function rideToCastle(page) {
+  await page.evaluate(() => {
+    for (let i = 0; i < 8 && !window.game.castle; i++) {
+      const lit = [...document.querySelectorAll('.ow-node.lit')];
+      const b = lit.find((x) => !x.classList.contains('k-muster')) || lit[0];
+      window.raids.ride(b.dataset.id);
+    }
+  });
+  await page.waitForFunction(() => window.game.castle && window.game.running, null, { timeout: 60000 });
+}
+// Stub the draw, and clear the castle on fast-forward: each raid is brought to its moment and whatever
+// it spawns is killed through the real damage path. Resolves with the `castle:cleared` detail.
+const CLEAR_CASTLE = `() => new Promise((done) => {
+  const g = window.game;
+  // the real draws are own properties, kept once so a check that wants a real frame can put them back
+  if (!window.__draws) window.__draws = { r: g.renderer.render, c: g.post && g.post.composer ? g.post.composer.render : null };
+  g.renderer.render = () => {}; if (g.post && g.post.composer) g.post.composer.render = () => {};
+  clearTimeout(g.renderWatch); g.renderWatch = null;
+  let got = null;
+  window.addEventListener('castle:cleared', (e) => { got = e.detail; }, { once: true });
+  const t0 = performance.now();
+  const step = () => {
+    const c = g.castle;
+    if (c && !c.done) {
+      const nx = c.spec.raids[c.next];
+      if (nx && c.t < nx.at) c.t = nx.at;
+      for (const e of [...g.enemies]) if (!e.camp && e.hp > 0) g.damageEnemy(e, 1e6, e.mesh.position);
+    }
+    if (got) return done(got);
+    if (performance.now() - t0 > 90000) return done(null);
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+})`;
+
 // #179: MAKE A CHECK PROVE IT CAN FAIL.
 //
 // Every one of the four checks that were wrong about the game passed review because the reasoning
@@ -133,6 +184,7 @@ export const CHEAP = {
       ['?view=releases', 'release-screen'], ['?view=whatsnew', 'release-screen'],
       ['?view=defeat', 'gameover-screen'], ['?view=victory', 'victory-screen'],
       ['?view=report', 'report-screen'],   // #182
+      ['?view=overworld', 'overworld'], ['?view=castle', null],   // #255, #256
     ];
     const bad = [];
     for (const [q, panel, phase] of VIEWS) {
@@ -1498,6 +1550,147 @@ export const CHEAP = {
     return bad.length ? no(bad) : ok(`nudges at ${nudges.join('s and ')}s; fell once at full damage, stood up on the plot at ${after.hp} with ${after.guards} guards posted, and the second attempt freed her in ${kite.seconds}s`);
   },
 
+  // #255 (R2): THE MAP. From the title in raids mode: the map is up and the game is frozen under it --
+  // no draw at all over 30 frames; every node is a 44 px tap target or more; a new run lights only the
+  // starter; tapping a node that is not lit raises nothing; tapping the lit one raises its card, and
+  // Ride puts the King on it and stands its castle.
+  async 'overworld-rides'(page, url) {
+    await playRaids(page, url);
+    const r = await page.evaluate(() => new Promise((done) => {
+      const g = window.game;
+      let draws = 0;
+      const rr = g.renderer.render.bind(g.renderer);
+      g.renderer.render = (...a) => { draws++; return rr(...a); };
+      const c = g.post && g.post.composer;
+      let cr = null;
+      if (c) { cr = c.render.bind(c); c.render = (...a) => { draws++; return cr(...a); }; }
+      let f = 0;
+      const tick = () => {
+        if (++f < 30) return requestAnimationFrame(tick);
+        g.renderer.render = rr; if (c) c.render = cr;
+        const nodes = [...document.querySelectorAll('.ow-node')];
+        const unlit = nodes.find((b) => !b.classList.contains('lit'));
+        unlit.click();
+        const cardAfterUnlit = !document.getElementById('ow-card').classList.contains('hidden');
+        done({
+          draws, frozen: g.frozen,
+          lit: nodes.filter((b) => b.classList.contains('lit')).map((b) => b.dataset.id),
+          smallest: Math.min(...nodes.map((b) => Math.min(b.getBoundingClientRect().width, b.getBoundingClientRect().height))),
+          cardAfterUnlit,
+        });
+      };
+      requestAnimationFrame(tick);
+    }));
+    await page.click('.ow-node.lit');
+    const card = await page.evaluate(() => !document.getElementById('ow-card').classList.contains('hidden') && !!document.getElementById('ow-ride'));
+    if (card) await page.click('#ow-ride');
+    const rode = await page.waitForFunction(() => window.game.castle && window.game.running, null, { timeout: 30000 }).then(() => true).catch(() => false);
+    const at = await page.evaluate(() => window.raids.run && window.raids.run.at);
+    const bad = [];
+    if (r.draws) bad.push(`${r.draws} draws in 30 frames with the map up`);
+    if (!r.frozen) bad.push('the game was not frozen under the map');
+    if (r.lit.length !== 1 || r.lit[0] !== '0.0.0') bad.push(`a new run lit ${r.lit.join(', ') || 'nothing'}, not the starter 0.0.0`);
+    if (r.smallest < 44) bad.push(`the smallest node is ${r.smallest}px, under a 44px tap target`);
+    if (r.cardAfterUnlit) bad.push('tapping a node that is not lit raised its card');
+    if (!card) bad.push('tapping the lit node raised no card with a Ride button');
+    if (!rode) bad.push('Ride did not stand a castle');
+    if (at !== '0.0.0') bad.push(`after Ride the King is at ${at}, not the starter`);
+    return bad.length ? no(bad) : ok(`0 draws over 30 frames; only the starter lit; nodes ${r.smallest}px; an unlit tap does nothing; card, Ride, and the starter castle stands`);
+  },
+
+  // #256 (R3): A CASTLE STANDS, IS FOUGHT, AND ENDS BOTH WAYS. The starter from the map: the tier-0
+  // castle whole -- 24 walls, the Keep, crewed towers -- with no mats, no trade post, no camps, no
+  // caches and Wren off the stage. Its raids come on its clock and clearing them fires
+  // `castle:cleared` and brings the map back with the run one castle on. The next castle is then lost:
+  // the King falls, `castle:fell` fires, the story's `gameOver` does not, and the map offers Ride again.
+  async 'castle-stands-and-resolves'(page, url) {
+    await playRaids(page, url);
+    await page.evaluate((seed) => window.raids.start(seed), RAIDS_SEED);
+    await rideToCastle(page);
+    const stood = await page.evaluate(() => {
+      const g = window.game;
+      return {
+        walls: g.walls.filter((w) => w.state === 'built').length, keep: g.keep && g.keep.state,
+        pads: g.pads.length, trade: !!g.tradeMat, camps: g.camps.length, caches: g.caches.length,
+        sleepers: g.enemies.filter((e) => e.camp).length, wrenOnStage: !!g.queen.mesh.parent,
+        crew: g.turrets.length, raids: g.castle.spec.raids.map((x) => x.types.length),
+      };
+    });
+    const cleared = await page.evaluate(`(${CLEAR_CASTLE})()`);
+    if (!cleared) return no([`every raider of ${stood.raids.length} raids killed and castle:cleared never fired`]);
+    await page.waitForSelector('#overworld:not(.hidden)', { timeout: 30000 });
+    const after = await page.evaluate(() => ({ cleared: window.raids.run.cleared, lit: document.querySelectorAll('.ow-node.lit').length, frozen: window.game.frozen }));
+    await rideToCastle(page);
+    const fell = await page.evaluate(() => new Promise((done) => {
+      const g = window.game;
+      let got = null;
+      let storyOver = false;
+      const go = g.gameOver.bind(g);
+      g.gameOver = (...a) => { storyOver = true; return go(...a); };
+      window.addEventListener('castle:fell', (e) => { got = e.detail; }, { once: true });
+      g.damageUnit(g.king, 1e6, null);
+      setTimeout(() => done({ got, storyOver, over: !!g.over }), 300);
+    }));
+    await page.waitForSelector('#ow-fallen:not(.hidden)', { timeout: 30000 }).catch(() => {});
+    const fallenUp = await page.evaluate(() => !document.getElementById('ow-fallen').classList.contains('hidden'));
+    const bad = [];
+    if (stood.walls !== 24) bad.push(`${stood.walls} walls standing, not 24`);
+    if (stood.keep !== 'built') bad.push(`the Keep is ${stood.keep}`);
+    if (stood.pads) bad.push(`${stood.pads} mats in a castle (defense only: none)`);
+    if (stood.trade) bad.push('a trade post mat in a castle');
+    if (stood.camps || stood.caches || stood.sleepers) bad.push(`camps ${stood.camps}, caches ${stood.caches}, sleeping garrison ${stood.sleepers} -- the far country came with the castle`);
+    if (stood.wrenOnStage) bad.push('Wren is on the stage');
+    if (!stood.crew) bad.push('the towers have no crews');
+    if (cleared.kills < stood.raids.reduce((a, b) => a + b, 0)) bad.push(`cleared after ${cleared.kills} kills of ${stood.raids.reduce((a, b) => a + b, 0)} raiders sent`);
+    if (after.cleared !== 1) bad.push(`after the clear the run has ${after.cleared} castles cleared`);
+    if (!after.frozen || !after.lit) bad.push('the map did not come back frozen with a fork lit');
+    if (!fell.got) bad.push('the King fell and castle:fell did not fire');
+    if (fell.storyOver || fell.over) bad.push('the King falling in a castle ran the story edition\'s gameOver');
+    if (!fallenUp) bad.push('the map did not offer Ride again');
+    return bad.length ? no(bad) : ok(`24 walls, Keep, ${stood.crew} tower crew, no mats/camps/caches, Wren off stage; cleared after ${cleared.kills} kills (raids of ${stood.raids.join(' and ')}); the map back with the run on 1; the King's fall fired castle:fell and not gameOver`);
+  },
+
+  // #256 (R3): TWENTY-FIVE CASTLES AND NOTHING CLIMBS. Each is ridden from the map, drawn for one real
+  // frame, fought to a clear and torn down. After each frame: geometries and textures on the GPU,
+  // objects in the scene, the JS heap, and the draw calls. Castle 5 against castle 25 -- by 5 anything
+  // the first castle builds once (a rank baked, a shader compiled) has been built, so a climb after it
+  // is a leak. The bridge-mat leak (#190) was a copy per refresh, invisible until a phone ran out.
+  async 'castles-do-not-leak'(page, url) {
+    await playRaids(page, url);
+    await page.evaluate((seed) => window.raids.start(seed), RAIDS_SEED);
+    const rows = [];
+    for (let i = 0; i < 25; i++) {
+      try { await rideToCastle(page); } catch (e) {
+        const at = await page.evaluate(() => ({ at: window.raids.run && window.raids.run.at, fallen: !document.getElementById('ow-fallen').classList.contains('hidden') }));
+        return no([`castle ${i + 1} never stood (the run at ${at.at}${at.fallen ? ', and fallen' : ''}): ${e.message.split('\n')[0]}`]);
+      }
+      const m = await page.evaluate(() => new Promise((done) => {
+        const g = window.game;
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          const info = g.renderer.info;
+          let objects = 0;
+          g.scene.traverse(() => { objects++; });
+          done({ geo: info.memory.geometries, tex: info.memory.textures, calls: info.render.calls, objects, heap: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null });
+        }));
+      }));
+      await page.evaluate(`(${CLEAR_CASTLE})()`);
+      await page.waitForSelector('#overworld:not(.hidden)', { timeout: 30000 });
+      // the draw was stubbed to clear fast; put it back for the next castle's measured frame
+      await page.evaluate(() => { const g = window.game; const d = window.__draws; g.renderer.render = d.r; if (d.c) g.post.composer.render = d.c; });
+      rows.push(m);
+    }
+    const a = rows[4];
+    const z = rows[24];
+    const bad = [];
+    if (z.geo - a.geo > 12) bad.push(`geometries ${a.geo} at castle 5, ${z.geo} at castle 25`);
+    if (z.tex - a.tex > 4) bad.push(`textures ${a.tex} at castle 5, ${z.tex} at castle 25`);
+    if (z.objects - a.objects > 60) bad.push(`scene objects ${a.objects} at castle 5, ${z.objects} at castle 25`);
+    if (a.heap != null && z.heap - a.heap > 40) bad.push(`heap ${a.heap} MB at castle 5, ${z.heap} MB at castle 25`);
+    const worst = Math.max(...rows.map((r) => r.calls));
+    if (worst >= 400) bad.push(`a castle drew ${worst} calls, over the 400 budget`);
+    return bad.length ? no(bad) : ok(`castle 5 -> 25: geometries ${a.geo} -> ${z.geo}, textures ${a.tex} -> ${z.tex}, objects ${a.objects} -> ${z.objects}${a.heap != null ? `, heap ${a.heap} -> ${z.heap} MB` : ''}; draw calls at most ${worst}`);
+  },
+
   // #247: FROM THE RESCUE TO THE FIRST RAID IS A DAY, AND THE HUD SAYS SO. `?tour` holds the opening;
   // clearing the flag lets it run, the hand-off comes at about 47 s, and `freeQueen` is called the
   // way the game calls it. Then the countdown has to be up, and the first `startWave` has to come a
@@ -1926,6 +2119,12 @@ export const PROVE = {
   'objective-strip-while-held': () => { window.game.hud.setObjective = () => {}; },
   // #249: the stale Keep line back in the tableau
   'first-minute-is-one-card': () => { const g = window.game; const o = g.queenEnterKeep.bind(g); g.queenEnterKeep = () => o(true); },
+  // #255: every node lit, so an unlit tap raises a card
+  'overworld-rides': () => { if (window.raids) window.raids.map.isLit = () => true; },
+  // #256: the castle never calls itself cleared
+  'castle-stands-and-resolves': () => { window.game.castleCleared = () => {}; },
+  // #256: a teardown that frees nothing -- what the bridge-mat leak looked like from outside
+  'castles-do-not-leak': () => { window.game.disposeRun = () => 0; },
   // #247: the grace back to 22 s
   'first-raid-after-a-day': () => { window.CFG.rescue.firstRaid = 22; },
   // #244: the bug as it shipped -- every wall announces itself and no line has priority, so the

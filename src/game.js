@@ -11,6 +11,7 @@ import { Input } from './input.js';
 import { setHealthBar, HealthBars, CoinField, clearHealthBars, makeRing, makeCoinStack, makeCamp, makeCache, makeTorchField, cacheSizes } from './models.js';
 import { V3, tmp, tmp2, rand } from './game-shared.js';
 import { BuildMethods } from './game-build.js';
+import { RaidsMethods } from './game-raids.js';
 import { EnemiesMethods } from './game-enemies.js';
 import { UnitsMethods } from './game-units.js';
 import { ViewMethods } from './game-view.js';
@@ -166,6 +167,8 @@ export class Game {
     // for as long as that tab lives, and the number on the ending screen to ask for either again.
     // #233: read once. It cannot change mid-session, and `game-enemies.js` needs the same answer.
     this.escort = escortOn();
+    this.mode = 'story';   // #256: `startCastle` makes it 'raids'; nothing else does
+    this.frozen = false;   // #255: the raids map is up and the game neither simulates nor draws
     this.seed = mapSeed();
     this.world = buildWorld(this.scene, this.shadowProfile === 'off', this.seed);
     // #165 / #166: how big the for-ever caches in models.js are, for the perf overlay and for tests.
@@ -1445,6 +1448,8 @@ export class Game {
 
   // ---------- update ----------
   update(dt) {
+    // #255: the raids map is up. No simulation, no draw: the map is DOM and SVG over a still canvas.
+    if (this.frozen) { audio.setActive(true); return; }
     this.time += dt;
     this.watchStuck(dt);
     audio.setActive(this.running);
@@ -1472,6 +1477,7 @@ export class Game {
       this.updateFalling();   // #248
       this.updateRuins(dt);
       this.updateWaves(dt);
+      if (this.castle) this.updateCastle(dt);   // #256
       this.updateFog(dt);
       this.updateChips(dt);
       const army = this.countFollowers();
@@ -1486,12 +1492,12 @@ export class Game {
       if (raid.count === 0) this.raidPeak = 0;
       this.hud.setRaid(this.raidPeak > 0 ? raid.hp / this.raidPeak : 0, raid.count, this.wave, raid.boss, this.inPrologue());   // #232
       // #19: the march on the camp opens at a Keep level or a night, whichever comes first
-      if (!this.finaleOpen && (this.baseLevel >= CFG.finale.level || this.wave >= this.finaleNight())) {
+      if (this.mode !== 'raids' && !this.finaleOpen && (this.baseLevel >= CFG.finale.level || this.wave >= this.finaleNight())) {
         this.finaleOpen = true;
         this.hud.toast('The raiders\' camp lies to the north. *March on it and end the war!*', 4200, 'Raid');
         audio.wave(true);
       }
-      this.hud.showNextWave(between && this.wave > 0 && this.waveTimer > 3 && !this.won);
+      this.hud.showNextWave(this.mode !== 'raids' && between && this.wave > 0 && this.waveTimer > 3 && !this.won);   // #256: a castle has no night to skip to
       if (this.raidWarning && this.time >= this.raidWarning) {
         this.raidWarning = 0;
         this.hud.toast('They want her back. Raiders are coming!', 3000, 'Raid');
@@ -1508,7 +1514,7 @@ export class Game {
       // intro card that used to say this came three minutes early and said "Space" to a thumb.
       if (verbs && !this.verbsSaid) {
         this.verbsSaid = true;
-        this.hud.toast('Two buttons in the corner now. *The horn* rallies your army to you and throws raiders back. *The banner* holds them where you stand.', 4600, 'Wren');
+        this.hud.toast('Two buttons in the corner now. *The horn* rallies your army to you and throws raiders back. *The banner* holds them where you stand.', 4600, this.mode === 'raids' ? '' : 'Wren');   // #256: Wren is not on the field in raids
       }
       this.hud.setHorn(verbs, this.hornT / CFG.horn.cooldown, this.hornT);
       // #57: and the banner, which has a life of its own as well as a cooldown -- it is taken down
@@ -1525,7 +1531,7 @@ export class Game {
       const q = this.queen;
       const wrenMode = q.charge >= 1 ? 'hold' : q.inKeep ? 'out' : 'in';
       const canShelter = !!this.keep && this.keep.state === 'built';
-      const wrenShow = verbs && !q.captive && (canShelter || q.charge > 0);
+      const wrenShow = this.mode !== 'raids' && verbs && !q.captive && (canShelter || q.charge > 0);   // #256: she is an ally in raids (R4), not a button
       // #240: MOUNT AND WREN SHARE ONE SLOT. Four buttons along the bottom edge were 244 of a
       // phone's 390 px, and the joystick is a pointerdown anywhere on the canvas UNDER them -- a
       // thumb resting where thumbs rest landed on a button before it could start a drag. Both
@@ -1578,7 +1584,7 @@ export class Game {
       // remembered at three call sites is a rule that will be missed at a fourth. `loadTotal` is a
       // reduce over five keys, which `setLoad` on the next line is about to do anyway.
       this.checkBagFull();
-      this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, between ? this.waveTimer : null, this.finaleOpen ? 'camp' : `${this.baseLevel}/${CFG.finale.level}`, this.res, this.score, this.loadCap());
+      this.hud.set(this.coinsCarried, Math.max(1, this.wave), army, (this.castle ? this.castleNextIn() : between ? this.waveTimer : null), this.finaleOpen ? 'camp' : `${this.baseLevel}/${CFG.finale.level}`, this.res, this.score, this.loadCap());
       this.updateIndicators(dt);
       this.perfT -= dt;
       if (this.perfT <= 0) {
@@ -1762,4 +1768,4 @@ export class Game {
 
 // The rest of the class. These were cut out of this file to keep it readable; they are ordinary
 // methods of Game and behave exactly as they did when they were written inline.
-Object.assign(Game.prototype, BuildMethods, EnemiesMethods, UnitsMethods, ViewMethods, VillagerMethods, HorseMethods, SaveMethods, QualityMethods);
+Object.assign(Game.prototype, BuildMethods, EnemiesMethods, UnitsMethods, ViewMethods, VillagerMethods, HorseMethods, SaveMethods, QualityMethods, RaidsMethods);

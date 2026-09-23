@@ -682,7 +682,7 @@ export const UnitsMethods = {
       // `gameOver` runs BEFORE the splice: it records the run, and the army it records is
       // `units.length - 1` on the understanding that the King is one of them.
       if (u.type === 'king' && atPicket) return this.picketRestart();   // #246
-      if (u.type === 'king') this.gameOver(u.type);
+      if (u.type === 'king') { if (this.mode === 'raids') this.castleFell('king'); else this.gameOver(u.type); }   // #256
       // #235: The Muster counts him, and dawn brings him back (`musterFallen`)
       if (u.type === 'archer' && this.mods.fallenRise) this.fallen = (this.fallen || 0) + 1;
       this.units.splice(this.units.indexOf(u), 1);

@@ -574,6 +574,7 @@ export const ViewMethods = {
   // wins, because mining a tree while standing on buried treasure is the wrong answer in a way that
   // needs no measurement.
   updateDigging(dt) {
+    if (this.mode === 'raids') return false;   // #256: defense only (decision 1)
     const kp = this.king.mesh.position;
     let on = null;
     for (const c of this.caches || []) {
@@ -634,6 +635,7 @@ export const ViewMethods = {
   },
 
   updateMining(dt) {
+    if (this.mode === 'raids') return;   // #256: defense only (decision 1)
     const kp = this.king.mesh.position;
     this.mineTimer -= dt;
     // #81: rain waters what grows. The bonus is scaled by how hard it is falling rather than switched
@@ -1607,6 +1609,7 @@ export const ViewMethods = {
   // It sits INSIDE the alarm's cooldown rather than beside it, so it can never speak more often than
   // the alarm it belongs to, and then keeps a longer gap of its own on top.
   raiseAlarm(text, voice = null) {
+    if (this.mode === 'raids') voice = null;   // #256: Wren is not on the field to call out
     this.alarmT = 3.5;
     this.alarmText = text;
     if (this.time - this.lastAlarm > 6) {

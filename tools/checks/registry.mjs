@@ -213,6 +213,21 @@ export const CHECKS = [
     why: '#250. Once she was at the picket the only rescue feedback was a pink arrow, and the notice lane was busy (#244). A player who did not already know what the arrow meant had nothing to go on: no direction in words, no distance, nothing that stayed.',
   },
   {
+    id: 'overworld-rides', area: 'Raids', cost: 'cheap',
+    asserts: 'From the title in raids mode the map is up over a frozen game that draws nothing for 30 frames; every node is at least a 44 px tap target; a new run lights only the starter; an unlit tap raises nothing; the lit one raises a card whose Ride puts the King on it and stands its castle.',
+    why: '#255. The map is where every decision of a run is made, and it is also the breather between castles, so it has to cost nothing to draw. An unlit node that answers a tap is a promise the run cannot keep.',
+  },
+  {
+    id: 'castle-stands-and-resolves', area: 'Raids', cost: 'cheap',
+    asserts: 'A castle ridden from the map stands whole (24 walls, the Keep, crewed towers) with no mats, trade post, camps, caches or Wren; its raids come and clearing them fires castle:cleared and returns the map with the run on; the King falling in the next fires castle:fell, not the story\'s gameOver, and the map offers Ride again.',
+    why: '#256. A castle is the story edition\'s village stood on the same plot with its economy switched off, and every switch is a place the story could leak in: a mat is decision 1 broken, and a gameOver would write a story defeat to the story scoreboard.',
+  },
+  {
+    id: 'castles-do-not-leak', area: 'Raids', cost: 'cheap',
+    asserts: 'Twenty-five castles ridden, drawn, cleared and torn down in a row leave geometries, textures, scene objects and heap flat between castle 5 and castle 25, and no castle draws 400 calls or more.',
+    why: '#256. A run is twenty castles and each is a teardown; the bridge-mat leak (#190) was a copy per refresh that nobody saw until a phone ran out of memory at the river.',
+  },
+  {
     id: 'raids-map-rules', area: 'Raids', cost: 'free',
     asserts: 'Over 2,000 generated regions: the same seed gives the same region; five castle layers then one boss; 2-3 nodes a fork layer and 1-2 links a node; a real fork on every fork layer; a muster reachable and no layer of musters only; no all-fortress or all-muster path; everything reachable and the boss reachable from everything; region 0 opens on one starter castle.',
     why: '#254. The map is the run\'s decisions. A fork of two identical castles is not a choice, an unreachable node is a promise the map cannot keep, and a map that differs between two loads of the same seed cannot be saved. Written from the spec rather than by calling the generator\'s own validator, which the generator already re-rolls against.',

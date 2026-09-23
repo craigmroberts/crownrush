@@ -155,7 +155,7 @@ iteration 1:
 - It is the performance breather the owner asked for: **zero draw calls** while it is up, and the
   previous castle is disposed behind it.
 - It is crisp and tappable at 390 × 844, where a 3D diorama would need camera work first.
-- The board rule applies: it gets `?view=map` on the board in the same commit it lands.
+- The board rule applies: it gets `?view=overworld` on the board in the same commit it lands.
 
 Tap a lit node and a card rises: its kind, modifiers, multiplier and reward, and one **Ride** button.
 Ride walks the token along the path in under a second and the castle loads. There is no travel time.
@@ -298,7 +298,7 @@ proves it can fail.
 | # | Slice | Done when | Model and effort |
 | --- | --- | --- | --- |
 | R1 | **Run state and map generation** (`run.js`, `map.js`, `curve.js`) and the sim | 2,000 generated regions pass the five map rules, the starter castle included; the sim prints run lengths and when the first boss is reached | Sonnet 5, medium — pure code with a clear spec; the sim is the check |
-| R2 | **The map screen** (`overworld.js`, `?view=map`) | Tap, preview, Ride, on a phone frame, 0 draw calls while up | Sonnet 5, medium — a DOM panel under the house UI rules |
+| R2 | **The map screen** (`overworld.js`, `?view=overworld` — `?view=map` was taken by the story's whole-map frame) | Tap, preview, Ride, on a phone frame, 0 draw calls while up | Sonnet 5, medium — a DOM panel under the house UI rules |
 | R3 | **A castle stage** (`castle.js`, `startCastle`, `endCastle`, the director) | A seeded castle stands, three raids come, clear and fall both fire; 25 castles with no leak | Opus 5, high — it bends the core loop, and teardown has a leak history |
 | R4 | **Roster, rewards and deploy** (`allies.js`, reward screen), Wren as a recruit | Earn, cap, deploy, lose, driven over a 5-castle run; Wren recruited once, her release fires in a castle | Sonnet 5, medium |
 | R5 | **Bosses and the Call to Arms** | Commit n allies, they charge and are spent; the no-commit bonus scores | Opus 5, medium — the spend decision is the design's centre and is easy to make pointless |

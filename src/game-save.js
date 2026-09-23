@@ -84,6 +84,7 @@ export const SaveMethods = {
   // is the only part with any size to it, and it is a 256x256 PNG.
   saveRun() {
     if (!this.inRun()) return;
+    if (this.mode === 'raids') return;   // #256: raids saves its own run, at the map (R8); never the story slot
     try {
       localStorage.setItem(KEY, JSON.stringify(this.runState()));
     } catch (e) {

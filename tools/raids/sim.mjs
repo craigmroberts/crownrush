@@ -6,7 +6,7 @@
 // meet the first boss, how often do they get there, how many map draws does a rule throw away, how
 // long does a run last. The same approach `tools/deck/reheat.mjs` took for the reward deck.
 //
-//     npm run raids
+//     npm run raids:sim
 //
 // TWO KINDS OF NUMBER COME OUT, AND THEY ARE NOT EQUALLY TRUSTWORTHY.
 //   Timing -- when the first boss is reached -- is arithmetic over the map's structure and the castle

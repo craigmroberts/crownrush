@@ -178,26 +178,8 @@ export const EnemiesMethods = {
       for (let k = 0; k < weights.length; k++) { t -= weights[k]; if (t <= 0) return k; }
       return 0;
     };
-    const halfDiag = Math.hypot(b.x1 - b.x0, b.z1 - b.z0) / 2;
-    const half = CFG.world.size / 2 - 8;
     list.forEach((type, i) => {
-      let a = angles[partyOf(i)] + rand(-0.5, 0.5);
-      let r = halfDiag + rand(10, 16);
-      let x = 0;
-      let z = 0;
-      for (let tries = 0; tries < 12; tries++) {
-        x = THREE.MathUtils.clamp(cx + Math.cos(a) * r, -half, half);
-        z = THREE.MathUtils.clamp(cz + Math.sin(a) * r, -half, half);
-        const onCliff = x < CFG.cliffs.x && z < CFG.cliffs.z;
-        const inside = x > b.x0 - 3 && x < b.x1 + 3 && z > b.z0 - 3 && z < b.z1 + 3;
-        const ri = this.world.riverInfo(x, z);
-        const inRiver = ri.dist < this.world.river.halfWidth + 3;
-        // without a bridge, raiders can only come from the village's side of the river
-        const wrongSide = this.world.bridges.length === 0 && ri.side !== this.homeSide;
-        if (!onCliff && !inside && !inRiver && !wrongSide) break;
-        a += 0.9;
-        r += 3;
-      }
+      const { x, z } = this.spawnSpotAt(angles[partyOf(i)] + rand(-0.5, 0.5));
       this.spawnQueue.push({ type, x, z, t: i * CFG.waves.stagger, rank: pickRank(type, i) });
     });
     // #218: THE ONE TIME THE MECHANIC IS EXPLAINED, on the night the first camp starts sending.
@@ -685,6 +667,35 @@ export const EnemiesMethods = {
   // Is anyone out raiding? The callers that ask this only ever compared the list's length to zero,
   // which built and threw away an array of every enemy on the field to answer a yes or no -- once a
   // frame, on the list that is longest exactly when the game is busiest.
+  // Where a raider on bearing `a` comes in: just outside the current plot's diagonal, and not on the
+  // cliffs, inside the walls, in the river, or across a river with no bridge. It walks round the
+  // bearing until it finds such a spot. Pulled out of `startWave` in #256 so a raids castle places its
+  // raiders by exactly the same rules the story's nights do.
+  spawnSpotAt(a) {
+    const b = TIERS[this.tier].bounds;
+    const cx = (b.x0 + b.x1) / 2;
+    const cz = (b.z0 + b.z1) / 2;
+    const halfDiag = Math.hypot(b.x1 - b.x0, b.z1 - b.z0) / 2;
+    const half = CFG.world.size / 2 - 8;
+    let r = halfDiag + rand(10, 16);
+    let x = 0;
+    let z = 0;
+    for (let tries = 0; tries < 12; tries++) {
+      x = THREE.MathUtils.clamp(cx + Math.cos(a) * r, -half, half);
+      z = THREE.MathUtils.clamp(cz + Math.sin(a) * r, -half, half);
+      const onCliff = x < CFG.cliffs.x && z < CFG.cliffs.z;
+      const inside = x > b.x0 - 3 && x < b.x1 + 3 && z > b.z0 - 3 && z < b.z1 + 3;
+      const ri = this.world.riverInfo(x, z);
+      const inRiver = ri.dist < this.world.river.halfWidth + 3;
+      // without a bridge, raiders can only come from the village's side of the river
+      const wrongSide = this.world.bridges.length === 0 && ri.side !== this.homeSide;
+      if (!onCliff && !inside && !inRiver && !wrongSide) break;
+      a += 0.9;
+      r += 3;
+    }
+    return { x, z };
+  },
+
   anyActiveEnemy() {
     for (const e of this.enemies) if (!e.captor && !e.camp) return true;
     return false;
@@ -1161,6 +1172,9 @@ export const EnemiesMethods = {
         this.spawnQueue.splice(i, 1);
       }
     }
+    // #256: a castle's raids come on the castle's clock (`updateCastle`); the queue above is shared,
+    // the day cycle below is the story edition's.
+    if (this.mode === 'raids') return;
     const cleared = !this.anyActiveEnemy() && this.spawnQueue.length === 0;
     // Nothing attacks the King until he takes the Queen back (#12): the raids ARE the enemy coming
     // for her, so while she is captive the clock stands still and it stays daylight.
@@ -1635,6 +1649,7 @@ export const EnemiesMethods = {
   updateQueen(dt) {
     const q = this.queen;
     if (!q) return;
+    if (this.mode === 'raids') return;   // #256: in the Keep and off the stage for the whole castle
     // #126: the invariant, checked rather than assumed -- whenever Wren is free and the Keep is
     // built, walking the King to the door has to put her inside, and there must be no state in which
     // that fails. `inKeep` is the flag that can strand her: everything below returns immediately on
