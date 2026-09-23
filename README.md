@@ -1493,7 +1493,9 @@ nobody back from the dead, Wren once) after refusing four rosters broken on purp
 **R5 (#258) is the boss, and the decision the design is built on.** A boss's ride card has a **Call
 to Arms** row above the deploy: commit any number of men (not Wren). When the chief is on the field
 they come out of the gate nearest him at a run, go for his guard, and the first to reach it lands a
-blow on every raider round him — harder for more men (`CFG.raids.boss`). Then they fight as the army
+blow on every raider round him — harder for more men (`CFG.raids.boss`). The chief leads his raid
+and it comes in close round him: pushed last with every man on his own bearing, his "guard" was strung
+out along the edge and the first charge struck the chief alone. Then they fight as the army
 does, and **all of them are spent for the run**, alive or not. **Commit nobody and the boss scores
 ×2.** A boss pays an ability rather than the usual three, with Wren beside it if she has not been
 offered yet.

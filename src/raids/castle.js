@@ -43,11 +43,16 @@ export function castleSpec(runSeed, node) {
     const types = [];
     for (const m of C.mix) if (node.region >= m.from) for (let k = 0; k < Math.round(n * m.share); k++) types.push(m.type);
     while (types.length < n) types.push('knight');
-    if (boss && i === times.length - 1) types.push('boss');
+    // #258: the chief LEADS the last raid, and it comes in around him as his guard (`guard`, read by
+    // `queueCastleRaid`). Pushed last, he spawned 0.35 s behind the man before him with every man on
+    // his own bearing, so the "guard" was strung out along the edge and a charge landing on the chief
+    // struck him alone -- measured: 1 raider hit.
+    const guard = boss && i === times.length - 1;
+    if (guard) types.unshift('boss');
     const base = rng() * Math.PI * 2;
     const bearings = [];
     for (let k = 0; k < sides; k++) bearings.push(+(base + (k * Math.PI * 2) / sides + (rng() - 0.5) * 0.6).toFixed(3));
-    return { at, types, rank, bearings };
+    return guard ? { at, types, rank, bearings: [bearings[0]], guard: true } : { at, types, rank, bearings };
   });
 
   return {

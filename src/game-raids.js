@@ -303,7 +303,9 @@ export const RaidsMethods = {
 
   queueCastleRaid(raid, i, of) {
     raid.types.forEach((type, k) => {
-      const a = raid.bearings[k % raid.bearings.length] + rand(-0.35, 0.35);
+      // a chief's guard comes in close round him rather than spread across the arc (#258)
+      const spread = raid.guard ? 0.06 : 0.35;
+      const a = raid.bearings[k % raid.bearings.length] + rand(-spread, spread);
       const { x, z } = this.spawnSpotAt(a);
       this.spawnQueue.push({ type, x, z, t: k * CFG.waves.stagger, rank: raid.rank });
     });

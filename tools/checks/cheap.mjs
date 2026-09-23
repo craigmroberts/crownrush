@@ -1928,6 +1928,7 @@ export const CHEAP = {
     if (!eight.fight.charge || eight.fight.chargers !== 8) bad.push(`eight committed, and ${eight.fight.chargers} charged`);
     if (eight.fight.fromGate != null && eight.fight.fromGate > 3) bad.push(`the charge came out ${eight.fight.fromGate.toFixed(1)} from the nearest gate`);
     if (!eight.fight.hit) bad.push('the charge never landed on the guard');
+    else if (eight.fight.hit.hit < 2) bad.push(`the charge struck ${eight.fight.hit.hit} -- the chief alone, with his guard strung out elsewhere`);
     if (eight.fight.inField > 8) bad.push(`${eight.fight.inField} deployed beside the eight committed; the deploy is eight`);
     const kept = eight.fight.committed.filter((id) => eight.after.roster.includes(id));
     if (kept.length) bad.push(`${kept.length} of the committed are still on the roster; they are spent`);
