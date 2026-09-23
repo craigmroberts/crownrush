@@ -128,7 +128,9 @@ async function takeReward(page, pick) {
   await page.waitForSelector('#ow-reward:not(.hidden)', { timeout: 30000 });
   const chosen = await page.evaluate((want) => {
     const opts = [...document.querySelectorAll('#ow-reward [data-pick]')].map((b) => b.dataset.pick);
-    const p = want === 'card' ? opts.find((o) => !['men', 'coin', 'wren'].includes(o)) : want;
+    // a boss pays abilities and nothing else (#258), so a pick it does not offer takes the first one
+    let p = want === 'card' ? opts.find((o) => !['men', 'coin', 'wren'].includes(o)) : want;
+    if (!opts.includes(p)) p = opts[0];
     document.querySelector(`#ow-reward [data-pick="${p}"]`).click();
     return p;
   }, pick);
