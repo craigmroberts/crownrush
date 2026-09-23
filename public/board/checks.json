@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-23T17:24:34.744Z",
+  "at": "2026-09-23T17:40:37.654Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -490,8 +490,8 @@
     },
     "views-open": {
       "pass": true,
-      "note": "30 views, each with its panel up",
-      "at": "2026-09-23T15:56:18.419Z"
+      "note": "32 views, each with its panel up",
+      "at": "2026-09-23T17:38:43.490Z"
     },
     "opening-resolves": {
       "pass": true,
@@ -675,7 +675,7 @@
     "raids-map-rules": {
       "pass": true,
       "note": "2000 regions, each the same twice, all five rules kept; the rules caught all 4 regions broken on purpose",
-      "at": "2026-09-23T17:23:37.201Z"
+      "at": "2026-09-23T17:28:34.295Z"
     },
     "raids-run-round-trips": {
       "pass": true,
@@ -695,7 +695,7 @@
     "castle-stands-and-resolves": {
       "pass": true,
       "note": "24 walls, Keep, 12 tower crew, no mats/camps/caches, Wren off stage; cleared after 7 kills (raids of 3 and 4); the map back with the run on 1; the King's fall fired castle:fell and not gameOver",
-      "at": "2026-09-23T16:45:18.913Z"
+      "at": "2026-09-23T17:39:09.384Z"
     },
     "castles-do-not-leak": {
       "pass": true,
@@ -705,12 +705,12 @@
     "raids-roster-rules": {
       "pass": true,
       "note": "10139 castles over 300 runs: the roster peaked at 24 of 24, 23330 fell and none came back, Wren in 124 runs and never twice; four broken rosters refused first",
-      "at": "2026-09-23T15:46:29.269Z"
+      "at": "2026-09-23T17:28:33.983Z"
     },
     "allies-five-castles": {
       "pass": true,
       "note": "five castles: 0 in, 0 fell, 6 after; 6 in, 1 fell, 9 after; 8 in, 1 fell, 8 after; 8 in, 1 fell, 13 after; 8 in, 1 fell, 16 after; the card taken third (spotters) held in the fourth and fifth",
-      "at": "2026-09-23T16:51:48.094Z"
+      "at": "2026-09-23T17:39:59.017Z"
     },
     "wren-rides-and-releases": {
       "pass": true,
@@ -724,8 +724,8 @@
     },
     "boss-call-to-arms": {
       "pass": true,
-      "note": "nobody committed: no charge, x2.0 score, 16 kept; eight committed: 8 out of a gate, the charge struck 5 of the guard, all 8 spent, x1 score; both offered 3 abilities",
-      "at": "2026-09-23T17:24:34.373Z"
+      "note": "nobody committed: no charge, x2.0 score, 16 kept; eight committed: 8 out of a gate, the charge struck 3 of the guard, all 8 spent, x1 score; both offered 3 abilities",
+      "at": "2026-09-23T17:40:37.244Z"
     },
     "ability-once-a-castle": {
       "pass": true,
