@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-23T11:52:53.703Z",
+  "at": "2026-09-23T12:37:55.373Z",
   "registry": [
     {
       "id": "pads-requires-exist",
@@ -245,6 +245,27 @@
       "cost": "cheap",
       "asserts": "While Wren is held a strip above the notice lane says the verb, the direction and the paces; it reads \"Go after them\" while she is carried and \"Take her back\" at the picket, the paces fall as the King nears her, and it is gone within a second of her being freed.",
       "why": "#250. Once she was at the picket the only rescue feedback was a pink arrow, and the notice lane was busy (#244). A player who did not already know what the arrow meant had nothing to go on: no direction in words, no distance, nothing that stayed."
+    },
+    {
+      "id": "overworld-rides",
+      "area": "Raids",
+      "cost": "cheap",
+      "asserts": "From the title in raids mode the map is up over a frozen game that draws nothing for 30 frames; every node is at least a 44 px tap target; a new run lights only the starter; an unlit tap raises nothing; the lit one raises a card whose Ride puts the King on it and stands its castle.",
+      "why": "#255. The map is where every decision of a run is made, and it is also the breather between castles, so it has to cost nothing to draw. An unlit node that answers a tap is a promise the run cannot keep."
+    },
+    {
+      "id": "castle-stands-and-resolves",
+      "area": "Raids",
+      "cost": "cheap",
+      "asserts": "A castle ridden from the map stands whole (24 walls, the Keep, crewed towers) with no mats, trade post, camps, caches or Wren; its raids come and clearing them fires castle:cleared and returns the map with the run on; the King falling in the next fires castle:fell, not the story's gameOver, and the map offers Ride again.",
+      "why": "#256. A castle is the story edition's village stood on the same plot with its economy switched off, and every switch is a place the story could leak in: a mat is decision 1 broken, and a gameOver would write a story defeat to the story scoreboard."
+    },
+    {
+      "id": "castles-do-not-leak",
+      "area": "Raids",
+      "cost": "cheap",
+      "asserts": "Twenty-five castles ridden, drawn, cleared and torn down in a row leave geometries, textures, scene objects and heap flat between castle 5 and castle 25, and no castle draws 400 calls or more.",
+      "why": "#256. A run is twenty castles and each is a teardown; the bridge-mat leak (#190) was a copy per refresh that nobody saw until a phone ran out of memory at the river."
     },
     {
       "id": "raids-map-rules",
@@ -623,6 +644,21 @@
       "pass": true,
       "note": "median 6:25 (p25 5:51, p90 7:39); 1.04 map draws per region",
       "at": "2026-09-23T11:52:53.146Z"
+    },
+    "overworld-rides": {
+      "pass": true,
+      "note": "0 draws over 30 frames; only the starter lit; nodes 56px; an unlit tap does nothing; card, Ride, and the starter castle stands",
+      "at": "2026-09-23T12:16:02.710Z"
+    },
+    "castle-stands-and-resolves": {
+      "pass": true,
+      "note": "24 walls, Keep, 12 tower crew, no mats/camps/caches, Wren off stage; cleared after 7 kills (raids of 3 and 4); the map back with the run on 1; the King's fall fired castle:fell and not gameOver",
+      "at": "2026-09-23T12:16:33.499Z"
+    },
+    "castles-do-not-leak": {
+      "pass": true,
+      "note": "castle 5 -> 25: geometries 201 -> 201, textures 37 -> 37, objects 909 -> 818, heap 71 -> 90 MB; draw calls at most 219",
+      "at": "2026-09-23T12:37:55.057Z"
     }
   }
 }
